@@ -1,43 +1,59 @@
 # Canteiro: esboço do MVP (agente de gestão de obras)
 
-Protótipo clicável: abra `index.html` no navegador. É um arquivo só e não precisa de servidor.
-Tudo é dado fictício, mas coerente entre as telas: a obra "Casa Vila Nova" tem os mesmos
-números no chat, no orçamento, no Kanban, no inventário e nos prazos.
+No ar em https://obras-agentic.vercel.app. Também abre localmente pelo `index.html` (sem build).
+Dados fictícios, mas coerentes entre as telas. Hoje no protótipo é quarta, 28/10/2026.
 
-Na barra lateral, o botão **🧪 Notas de validação** liga e desliga as perguntas para o gerente
-em cada tela. Desligue antes de mostrar a tela "limpa".
+Na barra lateral, **Notas de validação** liga e desliga a pergunta para o gerente em cada tela.
+Desligue para mostrar a tela "limpa" e ligue depois da primeira reação dele.
+
+## A tese em uma frase
+
+O Canteiro **age**: avisa o que vai faltar antes de faltar, propõe a ação pronta e só grava com o
+seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da nota), não por formulário.
 
 ## Fluxos
 
-| # | Fluxo | Onde está no protótipo |
-|---|-------|------------------------|
-| 1 | **Criar obra e orçar**: anexar projeto → descrever → budget, prazos e fases → o agente levanta quantitativos e cota na região | ＋ Nova obra (assistente de 4 passos) |
-| 2 | **Visão geral e orçamento**: budget × custo previsto, "o budget é realista?", economias encontradas, gasto × avanço físico | aba 📊 Visão geral |
-| 3 | **Componentes e compra**: quantidade estimada, comparação de fornecedores, onde comprar, checkout no hub | aba 🧱 Componentes (clique numa linha) |
-| 4 | **Kanban de lotes**: Cotado → Aprovado → Pedido feito → Em trânsito → Entregue (conferir) → Disponível no inventário | aba 📦 Pedidos (dá para arrastar os cartões) |
-| 5 | **Inventário**: entrou, saiu, saldo, para onde foi (ex.: 100 de 1.000 parafusos = 10% na porta principal), cobertura em dias, consumo acima do projeto | aba 🗃️ Inventário (clique no parafuso) |
-| 6 | **Equipe**: Kanban de pessoas (vaga → mobilização → em campo → desmobilizado), custo × previsto, impacto da vaga no prazo | aba 👷 Equipe |
-| 7 | **Prazos**: Gantt planejado × real, previsão do agente, atraso por causa (fornecedor, equipe, clima), "o estoque aguenta até o fim?" | aba ⏱️ Prazos |
-| 8 | **Estoque entre obras**: o agente cruza o que sobra numa obra com o que falta em outra. Pode sair só o saldo − o que a origem ainda vai usar − uma reserva (metade disso); o preço é o do lote original; a transferência precisa do OK do responsável da origem; entra no Kanban como transferência; o valor sai do budget de uma obra e volta ao da outra | ↔️ Estoque entre obras (barra lateral), selos ↔ no Inventário e em Prazos, e a resposta dos parafusos na Home |
-| 9 | **Tudo pelo chat**: a home enxerga todas as obras; cada obra tem sessões com histórico separado; a resposta traz dados e um botão de ação | 💬 Início e aba 💬 Chat da obra |
+| # | Fluxo | Onde |
+|---|-------|------|
+| 1 | **Briefing do dia**: "6 coisas pedem você hoje" (concretagem × chuva, plano B do aço, areia a menos na NF, quebra de bloco, empreiteiro pago acima do executado, cimento vencendo em outra obra), cada uma com Aprovar / Ajustar / Desfazer | Início |
+| 2 | **Aprovações e registro**: fila de propostas do agente de todas as obras; registro de quem aprovou o quê, de onde veio (agente, WhatsApp, tela) e desfazer | Aprovações |
+| 3 | **WhatsApp do mestre**: o áudio "assentamos 180 blocos, 15 quebraram, choveu das 3 às 5…" vira baixa no almoxarifado, diário de obra, causa de atraso e avanço; o mestre confirma num toque. **Funciona no celular** | Campo · WhatsApp |
+| 4 | **Recebimento por NF-e**: o agente lê a nota, compara pedido × NF × recebido (areia: 40 na NF, 36 na caçamba) e abate R$ 472 do boleto | Pedidos → Recebido → Conferir NF |
+| 5 | **Criar obra e orçar**: três caminhos (planilha do orçamentista, estimativa por m² com CUB/SINAPI, extrair do PDF só o que dá para medir), com selo de confiança e a lista "não consegui medir" | + Nova obra |
+| 6 | **Orçamento com fonte**: cada linha com origem (SINAPI, cotação, NF anterior) e confiança, BDI e encargos, economias que se escolhem e se desfazem | aba Orçamento |
+| 7 | **Insumos e pedido de compra**: quantidade = precisa − saldo − a caminho; fornecedor comparado; alçada e regime da obra; PDF e envio por WhatsApp; cotação assíncrona (leva horas) | aba Insumos e compras |
+| 8 | **Pedidos**: Em cotação → Aprovado → Pedido enviado → Em trânsito → Recebido (entra no almoxarifado só depois de conferir a NF) | aba Pedidos |
+| 9 | **Almoxarifado**: saldo, a caminho, falta e curva ABC; destino só para itens A. Caso-vitrine: bloco com 15% de quebra contra 5% previstos | aba Almoxarifado |
+| 10 | **Equipe**: chamada do dia, pendências de ASO / EPI / NR-18, vaga de armador e o impacto dela no prazo | aba Equipe |
+| 11 | **Prazos**: cronograma planejado × real, atraso por causa (fornecedor +9, equipe +8, clima +4), "com o plano o atraso cai de 21 para 6 dias", "o estoque aguenta até o fim?" | aba Prazos |
+| 12 | **Diário de obra (RDO)**: montado a partir do áudio, das fotos e da estação de clima, cada fato com a sua fonte; PDF para o cliente | aba Diário |
+| 13 | **Medição de empreiteiro**: contratado × executado × pago, retenção e vales; "Equipe Silva: pago 75%, executado 62% → segurar R$ 7.540" | aba Medições |
+| 14 | **Estoque entre obras**: transferir sobra a preço de custo sem prejudicar a obra de origem | Estoque entre obras |
 
-## Roteiro da conversa com o gerente de obra (~40 min)
+## Roteiro da conversa com o gerente de obra (~45 min)
 
-1. **Antes de mostrar nada** (10 min): como ele orça hoje? Planilha, software, orçamentista? Como
-   controla material no canteiro? O que mais atrasa obra? Onde mais se perde dinheiro?
-2. **Mostrar o fluxo 1 → 3** (10 min): ele confiaria na quantidade e no preço que o agente estimou?
-   O que precisaria ver para acreditar?
-3. **Kanban e inventário** (10 min): quem faria a baixa de material no dia a dia? Pelo celular?
-   Registrar o destino ("porta principal") é viável ou vira burocracia?
-4. **Prazos e chat** (5 min): a explicação do atraso por causa ajuda na conversa com o cliente?
-5. **Fechamento** (5 min): se tivesse só 3 dessas telas, quais seriam? Quanto pagaria por mês, e
-   por obra ou por empresa?
+1. **Antes de mostrar nada** (10 min): como orça, como compra, quem recebe material, como controla
+   o empreiteiro, o que mais atrasa obra, onde mais perde dinheiro.
+2. **Briefing do dia** (5 min): ele aprovaria essas 6 coisas? Quantas cabem antes de virar ruído?
+3. **WhatsApp no celular dele** (10 min): mande o link `/#campo` para o celular do gerente.
+   O mestre dele mandaria áudio assim? Confirmar com um toque é aceitável?
+4. **NF, almoxarifado e medição** (10 min): a conferência pela nota é real? O "pago × executado"
+   do empreiteiro é a dor que ele imagina?
+5. **Orçamento e prazos** (5 min): ele confia num orçamento com fonte e selo de confiança?
+6. **Fechamento** (5 min): se fossem só 3 telas, quais? Quanto pagaria por mês, por obra ou por empresa?
 
-## Hipóteses que a conversa precisa confirmar ou derrubar
+## Hipóteses a confirmar ou derrubar
 
-- O gerente quer **comprar** dentro da plataforma, e não só cotar.
-- A baixa de material com destino é feita de verdade no canteiro (esta é a hipótese mais arriscada:
-  sem ela, o inventário e a previsão de falta não funcionam).
-- Uma estimativa de orçamento gerada a partir do projeto é confiável o bastante para decidir.
-- Transferir material entre obras é comum e vale formalizar. Pontos a confirmar: quem autoriza; se preço de custo é justo ou entra frete; se pode transferir quando o material pertence ao cliente da obra (obra por administração ou por empreitada).
-- O chat como tela principal é preferível a um painel de números.
+- **A mais arriscada:** o mestre alimenta o sistema todo dia pelo WhatsApp. Sem isso, almoxarifado,
+  diário, prazos e alertas ficam sem dado.
+- A conferência pela NF-e acontece no canteiro, e a divergência vira abatimento de verdade.
+- A medição de empreiteiro (pago × executado) é dor suficiente para pagar pelo produto.
+- Um orçamento com fonte e confiança é bom o bastante para decidir (não substitui o executivo).
+- O gerente quer que o agente proponha e ele aprove, e não só consultar.
+- Transferir material entre obras é comum. A confirmar: quem autoriza, preço de custo ou com frete, e se vale quando o material é do cliente.
+
+## Testes do protótipo
+
+Com um servidor estático na pasta (`python3 -m http.server 4321`), abra num Chromium headless com `--dump-dom`:
+- `tests/smoke.html`: percorre as rotas e os modais procurando erro de JavaScript.
+- `tests/larguras.html`: 23 telas em 1100, 1366 e 1920 px; acusa tela que empurra a página, termo antigo, emoji, `NaN` ou `undefined`.
