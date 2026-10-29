@@ -3,27 +3,28 @@
 No ar em https://obras-agentic.vercel.app. Também abre localmente pelo `index.html` (sem build).
 Dados fictícios, mas coerentes entre as telas. Hoje no protótipo é quarta, 28/10/2026.
 
-Na barra lateral, **Notas de validação** liga e desliga a pergunta para o gerente em cada tela.
-Desligue para mostrar a tela "limpa" e ligue depois da primeira reação dele.
+As **notas de validação** (a pergunta para o gerente em cada tela) começam desligadas: mostre a tela limpa e ligue
+pelo menu do perfil depois da primeira reação dele.
 
 ## A tese em uma frase
 
 O Canteiro **age**: avisa o que vai faltar antes de faltar, propõe a ação pronta e só grava com o
 seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da nota), não por formulário.
 
-## Navegação: o agente no centro
+## Navegação: o agente no centro, uma coisa por vez
 
-- **A conversa é a home.** Ao abrir, você cai na conversa **Geral** (enxerga todas as obras), e a 1ª mensagem do
-  agente é o briefing do dia em cartões de decisão.
-- **Escopo:** o seletor "Todas as obras ▾" no topo; `@Vila Nova` vale só para uma mensagem. Quando a conversa engrena
-  numa obra, o agente oferece continuar numa sessão só dela (histórico separado).
-- **O agente usa as ferramentas** em três níveis: *Consulta* (faz sozinho), *Propõe* (precisa do seu OK) e
-  *Gera documento* (relatório da fase, diário, pedido em PDF). Tudo volta como cartão na conversa.
-- **Visões:** cada ferramenta (Pedidos, Almoxarifado, Orçamento, Cronograma, Equipe…) abre **ao lado** da conversa ou
-  em **tela cheia**, pelo cartão, pelo menu Visões da lateral ou digitando `/almox`. "Perguntar sobre isto" leva o
-  que você está vendo de volta para a conversa.
-- Roteiro da demo, que a conversa reconhece: "vamos começar pela Vila Nova, quero um relatório da fase da obra" ·
-  "por que só tem 2.760 blocos?" · "o que chega amanhã?" · "quem está na obra hoje?" · "estamos no prazo?" ·
+- **A conversa é a home.** Ao abrir, você cai na conversa **Geral** (todas as obras), e a 1ª mensagem do agente é o
+  briefing do dia em cartões de decisão: uma ação por linha, o resto no "⋯".
+- **A lateral só tem conversas:** a Geral e as sessões agrupadas por obra. O escopo é da sessão e aparece no título
+  ("Casa Vila Nova · Atraso do aço"). `@Vila Nova` no campo vale só para uma mensagem.
+- **Cada sessão tem abas.** A aba **Conversa** é fixa. As telas (Pedidos, Almoxarifado, Orçamento, Cronograma,
+  Equipe…) viram abas da sessão quando **você** clica em "Abrir" num cartão do agente, num link `PED-…`, no **"+"**
+  (o único menu de telas) ou digita `/almox`. O agente nunca abre aba sozinho. A aba ativa ocupa a tela inteira:
+  ou a conversa, ou a tela. As abas ficam guardadas na sessão.
+- **Dentro de uma tela**, o campo fixo "Perguntar ao agente sobre isto" leva a pergunta para a Conversa, com o contexto.
+- No menu do perfil (rodapé da lateral): notas de validação (desligadas por padrão), Nova obra, Celular do mestre, Mapa de fluxos.
+- Roteiro da demo (aparece como sugestão acima do campo): "vamos começar pela Vila Nova, quero um relatório da fase da
+  obra" · "por que só tem 2.760 blocos?" · "o que chega amanhã?" · "quem está na obra hoje?" · "estamos no prazo?" ·
   "@Loja Centro o que sobra?" · "pede 600 kg de aço". Pergunta fora do roteiro recebe "não sei com segurança".
 
 ## Fluxos
