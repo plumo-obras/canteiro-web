@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Gera as três versões da landing (pt em /, es em /es/, en em /en/) a partir de modelo.html e i18n/*.json.
+"""Gera as três versões da landing (pt em /, es em /es/, en em /en/) a partir de template.html e i18n/*.json.
 
-O site continua estático e sem build na Vercel: os HTML gerados são versionados. Com --conferir, só verifica se estão
+O site continua estático e sem build na Vercel: os HTML gerados são versionados em public/, a única pasta publicada
+(o modelo, os textos e este script não viram endereço). Com --conferir, só verifica se estão
 em dia (o CI usa isso para ninguém editar um index.html na mão e perder na próxima geração).
 """
 import json
@@ -29,7 +30,7 @@ REDIRECIONA = (
 
 
 def gerar(codigo: str) -> str:
-    modelo = (AQUI / "modelo.html").read_text()
+    modelo = (AQUI / "template.html").read_text()
     t = json.loads((AQUI / "i18n" / f"{codigo}.json").read_text())
     js = json.dumps(t.pop("js"), ensure_ascii=False).replace("</", "<\\/")
     valores = {**t, "codigo": codigo, "caminho": IDIOMAS[codigo], "js": js,
@@ -48,7 +49,7 @@ def gerar(codigo: str) -> str:
 
 
 def destino(codigo: str) -> Path:
-    return AQUI / IDIOMAS[codigo].strip("/") / "index.html"
+    return AQUI / "public" / IDIOMAS[codigo].strip("/") / "index.html"
 
 
 if __name__ == "__main__":
@@ -64,4 +65,4 @@ if __name__ == "__main__":
             alvo.write_text(html)
             print("gerado", alvo.relative_to(AQUI))
     if desatualizados:
-        sys.exit("Desatualizado(s): " + ", ".join(desatualizados) + ". Rode python3 apps/site/gerar.py")
+        sys.exit("Desatualizado(s): " + ", ".join(desatualizados) + ". Rode python3 apps/site/build.py")

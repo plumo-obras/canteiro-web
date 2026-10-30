@@ -137,7 +137,7 @@ components:
 
 # Design System: Plumo
 
-Este documento descreve o mundo visual da **landing do Plumo** (`apps/site/`: `modelo.html` + `i18n/*.json` → `gerar.py` → `index.html`, `es/`, `en/`; `styles.css`, `app.js`, `logo.svg`). Plumo é o nome de divulgação do produto que o PRODUCT.md ainda chama de Canteiro. Os tokens acima foram extraídos de `apps/site/styles.css`; quando o CSS e este texto divergirem, o CSS vence e este arquivo deve ser corrigido.
+Este documento descreve o mundo visual da **landing do Plumo** (`apps/site/`: `template.html` + `i18n/*.json` → `build.py` → `public/` (`index.html`, `es/`, `en/`, `styles.css`, `app.js`, `logo.svg`)). Plumo é o nome de divulgação do produto que o PRODUCT.md ainda chama de Canteiro. Os tokens acima foram extraídos de `apps/site/public/styles.css`; quando o CSS e este texto divergirem, o CSS vence e este arquivo deve ser corrigido.
 
 ## Overview
 
