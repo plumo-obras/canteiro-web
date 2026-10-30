@@ -1,0 +1,589 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-30T22:20:18+00:00",
+  "title": "Design System: Aprumo",
+  "extensions": {
+    "colorMeta": {
+      "ouro": {
+        "role": "primary",
+        "displayName": "Ouro de Janela",
+        "canonical": "#e8b04a",
+        "tonalRamp": [
+          "#3a2c12",
+          "#684f21",
+          "#977230",
+          "#c5963f",
+          "#edc06e",
+          "#f2d49b",
+          "#f8e7c9",
+          "#fdf7ed"
+        ]
+      },
+      "ouro-hi": {
+        "role": "primary",
+        "displayName": "Ouro Aceso",
+        "canonical": "#f2c56b",
+        "tonalRamp": [
+          "#3c311b",
+          "#6d5930",
+          "#9d8046",
+          "#cea75b",
+          "#f5d189",
+          "#f8dfae",
+          "#fbeed3",
+          "#fef9f0"
+        ]
+      },
+      "ouro-ink": {
+        "role": "primary",
+        "displayName": "Ouro Tinta",
+        "canonical": "#7a5410",
+        "tonalRamp": [
+          "#1e1504",
+          "#372607",
+          "#4f370a",
+          "#68470e",
+          "#957640",
+          "#b6a17c",
+          "#d7ccb7",
+          "#f2eee7"
+        ]
+      },
+      "falta": {
+        "role": "secondary",
+        "displayName": "Vermelho Queimado",
+        "canonical": "#d0654c",
+        "tonalRamp": [
+          "#341913",
+          "#5e2d22",
+          "#874231",
+          "#b15641",
+          "#d98470",
+          "#e5aa9d",
+          "#f1d1c9",
+          "#faf0ed"
+        ]
+      },
+      "caminho": {
+        "role": "secondary",
+        "displayName": "Azul de Caminho",
+        "canonical": "#5b8fc4",
+        "tonalRamp": [
+          "#172431",
+          "#294058",
+          "#3b5d7f",
+          "#4d7aa7",
+          "#7ca5d0",
+          "#a5c1df",
+          "#cedded",
+          "#eff4f9"
+        ]
+      },
+      "emdia": {
+        "role": "secondary",
+        "displayName": "Verde em Dia",
+        "canonical": "#4fa37a",
+        "tonalRamp": [
+          "#14291e",
+          "#244937",
+          "#336a4f",
+          "#438b68",
+          "#72b595",
+          "#9eccb6",
+          "#cae3d7",
+          "#edf6f2"
+        ]
+      },
+      "noite": {
+        "role": "neutral",
+        "displayName": "Azul-Noite",
+        "canonical": "#0f1a2e",
+        "tonalRamp": [
+          "#04060c",
+          "#070c15",
+          "#0a111e",
+          "#0d1627",
+          "#3f4858",
+          "#7b818c",
+          "#b7bac0",
+          "#e7e8ea"
+        ]
+      },
+      "noite-2": {
+        "role": "neutral",
+        "displayName": "Retalho",
+        "canonical": "#16243d",
+        "tonalRamp": [
+          "#06090f",
+          "#0a101b",
+          "#0e1728",
+          "#131f34",
+          "#455064",
+          "#7f8794",
+          "#b9bdc5",
+          "#e8e9ec"
+        ]
+      },
+      "noite-3": {
+        "role": "neutral",
+        "displayName": "Retalho Alto",
+        "canonical": "#1e2f4d",
+        "tonalRamp": [
+          "#080c13",
+          "#0d1523",
+          "#141f32",
+          "#1a2841",
+          "#4b5971",
+          "#838d9d",
+          "#bcc1ca",
+          "#e8eaed"
+        ]
+      },
+      "fio": {
+        "role": "neutral",
+        "displayName": "Fio",
+        "canonical": "rgba(232,226,210,.42)"
+      },
+      "fio-hi": {
+        "role": "neutral",
+        "displayName": "Fio Claro",
+        "canonical": "rgba(240,234,218,.78)"
+      },
+      "tinta-noite": {
+        "role": "neutral",
+        "displayName": "Tinta da Noite",
+        "canonical": "#eef1f6",
+        "tonalRamp": [
+          "#3c3c3e",
+          "#6b6c6f",
+          "#9b9da0",
+          "#cacdd1",
+          "#f1f4f8",
+          "#f6f7fa",
+          "#fafbfc",
+          "#fdfefe"
+        ]
+      },
+      "mudo-noite": {
+        "role": "neutral",
+        "displayName": "Mudo da Noite",
+        "canonical": "#aab5c8",
+        "tonalRamp": [
+          "#2a2d32",
+          "#4c515a",
+          "#6e7682",
+          "#909aaa",
+          "#bbc4d3",
+          "#d0d6e1",
+          "#e6e9ee",
+          "#f6f8fa"
+        ]
+      },
+      "lead-noite": {
+        "role": "neutral",
+        "displayName": "Lead da Noite",
+        "canonical": "#cfd6e2",
+        "tonalRamp": [
+          "#343638",
+          "#5d6066",
+          "#878b93",
+          "#b0b6c0",
+          "#d9dee8",
+          "#e5e8ef",
+          "#f1f3f6",
+          "#fafbfc"
+        ]
+      },
+      "apagado-noite": {
+        "role": "neutral",
+        "displayName": "Apagado da Noite",
+        "canonical": "#8f9bb1",
+        "tonalRamp": [
+          "#24272c",
+          "#404650",
+          "#5d6573",
+          "#7a8496",
+          "#a5afc1",
+          "#c1c8d4",
+          "#dde1e8",
+          "#f4f5f7"
+        ]
+      },
+      "manha": {
+        "role": "neutral",
+        "displayName": "Manhã",
+        "canonical": "#eef1ee",
+        "tonalRamp": [
+          "#3c3c3c",
+          "#6b6c6b",
+          "#9b9d9b",
+          "#cacdca",
+          "#f1f4f1",
+          "#f6f7f6",
+          "#fafbfa",
+          "#fdfefd"
+        ]
+      },
+      "manha-2": {
+        "role": "neutral",
+        "displayName": "Manhã Funda",
+        "canonical": "#e3e8e4",
+        "tonalRamp": [
+          "#393a39",
+          "#666867",
+          "#949794",
+          "#c1c5c2",
+          "#e9ede9",
+          "#f0f2f0",
+          "#f7f8f7",
+          "#fcfdfc"
+        ]
+      },
+      "papel": {
+        "role": "neutral",
+        "displayName": "Papel",
+        "canonical": "#fbfcfb",
+        "tonalRamp": [
+          "#3f3f3f",
+          "#717171",
+          "#a3a4a3",
+          "#d5d6d5",
+          "#fcfdfc",
+          "#fdfdfd",
+          "#fefefe",
+          "#ffffff"
+        ]
+      },
+      "tinta": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#15201c",
+        "tonalRamp": [
+          "#050807",
+          "#090e0d",
+          "#0e1512",
+          "#121b18",
+          "#444d49",
+          "#7e8482",
+          "#b9bcbb",
+          "#e8e9e8"
+        ]
+      },
+      "mudo": {
+        "role": "neutral",
+        "displayName": "Mudo",
+        "canonical": "#4c5753",
+        "tonalRamp": [
+          "#131615",
+          "#222725",
+          "#313936",
+          "#414a47",
+          "#707975",
+          "#9da3a0",
+          "#c9cdcb",
+          "#edeeee"
+        ]
+      },
+      "linha-manha": {
+        "role": "neutral",
+        "displayName": "Linha da Manhã",
+        "canonical": "#cfd6d2",
+        "tonalRamp": [
+          "#343634",
+          "#5d605e",
+          "#878b88",
+          "#b0b6b2",
+          "#d9dedb",
+          "#e5e8e6",
+          "#f1f3f2",
+          "#fafbfa"
+        ]
+      },
+      "costura-manha": {
+        "role": "neutral",
+        "displayName": "Costura da Manhã",
+        "canonical": "#b9c2bd",
+        "tonalRamp": [
+          "#2e302f",
+          "#535755",
+          "#787e7b",
+          "#9da5a1",
+          "#c7ceca",
+          "#d8dddb",
+          "#eaedeb",
+          "#f8f9f8"
+        ]
+      },
+      "borda-campo": {
+        "role": "neutral",
+        "displayName": "Borda do Campo",
+        "canonical": "#c2cac6",
+        "tonalRamp": [
+          "#303232",
+          "#575b59",
+          "#7e8381",
+          "#a5aca8",
+          "#ced5d1",
+          "#dde2e0",
+          "#edefee",
+          "#f9faf9"
+        ]
+      },
+      "erro-manha": {
+        "role": "neutral",
+        "displayName": "Erro da Manhã",
+        "canonical": "#a33a28",
+        "tonalRamp": [
+          "#290e0a",
+          "#491a12",
+          "#6a261a",
+          "#8b3122",
+          "#b56153",
+          "#cc9389",
+          "#e3c4be",
+          "#f6ebea"
+        ]
+      },
+      "ok-manha": {
+        "role": "neutral",
+        "displayName": "Ok da Manhã",
+        "canonical": "#1f6b45",
+        "tonalRamp": [
+          "#081b11",
+          "#0e301f",
+          "#14462d",
+          "#1a5b3b",
+          "#4c896a",
+          "#84ae99",
+          "#bcd3c7",
+          "#e9f0ec"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Só o h1 do hero."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Um h2 por seção, frase com ponto final."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Passos do eixo da madrugada."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Parágrafo de abertura do hero e das seções."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto corrido, algarismos tabulares."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Horários, prazos, rótulos de campo."
+      },
+      "bordado": {
+        "displayName": "Bordado",
+        "purpose": "Nome de obra em caixa alta ao longo da costura, só dentro da colcha."
+      }
+    },
+    "shadows": [
+      {
+        "name": "faixa",
+        "value": "0 2px 6px rgba(4,8,18,.25), 0 18px 48px -16px rgba(4,8,18,.6)",
+        "purpose": "Navbar de vidro na noite, com backdrop-filter blur(18px) saturate(160%)."
+      },
+      {
+        "name": "bilhete",
+        "value": "0 30px 80px -30px rgba(0,0,0,.7)",
+        "purpose": "Nota do agente sobre a colcha, com backdrop-filter blur(14px)."
+      },
+      {
+        "name": "botao-ouro",
+        "value": "inset 0 1px 0 rgba(255,255,255,.35), 0 4px 12px -4px rgba(4,8,18,.45)",
+        "purpose": "Botão principal na noite."
+      },
+      {
+        "name": "botao-ouro-manha",
+        "value": "inset 0 1px 0 rgba(255,255,255,.35), 0 4px 14px -6px rgba(160,106,22,.6)",
+        "purpose": "Botão principal na manhã."
+      },
+      {
+        "name": "papel",
+        "value": "0 1px 2px rgba(20,36,30,.05), 0 24px 60px -30px rgba(20,36,30,.3)",
+        "purpose": "Briefing na manhã."
+      },
+      {
+        "name": "ficha",
+        "value": "0 30px 70px -40px rgba(20,36,30,.4)",
+        "purpose": "Ficha de inscrição."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.23,1,.32,1)",
+        "purpose": "Saída padrão de toda transição e entrada."
+      },
+      {
+        "name": "ease-io",
+        "value": "cubic-bezier(.77,0,.175,1)",
+        "purpose": "Só a saída da palavra que troca no h1."
+      },
+      {
+        "name": "revela",
+        "value": "600ms, translateY(14px) + blur(6px) → none",
+        "purpose": "Entrada das seções com o scroll, atrás de prefers-reduced-motion."
+      },
+      {
+        "name": "pisca",
+        "value": "var(--t,6s) ease-in-out infinite",
+        "purpose": "Janelas da colcha piscando fora de fase."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "uma-coluna",
+        "value": "980px"
+      },
+      {
+        "name": "sem-links-nav",
+        "value": "760px"
+      },
+      {
+        "name": "celular",
+        "value": "560px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Ouro",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal: entrar na lista, aprovar uma decisão.",
+      "html": "<button class=\"ds-btn-ouro\">Entrar na lista</button>",
+      "css": ".ds-btn-ouro{font-family:\"Figtree\",system-ui,sans-serif;display:inline-flex;align-items:center;min-height:48px;padding:0 22px;border-radius:999px;border:0;background:#e8b04a;color:#0f1a2e;font-weight:650;font-size:16px;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 12px -4px rgba(4,8,18,.45);transition:transform 160ms cubic-bezier(.23,1,.32,1),background-color 160ms cubic-bezier(.23,1,.32,1)}.ds-btn-ouro:hover{background:#f2c56b}.ds-btn-ouro:active{transform:scale(.97)}.ds-btn-ouro:focus-visible{outline:2px solid #f2c56b;outline-offset:3px}"
+    },
+    {
+      "name": "Botão Linha",
+      "kind": "button",
+      "refersTo": "button-linha",
+      "description": "Ação secundária na noite: costurada, não preenchida.",
+      "html": "<div class=\"ds-noite\"><button class=\"ds-btn-linha\">Ver o exemplo</button></div>",
+      "css": ".ds-noite{background:#0f1a2e;padding:24px}.ds-btn-linha{font-family:\"Figtree\",system-ui,sans-serif;min-height:48px;padding:0 22px;border-radius:999px;background:transparent;color:#eef1f6;border:1px dashed rgba(240,234,218,.78);font-weight:650;font-size:16px;cursor:pointer;transition:background-color 160ms cubic-bezier(.23,1,.32,1)}.ds-btn-linha:hover{background:rgba(255,255,255,.06)}.ds-btn-linha:focus-visible{outline:2px solid #f2c56b;outline-offset:3px}"
+    },
+    {
+      "name": "Inscrição do hero",
+      "kind": "input",
+      "refersTo": "input-inscricao",
+      "description": "Pílula de vidro com e-mail e botão juntos, no primeiro viewport.",
+      "html": "<div class=\"ds-noite\"><form class=\"ds-inscricao\"><input type=\"email\" placeholder=\"seu@email.com.br\" aria-label=\"E-mail\"><button type=\"button\" class=\"ds-btn-ouro2\">Entrar na lista</button></form></div>",
+      "css": ".ds-noite{background:#0f1a2e;padding:24px}.ds-inscricao{display:flex;gap:8px;max-width:520px;padding:6px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);transition:border-color 200ms}.ds-inscricao:focus-within{border-color:rgba(232,176,74,.7);background:rgba(255,255,255,.1)}.ds-inscricao input{font-family:\"Figtree\",system-ui,sans-serif;flex:1;min-width:0;background:none;border:0;padding:0 16px;font-size:17px;color:#eef1f6;caret-color:#e8b04a;outline:none}.ds-inscricao input::placeholder{color:#8f9bb1}.ds-btn-ouro2{font-family:\"Figtree\",system-ui,sans-serif;min-height:48px;padding:0 22px;border-radius:999px;border:0;background:#e8b04a;color:#0f1a2e;font-weight:650;font-size:16px;cursor:pointer}.ds-btn-ouro2:hover{background:#f2c56b}"
+    },
+    {
+      "name": "Campo da ficha",
+      "kind": "input",
+      "refersTo": "input-campo",
+      "description": "Campo de texto na manhã, dentro da ficha de inscrição.",
+      "html": "<label class=\"ds-campo\"><span>Nome</span><input placeholder=\"Como podemos te chamar\"></label>",
+      "css": ".ds-campo{font-family:\"Figtree\",system-ui,sans-serif;display:grid;gap:7px;color:#15201c;background:#fbfcfb;padding:20px}.ds-campo span{font-size:15px;font-weight:650}.ds-campo input{font-family:\"Figtree\",system-ui,sans-serif;min-height:50px;padding:0 14px;border-radius:14px;border:1px solid #c2cac6;background:#fff;font-size:17px;color:#15201c;caret-color:#7a5410;transition:border-color 160ms,box-shadow 160ms}.ds-campo input::placeholder{color:#7a8580}.ds-campo input:focus{outline:none;border-color:#a06a16;box-shadow:0 0 0 4px rgba(232,176,74,.25)}"
+    },
+    {
+      "name": "Chip de função",
+      "kind": "chip",
+      "refersTo": "chip-papel",
+      "description": "Escolha única da função de quem se inscreve.",
+      "html": "<div class=\"ds-papel\"><label><input type=\"radio\" name=\"p\" checked><span>Gerente de obra</span></label><label><input type=\"radio\" name=\"p\"><span>Dono da obra</span></label></div>",
+      "css": ".ds-papel{font-family:\"Figtree\",system-ui,sans-serif;display:flex;gap:8px;flex-wrap:wrap}.ds-papel label{position:relative;cursor:pointer;font-size:15px;font-weight:550}.ds-papel input{position:absolute;opacity:0;inset:0}.ds-papel span{display:inline-flex;align-items:center;min-height:42px;padding:0 14px;border-radius:999px;border:1px solid #c2cac6;background:#fff;color:#15201c;transition:background-color 160ms,color 160ms}.ds-papel input:checked+span{background:#15201c;border-color:#15201c;color:#fff}.ds-papel input:focus-visible+span{outline:2px solid #7a5410;outline-offset:2px}"
+    },
+    {
+      "name": "Navbar costurada",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Faixa pílula de vidro azul-noite, solta do topo, com costura interna.",
+      "html": "<div class=\"ds-fundo\"><nav class=\"ds-nav\"><a class=\"ds-marca\" href=\"#\">Aprumo</a><a class=\"ds-link\" href=\"#\">Como funciona</a><a class=\"ds-link\" href=\"#\">Perguntas</a></nav></div>",
+      "css": ".ds-fundo{background:#16243d;padding:20px}.ds-nav{font-family:\"Figtree\",system-ui,sans-serif;display:flex;align-items:center;gap:8px;padding:7px 16px;border-radius:999px;background:rgba(15,26,46,.62);backdrop-filter:blur(18px) saturate(160%);border:1px solid rgba(255,255,255,.09);outline:1px dashed rgba(232,226,210,.26);outline-offset:-6px;box-shadow:0 2px 6px rgba(4,8,18,.25),0 18px 48px -16px rgba(4,8,18,.6)}.ds-marca{font:700 21px \"Bricolage Grotesque\",system-ui,sans-serif;letter-spacing:-.03em;color:#eef1f6;text-decoration:none;margin-right:auto}.ds-link{padding:9px 14px;border-radius:999px;color:#aab5c8;text-decoration:none;font-size:15px;font-weight:550;transition:color 160ms,background-color 160ms}.ds-link:hover{color:#eef1f6;background:rgba(255,255,255,.07)}.ds-link:focus-visible{outline:2px solid #f2c56b;outline-offset:3px}"
+    },
+    {
+      "name": "Bilhete do agente",
+      "kind": "card",
+      "refersTo": "card-bilhete",
+      "description": "Nota costurada em vidro onde o agente escreve a falta prevista, a conta e a fonte.",
+      "html": "<div class=\"ds-fundo2\"><div class=\"ds-bilhete\"><div class=\"ds-topo\"><i class=\"ds-clima\"></i>Residencial Aroeira<span class=\"ds-hora\">23:40</span></div><p class=\"ds-conta\">precisa 120 − saldo 40 − a caminho 0 = <b>falta 80</b></p><p class=\"ds-fonte\">Fonte: almoxarifado · exemplo fictício</p></div></div>",
+      "css": ".ds-fundo2{background:#0f1a2e;padding:24px}.ds-bilhete{font-family:\"Figtree\",system-ui,sans-serif;max-width:440px;padding:22px 22px 18px;border-radius:20px;background:rgba(22,36,61,.78);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.1);outline:1px dashed rgba(232,226,210,.42);outline-offset:-8px;box-shadow:0 30px 80px -30px rgba(0,0,0,.7);color:#dbe1ec}.ds-topo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#eef1f6;padding:0 4px 14px}.ds-hora{margin-left:auto;letter-spacing:0;font-weight:500;color:#aab5c8}.ds-clima{width:10px;height:10px;border-radius:50%;background:#d0654c}.ds-conta{margin:0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05);font-size:15px;color:#aab5c8;font-variant-numeric:tabular-nums}.ds-conta b{color:#ffc2b3}.ds-fonte{margin:14px 0 0;padding:12px 4px 0;border-top:1px dashed rgba(232,226,210,.2);font-size:13px;color:#8f9bb1}"
+    },
+    {
+      "name": "Ficha de inscrição",
+      "kind": "card",
+      "refersTo": "card-ficha",
+      "description": "Superfície de papel com costura interna, na manhã.",
+      "html": "<div class=\"ds-manha\"><div class=\"ds-ficha\"><b>Ponha a sua obra no prumo.</b><span>Avisamos quando abrir a sua vaga.</span></div></div>",
+      "css": ".ds-manha{background:#eef1ee;padding:24px}.ds-ficha{font-family:\"Figtree\",system-ui,sans-serif;display:grid;gap:10px;padding:32px;border-radius:28px;background:#fbfcfb;color:#15201c;outline:1px dashed #c4ccc7;outline-offset:-10px;box-shadow:0 30px 70px -40px rgba(20,36,30,.4)}.ds-ficha b{font:700 24px \"Bricolage Grotesque\",system-ui,sans-serif;letter-spacing:-.03em}.ds-ficha span{color:#4c5753;font-size:16px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Cidade Costurada",
+    "overview": "De noite as obras dormem e o Aprumo trabalha. A página é uma noite que amanhece: o hero e a madrugada ficam no azul-noite, o canteiro atravessa a aurora, e a decisão chega de manhã, em chão claro e tinta escura. O scroll é o relógio; cada trecho está numa hora do dia, e a cor de fundo diz que hora é.\n\nAs obras são retalhos de uma colcha vista de cima, presos por costura tracejada em linha clara. As janelas acesas são o ouro, bordado em traço curto. Cada obra se tinge com o clima do seu estado (falta, a caminho, em dia) e o nome dela é bordado em caixa alta ao longo da costura de cima do retalho. A costura é a única ornamentação do mundo: ela contorna a navbar, o bilhete do agente, a ficha de inscrição, os eixos de tempo e os separadores. O resto é tipografia grande e texto curto.\n\nA densidade é de página de divulgação, não de ferramenta: poucos blocos, muito ar, uma ideia por seção. A prova vem do mesmo princípio do produto, mostrar a conta e a fonte, e todo exemplo é rotulado como fictício.",
+    "keyCharacteristics": [
+      "Fundo que muda com a hora: noite (`noite`), aurora (degradê da noite até a manhã), manhã (`manha`).",
+      "Costura tracejada (`stroke-dasharray` 6 5 ou 7 6; `outline` dashed com `outline-offset` negativo) como o único ornamento.",
+      "Ouro é luz: janela acesa, ação principal, passo concluído. Nunca enfeite.",
+      "Três climas de obra (falta, caminho, em dia) para estado, e só para estado.",
+      "Títulos em Bricolage Grotesque pesada e apertada; corpo em Figtree com algarismos tabulares; nomes de obra bordados em Nunito 800.",
+      "Formas redondas e macias: pílula para ação e entrada, cantos de 14 a 36px para superfícies."
+    ],
+    "rules": [
+      {
+        "name": "A Regra da Luz Única",
+        "body": "Ouro é a única cor quente e significa luz ou ação. Se uma tela tem dois ouros disputando o olhar, um deles está errado.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra do Clima",
+        "body": "Vermelho, azul e verde só aparecem como estado de uma obra ou de uma mensagem. Nunca como cor de seção, ícone decorativo ou destaque de título.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra da Hora",
+        "body": "O fundo diz a hora. Conteúdo da noite (o agente trabalhando) fica no azul-noite; a decisão humana fica na manhã. Não coloque a decisão no escuro nem a vigília no claro.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra do Título que Fala",
+        "body": "Todo título é uma frase com verbo e ponto final (\"De manhã, a decisão já vem pronta.\"). Sem rótulo solto acima do título.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do Bordado",
+        "body": "Caixa alta espaçada é exclusiva do nome de obra (na colcha e no topo do bilhete). Em qualquer outro lugar, texto corrido em caixa normal.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do Vidro Noturno",
+        "body": "O que flutua sobre a colcha é vidro azul-noite com costura por dentro, nunca um cartão opaco.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** usar `ouro` apenas como luz e ação: janela, botão principal, nó aceso, linha de costura que resolve uma falta.",
+      "**Do** desenhar costura com tracejado claro (6 5 ou 7 6) ou `outline` dashed de 1px com offset negativo; é a única ornamentação.",
+      "**Do** escolher o fundo pela hora: trabalho do agente na noite (`noite`), decisão humana na manhã (`manha`), transição só no degradê da aurora.",
+      "**Do** escrever títulos como frases com ponto final em Bricolage Grotesque, -0.03em.",
+      "**Do** rotular todo exemplo como fictício (\"Exemplo ilustrativo, com obras e números fictícios.\") e mostrar a conta e a fonte em todo número.",
+      "**Do** manter foco visível (2px `ouro-hi` na noite, `ouro-ink` na manhã) e todo movimento contínuo atrás de `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** usar vermelho, azul ou verde fora de estado de obra ou mensagem de formulário.",
+      "**Don't** usar degradê como enfeite. O único degradê de cor da página é a aurora, que é o relógio do mundo; os outros são véus de contraste e halos de clima na colcha.",
+      "**Don't** pôr caixa alta espaçada fora do nome de obra, nem rótulo pequeno acima de título.",
+      "**Don't** usar sombra sólida deslocada, cartão opaco sobre a colcha ou canto reto em superfície.",
+      "**Don't** abrir com hero dividido de SaaS com print de painel; o hero é a colcha.",
+      "**Don't** usar ícone de glifo ou emoji; quando precisar de ícone, traço em SVG inline.",
+      "**Don't** inventar cliente, depoimento, preço ou número de mercado."
+    ]
+  }
+}
