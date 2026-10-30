@@ -46,6 +46,16 @@ seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da 
 | 13 | **Medição de empreiteiro**: contratado × executado × pago, retenção e vales; "Equipe Silva: pago 75%, executado 62% → segurar R$ 7.540" | Visão Medições |
 | 14 | **Estoque entre obras**: transferir sobra a preço de custo sem prejudicar a obra de origem | Estoque entre obras · Visão Entre obras |
 
+### Novos: clima, busca de preço e rastreio
+
+| # | Fluxo | Onde |
+|---|-------|------|
+| 15 | **Clima real** (Open-Meteo, 16 dias, por obra): regras por atividade (concretagem, cobertura, impermeabilização e pintura externa, terraplenagem, alvenaria externa), as janelas boas na faixa de dias e, no topo, a decisão mais urgente ("cai em 94% de chuva; melhor janela ter 03/11; remarcar?"). Vale **só nesta tela**: o briefing e a concretagem do roteiro seguem fixos. Sem rede, mostra uma previsão de exemplo com aviso. Na conversa: "dá para concretar esta semana?" | "+" › Execução › Clima |
+| 16 | **Buscar preço** (simulado): lojas com preço por unidade, frete, prazo e total entregue, e a **referência SINAPI como termômetro** (dentro / acima / bem acima). "Ir para a loja" abre a busca **real** da loja. Ao voltar, "Você comprou?" → Sim vira pedido em "Pedido enviado"; Ainda não fica como cotação; Não pergunta o motivo. Na conversa: "quanto custa cimento?" | "+" › Suprimentos › Buscar preço · "⋯" de cada insumo em falta |
+| 17 | **Rastreio** (simulado): com código, as atualizações chegam sozinhas e movem o cartão em Pedidos (Postado → Em trânsito → Saiu para entrega → Recebido · conferir NF), cada passo com a fonte e Desfazer. Também os sinais NF-e emitida contra o CNPJ da obra (→ faturado) e "mestre avisou que chegou" (→ recebido), simuláveis pelo "⋯" do cartão | Pedidos |
+
+Na realidade, material de obra quase nunca tem código de rastreio (o depósito entrega com caminhão próprio). O sinal universal é a **NF-e destinada** ao CNPJ da obra, mais o aviso da mestre no WhatsApp; o rastreio vale para compras online.
+
 ## Roteiro da conversa com o gerente de obra (~45 min)
 
 1. **Antes de mostrar nada** (10 min): como orça, como compra, quem recebe material, como controla
