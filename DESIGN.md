@@ -1,6 +1,6 @@
 ---
-name: Aprumo
-description: Landing da lista de espera do Aprumo. A cidade de obras dormindo como uma colcha costurada; a página é uma noite que amanhece.
+name: Plumo
+description: Landing da lista de espera do Plumo. A cidade de obras dormindo como uma colcha costurada; a página é uma noite que amanhece.
 colors:
   ouro: "#e8b04a"
   ouro-hi: "#f2c56b"
@@ -135,15 +135,15 @@ components:
     padding: "clamp(26px, 3vw, 38px)"
 ---
 
-# Design System: Aprumo
+# Design System: Plumo
 
-Este documento descreve o mundo visual da **landing do Aprumo** (`apps/site/`: `index.html`, `estilo.css`, `app.js`, `marca.svg`). Aprumo é o nome de divulgação do produto que o PRODUCT.md ainda chama de Canteiro. Os tokens acima foram extraídos de `apps/site/estilo.css`; quando o CSS e este texto divergirem, o CSS vence e este arquivo deve ser corrigido.
+Este documento descreve o mundo visual da **landing do Plumo** (`apps/site/`: `index.html`, `estilo.css`, `app.js`, `marca.svg`). Plumo é o nome de divulgação do produto que o PRODUCT.md ainda chama de Canteiro. Os tokens acima foram extraídos de `apps/site/estilo.css`; quando o CSS e este texto divergirem, o CSS vence e este arquivo deve ser corrigido.
 
 ## Overview
 
 **Creative North Star: "A Cidade Costurada"**
 
-De noite as obras dormem e o Aprumo trabalha. A página é uma noite que amanhece: o hero e a madrugada ficam no azul-noite, o canteiro atravessa a aurora, e a decisão chega de manhã, em chão claro e tinta escura. O scroll é o relógio; cada trecho está numa hora do dia, e a cor de fundo diz que hora é.
+De noite as obras dormem e o Plumo trabalha. A página é uma noite que amanhece: o hero e a madrugada ficam no azul-noite, o canteiro atravessa a aurora, e a decisão chega de manhã, em chão claro e tinta escura. O scroll é o relógio; cada trecho está numa hora do dia, e a cor de fundo diz que hora é.
 
 As obras são retalhos de uma colcha vista de cima, presos por costura tracejada em linha clara. As janelas acesas são o ouro, bordado em traço curto. Cada obra se tinge com o clima do seu estado (falta, a caminho, em dia) e o nome dela é bordado em caixa alta ao longo da costura de cima do retalho. A costura é a única ornamentação do mundo: ela contorna a navbar, o bilhete do agente, a ficha de inscrição, os eixos de tempo e os separadores. O resto é tipografia grande e texto curto.
 
@@ -233,7 +233,7 @@ Tudo é macio e arredondado, como tecido. Ação e entrada são pílulas (999px)
 
 A costura é a forma assinatura: tracejado claro em `stroke-dasharray` 6 5 (colcha) ou 7 6 (retalhos maiores), e nas superfícies um `outline` tracejado de 1px com `outline-offset` negativo (−6px na navbar, −8px no bilhete, −10px na ficha), desenhando uma linha de costura por dentro da borda. Separadores e fios de tempo são bordas tracejadas de 1 a 1.5px.
 
-A marca (`marca.svg`) é um quadrado ouro de canto 16/64, com um A em traço azul-noite cujo travessão é substituído por um fio de prumo com o peso pendurado.
+A marca (`marca.svg`) é um quadrado ouro de canto 16/64, com um P em azul-noite: a barriga em traço grosso e a haste fina como o fio de um prumo, terminando no peso. O nome Plumo carrega a mesma raiz em português (prumo), espanhol (plomo, plomada) e inglês (plumb).
 
 ## Components
 
@@ -271,7 +271,7 @@ Easing de saída `cubic-bezier(.23,1,.32,1)` para quase tudo; `cubic-bezier(.77,
 
 ## A aplicação do produto ainda não migrou
 
-O app do produto (`apps/web`, em `apps/web/app/globals.css`) e o protótipo da raiz (`css/app.css`, `css/motion.css`) ainda rodam o sistema visual anterior do **Canteiro**: concreto claro, sidebar verde-grafite, acento ocre, IBM Plex Sans no corpo, densidade de ferramenta de trabalho. Este DESIGN.md não descreve esse sistema e não autoriza aplicar a colcha, a noite ou o ouro da landing dentro do app. A migração do app para o mundo Aprumo é uma decisão em aberto.
+O app do produto (`apps/web`, em `apps/web/app/globals.css`) e o protótipo da raiz (`css/app.css`, `css/motion.css`) ainda rodam o sistema visual anterior do **Canteiro**: concreto claro, sidebar verde-grafite, acento ocre, IBM Plex Sans no corpo, densidade de ferramenta de trabalho. Este DESIGN.md não descreve esse sistema e não autoriza aplicar a colcha, a noite ou o ouro da landing dentro do app. A migração do app para o mundo Plumo é uma decisão em aberto.
 
 ## Do's and Don'ts
 

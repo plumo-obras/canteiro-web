@@ -1,4 +1,4 @@
-/* Aprumo · landing. Sem framework: o mapa-colcha, as demos e o formulário da lista de espera. */
+/* Plumo · landing. Sem framework: o mapa-colcha, as demos e o formulário da lista de espera. */
 (() => {
   // ?estatico desliga o movimento: é como a página é capturada nas revisões de design
   const movimento = !matchMedia('(prefers-reduced-motion: reduce)').matches && !new URLSearchParams(location.search).has('estatico');
@@ -247,6 +247,83 @@
     addEventListener('scroll', f, { passive: true }); f();
   }
 
+  // por trás: o agente consulta cada fonte, o fio dela acende e a resposta entra no log
+  function porTras() {
+    const palco = $('#palco');
+    if (!palco) return;
+    const fios = $('#fios'), log = $('#log'), estado = $('#agente-estado'), ag = $('.agente', palco);
+    const pecas = Object.fromEntries($$('.peca', palco).map(p => [p.dataset.peca, p]));
+    const linhas = {};
+    const desenhar = () => {
+      fios.innerHTML = '';
+      if (getComputedStyle(fios).display === 'none') return;
+      const base = palco.getBoundingClientRect(), a = ag.getBoundingClientRect();
+      for (const [nome, p] of Object.entries(pecas)) {
+        const r = p.getBoundingClientRect();
+        const cx = r.left + r.width / 2 - base.left, cy = r.top + r.height / 2 - base.top;
+        const acx = a.left + a.width / 2 - base.left;
+        let x1, y1, x2, y2, d;
+        if (Math.abs(cx - acx) < 10) { // acima ou abaixo do agente
+          x1 = cx; y1 = cy < a.top - base.top ? r.bottom - base.top : r.top - base.top;
+          x2 = acx; y2 = cy < a.top - base.top ? a.top - base.top : a.bottom - base.top;
+          d = `M${x1} ${y1} L${x2} ${y2}`;
+        } else {
+          const esq = cx < acx;
+          x1 = esq ? r.right - base.left : r.left - base.left; y1 = cy;
+          x2 = esq ? a.left - base.left : a.right - base.left; y2 = Math.min(Math.max(cy, a.top - base.top + 40), a.bottom - base.top - 40);
+          const m = (x1 + x2) / 2;
+          d = `M${x1} ${y1} C ${m} ${y1}, ${m} ${y2}, ${x2} ${y2}`;
+        }
+        linhas[nome] = el('path', { d }, fios);
+        if (pecas[nome].classList.contains('ativa')) linhas[nome].classList.add('ativo');
+      }
+    };
+    desenhar();
+    addEventListener('resize', desenhar, { passive: true });
+    document.fonts?.ready.then(desenhar);
+
+    const roteiro = [
+      ['almox', 'Lendo o almoxarifado do Aroeira', 'cimento CP-II 50 kg: <b>saldo 38 sc</b>'],
+      ['pedidos', 'Conferindo pedidos e notas em aberto', 'PED-0162: <b>40 sc a caminho</b>, entrega terça'],
+      ['crono', 'Olhando o cronograma', 'laje do 3º concreta sexta: <b>precisa 120 sc</b>'],
+      ['regras', 'Pedindo a conta às regras', '120 − 38 − 40 = <b>falta 42 sc</b>'],
+      ['obras', 'Procurando sobra nas outras obras', 'Ipê e Jatobá: <b>sem CP-II sobrando</b>'],
+      ['web', 'Pesquisando fornecedores na internet', '<b>3 cotações</b>: R$ 38,90 · R$ 40,20 · R$ 41,50'],
+      ['sinapi', 'Comparando com o SINAPI', 'referência R$ 39,40: <b>melhor preço está abaixo</b>'],
+      ['proposta', 'Proposta pronta: 42 sc por R$ 1.633,80', 'entrega quarta · <b>esperando o seu OK</b>'],
+    ];
+    const item = ([, passo, res], fim) => {
+      const li = document.createElement('li');
+      if (fim) li.className = 'fim';
+      li.innerHTML = `<span class="passo">${passo}</span><span class="res">${res}</span>`;
+      return li;
+    };
+    if (!movimento) {
+      roteiro.forEach((r, i) => { log.appendChild(item(r, i === roteiro.length - 1)); pecas[r[0]].classList.add('lida'); });
+      estado.textContent = 'proposta pronta · Residencial Aroeira';
+      return;
+    }
+    let rodando = false;
+    const rodar = async () => {
+      if (rodando) return; rodando = true;
+      while (true) {
+        log.innerHTML = ''; estado.textContent = 'trabalhando · Residencial Aroeira';
+        Object.values(pecas).forEach(p => p.classList.remove('ativa', 'lida'));
+        for (const [i, r] of roteiro.entries()) {
+          const p = pecas[r[0]];
+          p.classList.add('ativa'); linhas[r[0]]?.classList.add('ativo');
+          await espera(700);
+          log.appendChild(item(r, i === roteiro.length - 1));
+          await espera(900);
+          p.classList.remove('ativa'); p.classList.add('lida'); linhas[r[0]]?.classList.remove('ativo');
+        }
+        estado.textContent = 'proposta pronta · esperando você';
+        await espera(5200);
+      }
+    };
+    aoVer(palco, rodar, .3);
+  }
+
   /* ---------------- lista de espera ---------------- */
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   function formularios() {
@@ -297,5 +374,5 @@
     }));
   }
 
-  colcha(); colchaFundo(); troca(); bilhete(); revelar(); eixo(); costura(); conversa(); briefing(); ciclo(); nav(); formularios();
+  colcha(); colchaFundo(); troca(); bilhete(); revelar(); eixo(); costura(); porTras(); conversa(); briefing(); ciclo(); nav(); formularios();
 })();

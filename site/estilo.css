@@ -1,5 +1,5 @@
 /* =====================================================================================================
-   Aprumo · landing da lista de espera. Mundo: a cidade dormindo como uma colcha costurada.
+   Plumo · landing da lista de espera. Mundo: a cidade dormindo como uma colcha costurada.
    A página é uma noite que amanhece: hero e madrugada em azul-noite, o canteiro na aurora, a decisão de manhã.
    Ocre = luz (janela acesa, ação). Clima de cada obra: falta = vermelho queimado · a caminho = azul · em dia = verde.
    A costura (tracejado de linha clara) é a única ornamentação; a cor fica na borda do que está ativo.
@@ -160,6 +160,42 @@ h2{font-size:clamp(36px,4.6vw,64px)}
 .eixo p{color:var(--mutN);font-size:16px;max-width:30ch}
 .js .eixo li{opacity:.35;transition:opacity 400ms var(--ease)}
 .js .eixo li.aceso{opacity:1}
+
+/* por trás: o palco com o agente no meio e as fontes em volta, ligadas por fios de costura */
+.palco{position:relative;margin-top:64px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);gap:72px;align-items:stretch}
+.lado{display:flex;flex-direction:column;justify-content:space-around;gap:20px;position:relative;z-index:1}
+.centro{display:flex;flex-direction:column;gap:32px;position:relative;z-index:1}
+.fios{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0}
+.fios path{fill:none;stroke:var(--fio);stroke-width:1.4;stroke-dasharray:6 5;transition:stroke 300ms var(--ease),stroke-width 300ms var(--ease)}
+.fios path.ativo{stroke:var(--ouro);stroke-width:2.2}
+@media (prefers-reduced-motion:no-preference){.fios path.ativo{animation:corre 900ms linear infinite}}
+@keyframes corre{to{stroke-dashoffset:-22}}
+.peca,.agente{position:relative;z-index:1}
+.peca{display:grid;gap:2px;padding:14px 16px;border-radius:16px;background:rgba(22,36,61,.88);border:1px solid rgba(255,255,255,.09);
+  outline:1px dashed transparent;outline-offset:-6px;transition:border-color 300ms var(--ease),outline-color 300ms var(--ease),opacity 300ms var(--ease)}
+.peca b{font-size:16px} .peca span{font-size:14px;color:var(--mutN)}
+.peca em{font-style:normal;font-size:14px;font-weight:600;color:var(--tintaN);margin-top:6px;opacity:.55;transition:opacity 300ms var(--ease),color 300ms var(--ease)}
+.peca.ativa{border-color:rgba(232,176,74,.75);outline-color:rgba(232,176,74,.45)}
+.peca.ativa em,.peca.lida em{opacity:1} .peca.ativa em{color:var(--ouroHi)}
+.peca[data-peca="proposta"].lida{border-color:rgba(232,176,74,.75)}
+.agente{padding:8px 8px 10px;border-radius:24px;background:#0b1222;border:1px solid rgba(255,255,255,.12);
+  outline:1px dashed var(--fio);outline-offset:-7px;box-shadow:0 24px 60px -30px rgba(0,0,0,.8)}
+.agente-topo{display:flex;align-items:center;gap:12px;padding:12px 12px 12px;border-bottom:1px dashed rgba(232,226,210,.18)}
+.agente-topo div{display:grid;line-height:1.3} .agente-topo span{font-size:13px;color:var(--mutN)}
+.log{list-style:none;margin:0;padding:14px 12px 6px;display:grid;gap:10px;min-height:484px;align-content:start;font-size:15px}
+.log li{display:grid;gap:2px;animation:sobe 300ms var(--ease) both}
+.log .passo{color:#dbe1ec}
+.log .passo::before{content:"";display:inline-block;width:7px;height:7px;margin-right:9px;border-radius:2px;background:var(--ouro);vertical-align:1px}
+.log .res{padding-left:16px;color:var(--mutN);font-size:14px}
+.log .res b{color:var(--tintaN);font-weight:600}
+.log li.fim .passo{color:var(--ouroHi);font-weight:600}
+.ficticio-sec{margin-top:28px;font-size:13px;color:#8f9bb1}
+@media (max-width:980px){
+  .palco{grid-template-columns:1fr 1fr;gap:12px}
+  .fios{display:none}
+  .centro{grid-column:1/-1;order:-1;gap:12px}
+  .lado{gap:12px}
+}
 
 /* entre obras */
 .costura{margin:0;position:relative}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-30T22:20:18+00:00",
-  "title": "Design System: Aprumo",
+  "title": "Design System: Plumo",
   "extensions": {
     "colorMeta": {
       "ouro": {
@@ -505,7 +505,7 @@
       "kind": "nav",
       "refersTo": "",
       "description": "Faixa pílula de vidro azul-noite, solta do topo, com costura interna.",
-      "html": "<div class=\"ds-fundo\"><nav class=\"ds-nav\"><a class=\"ds-marca\" href=\"#\">Aprumo</a><a class=\"ds-link\" href=\"#\">Como funciona</a><a class=\"ds-link\" href=\"#\">Perguntas</a></nav></div>",
+      "html": "<div class=\"ds-fundo\"><nav class=\"ds-nav\"><a class=\"ds-marca\" href=\"#\">Plumo</a><a class=\"ds-link\" href=\"#\">Como funciona</a><a class=\"ds-link\" href=\"#\">Perguntas</a></nav></div>",
       "css": ".ds-fundo{background:#16243d;padding:20px}.ds-nav{font-family:\"Figtree\",system-ui,sans-serif;display:flex;align-items:center;gap:8px;padding:7px 16px;border-radius:999px;background:rgba(15,26,46,.62);backdrop-filter:blur(18px) saturate(160%);border:1px solid rgba(255,255,255,.09);outline:1px dashed rgba(232,226,210,.26);outline-offset:-6px;box-shadow:0 2px 6px rgba(4,8,18,.25),0 18px 48px -16px rgba(4,8,18,.6)}.ds-marca{font:700 21px \"Bricolage Grotesque\",system-ui,sans-serif;letter-spacing:-.03em;color:#eef1f6;text-decoration:none;margin-right:auto}.ds-link{padding:9px 14px;border-radius:999px;color:#aab5c8;text-decoration:none;font-size:15px;font-weight:550;transition:color 160ms,background-color 160ms}.ds-link:hover{color:#eef1f6;background:rgba(255,255,255,.07)}.ds-link:focus-visible{outline:2px solid #f2c56b;outline-offset:3px}"
     },
     {
@@ -527,7 +527,7 @@
   ],
   "narrative": {
     "northStar": "A Cidade Costurada",
-    "overview": "De noite as obras dormem e o Aprumo trabalha. A página é uma noite que amanhece: o hero e a madrugada ficam no azul-noite, o canteiro atravessa a aurora, e a decisão chega de manhã, em chão claro e tinta escura. O scroll é o relógio; cada trecho está numa hora do dia, e a cor de fundo diz que hora é.\n\nAs obras são retalhos de uma colcha vista de cima, presos por costura tracejada em linha clara. As janelas acesas são o ouro, bordado em traço curto. Cada obra se tinge com o clima do seu estado (falta, a caminho, em dia) e o nome dela é bordado em caixa alta ao longo da costura de cima do retalho. A costura é a única ornamentação do mundo: ela contorna a navbar, o bilhete do agente, a ficha de inscrição, os eixos de tempo e os separadores. O resto é tipografia grande e texto curto.\n\nA densidade é de página de divulgação, não de ferramenta: poucos blocos, muito ar, uma ideia por seção. A prova vem do mesmo princípio do produto, mostrar a conta e a fonte, e todo exemplo é rotulado como fictício.",
+    "overview": "De noite as obras dormem e o Plumo trabalha. A página é uma noite que amanhece: o hero e a madrugada ficam no azul-noite, o canteiro atravessa a aurora, e a decisão chega de manhã, em chão claro e tinta escura. O scroll é o relógio; cada trecho está numa hora do dia, e a cor de fundo diz que hora é.\n\nAs obras são retalhos de uma colcha vista de cima, presos por costura tracejada em linha clara. As janelas acesas são o ouro, bordado em traço curto. Cada obra se tinge com o clima do seu estado (falta, a caminho, em dia) e o nome dela é bordado em caixa alta ao longo da costura de cima do retalho. A costura é a única ornamentação do mundo: ela contorna a navbar, o bilhete do agente, a ficha de inscrição, os eixos de tempo e os separadores. O resto é tipografia grande e texto curto.\n\nA densidade é de página de divulgação, não de ferramenta: poucos blocos, muito ar, uma ideia por seção. A prova vem do mesmo princípio do produto, mostrar a conta e a fonte, e todo exemplo é rotulado como fictício.",
     "keyCharacteristics": [
       "Fundo que muda com a hora: noite (`noite`), aurora (degradê da noite até a manhã), manhã (`manha`).",
       "Costura tracejada (`stroke-dasharray` 6 5 ou 7 6; `outline` dashed com `outline-offset` negativo) como o único ornamento.",

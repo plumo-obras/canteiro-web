@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Aprumo · sua obra no prumo</title>
+<title>Plumo · sua obra no prumo</title>
 <meta name="description" content="Um agente que vigia suas obras de madrugada, prevê o material que vai faltar, cota, confere a nota e espera o seu OK de manhã. Entre na lista de espera.">
 <meta name="theme-color" content="#0f1a2e">
-<meta property="og:title" content="Aprumo · sua obra no prumo">
-<meta property="og:description" content="Enquanto a obra dorme, o Aprumo confere. Entre na lista de espera.">
+<meta property="og:title" content="Plumo · sua obra no prumo">
+<meta property="og:description" content="Enquanto a obra dorme, o Plumo confere. Entre na lista de espera.">
 <meta property="og:type" content="website">
 <link rel="icon" href="marca.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,12 +22,12 @@
 
 <header class="nav-wrap">
   <nav class="nav" aria-label="Principal">
-    <a class="nav-marca" href="#topo" aria-label="Aprumo, início">
-      <svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M14 50 32 12l18 38" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 12v18" stroke="#0f1a2e" stroke-width="2.6" stroke-linecap="round"/><path d="M28 29.5h8v3l-4 13.5-4-13.5z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      Aprumo
+    <a class="nav-marca" href="#topo" aria-label="Plumo, início">
+      <svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      Plumo
     </a>
     <div class="nav-links">
-      <a href="#madrugada">Como funciona</a>
+      <a href="#por-tras">Como funciona</a>
       <a href="#canteiro">No canteiro</a>
       <a href="#manha">De manhã</a>
     </div>
@@ -42,7 +42,7 @@
     <svg class="colcha" id="colcha" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
     <div class="hero-in">
       <div class="hero-txt">
-        <h1 id="h-hero">Enquanto a obra dorme, o&nbsp;Aprumo&nbsp;<span class="troca" id="troca" aria-live="off">confere</span>.</h1>
+        <h1 id="h-hero">Enquanto a obra dorme, o&nbsp;Plumo&nbsp;<span class="troca" id="troca" aria-live="off">confere</span>.</h1>
         <p class="lead">Um agente que vigia o estoque, os pedidos e as notas de todas as suas obras. Ele prevê o que vai faltar antes de faltar, deixa a cotação pronta e espera o seu OK de manhã.</p>
         <form class="inscricao" data-form="rapida" novalidate>
           <label class="sr-only" for="email-hero">Seu e-mail de trabalho</label>
@@ -83,12 +83,42 @@
     </div>
   </section>
 
+  <!-- ================= por trás: o agente no meio da obra ================= -->
+  <section class="sec noite" id="por-tras" aria-labelledby="h-tras">
+    <div class="sec-in">
+      <h2 id="h-tras">Por trás, o agente costura tudo que a obra já tem.</h2>
+      <p class="sec-lead">Ele lê o almoxarifado, os pedidos e o cronograma, pesquisa preço na internet, pede a conta às regras e devolve uma proposta. Cada fio é uma consulta de verdade, e você vê de onde veio cada número.</p>
+      <div class="palco" id="palco" aria-label="Exemplo animado: o agente consultando as fontes da obra para montar uma proposta">
+        <svg class="fios" id="fios" aria-hidden="true"></svg>
+        <div class="lado">
+        <div class="peca" data-peca="almox"><b>Almoxarifado</b><span>saldo por frente de serviço</span><em>CP-II · 38 sc</em></div>
+        <div class="peca" data-peca="pedidos"><b>Pedidos e NF-e</b><span>o que já está a caminho</span><em>PED-0162 · 40 sc</em></div>
+        <div class="peca" data-peca="obras"><b>Outras obras</b><span>sobra que pode ser transferida</span><em>Ipê e Jatobá · sem CP-II</em></div>
+        </div>
+        <div class="centro">
+        <div class="peca" data-peca="regras"><b>Regras do Plumo</b><span>a conta é do sistema, não da IA</span><em>120 − 38 − 40 = 42</em></div>
+        <div class="agente">
+          <div class="agente-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg><div><b>Agente Plumo</b><span id="agente-estado">trabalhando · Residencial Aroeira</span></div></div>
+          <ol class="log" id="log" aria-live="off"></ol>
+        </div>
+        <div class="peca" data-peca="proposta"><b>Proposta para você</b><span>nada é comprado sem o seu OK</span><em>42 sc · R$ 1.633,80</em></div>
+        </div>
+        <div class="lado">
+        <div class="peca" data-peca="web"><b>Internet · fornecedores</b><span>preço e prazo na sua região</span><em>3 cotações</em></div>
+        <div class="peca" data-peca="sinapi"><b>SINAPI</b><span>preço de referência</span><em>R$ 39,40 o saco</em></div>
+        <div class="peca" data-peca="crono"><b>Cronograma</b><span>quando cada frente precisa</span><em>laje do 3º · sexta</em></div>
+        </div>
+      </div>
+      <p class="ficticio-sec">Exemplo ilustrativo, com obras, preços e fornecedores fictícios.</p>
+    </div>
+  </section>
+
   <!-- ================= entre obras: costurar duas ================= -->
   <section class="sec noite" id="entre-obras" aria-labelledby="h-costura">
     <div class="sec-in dois">
       <div>
         <h2 id="h-costura">A sobra de uma obra é a falta da outra.</h2>
-        <p class="sec-lead">Aço, cimento e bloco esquecidos no canto de uma obra viram compra em dobro na outra. O Aprumo enxerga as duas ao mesmo tempo e costura a transferência.</p>
+        <p class="sec-lead">Aço, cimento e bloco esquecidos no canto de uma obra viram compra em dobro na outra. O Plumo enxerga as duas ao mesmo tempo e costura a transferência.</p>
         <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false">Costurar as duas obras</button>
       </div>
       <figure class="costura" aria-label="Exemplo: transferência de aço entre duas obras">
@@ -118,11 +148,11 @@
     <div class="sec-in dois">
       <div>
         <h2 id="h-canteiro">O mestre não abre sistema. Ele manda áudio.</h2>
-        <p class="sec-lead">O canteiro fala com o Aprumo pelo WhatsApp que já usa: áudio, foto da nota, foto da pilha de material. O agente transforma isso em lançamento, confere com o pedido e só pergunta o que precisa.</p>
+        <p class="sec-lead">O canteiro fala com o Plumo pelo WhatsApp que já usa: áudio, foto da nota, foto da pilha de material. O agente transforma isso em lançamento, confere com o pedido e só pergunta o que precisa.</p>
         <p class="sec-lead">Ninguém preenche formulário com a mão suja de massa.</p>
       </div>
-      <div class="fone" aria-label="Exemplo de conversa no WhatsApp entre o mestre e o Aprumo">
-        <div class="fone-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M14 50 32 12l18 38" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 12v18" stroke="#0f1a2e" stroke-width="2.6" stroke-linecap="round"/><path d="M28 29.5h8v3l-4 13.5-4-13.5z" fill="#0f1a2e"/></svg><div><b>Aprumo</b><span>Residencial Aroeira</span></div></div>
+      <div class="fone" aria-label="Exemplo de conversa no WhatsApp entre o mestre e o Plumo">
+        <div class="fone-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg><div><b>Plumo</b><span>Residencial Aroeira</span></div></div>
         <ol class="msgs" id="msgs">
           <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">Áudio:</span> "Chegou o cimento. Acho que veio faltando saco." <time>06:41</time></li>
           <li class="msg ele foto"><span class="nf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Foto da nota fiscal <time>06:41</time></li>
@@ -137,7 +167,7 @@
   <section class="sec manha" id="manha" aria-labelledby="h-manha">
     <div class="sec-in">
       <h2 id="h-manha">De manhã, a decisão já vem pronta.</h2>
-      <p class="sec-lead">Você abre o Aprumo no carro ou no escritório e vê só o que pede você, na ordem do prazo. Aprova com um toque, e tudo fica no registro com quem, quando e por quê.</p>
+      <p class="sec-lead">Você abre o Plumo no carro ou no escritório e vê só o que pede você, na ordem do prazo. Aprova com um toque, e tudo fica no registro com quem, quando e por quê.</p>
       <div class="briefing" aria-label="Exemplo interativo de briefing da manhã">
         <div class="briefing-topo"><b>Bom dia · 07:00 · 3 decisões</b><span class="mut">3 obras · dados fictícios</span></div>
         <ul id="decisoes">
@@ -165,7 +195,7 @@
   <section class="sec manha" aria-labelledby="h-ciclo">
     <div class="sec-in">
       <h2 id="h-ciclo">Da falta à sobra, um fio só.</h2>
-      <p class="sec-lead">Outros sistemas registram a compra. O Aprumo acompanha o material da previsão até o que sobrou, e não solta no meio.</p>
+      <p class="sec-lead">Outros sistemas registram a compra. O Plumo acompanha o material da previsão até o que sobrou, e não solta no meio.</p>
       <ol class="ciclo" id="ciclo">
         <li><b>Falta prevista</b><span>antes de parar a equipe</span></li>
         <li><b>Cotação</b><span>com os seus fornecedores</span></li>
@@ -193,7 +223,7 @@
         <details class="faq"><summary>Quanto vai custar?</summary><p>Ainda não definimos o preço. Quem estiver na lista fica sabendo antes e entra com condição de fundador.</p></details>
         <details class="faq"><summary>Preciso trocar a minha planilha ou o meu ERP?</summary><p>Não. A ideia é começar ao lado do que você já usa e trazer os dados aos poucos.</p></details>
         <details class="faq"><summary>O agente compra sozinho?</summary><p>Nunca. Ele prepara a cotação, o pedido ou a transferência e espera alguém da sua equipe aprovar.</p></details>
-        <details class="faq"><summary>O que vocês fazem com o meu e-mail?</summary><p>Usamos só para avisar sobre o Aprumo. Sem repasse a terceiros, e você sai da lista quando quiser.</p></details>
+        <details class="faq"><summary>O que vocês fazem com o meu e-mail?</summary><p>Usamos só para avisar sobre o Plumo. Sem repasse a terceiros, e você sai da lista quando quiser.</p></details>
       </div>
       <form class="ficha" data-form="completa" novalidate>
         <div class="campo"><label for="f-email">E-mail de trabalho</label><input id="f-email" name="email" type="email" inputmode="email" autocomplete="email" required placeholder="seu@construtora.com.br"></div>
@@ -218,7 +248,7 @@
 
 <footer class="rodape">
   <div class="sec-in rodape-in">
-    <a class="nav-marca" href="#topo"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M14 50 32 12l18 38" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 12v18" stroke="#0f1a2e" stroke-width="2.6" stroke-linecap="round"/><path d="M28 29.5h8v3l-4 13.5-4-13.5z" fill="#0f1a2e"/></svg>Aprumo</a>
+    <a class="nav-marca" href="#topo"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>Plumo</a>
     <p>Sua obra no prumo. Feito no Brasil, para a obra brasileira.</p>
     <p class="mut">Todas as obras, valores e conversas desta página são exemplos fictícios.</p>
   </div>
