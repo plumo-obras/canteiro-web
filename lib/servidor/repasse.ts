@@ -3,13 +3,22 @@
  * agente (ou para a demonstração). Mantém a API sem CORS e o cookie de renovação fora do alcance do JavaScript.
  */
 
-/** Rotas de dados do contrato que a web pode repassar. /auth fica nas rotas próprias; /uso é só do serviço do agente. */
+/**
+ * Rotas de dados do contrato que a web pode repassar, por método. /auth fica nas rotas próprias. A conta e o consumo só
+ * se leem daqui; a única escrita fora de GET/POST é a chave própria da Anthropic (o papel master quem confere é a API).
+ */
 const PREFIXOS = new Set(["obras", "pedidos", "propostas", "registro", "creditos", "sessoes"]);
+const SO_LEITURA = new Set(["conta", "conta/chave-anthropic", "uso"]);
+const CHAVE = "conta/chave-anthropic";
 
-/** Recusa caminho fora do contrato e qualquer truque de "..", barra codificada ou segmento vazio. */
-export function caminhoPermitido(seg: string[]): boolean {
-  if (!seg.length || !PREFIXOS.has(seg[0]!)) return false;
-  return seg.every((s) => s.length > 0 && s !== "." && s !== ".." && !/[/\\?#]/.test(s));
+/** Recusa caminho ou método fora do contrato e qualquer truque de "..", barra codificada ou segmento vazio. */
+export function caminhoPermitido(seg: string[], metodo = "GET"): boolean {
+  if (!seg.length || !seg.every((s) => s.length > 0 && s !== "." && s !== ".." && !/[/\\?#]/.test(s))) return false;
+  const rota = seg.join("/");
+  const m = metodo.toUpperCase();
+  if (m === "PUT" || m === "DELETE") return rota === CHAVE;
+  if (SO_LEITURA.has(rota)) return m === "GET";
+  return (m === "GET" || m === "POST") && PREFIXOS.has(seg[0]!);
 }
 
 /**

@@ -5,13 +5,14 @@ import { responder, usuarioDoAcesso } from "@/lib/demo/loja";
 
 async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[] }> }) {
   const { caminho } = await ctx.params;
-  if (!caminhoPermitido(caminho)) return json({ detail: "Rota fora do contrato." }, 404);
+  if (!caminhoPermitido(caminho, req.method)) return json({ detail: "Rota fora do contrato." }, 404);
   const url = new URL(req.url);
+  const temCorpo = req.method === "POST" || req.method === "PUT";
 
   if (modoDemo()) {
     const u = usuarioDoAcesso(req.headers.get("authorization"));
     if (!u) return json({ detail: "Sessão expirada." }, 401);
-    const corpo = req.method === "POST" ? await req.json().catch(() => ({})) : undefined;
+    const corpo = temCorpo ? await req.json().catch(() => ({})) : undefined;
     const r = responder(req.method, caminho, url.searchParams, corpo, u);
     return json(r.corpo, r.status);
   }
@@ -20,7 +21,7 @@ async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[]
   const r = await fetch(destino, {
     method: req.method,
     headers: headersDeRepasse(req),
-    body: req.method === "POST" ? await req.arrayBuffer() : undefined,
+    body: temCorpo ? await req.arrayBuffer() : undefined,
     cache: "no-store",
     redirect: "manual",
   });
@@ -32,3 +33,5 @@ async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[]
 
 export const GET = repassar;
 export const POST = repassar;
+export const PUT = repassar;
+export const DELETE = repassar;

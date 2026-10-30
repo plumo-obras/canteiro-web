@@ -7,10 +7,24 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["sessoes", "s1", "mensagens"])).toBe(true);
     expect(caminhoPermitido(["propostas", "p1", "aprovar"])).toBe(true);
     expect(caminhoPermitido(["auth", "entrar"])).toBe(false);
-    expect(caminhoPermitido(["uso"])).toBe(false);
+    expect(caminhoPermitido(["obras", "resumo"])).toBe(true);
+    expect(caminhoPermitido(["foo"])).toBe(false);
     expect(caminhoPermitido(["obras", ".."])).toBe(false);
     expect(caminhoPermitido(["obras", "a/b"])).toBe(false);
     expect(caminhoPermitido([])).toBe(false);
+  });
+
+  it("conta e consumo só de leitura; PUT/DELETE só na chave própria", () => {
+    for (const r of [["conta"], ["conta", "chave-anthropic"], ["uso"], ["creditos"], ["obras", "resumo"]]) expect(caminhoPermitido(r, "GET")).toBe(true);
+    expect(caminhoPermitido(["conta", "chave-anthropic"], "PUT")).toBe(true);
+    expect(caminhoPermitido(["conta", "chave-anthropic"], "DELETE")).toBe(true);
+    expect(caminhoPermitido(["conta"], "POST")).toBe(false);
+    expect(caminhoPermitido(["conta"], "PUT")).toBe(false);
+    expect(caminhoPermitido(["uso"], "POST")).toBe(false);
+    expect(caminhoPermitido(["conta", "outra"], "GET")).toBe(false);
+    expect(caminhoPermitido(["obras", "o1"], "DELETE")).toBe(false);
+    expect(caminhoPermitido(["propostas", "p1"], "PUT")).toBe(false);
+    expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
   });
 
   it("cookie de renovação só com o header próprio e da mesma origem", () => {

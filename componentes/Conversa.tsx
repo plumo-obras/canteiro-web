@@ -3,35 +3,16 @@
  * A aba Conversa: histórico, campo e o streaming do POST /conversa. Cada evento SSE vira estado na hora: `ferramenta`
  * vira o chip "usou almoxarifado…", `texto` cresce o balão, `proposta` vira o cartão de decisão (que só a pessoa aprova).
  */
-import { Fragment, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from "react";
 import type { Obra } from "@/lib/contrato";
 import { conversar } from "@/lib/cliente";
 import { CartaoProposta } from "./CartaoProposta";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
+import { MensagemMarkdown } from "./MensagemMarkdown";
 import { novaPergunta, type AcaoSessoes, type MsgAgente, type Sessao } from "./sessoes";
 
 const SUGESTOES = ["Quanto falta de cimento?", "Precisa comprar bloco?", "O aço chega a tempo?"];
-
-/** Texto do agente com parágrafos e **negrito**, sem HTML cru (o texto do modelo é dado, nunca marcação). */
-export function TextoAgente({ texto }: { texto: string }) {
-  const negrito = (linha: string) =>
-    linha.split(/(\*\*[^*]+\*\*)/g).map((t, i) => (t.startsWith("**") && t.endsWith("**") && t.length > 4 ? <b key={i}>{t.slice(2, -2)}</b> : <Fragment key={i}>{t}</Fragment>));
-  return (
-    <>
-      {texto.split(/\n{2,}/).map((par, i) => (
-        <p key={i}>
-          {par.split("\n").map((l, j) => (
-            <Fragment key={j}>
-              {j > 0 ? <br /> : null}
-              {negrito(l)}
-            </Fragment>
-          ))}
-        </p>
-      ))}
-    </>
-  );
-}
 
 function BalaoAgente({ m }: { m: MsgAgente }) {
   const esperando = !m.terminou && !m.texto && !m.erro;
@@ -39,8 +20,7 @@ function BalaoAgente({ m }: { m: MsgAgente }) {
   if (m.texto) {
     corpo = (
       <div className="bub">
-        <TextoAgente texto={m.texto} />
-        {!m.terminou ? <span className="cursor" aria-hidden="true" /> : null}
+        <MensagemMarkdown texto={m.texto} vivo={!m.terminou} />
       </div>
     );
   } else if (esperando) {

@@ -1,0 +1,51 @@
+/* /inicio. Cor com semântica fixa (globals.css): âmbar = pede você · vermelho = falta · azul = a caminho. */
+.cab{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.ola{font-size:var(--t-h1);line-height:1.15;margin:0 0 6px}
+.sub{margin:0;color:var(--ink2);font-size:var(--t-sec)}
+.pede{color:var(--amberInk);font-weight:600}
+.atalho{min-height:44px}
+.denovo{background:none;border:0;padding:0;color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;min-height:24px}
+
+.grade{list-style:none;margin:0;padding:0;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
+.cartao{display:flex;flex-direction:column;gap:14px;min-width:0;background:rgba(255,255,255,.95);border:1px solid var(--edge);
+  border-radius:var(--r);padding:20px 22px;box-shadow:var(--hl),var(--shadow)}
+.topo{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:var(--t-meta);color:var(--muted)}
+.status{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--ink2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gray)}
+.status[data-st="em_andamento"] .dot{background:var(--green)}
+.status[data-st="concluida"] .dot{background:var(--blue)}
+.cidade{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nome{font-size:var(--t-bloco);line-height:1.2;margin:0;overflow-wrap:anywhere}
+
+/* Números: uma grade 2×2 separada por fios, sem caixa dentro de caixa. */
+.numeros{margin:0;display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line2)}
+.num{padding:12px 0 10px;min-width:0;border-bottom:1px solid var(--line2)}
+.num:nth-child(odd){padding-right:14px;border-right:1px solid var(--line2)}
+.num:nth-child(even){padding-left:14px}
+.num dt{font-size:var(--t-meta);color:var(--muted);line-height:1.35}
+.num dd{margin:2px 0 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.valor{font:600 var(--t-sec)/1.35 var(--sans);color:var(--ink)}
+.extra{font-size:var(--t-meta);color:var(--ink2)}
+.num[data-tom="pede"] .valor{color:var(--amberInk)}
+.num[data-tom="falta"] .valor{color:var(--redInk)}
+.num[data-tom="info"] .valor{color:var(--blueInk)}
+.num[data-tom="zero"] .valor{color:var(--muted);font-weight:500}
+
+.rodape{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:auto}
+.quando{font-size:var(--t-meta);color:var(--muted)}
+.abrir{min-height:44px;padding:8px 16px}
+
+.esqueleto{gap:12px}
+.osso{display:block;height:13px;border-radius:8px;background:var(--sunk)}
+@media (prefers-reduced-motion:no-preference){
+  .osso{background:linear-gradient(90deg,var(--sunk) 0%,var(--cream2) 50%,var(--sunk) 100%);background-size:200% 100%;animation:brilho 1.4s ease-in-out infinite}
+  @keyframes brilho{from{background-position:100% 0}to{background-position:-100% 0}}
+}
+
+@media (max-width:640px){
+  .ola{font-size:var(--t-bloco)}
+  .sub{font-size:var(--t-body)}
+  .atalho{width:100%}
+  .cartao{padding:16px}
+  .abrir{flex:1}
+}

@@ -16,7 +16,7 @@ export function FormEntrar({ demo }: { demo: boolean }) {
     setOcupado(true);
     setErro(null);
     const r = await entrar(email, senha).catch(() => ({ ok: false as const, mensagem: "Sem conexão com o servidor. Tente de novo." }));
-    if (r.ok) router.replace("/");
+    if (r.ok) router.replace("/inicio");
     else {
       setErro(r.mensagem);
       setOcupado(false);
@@ -54,7 +54,7 @@ export function FormEntrar({ demo }: { demo: boolean }) {
         {demo ? (
           <p className="nota">
             Modo de demonstração: qualquer e-mail e senha entram como admin. Um e-mail que começa com{" "}
-            <b>leitura</b> entra com o papel de leitura.
+            <b>leitura</b> entra com o papel de leitura, e um que começa com <b>master</b> entra como master (troca a chave da Anthropic).
           </p>
         ) : null}
       </form>

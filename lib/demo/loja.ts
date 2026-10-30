@@ -11,6 +11,7 @@ import type {
   DadosCriarPedido,
   EntradaRegistro,
   ItemInsumo,
+  MinhaConta,
   Movimento,
   Obra,
   Pedido,
@@ -52,6 +53,13 @@ interface EstadoDemo {
   contadorPedido: number;
   /** Histórico das conversas no formato que o agente grava (um item por mensagem, como na coleção `mensagens`). */
   sessoes: Map<string, { sessao: SessaoApi; mensagens: MensagemSessao[] }>;
+  /** E-mail com que cada pessoa entrou (o Usuario do contrato não traz e-mail; GET /conta traz). */
+  emails: Map<string, string>;
+  /** Da chave própria a demonstração guarda só o final, como a tela enxerga: a chave em si é descartada. */
+  chave: { final: string; cadastrada_em: string } | null;
+  creditos: { saldo: number; franquia: number };
+  /** Linhas de UsoIA (custo em microdólares), somadas na hora como a API faz. */
+  uso: { dia: string; obra_id: string | null; rota: string; custo: number; tokens: number }[];
 }
 
 type ItemDemo = ItemInsumo["insumo"];
@@ -103,12 +111,18 @@ function semear(): EstadoDemo {
   const usuarios: Usuario[] = [
     { id: uuid7(), nome: "Rizzi", tenant_id: TENANT, papel: "admin" },
     { id: uuid7(), nome: "Paula (leitura)", tenant_id: TENANT, papel: "viewer" },
+    { id: uuid7(), nome: "Marina Duarte", tenant_id: TENANT, papel: "master" },
+  ];
+  // Duas obras sem almoxarifado ainda, para a página inicial mostrar mais de um cartão e os estados de obra.
+  const outras: Obra[] = [
+    doc({ nome: "Sobrado Jardim Europa", cidade: "Valinhos", cep: "13270-000", verba: 91000000, status: "em_orcamento" as const }),
+    doc({ nome: "Reforma Loja Centro", cidade: "Campinas", cep: "13010-000", verba: 12500000, status: "concluida" as const }),
   ];
   const e: EstadoDemo = {
     usuarios,
     acessos: new Map(),
     renovacoes: new Map(),
-    obras: [obra],
+    obras: [obra, ...outras],
     insumos,
     movimentos,
     pedidos,
@@ -116,7 +130,14 @@ function semear(): EstadoDemo {
     registro: [],
     contadorPedido: 167,
     sessoes: new Map(),
+    emails: new Map(),
+    chave: null,
+    creditos: { saldo: 0, franquia: 20_000_000 },
+    uso: semearUso(obra.id, outras[0]!.id),
   };
+  // Saldo coerente com o consumo do mês: franquia menos o que já foi gasto desde o dia 1.
+  const mes = hojeSP().slice(0, 8);
+  e.creditos.saldo = Math.max(0, e.creditos.franquia - e.uso.filter((x) => x.dia >= `${mes}01`).reduce((t, x) => t + x.custo, 0));
   const ped157 = pedidos[0]!;
   e.propostas.push(
     novaProposta(e, {
@@ -131,6 +152,28 @@ function semear(): EstadoDemo {
   const c = contaDoInsumo(e, insumos.get("cimento")!);
   e.propostas.push(propostaDeCompra(e, insumos.get("cimento")!, c, "almoxarifado · PED-0160"));
   return e;
+}
+
+/** AAAA-MM-DD no fuso do canteiro, como a API grava `UsoIA.dia`. */
+const hojeSP = (d = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
+
+/** 45 dias de consumo fictício, determinístico (sem Math.random) para a tela não mudar a cada reinício. */
+function semearUso(obraA: string, obraB: string): EstadoDemo["uso"] {
+  const linhas: EstadoDemo["uso"] = [];
+  for (let d = 44; d >= 0; d--) {
+    const t = new Date();
+    t.setDate(t.getDate() - d);
+    const dia = hojeSP(t);
+    const fds = [0, 6].includes(t.getDay());
+    const onda = (d * 7919) % 13; // pseudo-aleatório estável
+    if (fds && onda % 3) continue;
+    const custo = (fds ? 40_000 : 120_000) + onda * 31_000;
+    linhas.push({ dia, obra_id: obraA, rota: "conversa", custo, tokens: Math.round(custo / 9) });
+    if (onda % 4 === 0) linhas.push({ dia, obra_id: obraA, rota: "nf", custo: 60_000 + onda * 5_000, tokens: 9_000 });
+    if (!fds && d % 7 === 1) linhas.push({ dia, obra_id: null, rota: "briefing", custo: 45_000, tokens: 5_200 });
+    if (onda > 9) linhas.push({ dia, obra_id: obraB, rota: "conversa", custo: 70_000, tokens: 7_800 });
+  }
+  return linhas;
 }
 
 /* ---------- consultas ---------- */
@@ -201,11 +244,16 @@ function emitir(e: EstadoDemo, u: Usuario): RespostaEntrar {
   return { acesso, renovacao, usuario: u };
 }
 
-/** Na demonstração qualquer senha entra (os dados são fictícios); e-mail começando por "leitura" entra como viewer. */
+/**
+ * Na demonstração qualquer senha entra (os dados são fictícios); e-mail começando por "leitura" entra como viewer e
+ * por "master" entra como master (o único papel que troca a chave própria).
+ */
 export function entrarDemo(email: string, senha: string): RespostaEntrar | null {
   const e = estado();
-  if (!email.trim() || !senha) return null;
-  const u = email.trim().toLowerCase().startsWith("leitura") ? e.usuarios[1]! : e.usuarios[0]!;
+  const em = email.trim().toLowerCase();
+  if (!em || !senha) return null;
+  const u = em.startsWith("leitura") ? e.usuarios[1]! : em.startsWith("master") ? e.usuarios[2]! : e.usuarios[0]!;
+  e.emails.set(u.id, em);
   return emitir(e, u);
 }
 
@@ -359,6 +407,77 @@ export function desfazer(registroId: string, u: Usuario) {
   return registrar(e, u, { obra_id: ent.obra_id, texto: `Desfez: ${ent.texto}`, proposta_id: ent.proposta_id, desfazer: null, origem: "tela" });
 }
 
+/* ---------- página inicial e conta ---------- */
+
+/** GET /obras/resumo: mesmas regras da API (servicos/resumo.py), somadas aqui. */
+export function resumoObras(e: EstadoDemo) {
+  const abertos = new Set<StatusPedido>([...A_CAMINHO, ...EM_COTACAO]);
+  return [...e.obras]
+    .sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"))
+    .map((obra) => {
+      const ped = e.pedidos.filter((p) => p.obra_id === obra.id && abertos.has(p.status));
+      const insumos = [...e.insumos.values()].filter((i) => i.obra_id === obra.id);
+      // A API usa só o registro; a demonstração nasce com o registro vazio, então cai no último movimento da obra.
+      const datas = [...e.registro.filter((r) => r.obra_id === obra.id), ...e.movimentos.filter((m) => m.obra_id === obra.id)].map((x) => x.criado_em);
+      return {
+        obra,
+        pendencias: e.propostas.filter((p) => p.obra_id === obra.id && p.status === "pendente").length,
+        falta_comprar: insumos.filter((i) => contaDoInsumo(e, i).comprar > 0).length,
+        pedidos_abertos: ped.length,
+        valor_pedidos_abertos: ped.reduce((t, p) => t + p.valor, 0),
+        nf_para_conferir: ped.filter((p) => p.status === "recebido").length,
+        ultima_atividade: datas.sort().at(-1) ?? null,
+      };
+    });
+}
+
+function chaveDemo(e: EstadoDemo) {
+  return e.chave ? { ativa: true, final: e.chave.final, cadastrada_em: e.chave.cadastrada_em } : { ativa: false, final: null, cadastrada_em: null };
+}
+
+function creditosDemo(e: EstadoDemo, u: Usuario) {
+  return { saldo_microdolares: e.creditos.saldo, franquia: e.creditos.franquia, chave_propria: !!e.chave, usuario_id: u.id, tenant_id: TENANT };
+}
+
+export function minhaConta(e: EstadoDemo, u: Usuario): MinhaConta {
+  return {
+    usuario: { id: u.id, nome: u.nome, email: e.emails.get(u.id) ?? "demo@canteiro.app", papel: u.papel },
+    tenant: { id: TENANT, nome: "Construtora Exemplo" },
+    chave_propria: e.chave ? chaveDemo(e) : null,
+    creditos: creditosDemo(e, u),
+  };
+}
+
+function exigirMaster(u: Usuario) {
+  if (u.papel !== "master") throw new Proibido("Só quem tem o papel master troca a chave da Anthropic.");
+}
+
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** GET /uso: soma por dia, obra e rota a partir das linhas, como servicos/uso.py. */
+export function relatorioUso(e: EstadoDemo, de: string, ate: string) {
+  const total = { custo: 0, tokens: 0 };
+  const por = { dia: new Map<string, typeof total>(), obra_id: new Map<string | null, typeof total>(), rota: new Map<string, typeof total>() };
+  for (const l of e.uso.filter((x) => x.dia >= de && x.dia <= ate)) {
+    total.custo += l.custo;
+    total.tokens += l.tokens;
+    for (const k of ["dia", "obra_id", "rota"] as const) {
+      const m = por[k] as Map<string | null, typeof total>;
+      const s = m.get(l[k]) ?? { custo: 0, tokens: 0 };
+      s.custo += l.custo;
+      s.tokens += l.tokens;
+      m.set(l[k], s);
+    }
+  }
+  const desc = <K,>(m: Map<K, typeof total>) => [...m].sort((x, y) => y[1].custo - x[1].custo);
+  return {
+    total,
+    por_dia: [...por.dia].sort((x, y) => x[0].localeCompare(y[0])).map(([dia, s]) => ({ dia, ...s })),
+    por_obra: desc(por.obra_id).map(([obra_id, s]) => ({ obra_id, ...s })),
+    por_rota: desc(por.rota).map(([rota, s]) => ({ rota, ...s })),
+  };
+}
+
 /* ---------- roteamento das rotas do contrato ---------- */
 
 export interface RespostaDemo {
@@ -378,6 +497,31 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
   const [a, id, b, id2, c2] = caminho;
   try {
     if (metodo === "GET" && a === "obras" && !id) return ok(e.obras);
+    // Antes do ramo obras/{id}: "resumo" não é ID de obra.
+    if (metodo === "GET" && a === "obras" && id === "resumo" && !b) return ok(resumoObras(e));
+    if (a === "conta" && !id && metodo === "GET") return ok(minhaConta(e, u));
+    if (a === "conta" && id === "chave-anthropic" && !b) {
+      if (metodo === "GET") return ok(chaveDemo(e));
+      if (metodo === "PUT") {
+        exigirMaster(u);
+        const chave = String(c.chave ?? "").trim();
+        if (!/^sk-ant-/.test(chave) || chave.length < 20 || chave.length > 300)
+          return erro(422, "Isto não parece uma chave da API da Anthropic (começa com sk-ant-).");
+        e.chave = { final: chave.slice(-4), cadastrada_em: agoraISO() };
+        return ok({ chave_propria: true, final: e.chave.final });
+      }
+      if (metodo === "DELETE") {
+        exigirMaster(u);
+        e.chave = null;
+        return ok({ chave_propria: false, final: null });
+      }
+    }
+    if (metodo === "GET" && a === "uso" && !id) {
+      const de = params.get("de") ?? "";
+      const ate = params.get("ate") ?? "";
+      if (!DIA.test(de) || !DIA.test(ate)) return erro(422, "de e ate no formato AAAA-MM-DD.");
+      return ok(relatorioUso(e, de, ate));
+    }
     if (a === "obras" && id) {
       if (!e.obras.some((o) => o.id === id)) return erro(404, "Obra não encontrada.");
       if (metodo === "GET" && b === "insumos" && !id2) {
@@ -437,7 +581,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       const lim = Math.min(200, Number(params.get("limite") ?? 200) || 200);
       return ok(s.mensagens.filter((m) => m.seq > depois).slice(0, lim));
     }
-    if (metodo === "GET" && a === "creditos") return ok({ saldo_microdolares: 5_000_000, franquia: 20_000_000, chave_propria: false });
+    if (metodo === "GET" && a === "creditos") return ok(creditosDemo(e, u));
     return erro(404, "Rota não existe no contrato do MVP-0.");
   } catch (x) {
     if (x instanceof Proibido) return erro(403, x.message);

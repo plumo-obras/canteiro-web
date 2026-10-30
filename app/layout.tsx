@@ -11,7 +11,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+// cover: o app desenha até a borda e respeita a área segura no CSS; resizes-content: o teclado encolhe o 100dvh e o
+// campo da conversa sobe junto, em vez de ficar escondido atrás dele.
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content", themeColor: "#e7eaea" };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (

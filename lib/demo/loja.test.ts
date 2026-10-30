@@ -80,7 +80,7 @@ describe("demonstração: pedidos", () => {
     expect(movs[0]!.criado_em > movs[1]!.criado_em).toBe(true);
   });
 
-  it("rota fora do contrato é 404", () => expect(chamar("GET", "uso").status).toBe(404));
+  it("rota fora do contrato é 404", () => expect(chamar("GET", "foo").status).toBe(404));
 });
 
 describe("demonstração: login", () => {
@@ -127,5 +127,49 @@ describe("demonstração: histórico da conversa", () => {
     expect(mensagens[1]).toMatchObject({ propostas: [prop.id], ferramentas: [{ resumo: "usou almoxarifado" }, { nivel: "propoe" }] });
     expect(propostaIds).toEqual([prop.id]);
     expect((chamar("GET", "sessoes/s-demo/mensagens?depois_de=3").corpo as MensagemSessao[]).map((m) => m.seq)).toEqual([4]);
+  });
+});
+
+describe("demonstração: página inicial e conta", () => {
+  const master = () => e.usuarios[2]!;
+
+  it("GET /obras/resumo soma como a API: pendências, falta comprar, pedidos abertos e NF para conferir", () => {
+    const r = chamar("GET", "obras/resumo");
+    expect(r.status).toBe(200);
+    const vila = (r.corpo as { obra: { id: string }; [k: string]: unknown }[]).find((x) => x.obra.id === obraId())!;
+    // seed: NF 4471 a conferir + compra de cimento pendentes; PED-0157 (recebido), 0158, 0160, 0167 abertos
+    expect(vila).toMatchObject({ pendencias: 2, nf_para_conferir: 1, pedidos_abertos: 4, valor_pedidos_abertos: 560000 + 2112000 + 468000 + 402000 });
+    expect(vila.falta_comprar).toBeGreaterThanOrEqual(1);
+    expect(vila.ultima_atividade).toBeTruthy();
+  });
+
+  it("GET /conta traz perfil, empresa, chave (null sem chave) e créditos; a chave nunca volta inteira", () => {
+    entrarDemo("master@obra.com", "x");
+    const c = chamar("GET", "conta", undefined, master()).corpo as Record<string, unknown>;
+    expect(c).toMatchObject({ usuario: { papel: "master", email: "master@obra.com" }, tenant: { nome: "Construtora Exemplo" }, chave_propria: null });
+    const chave = "sk-ant-api03-abcdefghijklmnop-WXYZ";
+    expect(chamar("PUT", "conta/chave-anthropic", { chave }, master()).status).toBe(200);
+    const depois = chamar("GET", "conta", undefined, master()).corpo;
+    expect(JSON.stringify(depois)).not.toContain("abcdefghijklmnop");
+    expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: true, final: "WXYZ" });
+    expect((chamar("GET", "creditos").corpo as { chave_propria: boolean }).chave_propria).toBe(true);
+    expect(chamar("DELETE", "conta/chave-anthropic", undefined, master()).status).toBe(200);
+    expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: false, final: null });
+  });
+
+  it("só master troca a chave; chave fora do formato é 422", () => {
+    expect(chamar("PUT", "conta/chave-anthropic", { chave: "sk-ant-api03-abcdefghijklmnop" }).status).toBe(403);
+    expect(chamar("DELETE", "conta/chave-anthropic", undefined, leitura()).status).toBe(403);
+    expect(chamar("PUT", "conta/chave-anthropic", { chave: "minha-assinatura-pro" }, master()).status).toBe(422);
+  });
+
+  it("GET /uso soma por dia, obra e rota dentro do período e exige as datas", () => {
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const r = chamar("GET", `uso?de=2000-01-01&ate=${hoje}`).corpo as { total: { custo: number }; por_dia: { custo: number }[]; por_rota: { custo: number }[] };
+    const soma = (xs: { custo: number }[]) => xs.reduce((t, x) => t + x.custo, 0);
+    expect(r.total.custo).toBeGreaterThan(0);
+    expect(soma(r.por_dia)).toBe(r.total.custo);
+    expect(soma(r.por_rota)).toBe(r.total.custo);
+    expect(chamar("GET", "uso?de=ontem&ate=hoje").status).toBe(422);
   });
 });

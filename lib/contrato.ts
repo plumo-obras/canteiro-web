@@ -169,3 +169,59 @@ export interface CorpoConversa {
   obra_id?: string | null;
   texto: string;
 }
+
+/* ---------- página inicial e conta (Web v2) ---------- */
+
+/** `GET /obras/resumo`: um por obra, somado na API (nada de agregação no banco). */
+export interface ResumoObra {
+  obra: Obra;
+  /** Propostas pendentes. */
+  pendencias: number;
+  /** Insumos com `Conta.comprar > 0`. */
+  falta_comprar: number;
+  /** Pedidos ainda não conferidos nem cancelados. */
+  pedidos_abertos: number;
+  valor_pedidos_abertos: Centavos;
+  /** Pedidos recebidos esperando a conferência da NF. */
+  nf_para_conferir: number;
+  ultima_atividade: DataISO | null;
+}
+
+/** Valores de IA em microdólares (1 US$ = 1.000.000), inteiros como o resto do dinheiro. */
+export type Microdolares = number;
+
+export interface Creditos {
+  saldo_microdolares: Microdolares;
+  franquia: Microdolares;
+  chave_propria: boolean;
+  usuario_id?: string;
+  tenant_id?: string;
+}
+
+/** Situação da chave própria da Anthropic. Nunca traz a chave: só os 4 últimos caracteres. */
+export interface ChavePropria {
+  ativa: boolean;
+  final: string | null;
+  cadastrada_em: DataISO | null;
+}
+
+/** `GET /conta`. */
+export interface MinhaConta {
+  usuario: { id: string; nome: string; email: string; papel: Papel };
+  tenant: { id: string; nome: string };
+  chave_propria: ChavePropria | null;
+  creditos: Creditos;
+}
+
+export interface SomaUso {
+  custo: Microdolares;
+  tokens: number;
+}
+
+/** `GET /uso?de&ate`: dias sem consumo não vêm na lista. */
+export interface RelatorioUso {
+  total: SomaUso;
+  por_dia: (SomaUso & { dia: string })[];
+  por_obra: (SomaUso & { obra_id: string | null })[];
+  por_rota: (SomaUso & { rota: string })[];
+}

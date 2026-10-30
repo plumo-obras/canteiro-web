@@ -1,0 +1,25 @@
+/* Topo das páginas /inicio e /conta. Tokens de app/globals.css; nada aqui vale fora destas páginas. */
+.pagina{height:100dvh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.topo{position:sticky;top:0;z-index:5;padding:10px 10px 0}
+.topoIn{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;border-radius:18px;
+  background:var(--glassDark);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),var(--shadow);color:var(--sideInk)}
+.marca{display:flex;align-items:center;gap:10px;min-height:44px;font:700 19px var(--serif);letter-spacing:-.02em;color:#fff;border-radius:10px}
+.demo{font:500 12px var(--sans);color:var(--sideMuted);border:1px solid rgba(255,255,255,.14);border-radius:99px;padding:0 8px;white-space:nowrap}
+.navs{display:flex;gap:2px;margin-left:auto}
+.nav{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:12px;color:var(--sideMuted);font-weight:500;
+  transition:background-color var(--mv-rapido) var(--ease),color var(--mv-rapido) var(--ease)}
+.nav[aria-current="page"]{background:var(--sideOn);color:#fff}
+@media (hover:hover){ .nav:hover{background:var(--sideHover);color:#fff} }
+.work{min-height:44px;margin-left:6px}
+.conteudo{max-width:1180px;margin:0 auto;padding:28px 18px calc(48px + env(safe-area-inset-bottom))}
+
+@media (max-width:640px){
+  .topo{padding:8px 8px 0}
+  .topoIn{padding:4px 6px 4px 10px;gap:4px}
+  .marcaT,.demo{display:none}
+  .nav{padding:0 12px}
+  .work{width:44px;padding:0;margin-left:2px}
+  .workT{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .conteudo{padding:22px 14px calc(40px + env(safe-area-inset-bottom))}
+}

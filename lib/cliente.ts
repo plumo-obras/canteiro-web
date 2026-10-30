@@ -3,7 +3,11 @@
  * repassa para a API e o agente de verdade ou responde no modo de demonstração; o navegador nunca precisa saber qual.
  */
 import type {
+  ChavePropria,
   CorpoConversa,
+  MinhaConta,
+  RelatorioUso,
+  ResumoObra,
   EntradaRegistro,
   EventoConversa,
   ItemInsumo,
@@ -50,7 +54,7 @@ async function erroDe(r: Response): Promise<ErroApi> {
   return new ErroApi(r.status, msg || MENSAGEM_PADRAO[r.status] || "Algo deu errado. Tente de novo.");
 }
 
-async function chamar<T>(metodo: "GET" | "POST", caminho: string, corpo?: unknown): Promise<T> {
+async function chamar<T>(metodo: "GET" | "POST" | "PUT" | "DELETE", caminho: string, corpo?: unknown): Promise<T> {
   const r = await comAcesso(`/srv/api${caminho}`, {
     method: metodo,
     headers: corpo === undefined ? undefined : { "content-type": "application/json" },
@@ -70,6 +74,14 @@ const seg = encodeURIComponent;
 
 export const api = {
   listarObras: () => chamar<Obra[]>("GET", "/obras"),
+  resumoObras: () => chamar<ResumoObra[]>("GET", "/obras/resumo"),
+  conta: () => chamar<MinhaConta>("GET", "/conta"),
+  chaveAnthropic: () => chamar<ChavePropria>("GET", "/conta/chave-anthropic"),
+  /** Só master. A resposta não importa para a tela: ela relê `GET /conta`, que é a fonte da verdade. */
+  salvarChaveAnthropic: (chave: string) => chamar<unknown>("PUT", "/conta/chave-anthropic", { chave }),
+  removerChaveAnthropic: () => chamar<unknown>("DELETE", "/conta/chave-anthropic"),
+  /** `de` e `ate` em AAAA-MM-DD, inclusivos. */
+  uso: (de: string, ate: string) => chamar<RelatorioUso>("GET", `/uso${q({ de, ate })}`),
   listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),
   listarMovimentos: (obraId: string, insumoId: string, limite = 50) =>
     chamar<Movimento[]>("GET", `/obras/${seg(obraId)}/insumos/${seg(insumoId)}/movimentos${q({ limite })}`),
