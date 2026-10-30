@@ -74,6 +74,24 @@ button,input{font:inherit;color:inherit}
   transition:color 160ms var(--ease),background-color 160ms var(--ease)}
 @media (hover:hover){.nav-links a:hover{color:var(--tintaN);background:rgba(255,255,255,.07)}}
 @media (max-width:760px){.nav-links{display:none}}
+/* idioma: um botão com o globo, e o menu cai solto da faixa, no mesmo vidro */
+.idioma{position:relative}
+.idioma-btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border:0;border-radius:999px;background:none;color:var(--mutN);
+  font-size:15px;font-weight:600;cursor:pointer;transition:color 160ms var(--ease),background-color 160ms var(--ease)}
+@media (hover:hover){.idioma-btn:hover{color:var(--tintaN);background:rgba(255,255,255,.07)}}
+.idioma-menu{position:absolute;right:0;top:calc(100% + 12px);margin:0;padding:6px;list-style:none;min-width:168px;border-radius:16px;
+  background:#16233b;border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 40px -16px rgba(4,8,18,.7);transform-origin:top right}
+@media (prefers-reduced-motion:no-preference){.idioma-menu:not([hidden]){animation:menu 180ms var(--ease)}}
+@keyframes menu{from{opacity:0;transform:translateY(-4px) scale(.97)}}
+.idioma-menu a{display:block;padding:10px 12px;border-radius:10px;color:var(--tintaN);text-decoration:none;font-size:15px}
+@media (hover:hover){.idioma-menu a:hover{background:rgba(255,255,255,.08)}}
+.idioma-menu a[aria-current]{color:var(--ouroHi);font-weight:650}
+.nav.dia .idioma-btn{color:var(--mut)}
+@media (hover:hover){.nav.dia .idioma-btn:hover{color:var(--tinta);background:rgba(20,36,30,.06)}}
+.nav.dia .idioma-menu{background:#fbfcfa;border-color:rgba(20,36,30,.1);box-shadow:0 18px 40px -16px rgba(20,36,30,.35)}
+.nav.dia .idioma-menu a{color:var(--tinta)} .nav.dia .idioma-menu a[aria-current]{color:var(--ouroInk)}
+@media (hover:hover){.nav.dia .idioma-menu a:hover{background:rgba(20,36,30,.06)}}
+@media (max-width:420px){.idioma-btn span{display:none}.nav .btn-p{padding:0 12px;font-size:14px}}
 
 /* ---------------- hero: a colcha ---------------- */
 .hero{position:relative;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;justify-content:center;overflow:hidden;
@@ -248,8 +266,8 @@ h2{font-size:clamp(36px,4.6vw,64px)}
 .manha .colcha-fundo .janela{stroke:#d9b56c}
 .manha .sec-lead{color:var(--mut)}
 .manha .mut{color:var(--mut)}
-#manha{padding-top:40px;padding-bottom:clamp(64px,7vw,96px)}
-#manha + .sec{padding-top:clamp(64px,7vw,96px)}
+#morning{padding-top:40px;padding-bottom:clamp(64px,7vw,96px)}
+#morning + .sec{padding-top:clamp(64px,7vw,96px)}
 .briefing{margin-top:56px;border-radius:24px;background:var(--papel);border:1px solid var(--linhaM);box-shadow:0 1px 2px rgba(20,36,30,.05),0 24px 60px -30px rgba(20,36,30,.3);overflow:hidden}
 .briefing-topo{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 24px;border-bottom:1px solid var(--linhaM);font-size:16px}
 .briefing ul{list-style:none;margin:0;padding:0}
@@ -263,6 +281,10 @@ h2{font-size:clamp(36px,4.6vw,64px)}
 .dec-txt span{font-size:15px;color:var(--mut)}
 .manha .btn-ocre{box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 14px -6px rgba(160,106,22,.6)}
 .decisao.feita{background:#eef7f1}
+/* o rodapé do briefing: o que deixou de escapar, somado a cada aprovação */
+.protegido{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;padding:16px 24px;border-top:1px dashed var(--linhaM);background:var(--manha2);font-size:15px;color:var(--mut)}
+.protegido-rot{font-weight:650;color:var(--tinta)}
+.protegido.cheio{background:#e6f2ea;color:#1f6b45} .protegido.cheio #protegido-txt{font-weight:650}
 .feito-linha{display:flex;align-items:center;gap:12px;font-size:15px;color:#1f6b45;font-weight:600;animation:sobe 300ms var(--ease) both}
 .desfazer{background:none;border:0;padding:8px 10px;border-radius:10px;color:var(--tinta);font-weight:650;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 @media (hover:hover){.desfazer:hover{background:rgba(0,0,0,.05)}}

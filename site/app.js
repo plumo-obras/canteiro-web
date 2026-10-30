@@ -1,10 +1,13 @@
 /* Plumo · landing. Sem framework: o mapa-colcha, as demos e o formulário da lista de espera. */
 (() => {
-  // ?estatico desliga o movimento: é como a página é capturada nas revisões de design
-  const movimento = !matchMedia('(prefers-reduced-motion: reduce)').matches && !new URLSearchParams(location.search).has('estatico');
+  // ?static desliga o movimento: é como a página é capturada nas revisões de design
+  const movimento = !matchMedia('(prefers-reduced-motion: reduce)').matches && !new URLSearchParams(location.search).has('static');
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const espera = ms => new Promise(r => setTimeout(r, ms));
+  // os textos do idioma da página vêm num JSON que o gerar.py escreve em cada versão
+  const T = JSON.parse(document.getElementById('textos').textContent);
+  const moeda = v => v.toLocaleString(T.locale, { style: 'currency', currency: T.moeda });
 
   // A API dorme no plano gratuito (~50 s para acordar). Acordamos ao abrir a página, para que o e-mail digitado
   // não espere a partida a frio.
@@ -109,7 +112,7 @@
   function troca() {
     const t = $('#troca');
     if (!t || !movimento) return;
-    const palavras = ['confere', 'prevê', 'cota', 'propõe', 'avisa'];
+    const palavras = T.palavras;
     let i = 0;
     setInterval(async () => {
       i = (i + 1) % palavras.length;
@@ -180,7 +183,7 @@
       b.setAttribute('aria-pressed', String(ligado));
       fig.classList.toggle('costurado', ligado);
       prop.hidden = !ligado;
-      b.textContent = ligado ? 'Descosturar' : 'Costurar as duas obras';
+      b.textContent = ligado ? T.descosturar : T.costurar;
     });
   }
 
@@ -194,9 +197,20 @@
     }, .4);
   }
 
-  // o briefing: aprovar e desfazer no lugar, sem a lista pular
+  // o briefing: aprovar e desfazer no lugar, sem a lista pular; o rodapé soma o que deixou de escapar nesta manhã
   function briefing() {
-    const hora = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const hora = () => new Date().toLocaleTimeString(T.locale, { hour: '2-digit', minute: '2-digit' });
+    const caixa = $('#protegido'), txt = $('#protegido-txt');
+    const somar = () => {
+      const feitas = $$('#decisoes .decisao.feita');
+      const valor = feitas.reduce((s, li) => s + Number(li.dataset.protege || 0), 0);
+      const partes = [];
+      if (valor) partes.push(T.prot_valor.replace('{v}', moeda(valor)));
+      if (feitas.some(li => li.dataset.equipe)) partes.push(T.prot_equipe);
+      txt.textContent = partes.length ? partes.join(' · ') : T.prot_vazio;
+      caixa.classList.toggle('cheio', partes.length > 0);
+      if (partes.length && movimento) caixa.animate([{ transform: 'scale(1.015)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.23,1,.32,1)' });
+    };
     $('#decisoes')?.addEventListener('click', e => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -205,7 +219,7 @@
         li._botao = b;
         const f = document.createElement('div');
         f.className = 'feito-linha';
-        f.innerHTML = `<span>Aprovado ${hora()} por você</span><button class="desfazer" type="button" data-acao="desfazer">Desfazer</button>`;
+        f.innerHTML = `<span>${T.aprovado.replace('{h}', hora())}</span><button class="desfazer" type="button" data-acao="desfazer">${T.desfazer}</button>`;
         b.replaceWith(f);
         li.classList.add('feita');
         f.querySelector('button').focus();
@@ -215,6 +229,7 @@
         li.classList.remove('feita');
         li._botao.focus();
       }
+      somar();
     });
   }
 
@@ -282,16 +297,7 @@
     addEventListener('resize', desenhar, { passive: true });
     document.fonts?.ready.then(desenhar);
 
-    const roteiro = [
-      ['almox', 'Lendo o almoxarifado do Aroeira', 'cimento CP-II 50 kg: <b>saldo 38 sc</b>'],
-      ['pedidos', 'Conferindo pedidos e notas em aberto', 'PED-0162: <b>40 sc a caminho</b>, entrega terça'],
-      ['crono', 'Olhando o cronograma', 'laje do 3º concreta sexta: <b>precisa 120 sc</b>'],
-      ['regras', 'Pedindo a conta às regras', '120 − 38 − 40 = <b>falta 42 sc</b>'],
-      ['obras', 'Procurando sobra nas outras obras', 'Ipê e Jatobá: <b>sem CP-II sobrando</b>'],
-      ['web', 'Pesquisando fornecedores na internet', '<b>3 cotações</b>: R$ 38,90 · R$ 40,20 · R$ 41,50'],
-      ['sinapi', 'Comparando com o SINAPI', 'referência R$ 39,40: <b>melhor preço está abaixo</b>'],
-      ['proposta', 'Proposta pronta: 42 sc por R$ 1.633,80', 'entrega quarta · <b>esperando o seu OK</b>'],
-    ];
+    const roteiro = T.roteiro;
     const item = ([, passo, res], fim) => {
       const li = document.createElement('li');
       if (fim) li.className = 'fim';
@@ -300,14 +306,14 @@
     };
     if (!movimento) {
       roteiro.forEach((r, i) => { log.appendChild(item(r, i === roteiro.length - 1)); pecas[r[0]].classList.add('lida'); });
-      estado.textContent = 'proposta pronta · Residencial Aroeira';
+      estado.textContent = T.estado_pronto;
       return;
     }
     let rodando = false;
     const rodar = async () => {
       if (rodando) return; rodando = true;
       while (true) {
-        log.innerHTML = ''; estado.textContent = 'trabalhando · Residencial Aroeira';
+        log.innerHTML = ''; estado.textContent = T.estado_trab;
         Object.values(pecas).forEach(p => p.classList.remove('ativa', 'lida'));
         for (const [i, r] of roteiro.entries()) {
           const p = pecas[r[0]];
@@ -317,17 +323,32 @@
           await espera(900);
           p.classList.remove('ativa'); p.classList.add('lida'); linhas[r[0]]?.classList.remove('ativo');
         }
-        estado.textContent = 'proposta pronta · esperando você';
+        estado.textContent = T.estado_pronto;
         await espera(5200);
       }
     };
     aoVer(palco, rodar, .3);
   }
 
+  // o seletor de idioma: abre e fecha como menu, e a escolha fica guardada para a próxima visita à raiz
+  function idioma() {
+    const b = $('.idioma-btn'), m = $('#idiomas');
+    if (!b) return;
+    const abrir = sim => { m.hidden = !sim; b.setAttribute('aria-expanded', String(sim)); };
+    b.addEventListener('click', () => abrir(m.hidden));
+    document.addEventListener('click', e => { if (!e.target.closest('.idioma')) abrir(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !m.hidden) { abrir(false); b.focus(); } });
+    $$('a[data-idioma]', m).forEach(a => a.addEventListener('click', () => {
+      try { localStorage.setItem('plumo.idioma', a.dataset.idioma); } catch {}
+    }));
+  }
+
   /* ---------------- lista de espera ---------------- */
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   function formularios() {
-    const origem = new URLSearchParams(location.search).get('utm_source')?.slice(0, 80) || undefined;
+    // a origem leva o idioma da página: dá para saber de onde vem a procura sem perguntar
+    const utm = new URLSearchParams(location.search).get('utm_source');
+    const origem = ((utm ? utm + '·' : '') + 'lp-' + document.documentElement.lang).slice(0, 80);
     $$('form[data-form]').forEach(form => form.addEventListener('submit', async e => {
       e.preventDefault();
       const msg = $('.form-msg', form), btn = $('button[type=submit]', form), email = form.email;
@@ -339,13 +360,13 @@
       msg.className = 'form-msg';
       if (!EMAIL.test(corpo.email)) {
         email.setAttribute('aria-invalid', 'true');
-        msg.classList.add('erro'); msg.textContent = 'Confira o e-mail: falta o @ ou o domínio.';
+        msg.classList.add('erro'); msg.textContent = T.email_invalido;
         email.focus();
         return;
       }
       email.removeAttribute('aria-invalid');
       btn.setAttribute('aria-busy', 'true');
-      const lenta = setTimeout(() => { msg.textContent = 'Acordando o servidor, só um instante…'; }, 2500);
+      const lenta = setTimeout(() => { msg.textContent = T.acordando; }, 2500);
       try {
         const ctl = new AbortController();
         const limite = setTimeout(() => ctl.abort(), 70000);
@@ -354,19 +375,19 @@
         const j = await r.json().catch(() => ({}));
         if (r.ok) {
           msg.classList.add('ok');
-          msg.textContent = j.ja_estava ? 'Você já estava na lista. A gente avisa quando chegar a sua vez.' : 'Pronto, você está na lista. A gente avisa por e-mail.';
+          msg.textContent = j.ja_estava ? T.ok_ja : T.ok_novo;
           form.classList.add('feito');
           if (form.dataset.form === 'rapida') {
             // leva o e-mail para a ficha completa, para quem quiser contar mais
             const f = $('#f-email'); if (f && !f.value) f.value = corpo.email;
           }
         } else if (r.status === 429) {
-          msg.classList.add('erro'); msg.textContent = 'Muitas tentativas desta rede. Espere alguns minutos e tente de novo.';
+          msg.classList.add('erro'); msg.textContent = T.erro_429;
         } else if (r.status === 422) {
-          msg.classList.add('erro'); msg.textContent = 'Algum campo não passou. Confira o e-mail e o número de obras.';
+          msg.classList.add('erro'); msg.textContent = T.erro_422;
         } else throw new Error(String(r.status));
       } catch {
-        msg.classList.add('erro'); msg.textContent = 'Não conseguimos falar com o servidor. Tente de novo em instantes.';
+        msg.classList.add('erro'); msg.textContent = T.erro_rede;
       } finally {
         clearTimeout(lenta);
         btn.removeAttribute('aria-busy');
@@ -374,5 +395,5 @@
     }));
   }
 
-  colcha(); colchaFundo(); troca(); bilhete(); revelar(); eixo(); costura(); porTras(); conversa(); briefing(); ciclo(); nav(); formularios();
+  colcha(); colchaFundo(); troca(); bilhete(); revelar(); eixo(); costura(); porTras(); conversa(); briefing(); ciclo(); nav(); idioma(); formularios();
 })();

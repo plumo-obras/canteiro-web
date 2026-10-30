@@ -1,0 +1,280 @@
+<!doctype html>
+<!-- GERADO A PARTIR DE apps/site/modelo.html + i18n/{{codigo}}.json. Não edite o index.html: rode python3 apps/site/gerar.py -->
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{{titulo}}</title>
+<meta name="description" content="{{meta_desc}}">
+<meta name="theme-color" content="#0f1a2e">
+<meta property="og:title" content="{{titulo}}">
+<meta property="og:description" content="{{og_desc}}">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="{{og_locale}}">
+<link rel="canonical" href="https://plumo-site.vercel.app{{caminho}}">
+<link rel="alternate" hreflang="pt-BR" href="https://plumo-site.vercel.app/">
+<link rel="alternate" hreflang="es" href="https://plumo-site.vercel.app/es/">
+<link rel="alternate" hreflang="en" href="https://plumo-site.vercel.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://plumo-site.vercel.app/">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&family=Nunito:wght@800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>{{redireciona}}document.documentElement.classList.add('js')</script>
+</head>
+<body>
+
+<a class="pular" href="#waitlist">{{pular}}</a>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="{{nav_aria}}">
+    <a class="nav-marca" href="#top" aria-label="{{marca_aria}}">
+      {{logo}}
+      Plumo
+    </a>
+    <div class="nav-links">
+      <a href="#how-it-works">{{nav_como}}</a>
+      <a href="#on-site">{{nav_canteiro}}</a>
+      <a href="#morning">{{nav_manha}}</a>
+    </div>
+    <div class="idioma">
+      <button class="idioma-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="idiomas" aria-label="{{idioma_aria}}">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        <span>{{codigo_curto}}</span>
+      </button>
+      <ul class="idioma-menu" id="idiomas" hidden>
+        <li><a href="/" lang="pt-BR" hreflang="pt-BR" data-idioma="pt"{{atual_pt}}>Português</a></li>
+        <li><a href="/es/" lang="es" hreflang="es" data-idioma="es"{{atual_es}}>Español</a></li>
+        <li><a href="/en/" lang="en" hreflang="en" data-idioma="en"{{atual_en}}>English</a></li>
+      </ul>
+    </div>
+    <a class="btn btn-ocre btn-p" href="#waitlist">{{cta_nav}}</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ================= noite: o mapa-colcha ================= -->
+  <section class="hero" aria-labelledby="h-hero">
+    <svg class="colcha" id="colcha" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+    <div class="hero-in">
+      <div class="hero-txt">
+        <h1 id="h-hero">{{h1_antes}}<span class="troca" id="troca" aria-live="off">{{h1_palavra}}</span>.</h1>
+        <p class="lead">{{hero_lead}}</p>
+        <form class="inscricao" data-form="rapida" novalidate>
+          <label class="sr-only" for="email-hero">{{email_label}}</label>
+          <input id="email-hero" name="email" type="email" inputmode="email" autocomplete="email" placeholder="{{email_ph}}" required>
+          <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-ocre" type="submit"><span>{{cta_nav}}</span></button>
+          <p class="form-msg" role="status" aria-live="polite"></p>
+        </form>
+        <p class="nota-pe">{{nota_pe}}</p>
+      </div>
+
+      <aside class="bilhete" aria-label="{{bilhete_aria}}">
+        <div class="bilhete-topo"><span class="clima clima-falta" aria-hidden="true"></span>Residencial Aroeira<span class="sp"></span><span class="mut">23:40</span></div>
+        <ol class="linhas" id="linhas-hero">
+          <li>{{b1}}</li>
+          <li class="conta"><span>{{b_precisa}}</span><span>{{b_saldo}}</span><span>{{b_caminho}}</span><b>{{b_falta}}</b></li>
+          <li>{{b3}}</li>
+          <li class="acao">{{b4}}</li>
+          <li class="espera"><span class="pulso" aria-hidden="true"></span>{{b5}}</li>
+        </ol>
+        <p class="fonte">{{b_fonte}}</p>
+      </aside>
+    </div>
+    <p class="ficticio">{{ficticio}}</p>
+  </section>
+
+  <!-- ================= madrugada: o eixo que acorda ================= -->
+  <section class="sec noite" id="overnight" aria-labelledby="h-mad">
+    <div class="sec-in">
+      <h2 id="h-mad">{{mad_h2}}</h2>
+      <p class="sec-lead">{{mad_lead}}</p>
+      <ol class="eixo" id="eixo">
+        <li><span class="eixo-h">02:10</span><h3>{{e1_h}}</h3><p>{{e1_p}}</p></li>
+        <li><span class="eixo-h">02:14</span><h3>{{e2_h}}</h3><p>{{e2_p}}</p></li>
+        <li><span class="eixo-h">02:31</span><h3>{{e3_h}}</h3><p>{{e3_p}}</p></li>
+        <li><span class="eixo-h">02:32</span><h3>{{e4_h}}</h3><p>{{e4_p}}</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ================= por trás: o agente no meio da obra ================= -->
+  <section class="sec noite" id="how-it-works" aria-labelledby="h-tras">
+    <div class="sec-in">
+      <h2 id="h-tras">{{tras_h2}}</h2>
+      <p class="sec-lead">{{tras_lead}}</p>
+      <div class="palco" id="palco" aria-label="{{palco_aria}}">
+        <svg class="fios" id="fios" aria-hidden="true"></svg>
+        <div class="lado">
+        <div class="peca" data-peca="almox"><b>{{p_almox}}</b><span>{{p_almox_s}}</span><em>{{p_almox_e}}</em></div>
+        <div class="peca" data-peca="pedidos"><b>{{p_ped}}</b><span>{{p_ped_s}}</span><em>{{p_ped_e}}</em></div>
+        <div class="peca" data-peca="obras"><b>{{p_obras}}</b><span>{{p_obras_s}}</span><em>{{p_obras_e}}</em></div>
+        </div>
+        <div class="centro">
+        <div class="peca" data-peca="regras"><b>{{p_regras}}</b><span>{{p_regras_s}}</span><em>120 − 38 − 40 = 42</em></div>
+        <div class="agente">
+          <div class="agente-topo">{{logo_pq}}<div><b>{{agente_nome}}</b><span id="agente-estado">{{estado_trab}}</span></div></div>
+          <ol class="log" id="log" aria-live="off"></ol>
+        </div>
+        <div class="peca" data-peca="proposta"><b>{{p_prop}}</b><span>{{p_prop_s}}</span><em>{{p_prop_e}}</em></div>
+        </div>
+        <div class="lado">
+        <div class="peca" data-peca="web"><b>{{p_web}}</b><span>{{p_web_s}}</span><em>{{p_web_e}}</em></div>
+        <div class="peca" data-peca="sinapi"><b>{{p_ref}}</b><span>{{p_ref_s}}</span><em>{{p_ref_e}}</em></div>
+        <div class="peca" data-peca="crono"><b>{{p_crono}}</b><span>{{p_crono_s}}</span><em>{{p_crono_e}}</em></div>
+        </div>
+      </div>
+      <p class="ficticio-sec">{{ficticio_tras}}</p>
+    </div>
+  </section>
+
+  <!-- ================= entre obras: costurar duas ================= -->
+  <section class="sec noite" id="between-sites" aria-labelledby="h-costura">
+    <div class="sec-in dois">
+      <div>
+        <h2 id="h-costura">{{cost_h2}}</h2>
+        <p class="sec-lead">{{cost_lead}}</p>
+        <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false">{{costurar}}</button>
+      </div>
+      <figure class="costura" aria-label="{{cost_aria}}">
+        <svg viewBox="112 92 352 190" id="mapa-costura" role="img" aria-labelledby="t-costura">
+          <title id="t-costura">{{cost_title}}</title>
+          <path class="obra-c sobra" d="M128 112 L300 118 L294 258 L140 270Z"/>
+          <path class="obra-c falta" d="M300 118 L440 104 L452 262 L294 258Z"/>
+          <path d="M128 112 L300 118 L294 258 L140 270Z" fill="url(#caiA)"/>
+          <path d="M300 118 L440 104 L452 262 L294 258Z" fill="url(#caiB)"/>
+          <path id="seam-ipe" d="M146 136 L294 140" fill="none"/><path id="seam-jat" d="M308 138 L430 126" fill="none"/>
+          <text class="rotulo-obra"><textPath href="#seam-ipe" startOffset="8">GALPÃO IPÊ</textPath></text>
+          <text class="rotulo-obra"><textPath href="#seam-jat" startOffset="6">CASA JATOBÁ</textPath></text>
+          <text class="rotulo-qtd" x="164" y="200">{{c_sobra}}</text><text class="rotulo-qtd" x="164" y="222">{{c_barras}}</text>
+          <text class="rotulo-qtd" x="312" y="200">{{c_falta}}</text><text class="rotulo-qtd" x="312" y="222">{{c_barras}}</text>
+          <path class="linha-costura" id="linha-costura" d="M297 120 l-8 14 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-8 14"/>
+        </svg>
+        <figcaption class="proposta" id="proposta-costura" hidden>
+          <b>{{c_prop_b}}</b><span>{{c_prop_s}}</span>
+          <span class="mut">{{c_prop_m}}</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= aurora: o canteiro fala pelo WhatsApp ================= -->
+  <section class="sec aurora" id="on-site" aria-labelledby="h-canteiro">
+    <div class="sec-in dois">
+      <div>
+        <h2 id="h-canteiro">{{cant_h2}}</h2>
+        <p class="sec-lead">{{cant_lead1}}</p>
+        <p class="sec-lead">{{cant_lead2}}</p>
+      </div>
+      <div class="fone" aria-label="{{fone_aria}}">
+        <div class="fone-topo">{{logo_pq}}<div><b>Plumo</b><span>Residencial Aroeira</span></div></div>
+        <ol class="msgs" id="msgs">
+          <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">{{audio_sr}}</span> {{m1}} <time>06:41</time></li>
+          <li class="msg ele foto"><span class="nf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>{{m2}} <time>06:41</time></li>
+          <li class="msg eu">{{m3}} <time>06:42</time></li>
+          <li class="msg eu">{{m4}} <time>06:42</time><span class="opcoes"><span>{{m4_sim}}</span><span>{{m4_nao}}</span></span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= manhã: o briefing ================= -->
+  <section class="sec manha" id="morning" aria-labelledby="h-manha">
+    <div class="sec-in">
+      <h2 id="h-manha">{{manha_h2}}</h2>
+      <p class="sec-lead">{{manha_lead}}</p>
+      <div class="briefing" aria-label="{{brief_aria}}">
+        <div class="briefing-topo"><b>{{brief_topo}}</b><span class="mut">{{brief_mut}}</span></div>
+        <ul id="decisoes">
+          <li class="decisao" data-protege="0" data-equipe="1">
+            <span class="prazo urg">{{d1_prazo}}</span>
+            <div class="dec-txt"><b>{{d1_b}}</b><span>{{d1_s}}</span></div>
+            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">{{d1_btn}}</button>
+          </li>
+          <li class="decisao" data-protege="1140">
+            <span class="prazo">{{d2_prazo}}</span>
+            <div class="dec-txt"><b>{{d2_b}}</b><span>{{d2_s}}</span></div>
+            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">{{d2_btn}}</button>
+          </li>
+          <li class="decisao" data-protege="194.5">
+            <span class="prazo">{{d3_prazo}}</span>
+            <div class="dec-txt"><b>{{d3_b}}</b><span>{{d3_s}}</span></div>
+            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">{{d3_btn}}</button>
+          </li>
+        </ul>
+        <div class="protegido" id="protegido" aria-live="polite"><span class="protegido-rot">{{prot_rot}}</span><span id="protegido-txt">{{prot_vazio}}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= o ciclo ================= -->
+  <section class="sec manha" aria-labelledby="h-ciclo">
+    <div class="sec-in">
+      <h2 id="h-ciclo">{{ciclo_h2}}</h2>
+      <p class="sec-lead">{{ciclo_lead}}</p>
+      <ol class="ciclo" id="ciclo">
+        <li><b>{{ci1}}</b><span>{{ci1_s}}</span></li>
+        <li><b>{{ci2}}</b><span>{{ci2_s}}</span></li>
+        <li><b>{{ci3}}</b><span>{{ci3_s}}</span></li>
+        <li><b>{{ci4}}</b><span>{{ci4_s}}</span></li>
+        <li><b>{{ci5}}</b><span>{{ci5_s}}</span></li>
+        <li><b>{{ci6}}</b><span>{{ci6_s}}</span></li>
+        <li><b>{{ci7}}</b><span>{{ci7_s}}</span></li>
+      </ol>
+      <ul class="promessas">
+        <li><b>{{pr1_b}}</b> {{pr1}}</li>
+        <li><b>{{pr2_b}}</b> {{pr2}}</li>
+        <li><b>{{pr3_b}}</b> {{pr3}}</li>
+        <li><b>{{pr4_b}}</b> {{pr4}}</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= lista de espera ================= -->
+  <section class="sec manha lista" id="waitlist" aria-labelledby="h-lista">
+    <div class="sec-in dois">
+      <div>
+        <h2 id="h-lista">{{lista_h2}}</h2>
+        <p class="sec-lead">{{lista_lead}}</p>
+        <details class="faq"><summary>{{f1_q}}</summary><p>{{f1_a}}</p></details>
+        <details class="faq"><summary>{{f2_q}}</summary><p>{{f2_a}}</p></details>
+        <details class="faq"><summary>{{f3_q}}</summary><p>{{f3_a}}</p></details>
+        <details class="faq"><summary>{{f4_q}}</summary><p>{{f4_a}}</p></details>
+        <details class="faq"><summary>{{f5_q}}</summary><p>{{f5_a}}</p></details>
+      </div>
+      <form class="ficha" data-form="completa" novalidate>
+        <div class="campo"><label for="f-email">{{email_label}}</label><input id="f-email" name="email" type="email" inputmode="email" autocomplete="email" required placeholder="{{email_ph}}"></div>
+        <div class="campo"><label for="f-nome">{{f_nome}}</label><input id="f-nome" name="nome" autocomplete="name" maxlength="120"></div>
+        <div class="campo"><label for="f-empresa">{{f_empresa}}</label><input id="f-empresa" name="empresa" autocomplete="organization" maxlength="120"></div>
+        <fieldset class="campo papel">
+          <legend>{{f_papel}}</legend>
+          <label><input type="radio" name="papel" value="engenheiro"><span>{{r_eng}}</span></label>
+          <label><input type="radio" name="papel" value="mestre"><span>{{r_mestre}}</span></label>
+          <label><input type="radio" name="papel" value="dono"><span>{{r_dono}}</span></label>
+          <label><input type="radio" name="papel" value="comprador"><span>{{r_compras}}</span></label>
+          <label><input type="radio" name="papel" value="outro"><span>{{r_outro}}</span></label>
+        </fieldset>
+        <div class="campo"><label for="f-obras">{{f_obras}}</label><input id="f-obras" name="obras_ativas" type="number" inputmode="numeric" min="0" max="999" placeholder="{{f_obras_ph}}"></div>
+        <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-ocre btn-g" type="submit"><span>{{cta_ficha}}</span></button>
+        <p class="form-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="sec-in rodape-in">
+    <a class="nav-marca" href="#top">{{logo}}Plumo</a>
+    <p>{{rodape}}</p>
+    <p class="mut">{{rodape_mut}}</p>
+  </div>
+</footer>
+
+<script id="textos" type="application/json">{{js}}</script>
+<script src="/app.js" defer></script>
+</body>
+</html>

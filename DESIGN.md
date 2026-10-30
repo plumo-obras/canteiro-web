@@ -137,7 +137,7 @@ components:
 
 # Design System: Plumo
 
-Este documento descreve o mundo visual da **landing do Plumo** (`apps/site/`: `index.html`, `estilo.css`, `app.js`, `marca.svg`). Plumo é o nome de divulgação do produto que o PRODUCT.md ainda chama de Canteiro. Os tokens acima foram extraídos de `apps/site/estilo.css`; quando o CSS e este texto divergirem, o CSS vence e este arquivo deve ser corrigido.
+Este documento descreve o mundo visual da **landing do Plumo** (`apps/site/`: `modelo.html` + `i18n/*.json` → `gerar.py` → `index.html`, `es/`, `en/`; `styles.css`, `app.js`, `logo.svg`). Plumo é o nome de divulgação do produto que o PRODUCT.md ainda chama de Canteiro. Os tokens acima foram extraídos de `apps/site/styles.css`; quando o CSS e este texto divergirem, o CSS vence e este arquivo deve ser corrigido.
 
 ## Overview
 
@@ -233,7 +233,7 @@ Tudo é macio e arredondado, como tecido. Ação e entrada são pílulas (999px)
 
 A costura é a forma assinatura: tracejado claro em `stroke-dasharray` 6 5 (colcha) ou 7 6 (retalhos maiores), e nas superfícies um `outline` tracejado de 1px com `outline-offset` negativo (−6px na navbar, −8px no bilhete, −10px na ficha), desenhando uma linha de costura por dentro da borda. Separadores e fios de tempo são bordas tracejadas de 1 a 1.5px.
 
-A marca (`marca.svg`) é um quadrado ouro de canto 16/64, com um P em azul-noite: a barriga em traço grosso e a haste fina como o fio de um prumo, terminando no peso. O nome Plumo carrega a mesma raiz em português (prumo), espanhol (plomo, plomada) e inglês (plumb).
+A marca (`logo.svg`) é um quadrado ouro de canto 16/64, com um P em azul-noite: a barriga em traço grosso e a haste fina como o fio de um prumo, terminando no peso. O nome Plumo carrega a mesma raiz em português (prumo), espanhol (plomo, plomada) e inglês (plumb).
 
 ## Components
 

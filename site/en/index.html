@@ -1,0 +1,280 @@
+<!doctype html>
+<!-- GERADO A PARTIR DE apps/site/modelo.html + i18n/en.json. Não edite o index.html: rode python3 apps/site/gerar.py -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Plumo · keep every site plumb</title>
+<meta name="description" content="Inventory, orders, invoices and schedule for all your job sites in one place, with an agent that checks everything overnight, sees shortages coming, gets quotes and waits for your OK. Join the waitlist.">
+<meta name="theme-color" content="#0f1a2e">
+<meta property="og:title" content="Plumo · keep every site plumb">
+<meta property="og:description" content="While the site sleeps, Plumo checks. Join the waitlist.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<link rel="canonical" href="https://plumo-site.vercel.app/en/">
+<link rel="alternate" hreflang="pt-BR" href="https://plumo-site.vercel.app/">
+<link rel="alternate" hreflang="es" href="https://plumo-site.vercel.app/es/">
+<link rel="alternate" hreflang="en" href="https://plumo-site.vercel.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://plumo-site.vercel.app/">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&family=Nunito:wght@800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+
+<a class="pular" href="#waitlist">Skip to the waitlist</a>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Main">
+    <a class="nav-marca" href="#top" aria-label="Plumo, home">
+      <svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      Plumo
+    </a>
+    <div class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#on-site">On site</a>
+      <a href="#morning">Mornings</a>
+    </div>
+    <div class="idioma">
+      <button class="idioma-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="idiomas" aria-label="Language: English">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        <span>EN</span>
+      </button>
+      <ul class="idioma-menu" id="idiomas" hidden>
+        <li><a href="/" lang="pt-BR" hreflang="pt-BR" data-idioma="pt">Português</a></li>
+        <li><a href="/es/" lang="es" hreflang="es" data-idioma="es">Español</a></li>
+        <li><a href="/en/" lang="en" hreflang="en" data-idioma="en" aria-current="page">English</a></li>
+      </ul>
+    </div>
+    <a class="btn btn-ocre btn-p" href="#waitlist">Join the waitlist</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ================= noite: o mapa-colcha ================= -->
+  <section class="hero" aria-labelledby="h-hero">
+    <svg class="colcha" id="colcha" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+    <div class="hero-in">
+      <div class="hero-txt">
+        <h1 id="h-hero">While the site sleeps, Plumo&nbsp;<span class="troca" id="troca" aria-live="off">checks</span>.</h1>
+        <p class="lead">Inventory, orders, invoices and schedule for every job site in one place, with an advisor that lets nothing slip. It sees a shortage coming before the crew stops, catches the double order and the material that walks off, and waits for your OK in the morning.</p>
+        <form class="inscricao" data-form="rapida" novalidate>
+          <label class="sr-only" for="email-hero">Your work email</label>
+          <input id="email-hero" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@builder.com" required>
+          <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-ocre" type="submit"><span>Join the waitlist</span></button>
+          <p class="form-msg" role="status" aria-live="polite"></p>
+        </form>
+        <p class="nota-pe">Free to join. We'll email you when a spot opens.</p>
+      </div>
+
+      <aside class="bilhete" aria-label="Example of what the agent writes overnight">
+        <div class="bilhete-topo"><span class="clima clima-falta" aria-hidden="true"></span>Residencial Aroeira<span class="sp"></span><span class="mut">23:40</span></div>
+        <ol class="linhas" id="linhas-hero">
+          <li>Portland cement, 50 kg bags, 3rd-floor slab</li>
+          <li class="conta"><span>needs 120</span><span>− on hand 38</span><span>− on the way 40</span><b>= short 42 bags</b></li>
+          <li>Runs out Thursday at 2 pm. The pour is Friday: without it, the crew stops.</li>
+          <li class="acao">Got quotes from 3 suppliers. The best delivers Wednesday, $38.90 a bag.</li>
+          <li class="espera"><span class="pulso" aria-hidden="true"></span>Waiting for your OK in the morning.</li>
+        </ol>
+        <p class="fonte">source: storeroom 11:12 pm · order PO-0162 · schedule</p>
+      </aside>
+    </div>
+    <p class="ficticio">Illustrative example, with made-up sites and numbers.</p>
+  </section>
+
+  <!-- ================= madrugada: o eixo que acorda ================= -->
+  <section class="sec noite" id="overnight" aria-labelledby="h-mad">
+    <div class="sec-in">
+      <h2 id="h-mad">Overnight, one sum at a time.</h2>
+      <p class="sec-lead">Today the job lives scattered across spreadsheets, WhatsApp groups and somebody's head, and money slips through the cracks in between. Plumo pulls it together and checks it every night, showing where each number came from.</p>
+      <ol class="eixo" id="eixo">
+        <li><span class="eixo-h">02:10</span><h3>Sees the shortage</h3><p>Compares what each work front needs with what's in the storeroom and what's already on the way, before the crew is left standing.</p></li>
+        <li><span class="eixo-h">02:14</span><h3>Looks before it buys</h3><p>If another site has leftovers of the same material, a transfer comes first. Buying is the last resort.</p></li>
+        <li><span class="eixo-h">02:31</span><h3>Gets quotes and compares</h3><p>Asks your suppliers for prices, compares them with your last purchase and with reference costs, and picks the best offer.</p></li>
+        <li><span class="eixo-h">02:32</span><h3>Stops and waits for you</h3><p>Nothing is bought, paid or rescheduled without a person's OK. And anything approved can be undone.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ================= por trás: o agente no meio da obra ================= -->
+  <section class="sec noite" id="how-it-works" aria-labelledby="h-tras">
+    <div class="sec-in">
+      <h2 id="h-tras">Behind the scenes, the agent stitches together everything the job already has.</h2>
+      <p class="sec-lead">Storeroom, orders, invoices, schedule, quotes: what lives in five places today ends up in one. The agent cross-checks it all, looks up prices online, asks the rules for the math and hands you a ready proposal. Every thread is a real lookup.</p>
+      <div class="palco" id="palco" aria-label="Animated example: the agent checking the job's sources to put together a proposal">
+        <svg class="fios" id="fios" aria-hidden="true"></svg>
+        <div class="lado">
+        <div class="peca" data-peca="almox"><b>Site storeroom</b><span>stock by work front</span><em>Portland · 38 bags</em></div>
+        <div class="peca" data-peca="pedidos"><b>Orders and invoices</b><span>what's already on the way</span><em>PO-0162 · 40 bags</em></div>
+        <div class="peca" data-peca="obras"><b>Other sites</b><span>leftovers that can be moved</span><em>Ipê and Jatobá · no cement</em></div>
+        </div>
+        <div class="centro">
+        <div class="peca" data-peca="regras"><b>Plumo rules</b><span>the system does the math, not the AI</span><em>120 − 38 − 40 = 42</em></div>
+        <div class="agente">
+          <div class="agente-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg><div><b>Plumo agent</b><span id="agente-estado">working · Residencial Aroeira</span></div></div>
+          <ol class="log" id="log" aria-live="off"></ol>
+        </div>
+        <div class="peca" data-peca="proposta"><b>Proposal for you</b><span>nothing is bought without your OK</span><em>42 bags · $1,633.80</em></div>
+        </div>
+        <div class="lado">
+        <div class="peca" data-peca="web"><b>Web · suppliers</b><span>price and lead time near you</span><em>3 quotes</em></div>
+        <div class="peca" data-peca="sinapi"><b>Reference costs</b><span>market price for the material</span><em>$39.40 a bag</em></div>
+        <div class="peca" data-peca="crono"><b>Schedule</b><span>when each front needs it</span><em>3rd-floor slab · Friday</em></div>
+        </div>
+      </div>
+      <p class="ficticio-sec">Illustrative example, with made-up sites, prices and suppliers.</p>
+    </div>
+  </section>
+
+  <!-- ================= entre obras: costurar duas ================= -->
+  <section class="sec noite" id="between-sites" aria-labelledby="h-costura">
+    <div class="sec-in dois">
+      <div>
+        <h2 id="h-costura">One site's leftovers are another site's shortage.</h2>
+        <p class="sec-lead">Rebar, cement and block forgotten in a corner of one site turn into a double order at the next: idle money nobody sees, because nobody looks at both at once. Plumo does, and stitches the transfer together.</p>
+        <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false">Stitch the two sites</button>
+      </div>
+      <figure class="costura" aria-label="Example: moving rebar between two sites">
+        <svg viewBox="112 92 352 190" id="mapa-costura" role="img" aria-labelledby="t-costura">
+          <title id="t-costura">Galpão Ipê has 12 spare 10 mm rebars and Casa Jatobá needs 12. The agent stitches the transfer along the seam between them.</title>
+          <path class="obra-c sobra" d="M128 112 L300 118 L294 258 L140 270Z"/>
+          <path class="obra-c falta" d="M300 118 L440 104 L452 262 L294 258Z"/>
+          <path d="M128 112 L300 118 L294 258 L140 270Z" fill="url(#caiA)"/>
+          <path d="M300 118 L440 104 L452 262 L294 258Z" fill="url(#caiB)"/>
+          <path id="seam-ipe" d="M146 136 L294 140" fill="none"/><path id="seam-jat" d="M308 138 L430 126" fill="none"/>
+          <text class="rotulo-obra"><textPath href="#seam-ipe" startOffset="8">GALPÃO IPÊ</textPath></text>
+          <text class="rotulo-obra"><textPath href="#seam-jat" startOffset="6">CASA JATOBÁ</textPath></text>
+          <text class="rotulo-qtd" x="164" y="200">12 spare</text><text class="rotulo-qtd" x="164" y="222">10 mm rebar</text>
+          <text class="rotulo-qtd" x="312" y="200">12 short</text><text class="rotulo-qtd" x="312" y="222">10 mm rebar</text>
+          <path class="linha-costura" id="linha-costura" d="M297 120 l-8 14 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-8 14"/>
+        </svg>
+        <figcaption class="proposta" id="proposta-costura" hidden>
+          <b>Move 12 lengths of 10 mm rebar</b><span>Galpão Ipê → Casa Jatobá · saves a $1,140 purchase</span>
+          <span class="mut">TRF-0005 · awaiting approval</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= aurora: o canteiro fala pelo WhatsApp ================= -->
+  <section class="sec aurora" id="on-site" aria-labelledby="h-canteiro">
+    <div class="sec-in dois">
+      <div>
+        <h2 id="h-canteiro">Foremen don't open apps. They send voice notes.</h2>
+        <p class="sec-lead">The site talks to Plumo over the WhatsApp it already uses: voice notes, a photo of the invoice, a photo of the pallet. The agent turns that into records, checks it against the order and only asks what it has to.</p>
+        <p class="sec-lead">Nobody fills in forms with mortar on their hands, and a short delivery gets caught the same day, not at month-end.</p>
+      </div>
+      <div class="fone" aria-label="Example WhatsApp chat between the foreman and Plumo">
+        <div class="fone-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg><div><b>Plumo</b><span>Residencial Aroeira</span></div></div>
+        <ol class="msgs" id="msgs">
+          <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">Voice note:</span> "Cement's here. I think we came up a few bags short." <time>06:41</time></li>
+          <li class="msg ele foto"><span class="nf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Photo of the invoice <time>06:41</time></li>
+          <li class="msg eu">Checked invoice 4512 line by line against PO-0162: <b>35 of 40 bags</b> arrived. Logged 35 in the storeroom. <time>06:42</time></li>
+          <li class="msg eu">Should I open a claim with the supplier and hold <b>$194.50</b> of the payment until the other 5 arrive? <time>06:42</time><span class="opcoes"><span>Yes, open it</span><span>Later</span></span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= manhã: o briefing ================= -->
+  <section class="sec manha" id="morning" aria-labelledby="h-manha">
+    <div class="sec-in">
+      <h2 id="h-manha">In the morning, the decision is ready.</h2>
+      <p class="sec-lead">Open Plumo in the truck or at the office and see only what needs you, in order of deadline. Approve with one tap and see right away what you stopped losing. Everything is logged with who, when and why.</p>
+      <div class="briefing" aria-label="Interactive example of the morning briefing">
+        <div class="briefing-topo"><b>Good morning · 7:00 · 3 decisions</b><span class="mut">3 sites · made-up data</span></div>
+        <ul id="decisoes">
+          <li class="decisao" data-protege="0" data-equipe="1">
+            <span class="prazo urg">Thu</span>
+            <div class="dec-txt"><b>Buy 42 bags of Portland cement</b><span>Residencial Aroeira · needs 120 − on hand 38 − on the way 40 = short 42</span></div>
+            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">Approve $1,633.80</button>
+          </li>
+          <li class="decisao" data-protege="1140">
+            <span class="prazo">Fri</span>
+            <div class="dec-txt"><b>Move 12 lengths of 10 mm rebar</b><span>Galpão Ipê → Casa Jatobá · saves a $1,140 purchase</span></div>
+            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">Approve transfer</button>
+          </li>
+          <li class="decisao" data-protege="194.5">
+            <span class="prazo">today</span>
+            <div class="dec-txt"><b>Hold $194.50 from the supplier</b><span>Invoice 4512 · 35 of 40 bags arrived · claim open</span></div>
+            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">Hold payment</button>
+          </li>
+        </ul>
+        <div class="protegido" id="protegido" aria-live="polite"><span class="protegido-rot">This morning</span><span id="protegido-txt">approve to see what stops slipping away</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= o ciclo ================= -->
+  <section class="sec manha" aria-labelledby="h-ciclo">
+    <div class="sec-in">
+      <h2 id="h-ciclo">From shortage to leftovers, one thread.</h2>
+      <p class="sec-lead">Money slips away between the purchase and the site: short deliveries paid in full, double orders, forgotten leftovers, material that walks off. Plumo follows every material from forecast to leftovers, and never lets go halfway.</p>
+      <ol class="ciclo" id="ciclo">
+        <li><b>Shortage forecast</b><span>before the crew stops</span></li>
+        <li><b>Quote</b><span>from your suppliers</span></li>
+        <li><b>Order</b><span>approved by you</span></li>
+        <li><b>Delivery</b><span>reported from site</span></li>
+        <li><b>Invoice checked</b><span>line by line</span></li>
+        <li><b>Stock by front</b><span>slab, masonry, electrical</span></li>
+        <li><b>Leftovers</b><span>go to another site</span></li>
+      </ol>
+      <ul class="promessas">
+        <li><b>Everything in one place.</b> Inventory, purchasing, invoices, schedule and the site itself, across all your jobs, with an advisor that reviews it all every night.</li>
+        <li><b>The agent only proposes.</b> Buying, paying and rescheduling all need the OK of someone on your team.</li>
+        <li><b>Everything can be undone.</b> Every approval is logged with who, when and the math that justified it.</li>
+        <li><b>The system does the math, not the AI.</b> Stock and shortages come from rules; the agent only quotes the result.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= lista de espera ================= -->
+  <section class="sec manha lista" id="waitlist" aria-labelledby="h-lista">
+    <div class="sec-in dois">
+      <div>
+        <h2 id="h-lista">Keep your site plumb.</h2>
+        <p class="sec-lead">What does a day of crew standing around waiting for cement cost you? Or the invoice that came short and got paid in full? We're opening gradually, for small and mid-size builders and for owner-builders. Tell us a bit about you and we'll let you know when it's your turn.</p>
+        <details class="faq"><summary>How much will it cost?</summary><p>We haven't set pricing yet. People on the list hear first and get founder terms.</p></details>
+        <details class="faq"><summary>Do I have to replace my spreadsheet or ERP?</summary><p>No. The idea is to start alongside what you already use and bring the data over gradually.</p></details>
+        <details class="faq"><summary>Does the agent buy on its own?</summary><p>Never. It prepares the quote, order or transfer and waits for someone on your team to approve it.</p></details>
+        <details class="faq"><summary>Do I pay for the AI separately?</summary><p>Your choice: use your own Anthropic key or platform credits, with usage shown per site.</p></details>
+        <details class="faq"><summary>What do you do with my email?</summary><p>We only use it to tell you about Plumo. We don't share it, and you can leave the list anytime.</p></details>
+      </div>
+      <form class="ficha" data-form="completa" novalidate>
+        <div class="campo"><label for="f-email">Your work email</label><input id="f-email" name="email" type="email" inputmode="email" autocomplete="email" required placeholder="you@builder.com"></div>
+        <div class="campo"><label for="f-nome">Name</label><input id="f-nome" name="nome" autocomplete="name" maxlength="120"></div>
+        <div class="campo"><label for="f-empresa">Company or project</label><input id="f-empresa" name="empresa" autocomplete="organization" maxlength="120"></div>
+        <fieldset class="campo papel">
+          <legend>You are</legend>
+          <label><input type="radio" name="papel" value="engenheiro"><span>Engineer or PM</span></label>
+          <label><input type="radio" name="papel" value="mestre"><span>Foreman or super</span></label>
+          <label><input type="radio" name="papel" value="dono"><span>Owner-builder</span></label>
+          <label><input type="radio" name="papel" value="comprador"><span>Purchasing</span></label>
+          <label><input type="radio" name="papel" value="outro"><span>Other</span></label>
+        </fieldset>
+        <div class="campo"><label for="f-obras">Active sites today</label><input id="f-obras" name="obras_ativas" type="number" inputmode="numeric" min="0" max="999" placeholder="e.g. 3"></div>
+        <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-ocre btn-g" type="submit"><span>Join the waitlist</span></button>
+        <p class="form-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="sec-in rodape-in">
+    <a class="nav-marca" href="#top"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>Plumo</a>
+    <p>Keep every site plumb. Made in Brazil.</p>
+    <p class="mut">All sites, amounts and conversations on this page are made-up examples.</p>
+  </div>
+</footer>
+
+<script id="textos" type="application/json">{"locale": "en-US", "moeda": "USD", "palavras": ["checks", "forecasts", "quotes", "proposes", "flags"], "roteiro": [["almox", "Reading the Aroeira storeroom", "Portland cement, 50 kg: <b>38 bags on hand<\/b>"], ["pedidos", "Checking open orders and invoices", "PO-0162: <b>40 bags on the way<\/b>, arriving Tuesday"], ["crono", "Looking at the schedule", "3rd-floor slab pour on Friday: <b>needs 120 bags<\/b>"], ["regras", "Asking the rules for the math", "120 − 38 − 40 = <b>short 42 bags<\/b>"], ["obras", "Looking for leftovers at other sites", "Ipê and Jatobá: <b>no spare cement<\/b>"], ["web", "Searching suppliers online", "<b>3 quotes<\/b>: $38.90 · $40.20 · $41.50"], ["sinapi", "Comparing with reference costs", "reference $39.40: <b>best price is below it<\/b>"], ["proposta", "Proposal ready: 42 bags for $1,633.80", "arrives Wednesday · <b>waiting for your OK<\/b>"]], "estado_trab": "working · Residencial Aroeira", "estado_pronto": "proposal ready · waiting for you", "aprovado": "Approved {h} by you", "desfazer": "Undo", "costurar": "Stitch the two sites", "descosturar": "Unstitch", "prot_vazio": "approve to see what stops slipping away", "prot_valor": "{v} kept from slipping away", "prot_equipe": "the slab crew keeps working", "email_invalido": "Check the email: the @ or the domain is missing.", "acordando": "Waking up the server, one moment…", "ok_novo": "Done, you're on the list. We'll email you.", "ok_ja": "You were already on the list. We'll let you know when it's your turn.", "erro_429": "Too many attempts from this network. Wait a few minutes and try again.", "erro_422": "Something didn't validate. Check the email and the number of sites.", "erro_rede": "We couldn't reach the server. Try again in a moment."}</script>
+<script src="/app.js" defer></script>
+</body>
+</html>
