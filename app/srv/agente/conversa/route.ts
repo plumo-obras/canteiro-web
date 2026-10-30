@@ -7,6 +7,9 @@ import { headersDeRepasse, json } from "@/lib/servidor/repasse";
 import { usuarioDoAcesso } from "@/lib/demo/loja";
 import { emSSE, roteiroDemo } from "@/lib/demo/agente";
 
+// A conversa pode levar mais que o padrão: o plano Hobby da Vercel (Fluid Compute) permite até 300 s.
+export const maxDuration = 300;
+
 const CABECALHOS_SSE = {
   "content-type": "text/event-stream; charset=utf-8",
   "cache-control": "no-cache, no-transform",

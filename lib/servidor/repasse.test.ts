@@ -38,4 +38,22 @@ describe("headers para a API", () => {
     expect(h.get("x-forwarded-for")).toBe("200.1.2.3");
     expect(h.get("cookie")).toBeNull();
   });
+
+  it("com PROXY_SEGREDO, manda o segredo e o IP do visitante (Vercel)", () => {
+    const antes = process.env.PROXY_SEGREDO;
+    process.env.PROXY_SEGREDO = "s3gredo";
+    try {
+      const req = new Request("http://x/srv/api/obras", { headers: { "x-real-ip": "200.1.2.3", "x-forwarded-for": "200.1.2.3, 76.76.21.9" } });
+      const h = headersDeRepasse(req);
+      expect(h.get("x-canteiro-proxy")).toBe("s3gredo");
+      expect(h.get("x-canteiro-ip-cliente")).toBe("200.1.2.3");
+    } finally {
+      if (antes === undefined) delete process.env.PROXY_SEGREDO; else process.env.PROXY_SEGREDO = antes;
+    }
+  });
+
+  it("sem PROXY_SEGREDO, não manda cabeçalho de proxy", () => {
+    const h = headersDeRepasse(new Request("http://x/", { headers: { "x-real-ip": "200.1.2.3" } }));
+    expect(h.get("x-canteiro-proxy")).toBeNull();
+  });
 });

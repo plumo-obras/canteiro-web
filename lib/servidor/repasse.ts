@@ -42,7 +42,8 @@ export function segundosAteVencer(acesso: string, padrao = 15 * 60): number {
 
 /**
  * Headers que seguem para a API: só o necessário (nada de cookie do Next). O X-Forwarded-For vai junto para o limite de
- * tentativas por IP; a API só confia nele porque o IP deste Next está em TRUSTED_PROXIES do lado dela.
+ * tentativas por IP; a API só confia nele porque o IP deste Next está em TRUSTED_PROXIES do lado dela (local) ou pelo
+ * segredo PROXY_SEGREDO (Vercel).
  */
 export function headersDeRepasse(req: Request): Headers {
   const h = new Headers();
@@ -52,6 +53,14 @@ export function headersDeRepasse(req: Request): Headers {
   }
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip");
   if (ip) h.set("x-forwarded-for", ip);
+  // Na Vercel não há IP fixo para a API listar em TRUSTED_PROXIES: o Next se identifica pelo segredo compartilhado e
+  // informa o IP do visitante. A Vercel sobrescreve x-real-ip/x-forwarded-for, então o visitante não consegue forjá-los.
+  const segredo = process.env.PROXY_SEGREDO;
+  if (segredo) {
+    const visitante = (req.headers.get("x-real-ip") ?? ip?.split(",")[0] ?? "").trim();
+    h.set("x-canteiro-proxy", segredo);
+    if (visitante) h.set("x-canteiro-ip-cliente", visitante);
+  }
   return h;
 }
 
