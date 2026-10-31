@@ -19,7 +19,7 @@
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&family=Nunito:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Figtree:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <script>(function(){var s;try{s=localStorage.getItem('plumo.idioma')}catch(e){}if(/[?&]lang=pt\b/.test(location.search))return;if(!s){var l=navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||''];for(var i=0;i<l.length&&!s;i++){var c=(l[i]||'').toLowerCase().slice(0,2);if(c==='pt'||c==='es'||c==='en')s=c}s=s||'en'}if(s==='es'||s==='en')location.replace('/'+s+'/'+location.search+location.hash)})();document.documentElement.classList.add('js')</script>
 </head>
@@ -29,10 +29,7 @@
 
 <header class="nav-wrap">
   <nav class="nav" aria-label="Principal">
-    <a class="nav-marca" href="#top" aria-label="Plumo, início">
-      <svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      Plumo
-    </a>
+    <a class="nav-marca" href="#top" aria-label="Plumo, início"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#e8b04a"/><g color="#0f1a2e" transform="translate(9.6 7) scale(.7)"><path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/><path d="M23 32h18L32 61z" fill="currentColor"/></g></svg><span>Plumo</span></a>
     <div class="nav-links">
       <a href="#how-it-works">Como funciona</a>
       <a href="#on-site">No canteiro</a>
@@ -40,7 +37,7 @@
     </div>
     <div class="idioma">
       <button class="idioma-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="idiomas" aria-label="Idioma: português">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
         <span>PT</span>
       </button>
       <ul class="idioma-menu" id="idiomas" hidden>
@@ -49,37 +46,37 @@
         <li><a href="/en/" lang="en" hreflang="en" data-idioma="en">English</a></li>
       </ul>
     </div>
-    <a class="btn btn-ocre btn-p" href="#waitlist">Entrar na lista</a>
+    <a class="btn btn-tinta btn-p" href="#waitlist">Entrar na lista</a>
   </nav>
 </header>
 
 <main id="top">
 
-  <!-- ================= noite: o mapa-colcha ================= -->
-  <section class="hero" aria-labelledby="h-hero">
+  <!-- ================= topo: a cidade de obras dormindo, o bilhete do agente pousado nela ================= -->
+  <section class="hero escuro" aria-labelledby="h-hero">
     <svg class="colcha" id="colcha" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
     <div class="hero-in">
-      <div class="hero-txt">
-        <h1 id="h-hero">Enquanto a obra dorme, o&nbsp;Plumo&nbsp;<span class="troca" id="troca" aria-live="off">confere</span>.</h1>
-        <p class="lead">Estoque, pedidos, notas e cronograma de todas as suas obras num lugar só, com um consultor que não deixa nada passar. Ele prevê a falta antes de a equipe parar, pega a compra em dobro e o material que some, e espera o seu OK de manhã.</p>
-        <form class="inscricao" data-form="rapida" novalidate>
-          <label class="sr-only" for="email-hero">Seu e-mail de trabalho</label>
-          <input id="email-hero" name="email" type="email" inputmode="email" autocomplete="email" placeholder="seu@construtora.com.br" required>
-          <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <button class="btn btn-ocre" type="submit"><span>Entrar na lista</span></button>
-          <p class="form-msg" role="status" aria-live="polite"></p>
-        </form>
-        <p class="nota-pe">Sem custo para entrar. Avisamos por e-mail quando abrir uma vaga.</p>
-      </div>
+    <div class="hero-txt">
+      <h1 id="h-hero">Enquanto a obra dorme, o&nbsp;Plumo&nbsp;<span class="troca" id="troca" aria-live="off">confere</span>.</h1>
+      <p class="lead">Estoque, pedidos, notas e cronograma de todas as suas obras num lugar só, com um consultor que não deixa nada passar. Ele prevê a falta antes de a equipe parar, pega a compra em dobro e o material que some, e espera o seu OK de manhã.</p>
+      <form class="inscricao" data-form="rapida" novalidate>
+        <label class="sr-only" for="email-hero">Seu e-mail de trabalho</label>
+        <input id="email-hero" name="email" type="email" inputmode="email" autocomplete="email" placeholder="seu@construtora.com.br" required>
+        <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-tinta" type="submit"><span>Entrar na lista</span></button>
+        <p class="form-msg" role="status" aria-live="polite"></p>
+      </form>
+      <p class="nota-pe">Sem custo para entrar. Avisamos por e-mail quando abrir uma vaga.</p>
+    </div>
 
       <aside class="bilhete" aria-label="Exemplo do que o agente escreve de madrugada">
-        <div class="bilhete-topo"><span class="clima clima-falta" aria-hidden="true"></span>Residencial Aroeira<span class="sp"></span><span class="mut">23:40</span></div>
+        <div class="bilhete-topo"><span class="clima" aria-hidden="true"></span>Residencial Aroeira<span class="sp"></span><span class="hora">23:40</span></div>
         <ol class="linhas" id="linhas-hero">
           <li>Cimento CP-II 50 kg, frente da laje do 3º</li>
           <li class="conta"><span>precisa 120</span><span>− saldo 38</span><span>− a caminho 40</span><b>= falta 42 sc</b></li>
           <li>Acaba quinta às 14h. A concretagem é sexta: sem isso, a equipe para.</li>
           <li class="acao">Cotei com 3 fornecedores. O melhor entrega quarta, R$ 38,90 o saco.</li>
-          <li class="espera"><span class="pulso" aria-hidden="true"></span>Espero o seu OK de manhã.</li>
+          <li class="espera">Espero o seu OK de manhã.</li>
         </ol>
         <p class="fonte">fonte: almoxarifado 23:12 · pedido PED-0162 · cronograma</p>
       </aside>
@@ -87,122 +84,126 @@
     <p class="ficticio">Exemplo ilustrativo, com obras e números fictícios.</p>
   </section>
 
-  <!-- ================= madrugada: o eixo que acorda ================= -->
-  <section class="sec noite" id="overnight" aria-labelledby="h-mad">
+  <!-- ================= madrugada: quatro horas numa régua ================= -->
+  <section class="sec escuro noite" id="overnight" aria-labelledby="h-mad">
     <div class="sec-in">
-      <h2 id="h-mad">De madrugada, uma conta por vez.</h2>
-      <p class="sec-lead">Hoje a obra vive espalhada em planilha, grupo de WhatsApp e na cabeça de alguém, e é nessas frestas que o dinheiro escapa. O Plumo junta tudo e confere toda noite, mostrando de onde veio cada número.</p>
+      <div class="cabeca">
+        <h2 id="h-mad">De madrugada, uma conta por vez.</h2>
+        <p class="sec-lead">Hoje a obra vive espalhada em planilha, grupo de WhatsApp e na cabeça de alguém, e é nessas frestas que o dinheiro escapa. O Plumo junta tudo e confere toda noite, mostrando de onde veio cada número.</p>
+      </div>
       <ol class="eixo" id="eixo">
-        <li><span class="eixo-h">02:10</span><h3>Vê a falta</h3><p>Cruza o que a frente de serviço precisa com o saldo do almoxarifado e o que já está a caminho, antes que a equipe fique parada.</p></li>
-        <li><span class="eixo-h">02:14</span><h3>Procura antes de comprar</h3><p>Se outra obra tem sobra do mesmo insumo, a transferência vem primeiro. Comprar é a última opção.</p></li>
-        <li><span class="eixo-h">02:31</span><h3>Cota e compara</h3><p>Pede preço aos seus fornecedores, compara com a última compra e com o SINAPI e separa a melhor proposta.</p></li>
-        <li><span class="eixo-h">02:32</span><h3>Para e espera você</h3><p>Nada é comprado, pago ou remarcado sem o OK de uma pessoa. E tudo que é aprovado pode ser desfeito.</p></li>
+        <li><span class="rot">02:10</span><h3>Vê a falta</h3><p>Cruza o que a frente de serviço precisa com o saldo do almoxarifado e o que já está a caminho, antes que a equipe fique parada.</p></li>
+        <li><span class="rot">02:14</span><h3>Procura antes de comprar</h3><p>Se outra obra tem sobra do mesmo insumo, a transferência vem primeiro. Comprar é a última opção.</p></li>
+        <li><span class="rot">02:31</span><h3>Cota e compara</h3><p>Pede preço aos seus fornecedores, compara com a última compra e com o SINAPI e separa a melhor proposta.</p></li>
+        <li><span class="rot">02:32</span><h3>Para e espera você</h3><p>Nada é comprado, pago ou remarcado sem o OK de uma pessoa. E tudo que é aprovado pode ser desfeito.</p></li>
       </ol>
     </div>
   </section>
 
-  <!-- ================= por trás: o agente no meio da obra ================= -->
-  <section class="sec noite" id="how-it-works" aria-labelledby="h-tras">
+  <!-- ================= por trás: o agente no meio, as fontes em volta ================= -->
+  <section class="sec escuro amanhece" id="how-it-works" aria-labelledby="h-tras">
     <div class="sec-in">
-      <h2 id="h-tras">Por trás, o agente costura tudo que a obra já tem.</h2>
-      <p class="sec-lead">Almoxarifado, pedidos, notas, cronograma, cotações: o que hoje está em cinco lugares vira um só. O agente cruza as informações, pesquisa preço na internet, pede a conta às regras e devolve uma proposta pronta. Cada fio é uma consulta de verdade.</p>
+      <div class="cabeca centro-txt">
+        <h2 id="h-tras">Por trás, o agente junta tudo que a obra já tem.</h2>
+        <p class="sec-lead">Almoxarifado, pedidos, notas, cronograma, cotações: o que hoje está em cinco lugares vira um só. O agente cruza as informações, pesquisa preço na internet, pede a conta às regras e devolve uma proposta pronta. Cada fio é uma consulta de verdade.</p>
+      </div>
       <div class="palco" id="palco" aria-label="Exemplo animado: o agente consultando as fontes da obra para montar uma proposta">
         <svg class="fios" id="fios" aria-hidden="true"></svg>
         <div class="lado">
-        <div class="peca" data-peca="almox"><b>Almoxarifado</b><span>saldo por frente de serviço</span><em>CP-II · 38 sc</em></div>
-        <div class="peca" data-peca="pedidos"><b>Pedidos e NF-e</b><span>o que já está a caminho</span><em>PED-0162 · 40 sc</em></div>
-        <div class="peca" data-peca="obras"><b>Outras obras</b><span>sobra que pode ser transferida</span><em>Ipê e Jatobá · sem CP-II</em></div>
+          <div class="peca" data-peca="almox"><b>Almoxarifado</b><span>saldo por frente de serviço</span><em>CP-II · 38 sc</em></div>
+          <div class="peca" data-peca="pedidos"><b>Pedidos e NF-e</b><span>o que já está a caminho</span><em>PED-0162 · 40 sc</em></div>
+          <div class="peca" data-peca="obras"><b>Outras obras</b><span>sobra que pode ser transferida</span><em>Ipê e Jatobá · sem CP-II</em></div>
         </div>
         <div class="centro">
-        <div class="peca" data-peca="regras"><b>Regras do Plumo</b><span>a conta é do sistema, não da IA</span><em>120 − 38 − 40 = 42</em></div>
-        <div class="agente">
-          <div class="agente-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg><div><b>Agente Plumo</b><span id="agente-estado">trabalhando · Residencial Aroeira</span></div></div>
-          <ol class="log" id="log" aria-live="off"></ol>
-        </div>
-        <div class="peca" data-peca="proposta"><b>Proposta para você</b><span>nada é comprado sem o seu OK</span><em>42 sc · R$ 1.633,80</em></div>
+          <div class="peca" data-peca="regras"><b>Regras do Plumo</b><span>a conta é do sistema, não da IA</span><em>120 − 38 − 40 = 42</em></div>
+          <div class="agente">
+            <div class="agente-topo"><span class="avatar" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/><path d="M23 32h18L32 61z" fill="currentColor"/></svg></span><div><b>Agente Plumo</b><span id="agente-estado">trabalhando · Residencial Aroeira</span></div></div>
+            <ol class="log" id="log" aria-live="off"></ol>
+          </div>
+          <div class="peca" data-peca="proposta"><b>Proposta para você</b><span>nada é comprado sem o seu OK</span><em>42 sc · R$ 1.633,80</em></div>
         </div>
         <div class="lado">
-        <div class="peca" data-peca="web"><b>Internet · fornecedores</b><span>preço e prazo na sua região</span><em>3 cotações</em></div>
-        <div class="peca" data-peca="sinapi"><b>SINAPI</b><span>preço de referência</span><em>R$ 39,40 o saco</em></div>
-        <div class="peca" data-peca="crono"><b>Cronograma</b><span>quando cada frente precisa</span><em>laje do 3º · sexta</em></div>
+          <div class="peca" data-peca="web"><b>Internet · fornecedores</b><span>preço e prazo na sua região</span><em>3 cotações</em></div>
+          <div class="peca" data-peca="sinapi"><b>SINAPI</b><span>preço de referência</span><em>R$ 39,40 o saco</em></div>
+          <div class="peca" data-peca="crono"><b>Cronograma</b><span>quando cada frente precisa</span><em>laje do 3º · sexta</em></div>
         </div>
       </div>
       <p class="ficticio-sec">Exemplo ilustrativo, com obras, preços e fornecedores fictícios.</p>
     </div>
   </section>
 
-  <!-- ================= entre obras: costurar duas ================= -->
-  <section class="sec noite" id="between-sites" aria-labelledby="h-costura">
-    <div class="sec-in dois">
-      <div>
-        <h2 id="h-costura">A sobra de uma obra é a falta da outra.</h2>
-        <p class="sec-lead">Aço, cimento e bloco esquecidos no canto de uma obra viram compra em dobro na outra: dinheiro parado que ninguém vê, porque ninguém olha as duas ao mesmo tempo. O Plumo olha e costura a transferência.</p>
-        <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false">Costurar as duas obras</button>
-      </div>
-      <figure class="costura" aria-label="Exemplo: transferência de aço entre duas obras">
-        <svg viewBox="112 92 352 190" id="mapa-costura" role="img" aria-labelledby="t-costura">
-          <title id="t-costura">O Galpão Ipê tem 12 barras de aço 10 mm sobrando e a Casa Jatobá precisa de 12. O agente costura a transferência pela emenda entre as duas.</title>
-          <path class="obra-c sobra" d="M128 112 L300 118 L294 258 L140 270Z"/>
-          <path class="obra-c falta" d="M300 118 L440 104 L452 262 L294 258Z"/>
-          <path d="M128 112 L300 118 L294 258 L140 270Z" fill="url(#caiA)"/>
-          <path d="M300 118 L440 104 L452 262 L294 258Z" fill="url(#caiB)"/>
-          <path id="seam-ipe" d="M146 136 L294 140" fill="none"/><path id="seam-jat" d="M308 138 L430 126" fill="none"/>
-          <text class="rotulo-obra"><textPath href="#seam-ipe" startOffset="8">GALPÃO IPÊ</textPath></text>
-          <text class="rotulo-obra"><textPath href="#seam-jat" startOffset="6">CASA JATOBÁ</textPath></text>
-          <text class="rotulo-qtd" x="164" y="200">sobra 12</text><text class="rotulo-qtd" x="164" y="222">barras 10 mm</text>
-          <text class="rotulo-qtd" x="312" y="200">falta 12</text><text class="rotulo-qtd" x="312" y="222">barras 10 mm</text>
-          <path class="linha-costura" id="linha-costura" d="M297 120 l-8 14 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-16 12 l16 12 l-8 14"/>
-        </svg>
+  <!-- ================= entre obras: a foto do estoque com a tela por cima, o texto ao lado ================= -->
+  <section class="faixa" id="between-sites" aria-labelledby="h-costura">
+    <div class="faixa-foto">
+      <img src="/img/obra-estoque-1600.jpg" srcset="/img/obra-estoque-960.jpg 960w, /img/obra-estoque-1600.jpg 1600w" sizes="(max-width: 980px) 100vw, 50vw" alt="" width="1600" height="1067" loading="lazy">
+      <figure class="janela estoque" id="estoque" aria-label="Exemplo: transferência de aço entre duas obras">
+        <div class="janela-topo"><span class="pontos" aria-hidden="true"><i></i><i></i><i></i></span><b>Estoque entre obras</b><span class="alerta">1 cruzamento possível</span></div>
+        <table>
+          <thead><tr><th scope="col">Material</th><th scope="col">Galpão Ipê</th><th scope="col">Casa Jatobá</th></tr></thead>
+          <tbody>
+            <tr class="cruza"><th scope="row">Aço CA-50 10 mm</th><td><span class="cel sobra" data-depois="envia">sobra 12</span></td><td><span class="cel falta" data-depois="recebe">falta 12</span></td></tr>
+            <tr><th scope="row">Cimento CP-II 50 kg</th><td>0</td><td>0</td></tr>
+            <tr><th scope="row">Bloco cerâmico 14×19×39</th><td>340 un</td><td>1.200 un</td></tr>
+            <tr><th scope="row">Areia média</th><td>4 m³</td><td>6 m³</td></tr>
+          </tbody>
+        </table>
         <figcaption class="proposta" id="proposta-costura" hidden>
-          <b>Transferir 12 barras de aço CA-50 10 mm</b><span>Galpão Ipê → Casa Jatobá · evita uma compra de R$ 1.140</span>
-          <span class="mut">TRF-0005 · aguardando aprovação</span>
+          <b>Transferir 12 barras de aço CA-50 10 mm</b><span>Galpão Ipê → Casa Jatobá · evita uma compra de R$ 1.140</span><span class="rot">TRF-0005 · aguardando aprovação</span>
         </figcaption>
       </figure>
     </div>
+    <div class="faixa-txt">
+      <h2 id="h-costura">A sobra de uma obra é a falta da outra.</h2>
+      <p class="sec-lead">Aço, cimento e bloco esquecidos no canto de uma obra viram compra em dobro na outra: dinheiro parado que ninguém vê, porque ninguém olha as duas ao mesmo tempo. O Plumo olha e monta a transferência.</p>
+      <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false" aria-controls="estoque">Cruzar as duas obras</button>
+    </div>
   </section>
 
-  <!-- ================= aurora: o canteiro fala pelo WhatsApp ================= -->
-  <section class="sec aurora" id="on-site" aria-labelledby="h-canteiro">
-    <div class="sec-in dois">
-      <div>
-        <h2 id="h-canteiro">O mestre não abre sistema. Ele manda áudio.</h2>
-        <p class="sec-lead">O canteiro fala com o Plumo pelo WhatsApp que já usa: áudio, foto da nota, foto da pilha de material. O agente transforma isso em lançamento, confere com o pedido e só pergunta o que precisa.</p>
-        <p class="sec-lead">Ninguém preenche formulário com a mão suja de massa, e a entrega que veio faltando é pega no mesmo dia, não no fechamento do mês.</p>
-      </div>
+  <!-- ================= no canteiro: o texto ao lado, a obra com o celular por cima ================= -->
+  <section class="faixa inversa" id="on-site" aria-labelledby="h-canteiro">
+    <div class="faixa-foto">
+      <img src="/img/obra-andaime-1600.jpg" srcset="/img/obra-andaime-960.jpg 960w, /img/obra-andaime-1600.jpg 1600w" sizes="(max-width: 980px) 100vw, 50vw" alt="" width="1600" height="1846" loading="lazy">
       <div class="fone" aria-label="Exemplo de conversa no WhatsApp entre o mestre e o Plumo">
-        <div class="fone-topo"><svg class="marca pq" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg><div><b>Plumo</b><span>Residencial Aroeira</span></div></div>
+        <div class="fone-topo"><span class="avatar" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/><path d="M23 32h18L32 61z" fill="currentColor"/></svg></span><div><b>Plumo</b><span>Residencial Aroeira</span></div></div>
         <ol class="msgs" id="msgs">
-          <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">Áudio:</span> "Chegou o cimento. Acho que veio faltando saco." <time>06:41</time></li>
+          <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">Áudio:</span> "Chegou o cimento. Acho que veio faltando saco." <time>06:41</time></li>
           <li class="msg ele foto"><span class="nf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Foto da nota fiscal <time>06:41</time></li>
           <li class="msg eu">Conferi a NF 4.512 item a item com o pedido PED-0162: vieram <b>35 de 40 sacos</b>. Lancei 35 no almoxarifado. <time>06:42</time></li>
           <li class="msg eu">Abro uma pendência com o fornecedor e seguro <b>R$ 194,50</b> no pagamento até chegarem os 5? <time>06:42</time><span class="opcoes"><span>Sim, abre</span><span>Depois vejo</span></span></li>
         </ol>
       </div>
     </div>
+    <div class="faixa-txt">
+      <h2 id="h-canteiro">O mestre não abre sistema. Ele manda áudio.</h2>
+      <p class="sec-lead">O canteiro fala com o Plumo pelo WhatsApp que já usa: áudio, foto da nota, foto da pilha de material. O agente transforma isso em lançamento, confere com o pedido e só pergunta o que precisa.</p>
+      <p class="sec-lead">Ninguém preenche formulário com a mão suja de massa, e a entrega que veio faltando é pega no mesmo dia, não no fechamento do mês.</p>
+    </div>
   </section>
 
   <!-- ================= manhã: o briefing ================= -->
-  <section class="sec manha" id="morning" aria-labelledby="h-manha">
+  <section class="sec" id="morning" aria-labelledby="h-manha">
     <div class="sec-in">
-      <h2 id="h-manha">De manhã, a decisão já vem pronta.</h2>
-      <p class="sec-lead">Você abre o Plumo no carro ou no escritório e vê só o que pede você, na ordem do prazo. Aprova com um toque e vê na hora o que deixou de perder. Tudo fica no registro com quem, quando e por quê.</p>
-      <div class="briefing" aria-label="Exemplo interativo de briefing da manhã">
-        <div class="briefing-topo"><b>Bom dia · 07:00 · 3 decisões</b><span class="mut">3 obras · dados fictícios</span></div>
+      <div class="cabeca">
+        <h2 id="h-manha">De manhã, a decisão já vem pronta.</h2>
+        <p class="sec-lead">Você abre o Plumo no carro ou no escritório e vê só o que pede você, na ordem do prazo. Aprova com um toque e vê na hora o que deixou de perder. Tudo fica no registro com quem, quando e por quê.</p>
+      </div>
+      <div class="janela briefing" aria-label="Exemplo interativo de briefing da manhã">
+        <div class="janela-topo"><span class="pontos" aria-hidden="true"><i></i><i></i><i></i></span><b>Bom dia · 07:00 · 3 decisões</b><span class="rot">3 obras · dados fictícios</span></div>
         <ul id="decisoes">
           <li class="decisao" data-protege="0" data-equipe="1">
             <span class="prazo urg">quinta</span>
             <div class="dec-txt"><b>Comprar 42 sc de cimento CP-II</b><span>Residencial Aroeira · precisa 120 − saldo 38 − a caminho 40 = falta 42</span></div>
-            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">Aprovar R$ 1.633,80</button>
+            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Aprovar R$ 1.633,80</button>
           </li>
           <li class="decisao" data-protege="1140">
             <span class="prazo">sexta</span>
             <div class="dec-txt"><b>Transferir 12 barras 10 mm</b><span>Galpão Ipê → Casa Jatobá · evita compra de R$ 1.140</span></div>
-            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">Aprovar transferência</button>
+            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Aprovar transferência</button>
           </li>
           <li class="decisao" data-protege="194.5">
             <span class="prazo">hoje</span>
             <div class="dec-txt"><b>Segurar R$ 194,50 do fornecedor</b><span>NF 4.512 · vieram 35 de 40 sacos · pendência aberta</span></div>
-            <button class="btn btn-ocre btn-p" type="button" data-acao="aprovar">Segurar pagamento</button>
+            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Segurar pagamento</button>
           </li>
         </ul>
         <div class="protegido" id="protegido" aria-live="polite"><span class="protegido-rot">Nesta manhã</span><span id="protegido-txt">aprove para ver o que deixa de escapar</span></div>
@@ -210,40 +211,45 @@
     </div>
   </section>
 
-  <!-- ================= o ciclo ================= -->
-  <section class="sec manha" aria-labelledby="h-ciclo">
+  <!-- ================= o ciclo e as promessas ================= -->
+  <section class="sec ciclo-sec" aria-labelledby="h-ciclo">
     <div class="sec-in">
-      <h2 id="h-ciclo">Da falta à sobra, um fio só.</h2>
-      <p class="sec-lead">É no caminho entre a compra e a obra que o dinheiro escapa: entrega incompleta paga inteira, compra em dobro, sobra esquecida, material que some. O Plumo acompanha cada material da previsão até a sobra, e não solta no meio.</p>
+      <div class="cabeca">
+        <h2 id="h-ciclo">Da falta à sobra, sem soltar no meio.</h2>
+        <p class="sec-lead">É no caminho entre a compra e a obra que o dinheiro escapa: entrega incompleta paga inteira, compra em dobro, sobra esquecida, material que some. O Plumo acompanha cada material da previsão até a sobra, e não solta no meio.</p>
+      </div>
       <ol class="ciclo" id="ciclo">
-        <li><b>Falta prevista</b><span>antes de parar a equipe</span></li>
-        <li><b>Cotação</b><span>com os seus fornecedores</span></li>
-        <li><b>Pedido</b><span>aprovado por você</span></li>
-        <li><b>Entrega</b><span>avisada pelo canteiro</span></li>
-        <li><b>NF conferida</b><span>item a item com o pedido</span></li>
-        <li><b>Estoque por frente</b><span>laje, alvenaria, elétrica</span></li>
-        <li><b>Sobra</b><span>vai para outra obra</span></li>
+        <li><span class="rot">01</span><b>Falta prevista</b><span>antes de parar a equipe</span></li>
+        <li><span class="rot">02</span><b>Cotação</b><span>com os seus fornecedores</span></li>
+        <li><span class="rot">03</span><b>Pedido</b><span>aprovado por você</span></li>
+        <li><span class="rot">04</span><b>Entrega</b><span>avisada pelo canteiro</span></li>
+        <li><span class="rot">05</span><b>NF conferida</b><span>item a item com o pedido</span></li>
+        <li><span class="rot">06</span><b>Estoque por frente</b><span>laje, alvenaria, elétrica</span></li>
+        <li><span class="rot">07</span><b>Sobra</b><span>vai para outra obra</span></li>
       </ol>
       <ul class="promessas">
-        <li><b>Tudo num lugar só.</b> Estoque, compras, notas, cronograma e o canteiro de todas as obras, com um consultor que olha tudo toda noite.</li>
-        <li><b>O agente só propõe.</b> Comprar, pagar e remarcar dependem do OK de uma pessoa da sua equipe.</li>
-        <li><b>Tudo tem desfazer.</b> Cada aprovação fica no registro com quem, quando e a conta que a justificou.</li>
-        <li><b>A conta é do sistema, não da IA.</b> Saldo e falta são calculados por regra; o agente só cita o resultado.</li>
+        <li><h3>Tudo num lugar só.</h3><p>Estoque, compras, notas, cronograma e o canteiro de todas as obras, com um consultor que olha tudo toda noite.</p></li>
+        <li><h3>O agente só propõe.</h3><p>Comprar, pagar e remarcar dependem do OK de uma pessoa da sua equipe.</p></li>
+        <li><h3>Tudo tem desfazer.</h3><p>Cada aprovação fica no registro com quem, quando e a conta que a justificou.</p></li>
+        <li><h3>A conta é do sistema, não da IA.</h3><p>Saldo e falta são calculados por regra; o agente só cita o resultado.</p></li>
       </ul>
     </div>
   </section>
 
-  <!-- ================= lista de espera ================= -->
-  <section class="sec manha lista" id="waitlist" aria-labelledby="h-lista">
+  <!-- ================= lista de espera: o fim escuro, com a obra à noite ao fundo ================= -->
+  <section class="sec escuro anoitece lista" id="waitlist" aria-labelledby="h-lista">
+    <img class="lista-fundo" src="/img/obra-noite-1600.jpg" srcset="/img/obra-noite-960.jpg 960w, /img/obra-noite-1600.jpg 1600w" sizes="50vw" alt="" width="1600" height="2125" loading="lazy">
     <div class="sec-in dois">
       <div>
         <h2 id="h-lista">Ponha a sua obra no prumo.</h2>
         <p class="sec-lead">Quanto custa um dia de equipe parada esperando cimento? E a nota que veio faltando e foi paga inteira? Estamos abrindo aos poucos, para construtoras pequenas e médias e para quem toca a própria obra. Conte um pouco sobre você e avisamos quando chegar a sua vez.</p>
-        <details class="faq"><summary>Quanto vai custar?</summary><p>Ainda não definimos o preço. Quem estiver na lista fica sabendo antes e entra com condição de fundador.</p></details>
-        <details class="faq"><summary>Preciso trocar a minha planilha ou o meu ERP?</summary><p>Não. A ideia é começar ao lado do que você já usa e trazer os dados aos poucos.</p></details>
-        <details class="faq"><summary>O agente compra sozinho?</summary><p>Nunca. Ele prepara a cotação, o pedido ou a transferência e espera alguém da sua equipe aprovar.</p></details>
-        <details class="faq"><summary>Preciso pagar a IA à parte?</summary><p>Você escolhe: usa a sua própria chave da Anthropic ou os créditos da plataforma, com o consumo mostrado por obra.</p></details>
-        <details class="faq"><summary>O que vocês fazem com o meu e-mail?</summary><p>Usamos só para avisar sobre o Plumo. Sem repasse a terceiros, e você sai da lista quando quiser.</p></details>
+        <div class="faqs">
+          <details class="faq"><summary>Quanto vai custar?</summary><p>Ainda não definimos o preço. Quem estiver na lista fica sabendo antes e entra com condição de fundador.</p></details>
+          <details class="faq"><summary>Preciso trocar a minha planilha ou o meu ERP?</summary><p>Não. A ideia é começar ao lado do que você já usa e trazer os dados aos poucos.</p></details>
+          <details class="faq"><summary>O agente compra sozinho?</summary><p>Nunca. Ele prepara a cotação, o pedido ou a transferência e espera alguém da sua equipe aprovar.</p></details>
+          <details class="faq"><summary>Preciso pagar a IA à parte?</summary><p>Você escolhe: usa a sua própria chave da Anthropic ou os créditos da plataforma, com o consumo mostrado por obra.</p></details>
+          <details class="faq"><summary>O que vocês fazem com o meu e-mail?</summary><p>Usamos só para avisar sobre o Plumo. Sem repasse a terceiros, e você sai da lista quando quiser.</p></details>
+        </div>
       </div>
       <form class="ficha" data-form="completa" novalidate>
         <div class="campo"><label for="f-email">Seu e-mail de trabalho</label><input id="f-email" name="email" type="email" inputmode="email" autocomplete="email" required placeholder="seu@construtora.com.br"></div>
@@ -259,7 +265,7 @@
         </fieldset>
         <div class="campo"><label for="f-obras">Obras ativas hoje</label><input id="f-obras" name="obras_ativas" type="number" inputmode="numeric" min="0" max="999" placeholder="ex.: 3"></div>
         <input class="isca" name="site" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <button class="btn btn-ocre btn-g" type="submit"><span>Quero entrar na lista</span></button>
+        <button class="btn btn-tinta btn-g" type="submit"><span>Quero entrar na lista</span></button>
         <p class="form-msg" role="status" aria-live="polite"></p>
       </form>
     </div>
@@ -268,13 +274,16 @@
 
 <footer class="rodape">
   <div class="sec-in rodape-in">
-    <a class="nav-marca" href="#top"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/><path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/><path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>Plumo</a>
-    <p>Sua obra no prumo. Feito no Brasil.</p>
-    <p class="mut">Todas as obras, valores e conversas desta página são exemplos fictícios.</p>
+    <a class="nav-marca" href="#top"><svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#e8b04a"/><g color="#0f1a2e" transform="translate(9.6 7) scale(.7)"><path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/><path d="M23 32h18L32 61z" fill="currentColor"/></g></svg><span>Plumo</span></a>
+    <div class="rodape-txt">
+      <p>Sua obra no prumo. Feito no Brasil.</p>
+      <p>Todas as obras, valores e conversas desta página são exemplos fictícios.</p>
+      <p>Fotos: Wikimedia Commons, domínio público (CC0).</p>
+    </div>
   </div>
 </footer>
 
-<script id="textos" type="application/json">{"locale": "pt-BR", "moeda": "BRL", "palavras": ["confere", "prevê", "cota", "propõe", "avisa"], "roteiro": [["almox", "Lendo o almoxarifado do Aroeira", "cimento CP-II 50 kg: <b>saldo 38 sc<\/b>"], ["pedidos", "Conferindo pedidos e notas em aberto", "PED-0162: <b>40 sc a caminho<\/b>, entrega terça"], ["crono", "Olhando o cronograma", "laje do 3º concreta sexta: <b>precisa 120 sc<\/b>"], ["regras", "Pedindo a conta às regras", "120 − 38 − 40 = <b>falta 42 sc<\/b>"], ["obras", "Procurando sobra nas outras obras", "Ipê e Jatobá: <b>sem CP-II sobrando<\/b>"], ["web", "Pesquisando fornecedores na internet", "<b>3 cotações<\/b>: R$ 38,90 · R$ 40,20 · R$ 41,50"], ["sinapi", "Comparando com o SINAPI", "referência R$ 39,40: <b>melhor preço está abaixo<\/b>"], ["proposta", "Proposta pronta: 42 sc por R$ 1.633,80", "entrega quarta · <b>esperando o seu OK<\/b>"]], "estado_trab": "trabalhando · Residencial Aroeira", "estado_pronto": "proposta pronta · esperando você", "aprovado": "Aprovado {h} por você", "desfazer": "Desfazer", "costurar": "Costurar as duas obras", "descosturar": "Descosturar", "prot_vazio": "aprove para ver o que deixa de escapar", "prot_valor": "{v} que deixaram de escapar", "prot_equipe": "a equipe da laje não para", "email_invalido": "Confira o e-mail: falta o @ ou o domínio.", "acordando": "Acordando o servidor, só um instante…", "ok_novo": "Pronto, você está na lista. A gente avisa por e-mail.", "ok_ja": "Você já estava na lista. A gente avisa quando chegar a sua vez.", "erro_429": "Muitas tentativas desta rede. Espere alguns minutos e tente de novo.", "erro_422": "Algum campo não passou. Confira o e-mail e o número de obras.", "erro_rede": "Não conseguimos falar com o servidor. Tente de novo em instantes."}</script>
+<script id="textos" type="application/json">{"locale": "pt-BR", "moeda": "BRL", "palavras": ["confere", "prevê", "cota", "propõe", "avisa"], "roteiro": [["almox", "Lendo o almoxarifado do Aroeira", "cimento CP-II 50 kg: <b>saldo 38 sc<\/b>"], ["pedidos", "Conferindo pedidos e notas em aberto", "PED-0162: <b>40 sc a caminho<\/b>, entrega terça"], ["crono", "Olhando o cronograma", "laje do 3º concreta sexta: <b>precisa 120 sc<\/b>"], ["regras", "Pedindo a conta às regras", "120 − 38 − 40 = <b>falta 42 sc<\/b>"], ["obras", "Procurando sobra nas outras obras", "Ipê e Jatobá: <b>sem CP-II sobrando<\/b>"], ["web", "Pesquisando fornecedores na internet", "<b>3 cotações<\/b>: R$ 38,90 · R$ 40,20 · R$ 41,50"], ["sinapi", "Comparando com o SINAPI", "referência R$ 39,40: <b>melhor preço está abaixo<\/b>"], ["proposta", "Proposta pronta: 42 sc por R$ 1.633,80", "entrega quarta · <b>esperando o seu OK<\/b>"]], "estado_trab": "trabalhando · Residencial Aroeira", "estado_pronto": "proposta pronta · esperando você", "aprovado": "Aprovado {h} por você", "desfazer": "Desfazer", "costurar": "Cruzar as duas obras", "descosturar": "Desfazer", "prot_vazio": "aprove para ver o que deixa de escapar", "prot_valor": "{v} que deixaram de escapar", "prot_equipe": "a equipe da laje não para", "email_invalido": "Confira o e-mail: falta o @ ou o domínio.", "acordando": "Acordando o servidor, só um instante…", "ok_novo": "Pronto, você está na lista. A gente avisa por e-mail.", "ok_ja": "Você já estava na lista. A gente avisa quando chegar a sua vez.", "erro_429": "Muitas tentativas desta rede. Espere alguns minutos e tente de novo.", "erro_422": "Algum campo não passou. Confira o e-mail e o número de obras.", "erro_rede": "Não conseguimos falar com o servidor. Tente de novo em instantes.", "est_envia": "envia 12", "est_recebe": "recebe 12"}</script>
 <script src="/app.js" defer></script>
 </body>
 </html>

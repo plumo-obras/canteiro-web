@@ -1,4 +1,4 @@
-/* Plumo · landing. Sem framework: o mapa-colcha, as demos e o formulário da lista de espera. */
+/* Plumo · landing. Sem framework: as demos do produto e o formulário da lista de espera. */
 (() => {
   // ?static desliga o movimento: é como a página é capturada nas revisões de design
   const movimento = !matchMedia('(prefers-reduced-motion: reduce)').matches && !new URLSearchParams(location.search).has('static');
@@ -14,7 +14,7 @@
   const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'http://localhost:8000' : 'https://canteiro-api.onrender.com';
   fetch(API + '/saude', { mode: 'no-cors' }).catch(() => {});
 
-  /* ---------------- a colcha: a cidade com as obras dormindo ---------------- */
+  // a colcha do topo e os fios do palco são desenhados em SVG
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs = {}, pai) => {
     const n = document.createElementNS(NS, tag);
@@ -22,6 +22,8 @@
     if (pai) pai.appendChild(n);
     return n;
   };
+
+  /* ---------------- a colcha: a cidade com as obras dormindo ---------------- */
   // aleatório com semente: a cidade é sempre a mesma, a cada visita
   let semente = 7;
   const rnd = () => ((semente = (semente * 16807) % 2147483647) - 1) / 2147483646;
@@ -86,7 +88,7 @@
         const o = (.35 + rnd() * .6).toFixed(2);
         // janela em ponto-cruz: dois traços cruzados, não um ponto de luz
         const x = p[0], y = p[1];
-        const jan = el('path', { class: 'janela' + (rnd() < .22 ? ' pisca' : ''), d: `M${(x - 2.2).toFixed(1)} ${(y - 2.2).toFixed(1)}l4.4 4.4m0 -4.4l-4.4 4.4`, opacity: o }, gJan);
+        const jan = el('path', { class: 'luz' + (rnd() < .22 ? ' pisca' : ''), d: `M${(x - 2.2).toFixed(1)} ${(y - 2.2).toFixed(1)}l4.4 4.4m0 -4.4l-4.4 4.4`, opacity: o }, gJan);
         jan.style.setProperty('--o', o);
         jan.style.setProperty('--t', (5 + rnd() * 7).toFixed(1) + 's');
         jan.style.setProperty('--d', (-rnd() * 8).toFixed(1) + 's');
@@ -140,24 +142,9 @@
     io.observe(alvo);
   }
 
-  // a mesma colcha, sem obras e com poucas janelas, como chão das seções da noite
-  function colchaFundo() {
-    for (const sec of $$('.sec.noite, .sec.manha')) {
-      const svg = el('svg', { class: 'colcha-fundo', viewBox: '0 0 1440 900', preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': 'true' });
-      sec.prepend(svg);
-      const C = 8, L = 5, pts = [];
-      for (let j = 0; j <= L; j++) { pts[j] = []; for (let i = 0; i <= C; i++) pts[j][i] = [(i / C) * 1560 - 60 + (rnd() - .5) * 80, (j / L) * 980 - 40 + (rnd() - .5) * 70]; }
-      for (let j = 0; j < L; j++) for (let i = 0; i < C; i++) {
-        const q = [pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i]];
-        el('path', { class: 'retalho', d: 'M' + q.map(p => p.map(Math.round).join(' ')).join('L') + 'Z' }, svg);
-        if (rnd() < .5) { const p = q[0], x = p[0] + 30 + rnd() * 90, y = p[1] + 30 + rnd() * 80; el('path', { class: 'janela', d: `M${x - 2} ${y - 2}l4 4m0 -4l-4 4`, 'stroke-width': 1.3, opacity: .55 }, svg); }
-      }
-    }
-  }
-
   function revelar() {
     if (!movimento) return;
-    const alvos = $$('.sec h2, .sec .sec-lead, .briefing, .fone, .costura, .ficha, .promessas');
+    const alvos = $$('.cabeca, .faixa-txt, .janela, .fone, .ficha, .promessas li');
     alvos.forEach(a => a.classList.add('revela'));
     if (!('IntersectionObserver' in window)) return alvos.forEach(a => a.classList.add('visto'));
     const io = new IntersectionObserver(es => es.forEach(e => {
@@ -166,22 +153,30 @@
     alvos.forEach(a => io.observe(a));
   }
 
-  // madrugada: as quatro horas acendem em sequência ao longo do fio
+  // madrugada: as quatro marcas da régua acendem em sequência, e a linha de tinta acompanha
   function eixo() {
-    const itens = $$('#eixo li');
-    const acender = async () => { for (const li of itens) { li.classList.add('aceso'); if (movimento) await espera(420); } };
+    const ol = $('#eixo'), itens = $$('li', ol);
+    const acender = async () => {
+      for (const [i, li] of itens.entries()) {
+        li.classList.add('aceso');
+        ol.style.setProperty('--p', ((i + 1) / itens.length).toFixed(3));
+        if (movimento) await espera(420);
+      }
+    };
     if (!movimento) return acender();
     aoVer($('#eixo'), acender, .5);
   }
 
-  // entre obras: costurar
+  // entre obras: cruzar as duas colunas do estoque; a sobra de uma cobre a falta da outra e a proposta aparece embaixo
   function costura() {
-    const b = $('#costurar'), fig = $('.costura'), prop = $('#proposta-costura');
+    const b = $('#costurar'), fig = $('#estoque'), prop = $('#proposta-costura');
     if (!b) return;
+    const celulas = $$('.cel', fig).map(c => [c, c.textContent]);
     b.addEventListener('click', () => {
       const ligado = b.getAttribute('aria-pressed') !== 'true';
       b.setAttribute('aria-pressed', String(ligado));
-      fig.classList.toggle('costurado', ligado);
+      fig.classList.toggle('cruzado', ligado);
+      for (const [c, antes] of celulas) c.textContent = ligado ? (c.dataset.depois === 'envia' ? T.est_envia : T.est_recebe) : antes;
       prop.hidden = !ligado;
       b.textContent = ligado ? T.descosturar : T.costurar;
     });
@@ -233,7 +228,7 @@
     });
   }
 
-  // o ciclo: o fio ocre corre da falta até a sobra
+  // o ciclo: a linha de tinta corre da falta até a sobra
   function ciclo() {
     const ol = $('#ciclo');
     if (!ol) return;
@@ -249,15 +244,12 @@
     aoVer(ol, correr, .4);
   }
 
-  // a navbar encolhe e se solta um pouco depois do topo
+  // a barra de vidro fica clara ou escura conforme a seção que passa embaixo dela
   function nav() {
-    const n = $('.nav');
-    const manhas = $$('.manha, .aurora');
+    const n = $('.nav'), escuras = $$('.escuro, .rodape');
     const f = () => {
-      n.classList.toggle('solta', scrollY > 40);
-      // de dia sobre a manhã; a aurora conta a partir do terço de baixo, onde o céu já clareou
-      const y = n.getBoundingClientRect().bottom;
-      n.classList.toggle('dia', manhas.some(s => { const r = s.getBoundingClientRect(); const ini = s.classList.contains('aurora') ? r.top + r.height * .86 : r.top; return ini <= y && r.bottom >= y; }));
+      const y = n.getBoundingClientRect().top + n.offsetHeight / 2;
+      n.classList.toggle('escura', escuras.some(s => { const r = s.getBoundingClientRect(); return r.top <= y && r.bottom >= y; }));
     };
     addEventListener('scroll', f, { passive: true }); f();
   }
@@ -395,5 +387,5 @@
     }));
   }
 
-  colcha(); colchaFundo(); troca(); bilhete(); revelar(); eixo(); costura(); porTras(); conversa(); briefing(); ciclo(); nav(); idioma(); formularios();
+  colcha(); troca(); bilhete(); revelar(); eixo(); costura(); porTras(); conversa(); briefing(); ciclo(); nav(); idioma(); formularios();
 })();

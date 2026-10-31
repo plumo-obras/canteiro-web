@@ -12,10 +12,13 @@ from pathlib import Path
 
 AQUI = Path(__file__).parent
 IDIOMAS = {"pt": "/", "es": "/es/", "en": "/en/"}
-LOGO = ('<svg class="marca{cls}" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#e8b04a"/>'
-        '<path d="M22 12h12a10 10 0 0 1 0 20H22" fill="none" stroke="#0f1a2e" stroke-width="6" stroke-linecap="round" '
-        'stroke-linejoin="round"/><path d="M22 12v26" stroke="#0f1a2e" stroke-width="3" stroke-linecap="round"/>'
-        '<path d="M18 37.5h8v3l-4 13-4-13z" fill="#0f1a2e" stroke="#0f1a2e" stroke-width="1.6" stroke-linejoin="round"/></svg>')
+# O prumo: o fio e o peso, em azul-noite sobre o bloco ocre (a janela acesa da marca).
+MARCA = ('<path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
+         '<rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/>'
+         '<path d="M23 32h18L32 61z" fill="currentColor"/>')
+LOGO = ('<svg class="marca" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#e8b04a"/>'
+        '<g color="#0f1a2e" transform="translate(9.6 7) scale(.7)">' + MARCA + '</g></svg>')
+AVATAR = '<span class="avatar" aria-hidden="true"><svg viewBox="0 0 64 64">' + MARCA + '</svg></span>'
 
 # Só a raiz escolhe o idioma: quem já escolheu no seletor fica no que escolheu; quem nunca escolheu vai para o idioma
 # do navegador. Um link direto para /es/ ou /en/ é respeitado como veio. Idioma fora dos três cai no inglês.
@@ -34,7 +37,7 @@ def gerar(codigo: str) -> str:
     t = json.loads((AQUI / "i18n" / f"{codigo}.json").read_text())
     js = json.dumps(t.pop("js"), ensure_ascii=False).replace("</", "<\\/")
     valores = {**t, "codigo": codigo, "caminho": IDIOMAS[codigo], "js": js,
-               "logo": LOGO.format(cls=""), "logo_pq": LOGO.format(cls=" pq"),
+               "logo": LOGO, "logo_pq": AVATAR,
                "redireciona": REDIRECIONA if codigo == "pt" else ""}
     for c in IDIOMAS:
         valores[f"atual_{c}"] = ' aria-current="page"' if c == codigo else ""
