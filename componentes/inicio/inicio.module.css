@@ -3,7 +3,6 @@
 .ola{font-size:var(--t-h1);line-height:1.15;margin:0 0 6px}
 .sub{margin:0;color:var(--ink2);font-size:var(--t-sec)}
 .pede{color:var(--amberInk);font-weight:600}
-.atalho{min-height:44px}
 .denovo{background:none;border:0;padding:0;color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;min-height:24px}
 
 .grade{list-style:none;margin:0;padding:0;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
@@ -45,7 +44,7 @@
 @media (max-width:640px){
   .ola{font-size:var(--t-bloco)}
   .sub{font-size:var(--t-body)}
-  .atalho{width:100%}
+
   .cartao{padding:16px}
   .abrir{flex:1}
 }

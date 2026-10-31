@@ -68,9 +68,28 @@ export interface Movimento extends Documento {
   quantidade: Milesimos;
   destino: string | null;
   origem_doc: string | null;
-  quem: string;
+  quem: string; // nome legível de quem lançou
+  usuario_id?: string | null;
   origem: string;
   desfaz: string | null;
+}
+
+/** `POST /obras/{id}/insumos`: o que chegou ou foi comprado fora da planilha. `precisa_ate_o_fim` 0 = fora da conta. */
+export interface CorpoInsumo {
+  nome: string;
+  unidade: string;
+  curva?: CurvaABC;
+  precisa_ate_o_fim?: Milesimos;
+}
+
+/** `POST /obras/{id}/movimentos`. Ajuste leva o sinal na quantidade (+ achou, − sumiu); os outros tipos, > 0. */
+export interface CorpoMovimento {
+  insumo_id: string;
+  tipo: "entrada" | "saida" | "ajuste";
+  quantidade: Milesimos;
+  destino?: string | null;
+  origem_doc?: string | null;
+  chave_idempotencia: string;
 }
 
 export type StatusPedido = "em_cotacao" | "aprovado" | "enviado" | "em_transito" | "recebido" | "conferido" | "cancelado";
@@ -85,7 +104,30 @@ export interface Pedido extends Documento {
   status: StatusPedido;
   previsao: string | null;
   rastreio: string | null;
+  /** Gravados ao conferir: o que chegou de fato (pode ser menos ou mais que o pedido) e a NF. */
+  quantidade_recebida?: Milesimos | null;
+  nf?: string | null;
 }
+
+/** `POST /obras/{id}/pedidos`. `aprovado` cria já aprovado; sem ele, o pedido nasce em cotação. */
+export interface CorpoPedido {
+  insumo_id: string;
+  quantidade: Milesimos;
+  fornecedor: string;
+  valor: Centavos;
+  previsao?: string | null;
+  aprovado?: boolean;
+}
+
+/** `POST /pedidos/{id}/avancar`. A quantidade recebida e a NF só valem para `para: "conferido"`. */
+export interface CorpoAvancar {
+  para: StatusPedido;
+  quantidade_recebida?: Milesimos;
+  nf?: string;
+}
+
+/** As escritas da tela devolvem o ID da EntradaRegistro criada: é o que o "Desfazer" do aviso usa. */
+export type ComRegistro<T> = T & { registro_id?: string | null };
 
 export type StatusProposta = "pendente" | "aprovada" | "recusada" | "desfeita";
 export type TipoProposta = "criar_pedido" | "avancar_pedido" | "ajuste_estoque";
@@ -100,6 +142,8 @@ export interface DadosCriarPedido {
 export interface DadosAvancarPedido {
   pedido_id: string;
   para: StatusPedido;
+  quantidade_recebida?: Milesimos | null;
+  nf?: string | null;
 }
 export interface DadosAjusteEstoque {
   insumo_id: string;
@@ -112,8 +156,13 @@ export interface Proposta extends Documento {
   tipo: TipoProposta;
   titulo: string;
   conta: string;
+  /** Por que o agente propõe, em uma frase. */
+  justificativa?: string;
   fonte: string;
   dados: Record<string, unknown>;
+  /** Alguém mudou os dados antes de aprovar: `dados` é o que foi executado, `dados_originais` o que o agente propôs. */
+  ajustada?: boolean;
+  dados_originais?: Record<string, unknown> | null;
   sugerido_por: string;
   status: StatusProposta;
   decidido_por: string | null;
@@ -135,6 +184,12 @@ export interface EntradaRegistro extends Documento {
   desfazer: Record<string, unknown> | null;
   desfeito: boolean;
 }
+
+/** O que dá para mudar antes de aprovar, por tipo (o resto da proposta é fixo). */
+export type AjustesProposta =
+  | Partial<Pick<DadosCriarPedido, "quantidade" | "fornecedor" | "valor" | "previsao">>
+  | Partial<Pick<DadosAvancarPedido, "quantidade_recebida" | "nf">>
+  | Partial<Pick<DadosAjusteEstoque, "quantidade" | "motivo">>;
 
 /** Resposta de `POST /propostas/{id}/aprovar`. */
 export interface RespostaAprovar {

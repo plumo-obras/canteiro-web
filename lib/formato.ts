@@ -32,3 +32,35 @@ const fDia = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit"
 export const fmtHora = (iso: string | Date) => fHora.format(new Date(iso));
 /** "30/10 10:32" */
 export const fmtDiaHora = (iso: string | Date) => `${fDia.format(new Date(iso))} ${fHora.format(new Date(iso))}`;
+
+/**
+ * O que a pessoa digita → milésimos. Aceita "36", "36,5", "1.200" e "1.200,5" (ponto é milhar, vírgula é decimal, como
+ * se escreve no canteiro). Inteiro do começo ao fim: "0,1" vira 100, nunca 99,999… Devolve null se não for número.
+ */
+export function lerQtd(texto: string, { negativo = false } = {}): number | null {
+  const t = texto.trim().replace(/\s/g, "").replace(/^−/, "-");
+  const m = t.match(negativo ? /^(-?)(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,3}))?$/ : /^()(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,3}))?$/);
+  if (!m) return null;
+  const v = Number(m[2]!.replace(/\./g, "")) * 1000 + Number((m[3] ?? "").padEnd(3, "0") || 0);
+  return Number.isSafeInteger(v) ? (m[1] ? -v : v) : null;
+}
+
+/** "1.326" ou "1.326,50" ou "R$ 1.326,50" → centavos. Null se não for valor. */
+export function lerReais(texto: string): number | null {
+  const t = texto.trim().replace(/^R\$\s*/i, "").replace(/\s/g, "");
+  const m = t.match(/^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?$/);
+  if (!m) return null;
+  const v = Number(m[1]!.replace(/\./g, "")) * 100 + Number((m[2] ?? "").padEnd(2, "0") || 0);
+  return Number.isSafeInteger(v) ? v : null;
+}
+
+/** Milésimos → o texto que volta para o campo ("36,5", sem milhar, para editar sem tropeçar no ponto). */
+export const qtdParaCampo = (m: number) => fmtQtd(m).replace(/\./g, "");
+/** Centavos → texto do campo ("1326,50"). */
+export const reaisParaCampo = (c: number) => `${Math.floor(c / 100)},${String(c % 100).padStart(2, "0")}`;
+
+/** Previsão do pedido: a API grava data ISO ("2026-11-03") ou texto livre ("chega sexta"); data vira "chega 03/11". */
+export function fmtPrevisao(t: string): string {
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `chega ${m[3]}/${m[2]}` : t;
+}

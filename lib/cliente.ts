@@ -3,13 +3,20 @@
  * repassa para a API e o agente de verdade ou responde no modo de demonstração; o navegador nunca precisa saber qual.
  */
 import type {
+  AjustesProposta,
   ChavePropria,
+  ComRegistro,
+  CorpoAvancar,
+  CorpoInsumo,
+  CorpoMovimento,
+  CorpoPedido,
   CorpoConversa,
   MinhaConta,
   RelatorioUso,
   ResumoObra,
   EntradaRegistro,
   EventoConversa,
+  Insumo,
   ItemInsumo,
   Movimento,
   Obra,
@@ -87,12 +94,16 @@ export const api = {
     chamar<Movimento[]>("GET", `/obras/${seg(obraId)}/insumos/${seg(insumoId)}/movimentos${q({ limite })}`),
   listarPedidos: (obraId: string, status?: StatusPedido) =>
     chamar<Pedido[]>("GET", `/obras/${seg(obraId)}/pedidos${q({ status })}`),
-  avancarPedido: (pedidoId: string, para: StatusPedido) =>
-    chamar<Pedido>("POST", `/pedidos/${seg(pedidoId)}/avancar`, { para }),
+  avancarPedido: (pedidoId: string, para: StatusPedido, extra: Omit<CorpoAvancar, "para"> = {}) =>
+    chamar<ComRegistro<Pedido>>("POST", `/pedidos/${seg(pedidoId)}/avancar`, { para, ...extra }),
+  criarPedido: (obraId: string, corpo: CorpoPedido) => chamar<ComRegistro<Pedido>>("POST", `/obras/${seg(obraId)}/pedidos`, corpo),
+  criarInsumo: (obraId: string, corpo: CorpoInsumo) => chamar<ComRegistro<Insumo>>("POST", `/obras/${seg(obraId)}/insumos`, corpo),
+  lancarMovimento: (obraId: string, corpo: CorpoMovimento) =>
+    chamar<ComRegistro<Movimento>>("POST", `/obras/${seg(obraId)}/movimentos`, corpo),
   listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string } = {}) =>
     chamar<Proposta[]>("GET", `/propostas${q({ ...filtro })}`),
   recusarProposta: (id: string, motivo: string) => chamar<Proposta>("POST", `/propostas/${seg(id)}/recusar`, { motivo }),
-  listarRegistro: (obraId: string, limite = 50) =>
+  listarRegistro: (obraId: string, limite = 100) =>
     chamar<EntradaRegistro[]>("GET", `/registro${q({ obra_id: obraId, limite })}`),
   desfazerRegistro: (id: string) => chamar<EntradaRegistro>("POST", `/registro/${seg(id)}/desfazer`),
   listarSessoes: (filtro: { obra_id?: string; limite?: number } = {}) =>
@@ -110,7 +121,8 @@ export const api = {
   },
 
   /** `{proposta, registro}`: o `registro.id` é o que o Desfazer usa. */
-  aprovarProposta: (id: string) => chamar<RespostaAprovar>("POST", `/propostas/${seg(id)}/aprovar`),
+  aprovarProposta: (id: string, ajustes?: AjustesProposta) =>
+    chamar<RespostaAprovar>("POST", `/propostas/${seg(id)}/aprovar`, ajustes && Object.keys(ajustes).length ? { ajustes } : undefined),
 };
 
 /** POST /conversa em SSE. Erros de HTTP antes do fluxo viram um evento `erro`, para a tela tratar num lugar só. */

@@ -34,10 +34,10 @@
 .situacao{display:flex;gap:10px;align-items:baseline;margin:0 0 10px;line-height:1.5}
 .sinal{width:9px;height:9px;border-radius:50%;flex:none;background:var(--gray);transform:translateY(-1px)}
 .situacao[data-ativa="true"] .sinal{background:var(--green);box-shadow:0 0 0 3px var(--greenSoft)}
-.final{font:600 var(--t-body) ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+.final{font:600 var(--t-body) var(--mono);color:var(--ink)}
 .aviso{display:flex;gap:9px;align-items:flex-start;border-radius:14px;padding:10px 14px;font-size:var(--t-meta);line-height:1.55;margin:0 0 16px;background:var(--sunk);color:var(--ink2)}
 .aviso .ic{margin-top:2px;color:var(--muted)}
-.aviso code,.texto code{white-space:nowrap;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px solid var(--line2);border-radius:6px;padding:0 4px}
+.aviso code,.texto code{white-space:nowrap;font:500 12px var(--mono);background:#fff;border:1px solid var(--line2);border-radius:6px;padding:0 4px}
 .form{display:flex;flex-direction:column;gap:6px}
 .rotulo{font-weight:500}
 .linha{display:flex;gap:8px;flex-wrap:wrap}

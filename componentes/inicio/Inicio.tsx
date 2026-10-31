@@ -62,10 +62,6 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
             ) : null}
           </p>
         </div>
-        <Link href="/" className={`btn ${s.atalho}`}>
-          <Icone nome="message" tam={15} />
-          Ir para as conversas
-        </Link>
       </header>
 
       {erro && !resumos ? (

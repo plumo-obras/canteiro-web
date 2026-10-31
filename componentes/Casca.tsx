@@ -16,12 +16,14 @@ import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
 import { Conversa } from "./Conversa";
 import { Icone, Logo, type NomeIcone } from "./Icone";
 import { Pedidos } from "./Pedidos";
+import { Historico } from "./Historico";
 import { novaSessao, redutorSessoes, type AbaAtiva, type Sessao, type Tela } from "./sessoes";
 
 const TELAS: { k: Tela; rotulo: string; icone: NomeIcone }[] = [
   { k: "almoxarifado", rotulo: "Almoxarifado", icone: "package" },
   { k: "pedidos", rotulo: "Pedidos", icone: "cart" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
+  { k: "historico", rotulo: "Histórico", icone: "history" },
 ];
 const rotuloTela = (k: Tela) => TELAS.find((t) => t.k === k)!.rotulo;
 
@@ -61,7 +63,7 @@ export function Casca({ demo }: { demo: boolean }) {
   if (!pronto || !usuario) {
     return (
       <div className="abrindo" role="status">
-        Abrindo o Canteiro…
+        Abrindo o Plumo…
       </div>
     );
   }
@@ -232,7 +234,7 @@ function App({ usuario }: { usuario: Usuario }) {
     <header className="ses-top topo-simples so-movel">
       <div className="ses-tit">
         {botaoGaveta}
-        <h1>Canteiro</h1>
+        <h1>Plumo</h1>
       </div>
     </header>
   );
@@ -246,7 +248,7 @@ function App({ usuario }: { usuario: Usuario }) {
           <>
             <div className="brand">
               <Logo />
-              Canteiro
+              Plumo
               {demo ? (
                 <span className="tag" title="Modo de demonstração">
                   demo
@@ -376,7 +378,7 @@ function App({ usuario }: { usuario: Usuario }) {
           </main>
         </>
       ) : (
-        <SessaoAberta sessao={sessao} obra={obra} despachar={despachar} pendentes={pendentes(obra.id)} botaoGaveta={botaoGaveta} inerte={gavetaAberta} />
+        <SessaoAberta sessao={sessao} obra={obra} obras={obras ?? []} despachar={despachar} pendentes={pendentes(obra.id)} botaoGaveta={botaoGaveta} inerte={gavetaAberta} />
       )}
     </div>
   );
@@ -505,6 +507,7 @@ function Perfil({ usuario, sair }: { usuario: Usuario; sair: () => void }) {
 function SessaoAberta({
   sessao,
   obra,
+  obras,
   despachar,
   pendentes,
   botaoGaveta,
@@ -512,6 +515,7 @@ function SessaoAberta({
 }: {
   sessao: Sessao;
   obra: Obra;
+  obras: Obra[];
   despachar: React.Dispatch<Parameters<typeof redutorSessoes>[1]>;
   pendentes: number;
   botaoGaveta: React.ReactNode;
@@ -689,7 +693,15 @@ function SessaoAberta({
       </main>
       {ativa !== "conversa" ? (
         <section className="visao" id="painel-tela" role="tabpanel" aria-label={rotuloTela(ativa)} inert={inerte}>
-          {ativa === "almoxarifado" ? <Almoxarifado obra={obra} /> : ativa === "pedidos" ? <Pedidos obra={obra} /> : <Aprovacoes obra={obra} />}
+          {ativa === "almoxarifado" ? (
+            <Almoxarifado obra={obra} />
+          ) : ativa === "pedidos" ? (
+            <Pedidos obra={obra} />
+          ) : ativa === "historico" ? (
+            <Historico obra={obra} />
+          ) : (
+            <Aprovacoes obra={obra} obras={obras} />
+          )}
         </section>
       ) : null}
     </>

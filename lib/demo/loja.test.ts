@@ -28,11 +28,12 @@ describe("demonstração: dados de exemplo do contrato (Casa Vila Nova)", () => 
 });
 
 describe("demonstração: aprovar executa e o desfazer volta", () => {
-  it("criar_pedido: aprovar cria o pedido (cotando sobe, falta zera); desfazer cancela", () => {
+  it("criar_pedido: aprovar cria o pedido já aprovado (a caminho sobe, falta zera); desfazer cancela", () => {
     const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[]).find((p) => p.tipo === "criar_pedido")!;
     const r = chamar("POST", `propostas/${pr.id}/aprovar`).corpo as { proposta: Proposta; registro: { id: string } };
     expect(r.proposta).toMatchObject({ status: "aprovada", decidido_por_nome: "Rizzi", registro_id: r.registro.id });
-    expect(conta("cimento")).toMatchObject({ cotando: 34_000, falta: 0 });
+    expect(e.pedidos.at(-1)!.status).toBe("aprovado"); // uma aprovação só, não duas
+    expect(conta("cimento")).toMatchObject({ a_caminho: 154_000, cotando: 0, falta: 0 });
 
     expect(chamar("POST", `propostas/${pr.id}/aprovar`).status).toBe(409); // não executa duas vezes
     chamar("POST", `registro/${r.registro.id}/desfazer`);
@@ -171,5 +172,101 @@ describe("demonstração: página inicial e conta", () => {
     expect(soma(r.por_dia)).toBe(r.total.custo);
     expect(soma(r.por_rota)).toBe(r.total.custo);
     expect(chamar("GET", "uso?de=ontem&ate=hoje").status).toBe(422);
+  });
+});
+
+describe("demonstração: conferir com a quantidade real", () => {
+  const ped157 = () => e.pedidos.find((p) => p.numero === "PED-0157")!; // 40 m³ de areia, recebido
+
+  it("entra o que chegou; a diferença volta para a falta; desfazer estorna só o que entrou", () => {
+    const antes = conta("areia");
+    const r = chamar("POST", `pedidos/${ped157().id}/avancar`, { para: "conferido", quantidade_recebida: 36_000, nf: "4471" });
+    expect(r.corpo).toMatchObject({ status: "conferido", quantidade_recebida: 36_000, nf: "4471" });
+    const depois = conta("areia");
+    expect(depois.saldo).toBe(antes.saldo + 36_000);
+    expect(depois.falta).toBe(antes.falta + 4_000); // saiu do "a caminho" com 40, entrou 36
+    expect(e.movimentos.at(-1)!.origem_doc).toBe("PED-0157 · NF 4471");
+    const reg = e.registro.find((x) => x.id === (r.corpo as { registro_id: string }).registro_id)!;
+    expect(reg.texto).toContain("chegaram 36 de 40 m³");
+    chamar("POST", `registro/${reg.id}/desfazer`);
+    expect(conta("areia")).toEqual(antes);
+    expect(ped157()).toMatchObject({ status: "recebido", quantidade_recebida: null, nf: null });
+  });
+
+  it("recusa quantidade zero e quantidade fora da conferência", () => {
+    expect(chamar("POST", `pedidos/${ped157().id}/avancar`, { para: "conferido", quantidade_recebida: 0 }).status).toBe(422);
+    const ped160 = e.pedidos.find((p) => p.numero === "PED-0160")!;
+    expect(chamar("POST", `pedidos/${ped160.id}/avancar`, { para: "recebido", quantidade_recebida: 10_000 }).status).toBe(422);
+  });
+
+  it("não desfaz o avanço se o pedido já andou de novo (409)", () => {
+    const ped160 = e.pedidos.find((p) => p.numero === "PED-0160")!; // enviado
+    const r = chamar("POST", `pedidos/${ped160.id}/avancar`, { para: "recebido" }).corpo as { registro_id: string };
+    chamar("POST", `pedidos/${ped160.id}/avancar`, { para: "conferido" });
+    expect(chamar("POST", `registro/${r.registro_id}/desfazer`).status).toBe(409);
+  });
+});
+
+describe("demonstração: ajustar antes de aprovar", () => {
+  const pendente = (tipo: Proposta["tipo"]) => (chamar("GET", "propostas?status=pendente").corpo as Proposta[]).find((p) => p.tipo === tipo)!;
+
+  it("compra ajustada executa o ajuste e guarda o que o agente propôs", () => {
+    const pr = pendente("criar_pedido");
+    const r = chamar("POST", `propostas/${pr.id}/aprovar`, { ajustes: { quantidade: 30_000, valor: 117_000 } }).corpo as { proposta: Proposta; registro: { texto: string } };
+    expect(r.proposta).toMatchObject({ ajustada: true, dados: { quantidade: 30_000, valor: 117_000 }, dados_originais: { quantidade: 34_000 } });
+    expect(e.pedidos.at(-1)).toMatchObject({ quantidade: 30_000, valor: 117_000, status: "aprovado" });
+    expect(r.registro.texto).toContain("ajustado: quantidade 34 sc → 30 sc");
+  });
+
+  it("conferência ajustada dá entrada do que chegou", () => {
+    const antes = conta("areia").saldo;
+    chamar("POST", `propostas/${pendente("avancar_pedido").id}/aprovar`, { ajustes: { quantidade_recebida: 36_000 } });
+    expect(conta("areia").saldo).toBe(antes + 36_000);
+  });
+
+  it("campo que não se ajusta é 422 e nada é executado", () => {
+    const pr = pendente("criar_pedido");
+    const n = e.pedidos.length;
+    expect(chamar("POST", `propostas/${pr.id}/aprovar`, { ajustes: { insumo_id: "outro" } }).status).toBe(422);
+    expect(e.pedidos.length).toBe(n);
+    expect(e.propostas.find((p) => p.id === pr.id)!.status).toBe("pendente");
+  });
+
+  it("recusar fica no histórico", () => {
+    const pr = pendente("criar_pedido");
+    chamar("POST", `propostas/${pr.id}/recusar`, { motivo: "outro fornecedor" });
+    expect(e.registro.at(-1)).toMatchObject({ texto: expect.stringContaining("Recusou"), desfazer: null });
+  });
+});
+
+describe("demonstração: lançamentos e pedido pela tela", () => {
+  const lancar = (c: Record<string, unknown>) => chamar("POST", `obras/${obraId()}/movimentos`, { chave_idempotencia: "chave-teste-1", ...c });
+
+  it("saída de curva A exige a frente de serviço; com ela, baixa o saldo e desfaz", () => {
+    const bloco = e.insumos.get("bloco")!.id;
+    expect(lancar({ insumo_id: bloco, tipo: "saida", quantidade: 100_000 }).status).toBe(422);
+    const r = lancar({ insumo_id: bloco, tipo: "saida", quantidade: 100_000, destino: "Alvenaria 1º andar" });
+    expect(r.status).toBe(201);
+    expect(conta("bloco").saldo).toBe(2_660_000);
+    expect((r.corpo as { quem: string }).quem).toBe("Rizzi");
+    chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`);
+    expect(conta("bloco").saldo).toBe(2_760_000);
+  });
+
+  it("a mesma chave não lança duas vezes; com outro conteúdo é 409", () => {
+    const areia = e.insumos.get("areia")!.id;
+    lancar({ insumo_id: areia, tipo: "ajuste", quantidade: -2_000, destino: "contagem" });
+    lancar({ insumo_id: areia, tipo: "ajuste", quantidade: -2_000, destino: "contagem" });
+    expect(conta("areia").saldo).toBe(10_000);
+    expect(lancar({ insumo_id: areia, tipo: "ajuste", quantidade: -3_000 }).status).toBe(409);
+  });
+
+  it("pedido criado já aprovado desfaz enquanto não andou", () => {
+    const r = chamar("POST", `obras/${obraId()}/pedidos`, { insumo_id: e.insumos.get("bloco")!.id, quantidade: 640_000, fornecedor: "Cerâmica", valor: 204_800, aprovado: true });
+    const p = r.corpo as Pedido & { registro_id: string };
+    expect(p).toMatchObject({ status: "aprovado", numero: "PED-0168" });
+    expect(conta("bloco").falta).toBe(0);
+    chamar("POST", `registro/${p.registro_id}/desfazer`);
+    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("cancelado");
   });
 });

@@ -28,7 +28,7 @@ export function FormEntrar({ demo }: { demo: boolean }) {
       <form className="card" onSubmit={enviar} aria-describedby={erro ? "erro-entrar" : undefined}>
         <div className="brand">
           <Logo />
-          Canteiro
+          Plumo
         </div>
         <h1>Entrar</h1>
         <p className="mut" style={{ margin: 0 }}>

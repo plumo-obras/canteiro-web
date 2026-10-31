@@ -7,7 +7,7 @@ import type { EventoConversa } from "@/lib/contrato";
 import type { Msg, MsgAgente, MsgEu, SessaoApi } from "@/lib/historico";
 import { uuid7 } from "@/lib/ids";
 
-export type Tela = "almoxarifado" | "pedidos" | "aprovacoes";
+export type Tela = "almoxarifado" | "pedidos" | "aprovacoes" | "historico";
 export type AbaAtiva = "conversa" | Tela;
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";

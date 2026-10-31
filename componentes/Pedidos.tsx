@@ -4,14 +4,16 @@
  * "Conferir e dar entrada de 40 m³"), e o resto no "⋯". Quem valida a transição é a API (regras.validar_transicao).
  */
 import { useState } from "react";
-import type { Insumo, Pedido, StatusPedido } from "@/lib/contrato";
+import type { Insumo, ItemInsumo, Pedido, StatusPedido } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import { fmtQtdUn, fmtReais } from "@/lib/formato";
+import { fmtPrevisao, fmtQtdUn, fmtReais } from "@/lib/formato";
 import { ROTULO_STATUS } from "./CartaoProposta";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
 import { MenuMais } from "./MenuMais";
 import { useCarregar } from "./useCarregar";
+import { ModalConferir } from "./formularios/ModalConferir";
+import { ModalNovoPedido } from "./formularios/ModalNovoPedido";
 import type { Obra } from "@/lib/contrato";
 
 // Conferido e cancelado já saíram do trabalho: ficam recolhidos embaixo, e as 5 colunas cabem em 1100 px.
@@ -41,25 +43,29 @@ export function passosDe(p: Pedido, un: string): Passo[] {
     case "em_transito":
       return [{ para: "recebido", rotulo: "Registrar chegada", feito: `Chegada do ${p.numero} registrada. Falta conferir.` }];
     case "recebido":
-      return [{ para: "conferido", rotulo: `Conferir e dar entrada de ${qtd}`, feito: `${qtd} entraram no almoxarifado (${p.numero}).` }];
+      // Conferir abre o formulário (quanto chegou, NF): o `feito` sai de lá, com a quantidade real.
+      return [{ para: "conferido", rotulo: `Conferir chegada de ${qtd}`, feito: "" }];
     default:
       return [];
   }
 }
 
 function CartaoPedido({ p, insumo }: { p: Pedido; insumo: Insumo | undefined }) {
-  const { podeOperar, avisar, mudou } = useCasca();
+  const { podeOperar, avisar, avisarFeito, mudou } = useCasca();
   const [ocupado, setOcupado] = useState(false);
+  const [conferindo, setConferindo] = useState(false);
   const un = insumo?.unidade ?? "";
   const passos = podeOperar ? passosDe(p, un) : [];
   const [pri, ...resto] = passos;
+  const recebida = p.status === "conferido" ? (p.quantidade_recebida ?? p.quantidade) : null;
 
   const avancar = async (passo: Passo) => {
+    if (passo.para === "conferido") return setConferindo(true);
     setOcupado(true);
     try {
-      await api.avancarPedido(p.id, passo.para);
-      avisar(passo.feito);
+      const r = await api.avancarPedido(p.id, passo.para);
       mudou();
+      avisarFeito(passo.feito, r.registro_id);
     } catch (e) {
       avisar(mensagemDe(e), true);
     } finally {
@@ -76,28 +82,37 @@ function CartaoPedido({ p, insumo }: { p: Pedido; insumo: Insumo | undefined }) 
       <span className="mut">{p.fornecedor}</span>
       <div className="meta">
         <b>{fmtReais(p.valor)}</b>
-        {p.previsao ? <span>{p.previsao}</span> : null}
+        {p.previsao && recebida === null ? <span>{fmtPrevisao(p.previsao)}</span> : null}
+        {p.nf ? <span>NF {p.nf}</span> : null}
       </div>
+      {recebida !== null && recebida !== p.quantidade ? (
+        <div className={`kdif ${recebida < p.quantidade ? "falta" : "sobra"}`}>
+          chegaram {fmtQtdUn(recebida, un)} de {fmtQtdUn(p.quantidade, un)}
+          {recebida < p.quantidade ? ` · faltou ${fmtQtdUn(p.quantidade - recebida, un)}` : ""}
+        </div>
+      ) : null}
       {pri ? (
         <div className="kact">
           <button type="button" className="btn" disabled={ocupado} aria-busy={ocupado} onClick={() => avancar(pri)}>
             {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
             {pri.rotulo}
           </button>
-          <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((s) => ({ rotulo: s.rotulo, acao: () => void avancar(s) }))} />
+          {resto.length ? <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((s) => ({ rotulo: s.rotulo, acao: () => void avancar(s) }))} /> : null}
         </div>
       ) : null}
+      {conferindo ? <ModalConferir pedido={p} insumo={insumo} fechar={() => setConferindo(false)} /> : null}
     </li>
   );
 }
 
 export function Pedidos({ obra }: { obra: Obra }) {
-  const { versao } = useCasca();
+  const { versao, podeOperar } = useCasca();
+  const [novo, setNovo] = useState(false);
   const { dado, erro, carregando } = useCarregar(
     () => Promise.all([api.listarPedidos(obra.id), api.listarInsumos(obra.id)]),
     [obra.id, versao],
   );
-  const [pedidos, itens] = dado ?? [[], []];
+  const [pedidos, itens] = dado ?? [[], [] as ItemInsumo[]];
   const insumo = (id: string) => itens.find((i) => i.insumo.id === id)?.insumo;
   const recolhidos = (["conferido", "cancelado"] as const).map((st) => [st, pedidos.filter((p) => p.status === st)] as const);
 
@@ -106,6 +121,12 @@ export function Pedidos({ obra }: { obra: Obra }) {
       <div className="cab-tela">
         <h2>Pedidos</h2>
         <span className="mut sm">{obra.nome}</span>
+        {podeOperar && dado ? (
+          <button type="button" className="btn cab-acao" onClick={() => setNovo(true)}>
+            <Icone nome="plus" tam={15} />
+            Novo pedido
+          </button>
+        ) : null}
       </div>
       {erro ? (
         <div className="aviso-erro" role="alert">
@@ -157,6 +178,7 @@ export function Pedidos({ obra }: { obra: Obra }) {
           </details>
         ) : null,
       )}
+      {novo ? <ModalNovoPedido obraId={obra.id} itens={itens} fechar={() => setNovo(false)} /> : null}
     </div>
   );
 }

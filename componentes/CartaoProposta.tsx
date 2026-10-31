@@ -6,11 +6,12 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { Proposta, StatusPedido } from "@/lib/contrato";
-import { fmtHora, fmtReais } from "@/lib/formato";
+import { fmtHora, fmtQtd, fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "./contexto";
 import { Modal } from "./Dialogo";
 import { Icone } from "./Icone";
 import { MenuMais } from "./MenuMais";
+import { ModalAjustar } from "./formularios/ModalAjustar";
 
 export const ROTULO_STATUS: Record<StatusPedido, string> = {
   em_cotacao: "Em cotação",
@@ -22,7 +23,30 @@ export const ROTULO_STATUS: Record<StatusPedido, string> = {
   cancelado: "Cancelado",
 };
 
+const NOME_CAMPO: Record<string, string> = {
+  quantidade: "quantidade",
+  quantidade_recebida: "chegou",
+  valor: "valor",
+  fornecedor: "fornecedor",
+  previsao: "previsão",
+  nf: "NF",
+  motivo: "motivo",
+};
+
+/** "quantidade 34 → 30 · valor R$ 1.326,00 → R$ 1.170,00": o que mudou entre o que o agente propôs e o que foi feito. */
+export function descreverAjuste(p: Proposta) {
+  const antes = p.dados_originais ?? {};
+  const fmt = (k: string, v: unknown) => (v == null || v === "" ? "—" : typeof v === "number" ? (k === "valor" ? fmtReais(v) : fmtQtd(v)) : String(v));
+  return Object.keys(NOME_CAMPO)
+    .filter((k) => k in p.dados && antes[k] !== p.dados[k])
+    .map((k) => `${NOME_CAMPO[k]} ${fmt(k, antes[k])} → ${fmt(k, p.dados[k])}`)
+    .join(" · ");
+}
+
 const valorDe = (p: Proposta) => (p.tipo === "criar_pedido" && typeof p.dados.valor === "number" ? p.dados.valor : null);
+
+/** A API só ajusta conferência (quanto chegou, NF); os outros avanços de pedido não têm o que mudar. */
+const podeAjustar = (p: Proposta) => p.tipo !== "avancar_pedido" || p.dados.para === "conferido";
 
 /** Botão nomeado pela consequência, como no protótipo ("Aprovar R$ 1.326,00"), nunca um "OK" genérico. */
 function rotuloAprovar(p: Proposta) {
@@ -33,12 +57,13 @@ function rotuloAprovar(p: Proposta) {
   return "Aprovar";
 }
 
-export function CartaoProposta({ id, foco = true }: { id: string; foco?: boolean }) {
+export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco?: boolean; obraNome?: string }) {
   const { cartoes, usuario, podeOperar, aprovar, recusar, desfazer, avisar } = useCasca();
   const c = cartoes[id];
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [recusando, setRecusando] = useState(false);
+  const [ajustando, setAjustando] = useState(false);
   const feito = useRef<HTMLDivElement>(null);
   const linha = useRef<HTMLDivElement>(null);
   const statusAntes = useRef(c?.proposta.status);
@@ -80,7 +105,12 @@ export function CartaoProposta({ id, foco = true }: { id: string; foco?: boolean
           {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
           {rotuloAprovar(p)}
         </button>
-        <MenuMais itens={[{ rotulo: "Recusar…", acao: () => setRecusando(true) }]} />
+        <MenuMais
+          itens={[
+            ...(podeAjustar(p) ? [{ rotulo: "Ajustar e aprovar…", acao: () => setAjustando(true) }] : []),
+            { rotulo: "Recusar…", acao: () => setRecusando(true) },
+          ]}
+        />
       </>
     ) : (
       <span className="pill warn">Espera um admin aprovar</span>
@@ -90,7 +120,7 @@ export function CartaoProposta({ id, foco = true }: { id: string; foco?: boolean
       <div className="ld-feito" ref={feito} tabIndex={-1}>
         <Icone nome="check" tam={14} />
         <span>
-          Aprovado {hora}
+          {p.ajustada ? "Aprovado com ajuste" : "Aprovado"} {hora}
           {quem ? ` por ${quem}` : ""}
         </span>
         {podeOperar && c.registroId ? (
@@ -135,8 +165,11 @@ export function CartaoProposta({ id, foco = true }: { id: string; foco?: boolean
     >
       <div className={`ld-prazo t-${tom}`}>{prazo}</div>
       <div className="ld-txt">
+        {obraNome ? <div className="ld-obra">{obraNome}</div> : null}
         <div className="ld-tit">{p.titulo}</div>
+        {p.justificativa ? <div className="ld-just">{p.justificativa}</div> : null}
         {p.conta ? <div className="ld-conta">{p.conta}</div> : null}
+        {p.ajustada && p.dados_originais ? <div className="ld-ajuste">Ajustado na aprovação: {descreverAjuste(p)}</div> : null}
         {p.fonte ? (
           <div className="ld-fonte">
             <Icone nome="spark" tam={13} />
@@ -153,6 +186,7 @@ export function CartaoProposta({ id, foco = true }: { id: string; foco?: boolean
           {erro}
         </div>
       ) : null}
+      {ajustando ? <ModalAjustar proposta={p} fechar={() => setAjustando(false)} /> : null}
       {recusando ? <ModalRecusar titulo={p.titulo} fechar={() => setRecusando(false)} confirmar={(m) => recusar(p.id, m)} /> : null}
     </div>
   );

@@ -86,7 +86,7 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
         )}
       </p>
       <p className={s.texto}>
-        Com uma chave própria, o Canteiro usa a sua conta da Anthropic e não desconta créditos. A cobrança vem da Anthropic
+        Com uma chave própria, o Plumo usa a sua conta da Anthropic e não desconta créditos. A cobrança vem da Anthropic
         direto para você.
       </p>
       <div className={s.aviso} role="note">

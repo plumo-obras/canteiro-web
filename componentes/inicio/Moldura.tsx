@@ -39,7 +39,7 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
   if (!pronto || !usuario) {
     return (
       <div className="abrindo" role="status">
-        Abrindo o Canteiro…
+        Abrindo o Plumo…
       </div>
     );
   }
@@ -55,9 +55,9 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
       <div className={s.pagina}>
         <header className={s.topo}>
           <div className={s.topoIn}>
-            <Link href="/inicio" className={s.marca} aria-label="Canteiro, início">
+            <Link href="/inicio" className={s.marca} aria-label="Plumo, início">
               <Logo />
-              <span className={s.marcaT}>Canteiro</span>
+              <span className={s.marcaT}>Plumo</span>
             </Link>
             {demo ? <span className={s.demo}>demonstração</span> : null}
             <nav className={s.navs} aria-label="Principal">

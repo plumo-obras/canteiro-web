@@ -46,7 +46,7 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
           <Icone nome="info" tam={15} />
           <span>
             A compra de créditos pelo app ainda não está disponível. Por enquanto, para aumentar a franquia, fale com o suporte do
-            Canteiro. Outra saída é conectar uma chave própria da Anthropic.
+            Plumo. Outra saída é conectar uma chave própria da Anthropic.
           </span>
         </div>
       ) : null}

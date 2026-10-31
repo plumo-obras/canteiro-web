@@ -5,7 +5,7 @@
  * lugar só faz o cartão aprovado numa aba aparecer aprovado na outra.
  */
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
-import type { Proposta, Usuario } from "@/lib/contrato";
+import type { AjustesProposta, Proposta, Usuario } from "@/lib/contrato";
 import { api, ErroApi } from "@/lib/cliente";
 
 export interface CartaoEstado {
@@ -43,10 +43,17 @@ export function redutorPropostas(s: Record<string, CartaoEstado>, a: AcaoPropost
   }
 }
 
+/** Botão dentro do aviso: hoje só o "Desfazer" do que a pessoa acabou de fazer na tela. */
+export interface AcaoAviso {
+  rotulo: string;
+  fazer: () => Promise<void>;
+}
+
 interface Aviso {
   id: number;
   texto: string;
   erro: boolean;
+  acao?: AcaoAviso;
 }
 
 interface Valor {
@@ -55,10 +62,12 @@ interface Valor {
   demo: boolean;
   versao: number;
   mudou: () => void;
-  avisar: (texto: string, erro?: boolean) => void;
+  avisar: (texto: string, erro?: boolean, acao?: AcaoAviso) => void;
+  /** Aviso de sucesso com "Desfazer" quando a escrita devolveu o registro. */
+  avisarFeito: (texto: string, registroId: string | null | undefined) => void;
   cartoes: Record<string, CartaoEstado>;
   receberPropostas: (ps: Proposta[]) => void;
-  aprovar: (id: string) => Promise<void>;
+  aprovar: (id: string, ajustes?: AjustesProposta) => Promise<void>;
   recusar: (id: string, motivo: string) => Promise<void>;
   desfazer: (id: string) => Promise<void>;
 }
@@ -82,17 +91,36 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
   const cartoesRef = useRef(cartoes);
   cartoesRef.current = cartoes;
 
-  const avisar = useCallback((texto: string, erro = false) => {
+  const avisar = useCallback((texto: string, erro = false, acao?: AcaoAviso) => {
     clearTimeout(relogio.current);
-    setAviso({ id: ++seq.current, texto, erro });
-    relogio.current = setTimeout(() => setAviso(null), erro ? 6000 : 4000);
+    setAviso({ id: ++seq.current, texto, erro, acao });
+    // Com botão, o aviso fica mais tempo: 4 s não dá para ler, entender que errou e alcançar o Desfazer.
+    relogio.current = setTimeout(() => setAviso(null), erro ? 6000 : acao ? 9000 : 4000);
   }, []);
   const mudou = useCallback(() => setVersao((v) => v + 1), []);
+  const avisarFeito = useCallback(
+    (texto: string, registroId: string | null | undefined) => {
+      if (!registroId) return avisar(texto);
+      avisar(texto, false, {
+        rotulo: "Desfazer",
+        fazer: async () => {
+          try {
+            await api.desfazerRegistro(registroId);
+            mudou();
+            avisar("Desfeito.");
+          } catch (e) {
+            avisar(mensagemDe(e), true);
+          }
+        },
+      });
+    },
+    [avisar, mudou],
+  );
   const receberPropostas = useCallback((ps: Proposta[]) => despachar({ tipo: "receber", propostas: ps }), []);
 
   const aprovar = useCallback(
-    async (id: string) => {
-      const r = await api.aprovarProposta(id);
+    async (id: string, ajustes?: AjustesProposta) => {
+      const r = await api.aprovarProposta(id, ajustes);
       despachar({ tipo: "aprovada", proposta: r.proposta, registroId: r.registro.id });
       mudou();
     },
@@ -125,13 +153,14 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       versao,
       mudou,
       avisar,
+      avisarFeito,
       cartoes,
       receberPropostas,
       aprovar,
       recusar,
       desfazer,
     }),
-    [usuario, demo, versao, mudou, avisar, cartoes, receberPropostas, aprovar, recusar, desfazer],
+    [usuario, demo, versao, mudou, avisar, avisarFeito, cartoes, receberPropostas, aprovar, recusar, desfazer],
   );
 
   return (
@@ -140,10 +169,30 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       <div aria-live="polite" role="status">
         {aviso && (
           <div key={aviso.id} className={`toast${aviso.erro ? " erro" : ""}`}>
-            {aviso.texto}
+            <span>{aviso.texto}</span>
+            {aviso.acao ? <BotaoAviso acao={aviso.acao} fechar={() => setAviso(null)} /> : null}
           </div>
         )}
       </div>
     </Ctx.Provider>
+  );
+}
+
+function BotaoAviso({ acao, fechar }: { acao: AcaoAviso; fechar: () => void }) {
+  const [ocupado, setOcupado] = useState(false);
+  return (
+    <button
+      type="button"
+      className="toast-acao"
+      disabled={ocupado}
+      aria-busy={ocupado}
+      onClick={async () => {
+        setOcupado(true);
+        fechar();
+        await acao.fazer();
+      }}
+    >
+      {acao.rotulo}
+    </button>
   );
 }
