@@ -62,6 +62,12 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
             ) : null}
           </p>
         </div>
+        {usuario.papel !== "viewer" ? (
+          <Link href="/obras/nova" className="btn amb">
+            <Icone nome="plus" tam={15} />
+            Nova obra
+          </Link>
+        ) : null}
       </header>
 
       {erro && !resumos ? (
@@ -88,7 +94,12 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
         <div className="card vazio">
           <Icone nome="info" tam={24} />
           <h3>Nenhuma obra ainda</h3>
-          <p>Quando a primeira obra for cadastrada, ela aparece aqui com o resumo do dia.</p>
+          <p>Cadastre a primeira obra: nome e endereço bastam para começar, e o próximo passo é o orçamento.</p>
+          {usuario.papel !== "viewer" ? (
+            <Link href="/obras/nova" className="btn amb">
+              Cadastrar obra
+            </Link>
+          ) : null}
         </div>
       ) : (
         <ul className={s.grade} aria-label="Obras">

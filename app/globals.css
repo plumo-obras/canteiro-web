@@ -357,7 +357,7 @@ td .lc{font-size:var(--t-meta)}
 input.f,textarea.f,select.f{width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:var(--rc);font:inherit;background:#fff;color:var(--ink)}
 input.f:focus,textarea.f:focus,select.f:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--accentSoft)}
 textarea.f{line-height:1.6;resize:vertical}
-label.l{display:block;font-size:var(--t-meta);color:var(--muted);margin:14px 0 5px;font-weight:500}
+label.l,.campo>span.l{display:block;font-size:var(--t-meta);color:var(--muted);margin:14px 0 5px;font-weight:500}
 .campo-erro{color:var(--redInk);font-size:var(--t-meta);margin-top:6px}
 
 /* toast: role=status; entra subindo 10 px */
@@ -472,6 +472,75 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .entrar .btn{width:100%;margin-top:22px;padding:10px 16px}
 .entrar .nota{margin-top:18px;padding-top:14px;border-top:1px solid var(--line2);font-size:var(--t-meta);color:var(--muted);line-height:1.5}
 .abrindo{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
+
+
+/* ---------------- onboarding da obra e orçamento ---------------- */
+.form-pagina{max-width:680px;margin:0 auto}
+.campo>.seg{margin-top:0}
+
+.voltar-link{display:inline-block;color:var(--muted);font-size:var(--t-meta);margin-bottom:14px;text-decoration:none}
+.voltar-link:hover{color:var(--ink)}
+.passos{display:flex;gap:6px;list-style:none;margin:0 0 16px;padding:0;counter-reset:p}
+.passos li{flex:1;display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:3px solid var(--line);color:var(--muted);font-size:var(--t-meta);font-weight:500}
+.passos li.on{border-color:var(--accent);color:var(--ink)}
+.passos li.feito{border-color:var(--pine);color:var(--ink2)}
+.passo-n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--sunk);font-size:12px;font-weight:600;flex:none}
+.passos li.on .passo-n{background:var(--accent);color:#fff}
+.passos li.feito .passo-n{background:var(--pineSoft);color:var(--pine)}
+.form-card{padding:28px 32px}
+.form-card h1{font-size:var(--t-bloco);line-height:1.2;margin:0 0 4px}
+.form-card>p.mut{margin:0 0 6px}
+.form-acoes{display:flex;justify-content:flex-end;gap:var(--s2);margin-top:24px}
+.campos-cidade{display:grid;grid-template-columns:1fr 64px;gap:0 10px}
+.escolha-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px;margin-top:6px}
+.escolha-grade button{min-height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--ink2);font:inherit;font-weight:500;cursor:pointer}
+.escolha-grade button.on{border-color:var(--accent);background:var(--accentSoft);color:var(--accentInk);box-shadow:0 0 0 1px var(--accent)}
+.escolha-grade button:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.portas{display:grid;gap:10px;margin-top:18px}
+.porta{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:16px 18px;border-radius:14px;border:1px solid var(--accent);background:var(--accentSoft);color:var(--ink);font:inherit;cursor:pointer}
+.porta>span{flex:1;min-width:0}
+.porta b{display:block;font-weight:600}
+.porta small{display:block;color:var(--ink2);font-size:var(--t-meta);margin-top:2px;line-height:1.45}
+.porta-sec{border-color:var(--line);background:#fff}
+.porta:hover{box-shadow:var(--shadow)}
+.modal .box.largo{width:880px}
+.passos-mini{display:flex;gap:18px;list-style:none;margin:2px 0 14px;padding:0;font-size:var(--t-meta);color:var(--faint)}
+.passos-mini li.on{color:var(--ink);font-weight:600}
+.passos-mini li.feito{color:var(--pine)}
+.solta{display:grid;justify-items:center;gap:6px;text-align:center;padding:32px 20px;border:2px dashed var(--line);border-radius:16px;background:var(--sunk);color:var(--ink2)}
+.solta p{margin:0}
+.solta .btn{margin-top:10px}
+.mapa{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0 14px}
+.tbl-rola{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:6px}
+.tbl-rola table{font-size:var(--t-meta)}
+.tbl-amostra th,.tbl-amostra td{white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.tbl-amostra .usada{background:var(--accentSoft)}
+.tbl-amostra th small{display:block;color:var(--accentInk);font-weight:600}
+.prev-erros{padding:12px 16px;border-radius:12px;background:var(--redSoft);color:var(--redInk);margin:6px 0 12px}
+.prev-erros ul{margin:6px 0;padding-left:18px}
+.prev-erros p{margin:0}
+.prev-resumo{display:flex;flex-wrap:wrap;align-items:center;gap:12px 32px;margin:8px 0 10px}
+.prev-resumo>div{display:flex;align-items:baseline;gap:8px}
+.prev-n{font:600 var(--t-bloco) var(--serif);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.prev-resumo small{display:block;font-size:var(--t-meta);color:var(--muted)}
+.prev-ign{margin:0 0 10px;font-size:var(--t-meta)}
+.prev-ign summary{cursor:pointer;color:var(--ink2)}
+.prev-ign ul{margin:6px 0 0;padding-left:18px;max-height:180px;overflow:auto}
+.tbl-orc td .pill{margin-left:8px;color:var(--blueInk)}
+.verba-ok{color:var(--greenInk)!important} .verba-atencao{color:var(--amberInk)!important} .verba-acima{color:var(--redInk)!important;font-weight:600}
+.pill.st-orc{color:var(--grayInk)} .pill.st-ok{color:var(--greenInk)}
+.orc-obra{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.orc-obra-n{font-weight:600}
+.orc-obra .campo-dica{margin-top:6px}
+.orc-aprovar{margin-left:auto}
+@media (max-width:760px){
+  .form-card{padding:22px 18px}
+  .passo-t{display:none}
+  .passos li.on .passo-t{display:inline}
+  .orc-obra{flex-direction:column;align-items:flex-start}
+  .orc-aprovar{margin-left:0;width:100%}
+  .tbl-orc th:nth-child(5),.tbl-orc td:nth-child(5){display:none}
+}
 
 /* ---------------- celular e tablet (< 900 px) ---------------- */
 .gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(15,26,46,.38);animation:mvAparece var(--mv-base) var(--ease)}

@@ -17,9 +17,11 @@ import { Conversa } from "./Conversa";
 import { Icone, Logo, type NomeIcone } from "./Icone";
 import { Pedidos } from "./Pedidos";
 import { Historico } from "./Historico";
-import { novaSessao, redutorSessoes, type AbaAtiva, type Sessao, type Tela } from "./sessoes";
+import { Orcamento } from "./Orcamento";
+import { TELAS_VALIDAS, novaSessao, redutorSessoes, type AbaAtiva, type Sessao, type Tela } from "./sessoes";
 
 const TELAS: { k: Tela; rotulo: string; icone: NomeIcone }[] = [
+  { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
   { k: "almoxarifado", rotulo: "Almoxarifado", icone: "package" },
   { k: "pedidos", rotulo: "Pedidos", icone: "cart" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
@@ -122,7 +124,9 @@ function App({ usuario }: { usuario: Usuario }) {
     const qs = new URLSearchParams(window.location.search);
     const querObra = qs.get("obra");
     const querSessao = qs.get("sessao");
-    if (querObra || querSessao) window.history.replaceState(null, "", window.location.pathname);
+    // ?tela= abre uma tela junto (a obra recém-criada cai direto no Orçamento).
+    const querTela = TELAS_VALIDAS.find((t) => t === qs.get("tela"));
+    if (querObra || querSessao || querTela) window.history.replaceState(null, "", window.location.pathname);
     api
       .listarObras()
       .then((os) => {
@@ -131,7 +135,7 @@ function App({ usuario }: { usuario: Usuario }) {
         if (!o) return;
         const abrirNovaEm = (obraId: string) => {
           const s = novaSessao(obraId);
-          despachar({ tipo: "nova", sessao: s });
+          despachar({ tipo: "nova", sessao: querTela ? { ...s, abas: [querTela], ativa: querTela } : s });
           setAtual(s.id);
         };
         if (!querSessao) abrirNovaEm(o.id);
@@ -165,9 +169,22 @@ function App({ usuario }: { usuario: Usuario }) {
       .finally(() => carregando.current.delete(s.id));
   }, [atual, sessoes, receberPropostas]);
 
+  // Dados e status da obra mudam pelas telas (editar, aprovar o orçamento): relê a lista a cada escrita.
+  const primeiraVersao = useRef(versao);
+  useEffect(() => {
+    if (versao === primeiraVersao.current) return;
+    api
+      .listarObras()
+      .then(setObras)
+      .catch(() => undefined);
+  }, [versao]);
+
   // O contador de Aprovações vem do servidor (e de quem mais aprovou), não só do que esta aba viu.
   useEffect(() => {
-    api.listarPropostas({ status: "pendente" }).then(receberPropostas).catch(() => undefined);
+    api
+      .listarPropostas({ status: "pendente" })
+      .then(receberPropostas)
+      .catch(() => undefined);
   }, [versao, receberPropostas]);
 
   const recolher = (on: boolean) => {
@@ -243,7 +260,15 @@ function App({ usuario }: { usuario: Usuario }) {
     <div className={`app${trilho ? " lat-fechada" : ""}${gavetaAberta ? " gaveta-aberta" : ""}`}>
       <aside className="side" id="lateral" aria-label="Conversas" ref={lateral} inert={movel && !gaveta}>
         {trilho ? (
-          <Trilho obras={obras ?? []} sessoes={sessoes} obraAtual={obra?.id} pendentes={pendentes} escolher={escolher} abrirNova={abrirNova} abrir={() => recolher(false)} />
+          <Trilho
+            obras={obras ?? []}
+            sessoes={sessoes}
+            obraAtual={obra?.id}
+            pendentes={pendentes}
+            escolher={escolher}
+            abrirNova={abrirNova}
+            abrir={() => recolher(false)}
+          />
         ) : (
           <>
             <div className="brand">
@@ -290,7 +315,13 @@ function App({ usuario }: { usuario: Usuario }) {
               const n = pendentes(o.id);
               return (
                 <div key={o.id}>
-                  <button type="button" className="grp" aria-expanded={aberto} aria-controls={`grp-${o.id}`} onClick={() => setGrupos((g) => ({ ...g, [o.id]: !aberto }))}>
+                  <button
+                    type="button"
+                    className="grp"
+                    aria-expanded={aberto}
+                    aria-controls={`grp-${o.id}`}
+                    onClick={() => setGrupos((g) => ({ ...g, [o.id]: !aberto }))}
+                  >
                     <Icone nome="chevRight" tam={14} className="grp-chev" />
                     <span className="dot" style={{ background: COR_STATUS[o.status] }} aria-hidden="true" />
                     <span className="sess-t">{o.nome}</span>
@@ -373,12 +404,25 @@ function App({ usuario }: { usuario: Usuario }) {
             <div className="card vazio">
               <Icone nome="info" tam={24} />
               <h3>Nenhuma obra ainda</h3>
-              <p>Quando a primeira obra for cadastrada, as conversas aparecem aqui.</p>
+              <p>Cadastre a primeira obra para começar pelo orçamento. As conversas com o agente aparecem aqui.</p>
+              {usuario.papel !== "viewer" ? (
+                <Link href="/obras/nova" className="btn amb">
+                  Cadastrar obra
+                </Link>
+              ) : null}
             </div>
           </main>
         </>
       ) : (
-        <SessaoAberta sessao={sessao} obra={obra} obras={obras ?? []} despachar={despachar} pendentes={pendentes(obra.id)} botaoGaveta={botaoGaveta} inerte={gavetaAberta} />
+        <SessaoAberta
+          sessao={sessao}
+          obra={obra}
+          obras={obras ?? []}
+          despachar={despachar}
+          pendentes={pendentes(obra.id)}
+          botaoGaveta={botaoGaveta}
+          inerte={gavetaAberta}
+        />
       )}
     </div>
   );
@@ -693,7 +737,9 @@ function SessaoAberta({
       </main>
       {ativa !== "conversa" ? (
         <section className="visao" id="painel-tela" role="tabpanel" aria-label={rotuloTela(ativa)} inert={inerte}>
-          {ativa === "almoxarifado" ? (
+          {ativa === "orcamento" ? (
+            <Orcamento obra={obra} />
+          ) : ativa === "almoxarifado" ? (
             <Almoxarifado obra={obra} />
           ) : ativa === "pedidos" ? (
             <Pedidos obra={obra} />

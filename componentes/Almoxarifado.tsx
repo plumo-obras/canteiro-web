@@ -15,6 +15,7 @@ import { LinhaConta } from "./LinhaConta";
 import { useCarregar } from "./useCarregar";
 import { ModalMovimento, type TipoLancamento } from "./formularios/ModalMovimento";
 import { ModalNovoPedido } from "./formularios/ModalNovoPedido";
+import { ImportarOrcamento } from "./obra/ImportarOrcamento";
 
 const TIPO: Record<TipoMovimento, string> = {
   entrada: "Entrada",
@@ -236,10 +237,13 @@ export function Almoxarifado({ obra }: { obra: Obra }) {
   const [lancando, setLancando] = useState<Lancar | null>(null);
   const { dado, erro, carregando } = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
   const [aberto, setAberto] = useState<string | null>(null);
+  const [importando, setImportando] = useState(false);
   const itens = dado ?? [];
   const peso = (i: ItemInsumo) => (i.conta.precisa ? i.conta.falta / i.conta.precisa : i.conta.falta);
   const ordem = { falta: 0, coberto: 1, fora: 2 } as const;
-  const lista = [...itens].sort((a, b) => ordem[situacao(a.conta)] - ordem[situacao(b.conta)] || peso(b) - peso(a) || a.insumo.nome.localeCompare(b.insumo.nome, "pt-BR"));
+  const lista = [...itens].sort(
+    (a, b) => ordem[situacao(a.conta)] - ordem[situacao(b.conta)] || peso(b) - peso(a) || a.insumo.nome.localeCompare(b.insumo.nome, "pt-BR"),
+  );
   const nFalta = itens.filter((i) => situacao(i.conta) === "falta").length;
   const item = itens.find((i) => i.insumo.id === aberto);
 
@@ -271,16 +275,19 @@ export function Almoxarifado({ obra }: { obra: Obra }) {
           <Icone nome="package" tam={24} />
           <h3>Nenhum insumo nesta obra</h3>
           <p>Importe a planilha do orçamento para o almoxarifado começar a fazer a conta.</p>
+          {podeOperar ? (
+            <button type="button" className="btn amb" onClick={() => setImportando(true)}>
+              Importar planilha do orçamento
+            </button>
+          ) : null}
+          {importando ? <ImportarOrcamento obra={obra} fechar={() => setImportando(false)} /> : null}
         </div>
       ) : (
         <>
           <p className="ax-resumo">
             {nFalta ? (
               <>
-                <b className="t-falta">
-                  {nFalta === 1 ? "1 insumo" : `${nFalta} insumos`} faltando
-                </b>{" "}
-                para terminar a obra.
+                <b className="t-falta">{nFalta === 1 ? "1 insumo" : `${nFalta} insumos`} faltando</b> para terminar a obra.
               </>
             ) : (
               <b className="t-ok">Nada falta para terminar a obra.</b>
@@ -298,7 +305,11 @@ export function Almoxarifado({ obra }: { obra: Obra }) {
               <i className="cob-falta" /> falta
             </span>
           </p>
-          <Lista itens={lista} abrir={(i) => setAberto(i.insumo.id)} pedir={podeOperar ? (i) => setLancando({ tipo: "pedido", insumoId: i.insumo.id }) : null} />
+          <Lista
+            itens={lista}
+            abrir={(i) => setAberto(i.insumo.id)}
+            pedir={podeOperar ? (i) => setLancando({ tipo: "pedido", insumoId: i.insumo.id }) : null}
+          />
         </>
       )}
       {item && !lancando ? <PainelItem obraId={obra.id} item={item} fechar={() => setAberto(null)} lancar={setLancando} /> : null}

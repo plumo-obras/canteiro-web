@@ -55,7 +55,10 @@ describe("demonstração: aprovar executa e o desfazer volta", () => {
   it("recusar pede motivo", () => {
     const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[])[0]!;
     expect(chamar("POST", `propostas/${pr.id}/recusar`, { motivo: " " }).status).toBe(422);
-    expect(chamar("POST", `propostas/${pr.id}/recusar`, { motivo: "outro fornecedor" }).corpo).toMatchObject({ status: "recusada", motivo_recusa: "outro fornecedor" });
+    expect(chamar("POST", `propostas/${pr.id}/recusar`, { motivo: "outro fornecedor" }).corpo).toMatchObject({
+      status: "recusada",
+      motivo_recusa: "outro fornecedor",
+    });
   });
 
   it("papel de leitura não aprova nem avança pedido", () => {
@@ -103,7 +106,10 @@ describe("demonstração: agente só propõe", () => {
     const tipos = evs.map((x) => x.evento);
     expect(tipos[0]).toBe("ferramenta");
     expect(tipos.at(-1)).toBe("fim");
-    const texto = evs.filter((x) => x.evento === "texto").map((x) => (x.dados as { delta: string }).delta).join("");
+    const texto = evs
+      .filter((x) => x.evento === "texto")
+      .map((x) => (x.dados as { delta: string }).delta)
+      .join("");
     expect(texto).toContain("falta 640 un");
     const prop = evs.find((x) => x.evento === "proposta")!.dados as Proposta;
     expect(prop).toMatchObject({ status: "pendente", tipo: "criar_pedido", dados: { quantidade: 640_000, valor: 204_800 } });
@@ -212,7 +218,10 @@ describe("demonstração: ajustar antes de aprovar", () => {
 
   it("compra ajustada executa o ajuste e guarda o que o agente propôs", () => {
     const pr = pendente("criar_pedido");
-    const r = chamar("POST", `propostas/${pr.id}/aprovar`, { ajustes: { quantidade: 30_000, valor: 117_000 } }).corpo as { proposta: Proposta; registro: { texto: string } };
+    const r = chamar("POST", `propostas/${pr.id}/aprovar`, { ajustes: { quantidade: 30_000, valor: 117_000 } }).corpo as {
+      proposta: Proposta;
+      registro: { texto: string };
+    };
     expect(r.proposta).toMatchObject({ ajustada: true, dados: { quantidade: 30_000, valor: 117_000 }, dados_originais: { quantidade: 34_000 } });
     expect(e.pedidos.at(-1)).toMatchObject({ quantidade: 30_000, valor: 117_000, status: "aprovado" });
     expect(r.registro.texto).toContain("ajustado: quantidade 34 sc → 30 sc");
@@ -262,11 +271,122 @@ describe("demonstração: lançamentos e pedido pela tela", () => {
   });
 
   it("pedido criado já aprovado desfaz enquanto não andou", () => {
-    const r = chamar("POST", `obras/${obraId()}/pedidos`, { insumo_id: e.insumos.get("bloco")!.id, quantidade: 640_000, fornecedor: "Cerâmica", valor: 204_800, aprovado: true });
+    const r = chamar("POST", `obras/${obraId()}/pedidos`, {
+      insumo_id: e.insumos.get("bloco")!.id,
+      quantidade: 640_000,
+      fornecedor: "Cerâmica",
+      valor: 204_800,
+      aprovado: true,
+    });
     const p = r.corpo as Pedido & { registro_id: string };
     expect(p).toMatchObject({ status: "aprovado", numero: "PED-0168" });
     expect(conta("bloco").falta).toBe(0);
     chamar("POST", `registro/${p.registro_id}/desfazer`);
     expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("cancelado");
+  });
+});
+
+describe("demonstração: cadastro de obra e orçamento por planilha", () => {
+  const PLANILHA = [
+    "ORÇAMENTO SINTÉTICO;;;;",
+    "Obra: Casa Teste;;;;",
+    "Item;Descrição;Unid.;Quant.;Preço unit.;Preço total",
+    "1;FUNDAÇÃO;;;;",
+    "1.1;Cimento CP-II 50 kg;sc;100;39,00;3.900,00",
+    "1.2;Aço CA-50 10 mm;kg;1.000;6,60;6.600,00",
+    "2;ALVENARIA;;;;",
+    "2.1;Cimento CP-II 50 kg;sc;50;42,00;2.100,00",
+    "2.2;Areia média;m³;10;;1.400,00",
+    "2.3;Prego 17x21;kg;5;20,00;100,00",
+    ";Subtotal;;;;14.100,00",
+  ].join("\n");
+  const criar = (corpo: Record<string, unknown> = {}) =>
+    chamar("POST", "obras", { nome: "Casa Teste", chave_idempotencia: "chave-teste-1", verba: 1_000_000, ...corpo });
+
+  it("cria em orçamento, a mesma chave devolve a mesma obra, e leitura não cria", () => {
+    const r = criar();
+    expect(r.status).toBe(201);
+    const o = r.corpo as { id: string; status: string; area_construida: number };
+    expect(o).toMatchObject({ status: "em_orcamento", area_construida: 0 });
+    expect((criar().corpo as { id: string }).id).toBe(o.id);
+    expect(criar({ nome: "Outra" }).status).toBe(409);
+    expect(chamar("POST", "obras", { nome: "X", chave_idempotencia: "chave-teste-2" }, leitura()).status).toBe(403);
+  });
+
+  it("editar registra só o que mudou e o desfazer volta (e recusa se mudou de novo)", () => {
+    const o = criar().corpo as { id: string };
+    const r = chamar("PATCH", `obras/${o.id}`, { area_construida: 142_500, padrao: "normal", nome: "Casa Teste" }).corpo as { registro_id: string };
+    expect(e.registro.at(-1)!.texto).toBe("Atualizou a obra Casa Teste: área, padrão");
+    expect((chamar("PATCH", `obras/${o.id}`, { padrao: "normal" }).corpo as { registro_id: null }).registro_id).toBeNull();
+    chamar("POST", `registro/${r.registro_id}/desfazer`);
+    expect(e.obras.find((x) => x.id === o.id)).toMatchObject({ area_construida: 0, padrao: null });
+
+    const r2 = chamar("PATCH", `obras/${o.id}`, { padrao: "alto" }).corpo as { registro_id: string };
+    chamar("PATCH", `obras/${o.id}`, { padrao: "baixo" });
+    expect(chamar("POST", `registro/${r2.registro_id}/desfazer`).status).toBe(409);
+  });
+
+  it("lê o CSV, acha o cabeçalho e sugere as colunas", () => {
+    const o = criar().corpo as { id: string };
+    const l = chamar("POST", `obras/${o.id}/orcamento/ler`, { arquivo: { nome: "orc.csv", texto: PLANILHA } }).corpo as {
+      linha_cabecalho: number;
+      sugestao: Record<string, unknown>;
+    };
+    expect(l.linha_cabecalho).toBe(3);
+    expect(l.sugestao).toMatchObject({ nome: 1, unidade: 2, quantidade: 3, valor_unitario: 4, valor_total: 5, saldo: null, curva: null });
+    expect(chamar("POST", `obras/${o.id}/orcamento/ler`, { arquivo: { nome: "orc.xlsx", texto: "" } }).status).toBe(422);
+  });
+
+  it("prévia pula títulos, junta repetidos, calcula o unitário pelo total e a curva pelo valor; aplicar grava", () => {
+    const o = criar().corpo as { id: string };
+    const arquivo = { nome: "orc.csv", texto: PLANILHA };
+    const mapeamento = JSON.stringify({
+      planilha: "CSV",
+      linha_cabecalho: 3,
+      nome: 1,
+      unidade: 2,
+      quantidade: 3,
+      valor_unitario: 4,
+      valor_total: 5,
+      saldo: null,
+      curva: null,
+    });
+    const p = chamar("POST", `obras/${o.id}/orcamento/importar`, { arquivo, mapeamento, aplicar: "false" }).corpo as import("../contrato").PreviaOrcamento;
+    expect(p).toMatchObject({ aplicado: false, novos: 4, atualizados: 0, juntadas: 1, total: 1_410_000, erros: [] });
+    expect(p.ignoradas.map((i) => i.motivo)).toEqual([
+      "sem unidade (título ou subtotal?)",
+      "sem unidade (título ou subtotal?)",
+      "sem unidade (título ou subtotal?)",
+    ]);
+    const cimento = p.linhas.find((l) => l.nome.startsWith("Cimento"))!;
+    expect(cimento).toMatchObject({ linhas: [5, 8], quantidade: 150_000, valor_unitario: 4000, total: 600_000 });
+    expect(p.linhas.find((l) => l.nome === "Areia média")).toMatchObject({ valor_unitario: 14_000 });
+    expect(Object.fromEntries(p.linhas.map((l) => [l.nome, l.curva]))).toEqual({
+      "Aço CA-50 10 mm": "A",
+      "Cimento CP-II 50 kg": "A",
+      "Areia média": "B",
+      "Prego 17x21": "C",
+    });
+    expect(e.insumos.size).toBe(4); // a prévia não grava
+
+    const a = chamar("POST", `obras/${o.id}/orcamento/importar`, { arquivo, mapeamento, aplicar: "true" }).corpo as { aplicado: boolean };
+    expect(a.aplicado).toBe(true);
+    const itens = chamar("GET", `obras/${o.id}/insumos`).corpo as ItemInsumo[];
+    expect(itens).toHaveLength(4);
+    // reimportar atualiza em vez de duplicar
+    const p2 = chamar("POST", `obras/${o.id}/orcamento/importar`, { arquivo, mapeamento, aplicar: "false" }).corpo as { novos: number; atualizados: number };
+    expect(p2).toMatchObject({ novos: 0, atualizados: 4 });
+  });
+
+  it("aprovar exige orçamento, passa para em andamento e o desfazer reabre", () => {
+    const o = criar().corpo as { id: string };
+    expect(chamar("POST", `obras/${o.id}/orcamento/aprovar`).status).toBe(422);
+    chamar("POST", `obras/${o.id}/insumos`, { nome: "Cimento", unidade: "sc", precisa_ate_o_fim: 10_000, valor_unitario: 4000 });
+    const r = chamar("POST", `obras/${o.id}/orcamento/aprovar`).corpo as { status: string; registro_id: string };
+    expect(r.status).toBe("em_andamento");
+    expect(e.registro.at(-1)!.texto).toBe("Aprovou o orçamento de Casa Teste (1 insumo, R$ 400,00)");
+    expect(chamar("POST", `obras/${o.id}/orcamento/aprovar`).status).toBe(409);
+    chamar("POST", `registro/${r.registro_id}/desfazer`);
+    expect(e.obras.find((x) => x.id === o.id)!.status).toBe("em_orcamento");
   });
 });

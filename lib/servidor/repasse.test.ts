@@ -25,6 +25,9 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["obras", "o1"], "DELETE")).toBe(false);
     expect(caminhoPermitido(["propostas", "p1"], "PUT")).toBe(false);
     expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
+    expect(caminhoPermitido(["obras", "o1"], "PATCH")).toBe(true);
+    expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
+    expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(false);
   });
 
   it("cookie de renovação só com o header próprio e da mesma origem", () => {

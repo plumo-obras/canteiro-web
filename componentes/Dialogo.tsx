@@ -41,13 +41,21 @@ function useFocoPreso(caixa: React.RefObject<HTMLElement | null>, fechar: () => 
   }, []);
 }
 
-export function Modal(props: { titulo: string; fechar: () => void; children: ReactNode; rodape: ReactNode; focoInicial?: React.RefObject<HTMLElement | null> }) {
+export function Modal(props: {
+  titulo: string;
+  fechar: () => void;
+  children: ReactNode;
+  rodape: ReactNode;
+  focoInicial?: React.RefObject<HTMLElement | null>;
+  /** Caixa larga, para tabela (a prévia da planilha). */
+  largo?: boolean;
+}) {
   const caixa = useRef<HTMLDivElement>(null);
   const id = useId();
   useFocoPreso(caixa, props.fechar, props.focoInicial);
   return createPortal(
     <div className="modal">
-      <div ref={caixa} className="box" role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1}>
+      <div ref={caixa} className={`box${props.largo ? " largo" : ""}`} role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1}>
         <button type="button" className="iconbtn dlg-x" aria-label="Fechar" onClick={props.fechar}>
           <Icone nome="x" tam={18} />
         </button>

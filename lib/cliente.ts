@@ -8,6 +8,11 @@ import type {
   ComRegistro,
   CorpoAvancar,
   CorpoInsumo,
+  CorpoObra,
+  DadosObra,
+  LeituraPlanilha,
+  Mapeamento,
+  PreviaOrcamento,
   CorpoMovimento,
   CorpoPedido,
   CorpoConversa,
@@ -54,18 +59,24 @@ async function erroDe(r: Response): Promise<ErroApi> {
     // FastAPI devolve {detail: "..."} ou {detail: [{msg}]} na validação; o agente usa {mensagem}.
     if (typeof j.mensagem === "string") msg = j.mensagem;
     else if (typeof j.detail === "string") msg = j.detail;
-    else if (Array.isArray(j.detail)) msg = j.detail.map((d: { msg?: string }) => d?.msg).filter(Boolean).join("; ");
+    else if (Array.isArray(j.detail))
+      msg = j.detail
+        .map((d: { msg?: string }) => d?.msg)
+        .filter(Boolean)
+        .join("; ");
   } catch {
     /* sem corpo */
   }
   return new ErroApi(r.status, msg || MENSAGEM_PADRAO[r.status] || "Algo deu errado. Tente de novo.");
 }
 
-async function chamar<T>(metodo: "GET" | "POST" | "PUT" | "DELETE", caminho: string, corpo?: unknown): Promise<T> {
+async function chamar<T>(metodo: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", caminho: string, corpo?: unknown): Promise<T> {
+  // FormData vai como multipart: o navegador põe o content-type com o boundary sozinho.
+  const form = corpo instanceof FormData;
   const r = await comAcesso(`/srv/api${caminho}`, {
     method: metodo,
-    headers: corpo === undefined ? undefined : { "content-type": "application/json" },
-    body: corpo === undefined ? undefined : JSON.stringify(corpo),
+    headers: corpo === undefined || form ? undefined : { "content-type": "application/json" },
+    body: corpo === undefined ? undefined : form ? corpo : JSON.stringify(corpo),
   });
   if (!r.ok) throw await erroDe(r);
   return (r.status === 204 ? null : await r.json()) as T;
@@ -89,30 +100,43 @@ export const api = {
   removerChaveAnthropic: () => chamar<unknown>("DELETE", "/conta/chave-anthropic"),
   /** `de` e `ate` em AAAA-MM-DD, inclusivos. */
   uso: (de: string, ate: string) => chamar<RelatorioUso>("GET", `/uso${q({ de, ate })}`),
+  criarObra: (corpo: CorpoObra) => chamar<ComRegistro<Obra>>("POST", "/obras", corpo),
+  editarObra: (obraId: string, dados: DadosObra) => chamar<ComRegistro<Obra>>("PATCH", `/obras/${seg(obraId)}`, dados),
+  /** Lê a planilha (aba, cabeçalho, colunas e uma amostra) e sugere qual coluna é qual. Não grava nada. */
+  lerPlanilha: (obraId: string, arquivo: File, planilha?: string) => {
+    const f = new FormData();
+    f.set("arquivo", arquivo);
+    if (planilha) f.set("planilha", planilha);
+    return chamar<LeituraPlanilha>("POST", `/obras/${seg(obraId)}/orcamento/ler`, f);
+  },
+  /** `aplicar: false` é a prévia; com qualquer erro a API não grava nem com `aplicar: true`. */
+  importarOrcamento: (obraId: string, arquivo: File, mapeamento: Mapeamento, aplicar: boolean) => {
+    const f = new FormData();
+    f.set("arquivo", arquivo);
+    f.set("mapeamento", JSON.stringify(mapeamento));
+    f.set("aplicar", String(aplicar));
+    return chamar<PreviaOrcamento>("POST", `/obras/${seg(obraId)}/orcamento/importar`, f);
+  },
+  aprovarOrcamento: (obraId: string) => chamar<ComRegistro<Obra>>("POST", `/obras/${seg(obraId)}/orcamento/aprovar`),
   listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),
   listarMovimentos: (obraId: string, insumoId: string, limite = 50) =>
     chamar<Movimento[]>("GET", `/obras/${seg(obraId)}/insumos/${seg(insumoId)}/movimentos${q({ limite })}`),
-  listarPedidos: (obraId: string, status?: StatusPedido) =>
-    chamar<Pedido[]>("GET", `/obras/${seg(obraId)}/pedidos${q({ status })}`),
+  listarPedidos: (obraId: string, status?: StatusPedido) => chamar<Pedido[]>("GET", `/obras/${seg(obraId)}/pedidos${q({ status })}`),
   avancarPedido: (pedidoId: string, para: StatusPedido, extra: Omit<CorpoAvancar, "para"> = {}) =>
     chamar<ComRegistro<Pedido>>("POST", `/pedidos/${seg(pedidoId)}/avancar`, { para, ...extra }),
   criarPedido: (obraId: string, corpo: CorpoPedido) => chamar<ComRegistro<Pedido>>("POST", `/obras/${seg(obraId)}/pedidos`, corpo),
   criarInsumo: (obraId: string, corpo: CorpoInsumo) => chamar<ComRegistro<Insumo>>("POST", `/obras/${seg(obraId)}/insumos`, corpo),
-  lancarMovimento: (obraId: string, corpo: CorpoMovimento) =>
-    chamar<ComRegistro<Movimento>>("POST", `/obras/${seg(obraId)}/movimentos`, corpo),
-  listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string } = {}) =>
-    chamar<Proposta[]>("GET", `/propostas${q({ ...filtro })}`),
+  lancarMovimento: (obraId: string, corpo: CorpoMovimento) => chamar<ComRegistro<Movimento>>("POST", `/obras/${seg(obraId)}/movimentos`, corpo),
+  listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string } = {}) => chamar<Proposta[]>("GET", `/propostas${q({ ...filtro })}`),
   recusarProposta: (id: string, motivo: string) => chamar<Proposta>("POST", `/propostas/${seg(id)}/recusar`, { motivo }),
-  listarRegistro: (obraId: string, limite = 100) =>
-    chamar<EntradaRegistro[]>("GET", `/registro${q({ obra_id: obraId, limite })}`),
+  listarRegistro: (obraId: string, limite = 100) => chamar<EntradaRegistro[]>("GET", `/registro${q({ obra_id: obraId, limite })}`),
   desfazerRegistro: (id: string) => chamar<EntradaRegistro>("POST", `/registro/${seg(id)}/desfazer`),
-  listarSessoes: (filtro: { obra_id?: string; limite?: number } = {}) =>
-    chamar<SessaoApi[]>("GET", `/sessoes${q({ limite: 30, ...filtro })}`),
+  listarSessoes: (filtro: { obra_id?: string; limite?: number } = {}) => chamar<SessaoApi[]>("GET", `/sessoes${q({ limite: 30, ...filtro })}`),
 
   /** Todas as mensagens da sessão, em páginas de 200 (o contrato pagina por seq com `depois_de`). */
   async mensagensSessao(id: string): Promise<MensagemSessao[]> {
     const todas: MensagemSessao[] = [];
-    for (let depois = -1; ; ) {
+    for (let depois = -1; ;) {
       const pag = await chamar<MensagemSessao[]>("GET", `/sessoes/${seg(id)}/mensagens${q({ depois_de: depois, limite: 200 })}`);
       todas.push(...pag);
       if (pag.length < 200) return todas;

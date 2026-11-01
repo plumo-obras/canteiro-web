@@ -7,6 +7,8 @@
 import type {
   Conta,
   DadosAjusteEstoque,
+  DadosObra,
+  Mapeamento,
   DadosAvancarPedido,
   DadosCriarPedido,
   EntradaRegistro,
@@ -25,6 +27,7 @@ import type {
 import { fmtQtdUn, fmtReais } from "../formato";
 import type { MensagemSessao, SessaoApi } from "../historico";
 import { uuid7 } from "../ids";
+import { PlanilhaInvalida, lerPlanilhaDemo, nomeChave, previaDemo } from "./orcamento";
 
 export { uuid7 };
 import { A_CAMINHO, EM_COTACAO, RegraViolada, contaDeFalta, efeitoNoSaldo, validarTransicao } from "./regras-espelho";
@@ -53,6 +56,8 @@ interface EstadoDemo {
   contadorPedido: number;
   /** chave_idempotencia → movimento lançado pela tela (o ID na API é derivado da chave; aqui, um mapa). */
   idempotencia: Map<string, Movimento>;
+  /** chave_idempotencia → obra criada pela tela (POST /obras repetido devolve a mesma). */
+  obrasPorChave: Map<string, Obra>;
   /** Histórico das conversas no formato que o agente grava (um item por mensagem, como na coleção `mensagens`). */
   sessoes: Map<string, { sessao: SessaoApi; mensagens: MensagemSessao[] }>;
   /** E-mail com que cada pessoa entrou (o Usuario do contrato não traz e-mail; GET /conta traz). */
@@ -74,11 +79,69 @@ export const REFERENCIA: Record<string, { fornecedor: string; centavosPorUn: num
   areia: { fornecedor: "Areial Jaguari", centavosPorUn: 14000 },
 };
 
+/** Os campos da obra que o cadastro deixa em branco (como os defaults do modelo na API). */
+const OBRA_VAZIA = {
+  cidade: "",
+  cep: "",
+  uf: "",
+  endereco: "",
+  verba: 0,
+  tipologia: null,
+  area_construida: 0,
+  pavimentos: 0,
+  padrao: null,
+  regime: null,
+  cliente: "",
+  inicio: null,
+  prazo_meses: 0,
+} satisfies Omit<Obra, "id" | "tenant_id" | "criado_em" | "nome" | "status">;
+
+const CAMPOS_OBRA = Object.keys(OBRA_VAZIA).concat("nome") as (keyof DadosObra)[];
+const ROTULO_CAMPO: Record<string, string> = {
+  nome: "nome",
+  cidade: "cidade",
+  cep: "CEP",
+  uf: "UF",
+  endereco: "endereço",
+  verba: "verba",
+  tipologia: "tipo",
+  area_construida: "área",
+  pavimentos: "pavimentos",
+  padrao: "padrão",
+  regime: "regime",
+  cliente: "cliente",
+  inicio: "início",
+  prazo_meses: "prazo",
+};
+
+/** Só os campos conhecidos; o resto do corpo é ignorado (a API recusaria campo desconhecido com 422). */
+function dadosObra(c: Record<string, unknown>): DadosObra {
+  const d: Record<string, unknown> = {};
+  for (const k of CAMPOS_OBRA) if (k in c) d[k] = c[k];
+  if (typeof d.nome === "string") d.nome = d.nome.replace(/\s+/g, " ").trim();
+  if ("nome" in d && (!d.nome || String(d.nome).length > 120)) throw new RegraViolada("Dê um nome para a obra (até 120 letras).");
+  return d as DadosObra;
+}
+
 function semear(): EstadoDemo {
   const doc = <T extends object>(x: T, criado = agoraISO()) => ({ id: uuid7(), tenant_id: TENANT, criado_em: criado, ...x });
-  const obra: Obra = doc({ nome: "Casa Vila Nova", cidade: "Campinas", cep: "13000-000", verba: 48000000, status: "em_andamento" as const });
+  const obra: Obra = doc({
+    ...OBRA_VAZIA,
+    nome: "Casa Vila Nova",
+    cidade: "Campinas",
+    uf: "SP",
+    cep: "13000-000",
+    verba: 48000000,
+    status: "em_andamento" as const,
+    tipologia: "sobrado" as const,
+    area_construida: 186_000,
+    pavimentos: 2,
+    padrao: "normal" as const,
+    regime: "empreitada" as const,
+    prazo_meses: 12,
+  });
   const ins = (chave: string, nome: string, unidade: string, precisa: number, curva: "A" | "B" | "C") =>
-    [chave, doc({ obra_id: obra.id, nome, unidade, precisa_ate_o_fim: precisa, curva })] as const;
+    [chave, doc({ obra_id: obra.id, nome, unidade, precisa_ate_o_fim: precisa, curva, valor_unitario: REFERENCIA[chave]!.centavosPorUn })] as const;
   const insumos = new Map<string, ItemDemo>([
     ins("bloco", "Bloco cerâmico 14×19×29", "un", 3_400_000, "A"),
     ins("aco", "Aço CA-50 10 mm", "kg", 3_940_000, "A"),
@@ -88,7 +151,18 @@ function semear(): EstadoDemo {
   const id = (k: string) => insumos.get(k)!.id;
   const mov = (k: string, tipo: TipoMovimento, q: number, dias: number, extra: Partial<Movimento> = {}): Movimento =>
     doc(
-      { obra_id: obra.id, insumo_id: id(k), tipo, quantidade: q, destino: null, origem_doc: null, quem: "Joana (mestre)", origem: "tela", desfaz: null, ...extra },
+      {
+        obra_id: obra.id,
+        insumo_id: id(k),
+        tipo,
+        quantidade: q,
+        destino: null,
+        origem_doc: null,
+        quem: "Joana (mestre)",
+        origem: "tela",
+        desfaz: null,
+        ...extra,
+      },
       diasAtras(dias),
     );
   const movimentos: Movimento[] = [
@@ -103,7 +177,10 @@ function semear(): EstadoDemo {
     mov("areia", "saida", 18_000, 5, { destino: "Reboco interno" }),
   ];
   const ped = (numero: string, k: string, q: number, valor: number, status: StatusPedido, previsao: string | null, dias: number): Pedido =>
-    doc({ numero, obra_id: obra.id, insumo_id: id(k), quantidade: q, fornecedor: REFERENCIA[k]!.fornecedor, valor, status, previsao, rastreio: null }, diasAtras(dias));
+    doc(
+      { numero, obra_id: obra.id, insumo_id: id(k), quantidade: q, fornecedor: REFERENCIA[k]!.fornecedor, valor, status, previsao, rastreio: null },
+      diasAtras(dias),
+    );
   const pedidos: Pedido[] = [
     ped("PED-0157", "areia", 40_000, 560000, "recebido", "chegou ontem · NF 4471", 6),
     ped("PED-0158", "aco", 3_200_000, 2112000, "em_transito", "chega quinta", 5),
@@ -117,8 +194,8 @@ function semear(): EstadoDemo {
   ];
   // Duas obras sem almoxarifado ainda, para a página inicial mostrar mais de um cartão e os estados de obra.
   const outras: Obra[] = [
-    doc({ nome: "Sobrado Jardim Europa", cidade: "Valinhos", cep: "13270-000", verba: 91000000, status: "em_orcamento" as const }),
-    doc({ nome: "Reforma Loja Centro", cidade: "Campinas", cep: "13010-000", verba: 12500000, status: "concluida" as const }),
+    doc({ ...OBRA_VAZIA, nome: "Sobrado Jardim Europa", cidade: "Valinhos", uf: "SP", cep: "13270-000", verba: 91000000, status: "em_orcamento" as const }),
+    doc({ ...OBRA_VAZIA, nome: "Reforma Loja Centro", cidade: "Campinas", uf: "SP", cep: "13010-000", verba: 12500000, status: "concluida" as const }),
   ];
   const e: EstadoDemo = {
     usuarios,
@@ -132,6 +209,7 @@ function semear(): EstadoDemo {
     registro: [],
     contadorPedido: 167,
     idempotencia: new Map(),
+    obrasPorChave: new Map(),
     sessoes: new Map(),
     emails: new Map(),
     chave: null,
@@ -157,7 +235,19 @@ function semear(): EstadoDemo {
   e.propostas.push(propostaDeCompra(e, insumos.get("cimento")!, c, "almoxarifado · PED-0160"));
   // O histórico nasce com o que já aconteceu na obra (sem desfazer: é passado). A API guarda isto a cada escrita.
   const reg = (texto: string, quem: string, origem: string, dias: number, h = 9) =>
-    e.registro.push({ id: uuid7(), tenant_id: TENANT, criado_em: diasAtras(dias, h), quem, quem_nome: quem, obra_id: obra.id, origem, texto, proposta_id: null, desfazer: null, desfeito: false });
+    e.registro.push({
+      id: uuid7(),
+      tenant_id: TENANT,
+      criado_em: diasAtras(dias, h),
+      quem,
+      quem_nome: quem,
+      obra_id: obra.id,
+      origem,
+      texto,
+      proposta_id: null,
+      desfazer: null,
+      desfeito: false,
+    });
   reg("PED-0149: recebido → conferido · 4.000 un de Bloco cerâmico 14×19×29", "Joana (mestre)", "tela", 20);
   reg("PED-0150: recebido → conferido · 30 m³ de Areia média lavada", "Joana (mestre)", "tela", 18);
   reg("Saída de 1.050 un de Bloco cerâmico 14×19×29 · Alvenaria do térreo", "Joana (mestre)", "tela", 9);
@@ -304,7 +394,20 @@ export function gravarNaSessao(id: string, u: Usuario, obraId: string | null, ti
   const agora = agoraISO();
   let x = e.sessoes.get(id);
   if (!x) {
-    x = { sessao: { id, tenant_id: TENANT, dono: u.id, obra_id: obraId, titulo: titulo.slice(0, 80), abas: [], total_mensagens: 0, criado_em: agora, atualizado_em: agora }, mensagens: [] };
+    x = {
+      sessao: {
+        id,
+        tenant_id: TENANT,
+        dono: u.id,
+        obra_id: obraId,
+        titulo: titulo.slice(0, 80),
+        abas: [],
+        total_mensagens: 0,
+        criado_em: agora,
+        atualizado_em: agora,
+      },
+      mensagens: [],
+    };
     e.sessoes.set(id, x);
   }
   for (const m of novas) {
@@ -317,16 +420,41 @@ export function gravarNaSessao(id: string, u: Usuario, obraId: string | null, ti
 /* ---------- escrita (o que a API faria) ---------- */
 
 function registrar(e: EstadoDemo, u: Usuario, r: Pick<EntradaRegistro, "obra_id" | "texto" | "proposta_id" | "desfazer" | "origem">) {
-  const ent: EntradaRegistro = { id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), quem: u.nome, quem_nome: u.nome, usuario_id: u.id, desfeito: false, ...r };
+  const ent: EntradaRegistro = {
+    id: uuid7(),
+    tenant_id: TENANT,
+    criado_em: agoraISO(),
+    quem: u.nome,
+    quem_nome: u.nome,
+    usuario_id: u.id,
+    desfeito: false,
+    ...r,
+  };
   e.registro.push(ent);
   return ent;
 }
 
 function movimentar(e: EstadoDemo, u: Usuario, m: Pick<Movimento, "obra_id" | "insumo_id" | "tipo" | "quantidade"> & Partial<Movimento>) {
-  const mov: Movimento = { id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), destino: null, origem_doc: null, quem: u.nome, origem: "tela", desfaz: null, ...m };
+  const mov: Movimento = {
+    id: uuid7(),
+    tenant_id: TENANT,
+    criado_em: agoraISO(),
+    destino: null,
+    origem_doc: null,
+    quem: u.nome,
+    origem: "tela",
+    desfaz: null,
+    ...m,
+  };
   efeitoNoSaldo(mov);
   e.movimentos.push(mov);
   return mov;
+}
+
+function obraPorId(e: EstadoDemo, id: string) {
+  const o = e.obras.find((x) => x.id === id);
+  if (!o) throw new NaoEncontrado("Obra não encontrada.");
+  return o;
 }
 
 function pedidoPorIdOuNulo(e: EstadoDemo, id: string) {
@@ -363,7 +491,12 @@ function avancar(e: EstadoDemo, u: Usuario, p: Pedido, para: StatusPedido, orige
     const nf = rec.nf?.trim() || null;
     const un = unidadeDe(e, p.insumo_id);
     movimento_id = movimentar(e, u, {
-      obra_id: p.obra_id, insumo_id: p.insumo_id, tipo: "entrada", quantidade: q, origem_doc: nf ? `${p.numero} · NF ${nf}` : p.numero, origem,
+      obra_id: p.obra_id,
+      insumo_id: p.insumo_id,
+      tipo: "entrada",
+      quantidade: q,
+      origem_doc: nf ? `${p.numero} · NF ${nf}` : p.numero,
+      origem,
     }).id;
     p.quantidade_recebida = q;
     p.nf = nf;
@@ -388,9 +521,20 @@ function criarPedido(e: EstadoDemo, obraId: string, d: DadosCriarPedido, aprovad
   if (!String(d.fornecedor ?? "").trim()) throw new RegraViolada("Diga o fornecedor.");
   const status: StatusPedido = aprovado ? "aprovado" : "em_cotacao";
   const p: Pedido = {
-    id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), numero: `PED-${String(++e.contadorPedido).padStart(4, "0")}`, obra_id: obraId,
-    insumo_id: d.insumo_id, quantidade: d.quantidade, fornecedor: d.fornecedor.trim(), valor: d.valor, status, previsao: d.previsao ?? null, rastreio: null,
-    quantidade_recebida: null, nf: null,
+    id: uuid7(),
+    tenant_id: TENANT,
+    criado_em: agoraISO(),
+    numero: `PED-${String(++e.contadorPedido).padStart(4, "0")}`,
+    obra_id: obraId,
+    insumo_id: d.insumo_id,
+    quantidade: d.quantidade,
+    fornecedor: d.fornecedor.trim(),
+    valor: d.valor,
+    status,
+    previsao: d.previsao ?? null,
+    rastreio: null,
+    quantidade_recebida: null,
+    nf: null,
   };
   e.pedidos.push(p);
   return {
@@ -408,8 +552,7 @@ const AJUSTAVEIS: Record<Proposta["tipo"], string[]> = {
 };
 
 function descreverAjuste(antes: Record<string, unknown>, depois: Record<string, unknown>, un: string) {
-  const fmt = (k: string, v: unknown) =>
-    typeof v === "number" ? (k === "valor" ? fmtReais(v) : fmtQtdUn(v, un)) : v == null || v === "" ? "—" : String(v);
+  const fmt = (k: string, v: unknown) => (typeof v === "number" ? (k === "valor" ? fmtReais(v) : fmtQtdUn(v, un)) : v == null || v === "" ? "—" : String(v));
   return Object.keys(depois)
     .filter((k) => antes[k] !== depois[k])
     .map((k) => `${k.replace("_", " ")} ${fmt(k, antes[k])} → ${fmt(k, depois[k])}`)
@@ -490,11 +633,20 @@ function estornar(e: EstadoDemo, u: Usuario, movId: string) {
   if (!m) throw new NaoEncontrado("Movimento não encontrado.");
   if (e.movimentos.some((x) => x.desfaz === m.id)) throw new Conflito("Este movimento já foi estornado.");
   const inverso: Record<TipoMovimento, TipoMovimento> = {
-    entrada: "saida", saida: "entrada", ajuste: "ajuste", transferencia_entrada: "transferencia_saida", transferencia_saida: "transferencia_entrada",
+    entrada: "saida",
+    saida: "entrada",
+    ajuste: "ajuste",
+    transferencia_entrada: "transferencia_saida",
+    transferencia_saida: "transferencia_entrada",
   };
   return movimentar(e, u, {
-    obra_id: m.obra_id, insumo_id: m.insumo_id, tipo: inverso[m.tipo], quantidade: m.tipo === "ajuste" ? -m.quantidade : m.quantidade,
-    desfaz: m.id, origem_doc: m.origem_doc, destino: "Estorno (desfazer)",
+    obra_id: m.obra_id,
+    insumo_id: m.insumo_id,
+    tipo: inverso[m.tipo],
+    quantidade: m.tipo === "ajuste" ? -m.quantidade : m.quantidade,
+    desfaz: m.id,
+    origem_doc: m.origem_doc,
+    destino: "Estorno (desfazer)",
   });
 }
 
@@ -520,6 +672,17 @@ export function desfazer(registroId: string, u: Usuario) {
     p.quantidade_recebida = null;
     p.nf = null;
     texto = `Desfeito: ${p.numero} voltou para ${d.de}`;
+  } else if (d.op === "restaurar_obra") {
+    const r = ent.desfazer as unknown as { obra_id: string; antes: Record<string, unknown>; depois: Record<string, unknown> };
+    const o = obraPorId(e, r.obra_id) as unknown as Record<string, unknown>;
+    if (Object.entries(r.depois).some(([k, v]) => o[k] !== v)) throw new Conflito("A obra mudou de novo desde então; não dá para desfazer.");
+    Object.assign(o, r.antes);
+    texto = `Desfeito: dados de ${o.nome} voltaram ao que eram`;
+  } else if (d.op === "reabrir_orcamento") {
+    const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);
+    if (o.status !== "em_andamento") throw new Conflito("A obra já mudou de status; não dá para reabrir o orçamento.");
+    o.status = "em_orcamento";
+    texto = `Desfeito: orçamento de ${o.nome} reaberto`;
   } else if (d.op === "estornar_movimento" && d.movimento_id) {
     const m = estornar(e, u, d.movimento_id);
     texto = `Desfeito: estorno de ${fmtQtdUn(Math.abs(m.quantidade), unidadeDe(e, m.insumo_id))}`;
@@ -545,14 +708,20 @@ function lancar(e: EstadoDemo, u: Usuario, obraId: string, c: Record<string, unk
   const origem_doc = typeof c.origem_doc === "string" && c.origem_doc.trim() ? c.origem_doc.trim() : null;
   const repetido = e.idempotencia.get(chave);
   if (repetido) {
-    if (repetido.insumo_id !== ins.id || repetido.tipo !== tipo || repetido.quantidade !== q) throw new Conflito("Esta chave já foi usada com outro lançamento.");
+    if (repetido.insumo_id !== ins.id || repetido.tipo !== tipo || repetido.quantidade !== q)
+      throw new Conflito("Esta chave já foi usada com outro lançamento.");
     return { mov: repetido, registro: e.registro.find((r) => (r.desfazer as { movimento_id?: string } | null)?.movimento_id === repetido.id) ?? null };
   }
   if (tipo === "saida" && ins.curva === "A" && !destino) throw new RegraViolada("Saída de item curva A precisa da frente de serviço (para onde foi).");
   const mov = movimentar(e, u, { obra_id: obraId, insumo_id: ins.id, tipo, quantidade: q, destino, origem_doc });
   e.idempotencia.set(chave, mov);
   const n = fmtQtdUn(Math.abs(q), ins.unidade);
-  const texto = tipo === "saida" ? `Saída de ${n} de ${ins.nome}${destino ? ` · ${destino}` : ""}` : tipo === "entrada" ? `Entrada de ${n} de ${ins.nome}${origem_doc ? ` · ${origem_doc}` : ""}` : `Ajuste de ${q > 0 ? "+" : "−"}${n} em ${ins.nome}${destino ? ` · ${destino}` : ""}`;
+  const texto =
+    tipo === "saida"
+      ? `Saída de ${n} de ${ins.nome}${destino ? ` · ${destino}` : ""}`
+      : tipo === "entrada"
+        ? `Entrada de ${n} de ${ins.nome}${origem_doc ? ` · ${origem_doc}` : ""}`
+        : `Ajuste de ${q > 0 ? "+" : "−"}${n} em ${ins.nome}${destino ? ` · ${destino}` : ""}`;
   const registro = registrar(e, u, { obra_id: obraId, texto, proposta_id: null, desfazer: { op: "estornar_movimento", movimento_id: mov.id }, origem: "tela" });
   return { mov, registro };
 }
@@ -619,7 +788,7 @@ export function relatorioUso(e: EstadoDemo, de: string, ate: string) {
       m.set(l[k], s);
     }
   }
-  const desc = <K,>(m: Map<K, typeof total>) => [...m].sort((x, y) => y[1].custo - x[1].custo);
+  const desc = <K>(m: Map<K, typeof total>) => [...m].sort((x, y) => y[1].custo - x[1].custo);
   return {
     total,
     por_dia: [...por.dia].sort((x, y) => x[0].localeCompare(y[0])).map(([dia, s]) => ({ dia, ...s })),
@@ -672,15 +841,111 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (!DIA.test(de) || !DIA.test(ate)) return erro(422, "de e ate no formato AAAA-MM-DD.");
       return ok(relatorioUso(e, de, ate));
     }
+    if (metodo === "POST" && a === "obras" && !id) {
+      exigirAdmin(u);
+      const chave = String(c.chave_idempotencia ?? "");
+      if (chave.length < 8 || chave.length > 64) return erro(422, "chave_idempotencia inválida.");
+      const d = dadosObra(c);
+      if (!d.nome) return erro(422, "Dê um nome para a obra.");
+      const ja = e.obrasPorChave.get(chave);
+      if (ja) return ja.nome === d.nome ? ok({ ...ja, registro_id: null }) : erro(409, "Esta chave de idempotência já foi usada para outra obra.");
+      const o: Obra = { id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), ...OBRA_VAZIA, ...d, nome: d.nome, status: "em_orcamento" };
+      e.obras.push(o);
+      e.obrasPorChave.set(chave, o);
+      const reg = registrar(e, u, { obra_id: o.id, texto: `Criou a obra ${o.nome}`, proposta_id: null, desfazer: null, origem: "tela" });
+      return ok({ ...o, registro_id: reg.id }, 201);
+    }
     if (a === "obras" && id) {
       if (!e.obras.some((o) => o.id === id)) return erro(404, "Obra não encontrada.");
+      if (metodo === "PATCH" && !b) {
+        exigirAdmin(u);
+        const o = obraPorId(e, id) as unknown as Record<string, unknown>;
+        const d = dadosObra(c) as Record<string, unknown>;
+        const mudou = Object.keys(d).filter((k) => o[k] !== d[k]);
+        if (!mudou.length) return ok({ ...o, registro_id: null });
+        const antes = Object.fromEntries(mudou.map((k) => [k, o[k]]));
+        const depois = Object.fromEntries(mudou.map((k) => [k, d[k]]));
+        Object.assign(o, depois);
+        const reg = registrar(e, u, {
+          obra_id: id,
+          texto: `Atualizou a obra ${o.nome}: ${mudou.map((k) => ROTULO_CAMPO[k] ?? k).join(", ")}`,
+          proposta_id: null,
+          desfazer: { op: "restaurar_obra", obra_id: id, antes, depois },
+          origem: "tela",
+        });
+        return ok({ ...o, registro_id: reg.id });
+      }
+      if (metodo === "POST" && b === "orcamento") {
+        exigirAdmin(u);
+        const existentes = () =>
+          [...e.insumos.values()]
+            .filter((i) => i.obra_id === id)
+            .map((i) => ({ nome: i.nome, unidade: i.unidade, precisa: i.precisa_ate_o_fim, valor: i.valor_unitario }));
+        const arq = c.arquivo as { nome: string; texto: string } | undefined;
+        if ((id2 === "ler" || id2 === "importar") && !arq) return erro(422, "Envie o arquivo da planilha.");
+        if (id2 === "ler") return ok(lerPlanilhaDemo(arq!.texto, arq!.nome));
+        if (id2 === "importar") {
+          if (/\.xlsx?$/i.test(arq!.nome)) return erro(422, "Na demonstração só dá para importar CSV.");
+          const mapa = JSON.parse(String(c.mapeamento ?? "{}")) as Mapeamento;
+          const previa = previaDemo(arq!.texto, mapa, existentes());
+          if (c.aplicar !== "true" || previa.erros.length) return ok(previa);
+          if (!previa.linhas.length) return erro(422, "Nenhuma linha para importar.");
+          for (const l of previa.linhas) {
+            const ex = [...e.insumos.values()].find((i) => i.obra_id === id && nomeChave(i.nome) === nomeChave(l.nome));
+            if (ex) Object.assign(ex, { precisa_ate_o_fim: l.quantidade, valor_unitario: l.valor_unitario, curva: l.curva });
+            else {
+              const ins: ItemDemo = {
+                id: uuid7(),
+                tenant_id: TENANT,
+                criado_em: agoraISO(),
+                obra_id: id,
+                nome: l.nome,
+                unidade: l.unidade,
+                precisa_ate_o_fim: l.quantidade,
+                curva: l.curva,
+                valor_unitario: l.valor_unitario,
+              };
+              e.insumos.set(`orc-${ins.id}`, ins);
+            }
+          }
+          registrar(e, u, {
+            obra_id: id,
+            texto: `Importou o orçamento: ${previa.novos} novos, ${previa.atualizados} atualizados (${fmtReais(previa.total)})`,
+            proposta_id: null,
+            desfazer: null,
+            origem: "tela",
+          });
+          return ok({ ...previa, aplicado: true });
+        }
+        if (id2 === "aprovar") {
+          const o = obraPorId(e, id);
+          if (o.status !== "em_orcamento") return erro(409, "O orçamento já foi aprovado.");
+          const its = [...e.insumos.values()].filter((i) => i.obra_id === id && i.precisa_ate_o_fim > 0);
+          if (!its.length) return erro(422, "Importe ou cadastre o orçamento antes de aprovar.");
+          const total = its.reduce((t, i) => t + Math.round((i.precisa_ate_o_fim * i.valor_unitario) / 1000), 0);
+          o.status = "em_andamento";
+          const reg = registrar(e, u, {
+            obra_id: id,
+            texto: `Aprovou o orçamento de ${o.nome} (${its.length} ${its.length === 1 ? "insumo" : "insumos"}, ${fmtReais(total)})`,
+            proposta_id: null,
+            desfazer: { op: "reabrir_orcamento", obra_id: id },
+            origem: "tela",
+          });
+          return ok({ ...o, registro_id: reg.id });
+        }
+      }
       if (metodo === "GET" && b === "insumos" && !id2) {
         const itens = [...e.insumos.values()].filter((i) => i.obra_id === id).map((insumo) => ({ insumo, conta: contaDoInsumo(e, insumo) }));
         return ok(itens);
       }
       if (metodo === "GET" && b === "insumos" && id2 && c2 === "movimentos") {
         const lim = Math.min(200, Number(params.get("limite") ?? 50) || 50);
-        return ok(e.movimentos.filter((m) => m.insumo_id === id2).sort((x, y) => y.criado_em.localeCompare(x.criado_em)).slice(0, lim));
+        return ok(
+          e.movimentos
+            .filter((m) => m.insumo_id === id2)
+            .sort((x, y) => y.criado_em.localeCompare(x.criado_em))
+            .slice(0, lim),
+        );
       }
       if (metodo === "GET" && b === "pedidos") {
         const st = params.get("status");
@@ -694,15 +959,34 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       }
       if (metodo === "POST" && b === "insumos" && !id2) {
         exigirAdmin(u);
-        const nome = String(c.nome ?? "").replace(/\s+/g, " ").trim();
+        const nome = String(c.nome ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
         const unidade = String(c.unidade ?? "").trim();
         const curva = (c.curva ?? "C") as "A" | "B" | "C";
         if (!nome || nome.length > 120 || !unidade || unidade.length > 12 || !["A", "B", "C"].includes(curva)) return erro(422, "Dados do insumo inválidos.");
         const chave = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
-        if ([...e.insumos.values()].some((i) => i.obra_id === id && chave(i.nome) === chave(nome))) return erro(409, `'${nome}' já está cadastrado nesta obra.`);
-        const ins: ItemDemo = { id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), obra_id: id, nome, unidade, curva, precisa_ate_o_fim: Number(c.precisa_ate_o_fim ?? 0) };
+        if ([...e.insumos.values()].some((i) => i.obra_id === id && chave(i.nome) === chave(nome)))
+          return erro(409, `'${nome}' já está cadastrado nesta obra.`);
+        const ins: ItemDemo = {
+          id: uuid7(),
+          tenant_id: TENANT,
+          criado_em: agoraISO(),
+          obra_id: id,
+          nome,
+          unidade,
+          curva,
+          precisa_ate_o_fim: Number(c.precisa_ate_o_fim ?? 0),
+          valor_unitario: Number(c.valor_unitario ?? 0),
+        };
         e.insumos.set(`novo-${ins.id}`, ins);
-        const reg = registrar(e, u, { obra_id: id, texto: `Cadastrou o insumo ${nome} (${unidade}, curva ${curva})`, proposta_id: null, desfazer: null, origem: "tela" });
+        const reg = registrar(e, u, {
+          obra_id: id,
+          texto: `Cadastrou o insumo ${nome} (${unidade}, curva ${curva})`,
+          proposta_id: null,
+          desfazer: null,
+          origem: "tela",
+        });
         return ok({ ...ins, registro_id: reg.id }, 201);
       }
       if (metodo === "POST" && b === "movimentos" && !id2) {
@@ -732,7 +1016,12 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "GET" && !id) {
         const ob = params.get("obra_id");
         const lim = Math.min(200, Number(params.get("limite") ?? 50) || 50);
-        return ok(e.registro.filter((r) => !ob || r.obra_id === ob).sort((x, y) => y.criado_em.localeCompare(x.criado_em)).slice(0, lim));
+        return ok(
+          e.registro
+            .filter((r) => !ob || r.obra_id === ob)
+            .sort((x, y) => y.criado_em.localeCompare(x.criado_em))
+            .slice(0, lim),
+        );
       }
       if (metodo === "POST" && id && b === "desfazer") return ok(desfazer(id, u));
     }
@@ -760,8 +1049,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
     if (x instanceof Proibido) return erro(403, x.message);
     if (x instanceof NaoEncontrado) return erro(404, x.message);
     if (x instanceof Conflito) return erro(409, x.message);
-    if (x instanceof RegraViolada) return erro(422, x.message);
+    if (x instanceof RegraViolada || x instanceof PlanilhaInvalida) return erro(422, x.message);
     throw x;
   }
 }
-

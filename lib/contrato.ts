@@ -25,12 +25,79 @@ interface Documento {
 
 export type StatusObra = "em_andamento" | "em_orcamento" | "concluida";
 
+export type Tipologia = "casa" | "sobrado" | "predio" | "galpao" | "reforma" | "comercial" | "outro";
+export type Padrao = "baixo" | "normal" | "alto";
+export type Regime = "empreitada" | "administracao";
+
 export interface Obra extends Documento {
   nome: string;
   cidade: string;
   cep: string;
   verba: Centavos;
   status: StatusObra;
+  endereco: string;
+  uf: string;
+  tipologia: Tipologia | null;
+  /** m² em milésimos (142,5 m² = 142500); 0 = não informado. */
+  area_construida: Milesimos;
+  pavimentos: number;
+  padrao: Padrao | null;
+  regime: Regime | null;
+  cliente: string;
+  /** AAAA-MM-DD */
+  inicio: string | null;
+  prazo_meses: number;
+}
+
+/** PATCH /obras/{id}: só os campos enviados mudam. */
+export type DadosObra = Partial<Omit<Obra, keyof Documento | "status">>;
+export type CorpoObra = DadosObra & { nome: string; chave_idempotencia: string };
+
+/** Índices (0-based) das colunas da planilha; null = não mapeada. */
+export interface Mapeamento {
+  planilha: string;
+  linha_cabecalho: number;
+  nome: number | null;
+  unidade: number | null;
+  quantidade: number | null;
+  valor_unitario: number | null;
+  valor_total: number | null;
+  saldo: number | null;
+  curva: number | null;
+}
+
+export interface LeituraPlanilha {
+  planilhas: string[];
+  planilha: string;
+  linha_cabecalho: number;
+  colunas: { indice: number; titulo: string }[];
+  amostra: string[][];
+  sugestao: Mapeamento;
+}
+
+export interface LinhaOrcamento {
+  linhas: number[];
+  nome: string;
+  unidade: string;
+  quantidade: Milesimos;
+  valor_unitario: Centavos;
+  total: Centavos;
+  curva: CurvaABC;
+  saldo: Milesimos;
+  situacao: "novo" | "atualiza";
+  precisa_antes: Milesimos | null;
+  valor_antes: Centavos | null;
+}
+
+export interface PreviaOrcamento {
+  aplicado: boolean;
+  linhas: LinhaOrcamento[];
+  ignoradas: { linha: number; texto: string; motivo: string }[];
+  erros: { linha: number; campo: string | null; mensagem: string }[];
+  total: Centavos;
+  novos: number;
+  atualizados: number;
+  juntadas: number;
 }
 
 export type CurvaABC = "A" | "B" | "C";
@@ -41,6 +108,8 @@ export interface Insumo extends Documento {
   unidade: string;
   precisa_ate_o_fim: Milesimos;
   curva: CurvaABC;
+  /** Preço unitário do orçamento; 0 = sem preço. */
+  valor_unitario: Centavos;
 }
 
 /** Calculada por `regras.conta_de_falta` na API. O front só mostra; nunca refaz a conta. */

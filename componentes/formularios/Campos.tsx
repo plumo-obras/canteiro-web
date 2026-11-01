@@ -54,7 +54,7 @@ export function useEnvio<E extends Record<string, string | null>>(validar: () =>
     setErroApi(null);
     if (algum) {
       // O foco vai para o primeiro campo com erro: quem usa leitor de tela ouve o problema na hora.
-      requestAnimationFrame(() => document.querySelector<HTMLElement>(".modal [aria-invalid=true]")?.focus());
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(".modal [aria-invalid=true], .form-pagina [aria-invalid=true]")?.focus());
       return;
     }
     setOcupado(true);
@@ -62,6 +62,8 @@ export function useEnvio<E extends Record<string, string | null>>(validar: () =>
       await gravar();
     } catch (x) {
       setErroApi(mensagemDe(x));
+    } finally {
+      // O modal fecha ao gravar, mas o formulário em passos continua na tela e precisa do botão de volta.
       setOcupado(false);
     }
   };

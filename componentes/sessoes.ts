@@ -7,7 +7,8 @@ import type { EventoConversa } from "@/lib/contrato";
 import type { Msg, MsgAgente, MsgEu, SessaoApi } from "@/lib/historico";
 import { uuid7 } from "@/lib/ids";
 
-export type Tela = "almoxarifado" | "pedidos" | "aprovacoes" | "historico";
+export type Tela = "orcamento" | "almoxarifado" | "pedidos" | "aprovacoes" | "historico";
+export const TELAS_VALIDAS: Tela[] = ["orcamento", "almoxarifado", "pedidos", "aprovacoes", "historico"];
 export type AbaAtiva = "conversa" | Tela;
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";
@@ -41,7 +42,17 @@ let n = 0;
 export const idLocal = (p: string) => `${p}-${Date.now().toString(36)}-${(++n).toString(36)}`;
 
 export function novaSessao(obraId: string): Sessao {
-  return { id: idLocal("s"), servidorId: uuid7(), obraId, titulo: "Nova conversa", carregada: true, erroCarga: null, mensagens: [], abas: [], ativa: "conversa" };
+  return {
+    id: idLocal("s"),
+    servidorId: uuid7(),
+    obraId,
+    titulo: "Nova conversa",
+    carregada: true,
+    erroCarga: null,
+    mensagens: [],
+    abas: [],
+    ativa: "conversa",
+  };
 }
 
 export function novaPergunta(texto: string): { eu: MsgEu; agente: MsgAgente } {
