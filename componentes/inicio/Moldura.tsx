@@ -11,6 +11,7 @@ import type { Usuario } from "@/lib/contrato";
 import { assinarSessao, renovar, usuarioAtual } from "@/lib/sessao";
 import { ProvedorCasca } from "../contexto";
 import { Icone, Logo } from "../Icone";
+import { BotaoTema } from "../tema";
 import s from "./moldura.module.css";
 
 export type Rota = "inicio" | "conta";
@@ -64,6 +65,7 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
               {item("inicio", "/inicio", "Início")}
               {item("conta", "/conta", "Conta")}
             </nav>
+            <BotaoTema className={`btn ${s.tema}`} />
             <Link href="/" className={`btn ${s.work}`}>
               <Icone nome="message" tam={15} />
               <span className={s.workT}>Abrir workspace</span>

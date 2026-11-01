@@ -14,6 +14,13 @@ import { MenuMais } from "./MenuMais";
 import { useCarregar } from "./useCarregar";
 import { ModalConferir } from "./formularios/ModalConferir";
 import { ModalNovoPedido } from "./formularios/ModalNovoPedido";
+import { CabecalhoPagina } from "./CabecalhoPagina";
+import { BotaoMais, useMaisAntigos } from "./Paginacao";
+
+const ENCERRADOS = 20;
+
+// Os status em que o material já saiu do fornecedor (o mesmo A_CAMINHO das regras).
+const A_CAMINHO: StatusPedido[] = ["enviado", "em_transito"];
 import type { Obra } from "@/lib/contrato";
 
 // Conferido e cancelado já saíram do trabalho: ficam recolhidos embaixo, e as 5 colunas cabem em 1100 px.
@@ -97,7 +104,9 @@ function CartaoPedido({ p, insumo }: { p: Pedido; insumo: Insumo | undefined }) 
             {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
             {pri.rotulo}
           </button>
-          {resto.length ? <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((s) => ({ rotulo: s.rotulo, acao: () => void avancar(s) }))} /> : null}
+          {resto.length ? (
+            <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((s) => ({ rotulo: s.rotulo, acao: () => void avancar(s) }))} />
+          ) : null}
         </div>
       ) : null}
       {conferindo ? <ModalConferir pedido={p} insumo={insumo} fechar={() => setConferindo(false)} /> : null}
@@ -105,29 +114,73 @@ function CartaoPedido({ p, insumo }: { p: Pedido; insumo: Insumo | undefined }) 
   );
 }
 
+/**
+ * Conferidos e cancelados só crescem: vêm da API de 20 em 20 (cursor `antes_de`), recolhidos embaixo do quadro.
+ * O quadro em si busca só os status abertos, para nenhum pedido em andamento sumir atrás de um limite.
+ */
+function Encerrados({ obraId, status, insumo }: { obraId: string; status: "conferido" | "cancelado"; insumo: (id: string) => Insumo | undefined }) {
+  const { versao } = useCasca();
+  const m = useMaisAntigos((antes) => api.listarPedidos(obraId, { status, limite: ENCERRADOS, antes_de: antes }), ENCERRADOS, [obraId, status, versao]);
+  if (!m.itens?.length) return null;
+  return (
+    <details className="cobertos">
+      <summary>
+        <Icone nome="chevRight" tam={14} />
+        {status === "conferido" ? "Conferidos" : "Cancelados"} ({m.itens.length}
+        {m.acabou ? "" : "+"})
+      </summary>
+      <ul className="kb-lista">
+        {m.itens.map((p) => (
+          <CartaoPedido key={p.id} p={p} insumo={insumo(p.insumo_id)} />
+        ))}
+      </ul>
+      <BotaoMais acabou={m.acabou} buscando={m.buscando} carregarMais={m.carregarMais} rotulo="Mostrar mais antigos" />
+    </details>
+  );
+}
+
 export function Pedidos({ obra }: { obra: Obra }) {
   const { versao, podeOperar } = useCasca();
   const [novo, setNovo] = useState(false);
   const { dado, erro, carregando } = useCarregar(
-    () => Promise.all([api.listarPedidos(obra.id), api.listarInsumos(obra.id)]),
+    () => Promise.all([api.listarPedidos(obra.id, { status: COLUNAS, limite: 500 }), api.listarInsumos(obra.id)]),
     [obra.id, versao],
   );
   const [pedidos, itens] = dado ?? [[], [] as ItemInsumo[]];
   const insumo = (id: string) => itens.find((i) => i.insumo.id === id)?.insumo;
-  const recolhidos = (["conferido", "cancelado"] as const).map((st) => [st, pedidos.filter((p) => p.status === st)] as const);
+  const abertos = pedidos.filter((p) => COLUNAS.includes(p.status));
 
   return (
     <div className="page">
-      <div className="cab-tela">
-        <h2>Pedidos</h2>
-        <span className="mut sm">{obra.nome}</span>
-        {podeOperar && dado ? (
-          <button type="button" className="btn cab-acao" onClick={() => setNovo(true)}>
-            <Icone nome="plus" tam={15} />
-            Novo pedido
-          </button>
-        ) : null}
-      </div>
+      <CabecalhoPagina
+        titulo="Pedidos"
+        kpis={
+          dado
+            ? [
+                {
+                  icone: "cart",
+                  n: fmtReais(abertos.reduce((t, p) => t + p.valor, 0)),
+                  r: `em ${abertos.length} ${abertos.length === 1 ? "pedido aberto" : "pedidos abertos"}`,
+                },
+                { icone: "package", n: pedidos.filter((p) => A_CAMINHO.includes(p.status)).length, r: "a caminho da obra" },
+                {
+                  icone: "checkCircle",
+                  n: pedidos.filter((p) => p.status === "recebido").length,
+                  r: "chegaram e falta conferir",
+                  ...(pedidos.some((p) => p.status === "recebido") ? { tag: "pede você", tom: "atencao" as const } : {}),
+                },
+              ]
+            : []
+        }
+        acoes={
+          podeOperar && dado ? (
+            <button type="button" className="btn amb" onClick={() => setNovo(true)}>
+              <Icone nome="plus" tam={15} />
+              Novo pedido
+            </button>
+          ) : null
+        }
+      />
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -144,11 +197,13 @@ export function Pedidos({ obra }: { obra: Obra }) {
           {COLUNAS.map((st) => {
             const ps = pedidos.filter((p) => p.status === st);
             return (
-              <section key={st} className="col" aria-labelledby={`col-${st}`}>
+              <section key={st} className="col" data-st={st} aria-labelledby={`col-${st}`}>
                 <h3 id={`col-${st}`}>
+                  <i className="col-dot" aria-hidden="true" />
                   {ROTULO_STATUS[st]}
                   <small>{ps.length}</small>
                 </h3>
+                <div className="col-total">{ps.length ? fmtReais(ps.reduce((t, p) => t + p.valor, 0)) : "—"}</div>
                 {ps.length ? (
                   <ul>
                     {ps.map((p) => (
@@ -163,21 +218,7 @@ export function Pedidos({ obra }: { obra: Obra }) {
           })}
         </div>
       )}
-      {recolhidos.map(([st, ps]) =>
-        ps.length ? (
-          <details key={st} className="cobertos">
-            <summary>
-              <Icone nome="chevRight" tam={14} />
-              {st === "conferido" ? "Conferidos" : "Cancelados"} ({ps.length})
-            </summary>
-            <ul className="kb-lista">
-              {ps.map((p) => (
-                <CartaoPedido key={p.id} p={p} insumo={insumo(p.insumo_id)} />
-              ))}
-            </ul>
-          </details>
-        ) : null,
-      )}
+      {dado ? (["conferido", "cancelado"] as const).map((st) => <Encerrados key={st} obraId={obra.id} status={st} insumo={insumo} />) : null}
       {novo ? <ModalNovoPedido obraId={obra.id} itens={itens} fechar={() => setNovo(false)} /> : null}
     </div>
   );

@@ -102,7 +102,7 @@ function AjustarCompra({ p, fechar }: { p: Proposta; fechar: () => void }) {
 
 function AjustarConferencia({ p, fechar }: { p: Proposta; fechar: () => void }) {
   const d = p.dados as unknown as DadosAvancarPedido;
-  const { dado } = useCarregar(() => Promise.all([api.listarPedidos(p.obra_id), api.listarInsumos(p.obra_id)]), [p.obra_id]);
+  const { dado } = useCarregar(() => Promise.all([api.listarPedidos(p.obra_id, { limite: 500 }), api.listarInsumos(p.obra_id)]), [p.obra_id]);
   const ped = dado?.[0].find((x) => x.id === d.pedido_id);
   const un = dado?.[1].find((i) => i.insumo.id === ped?.insumo_id)?.insumo.unidade ?? "";
   const pedida = ped?.quantidade ?? null;

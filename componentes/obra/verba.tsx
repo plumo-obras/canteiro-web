@@ -20,3 +20,11 @@ export function ComparaVerba({ total, verba }: { total: number; verba: number })
   if (!c) return verba ? null : <small>Sem verba informada para comparar.</small>;
   return <small className={`verba-${c.tom}`}>{c.texto}</small>;
 }
+
+/** A versão curta, para a pílula ao lado do número: "8% acima", "3% abaixo". */
+export function tagVerba(total: number, verba: number): { texto: string; tom: "ok" | "atencao" | "acima" } | null {
+  const c = compararVerba(total, verba);
+  if (!c) return null;
+  const pct = `${Math.round(Math.abs((total - verba) / verba) * 100)}%`;
+  return { texto: total > verba ? `${pct} acima da verba` : total < verba ? `${pct} abaixo da verba` : "igual à verba", tom: c.tom };
+}

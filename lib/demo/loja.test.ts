@@ -390,3 +390,19 @@ describe("demonstração: cadastro de obra e orçamento por planilha", () => {
     expect(e.obras.find((x) => x.id === o.id)!.status).toBe("em_orcamento");
   });
 });
+
+describe("demonstração: paginação pelo cursor antes_de", () => {
+  it("o quadro pede vários status de uma vez", () => {
+    const ps = chamar("GET", `obras/${obraId()}/pedidos?status=em_cotacao&status=em_transito`).corpo as Pedido[];
+    expect(new Set(ps.map((p) => p.status))).toEqual(new Set(["em_cotacao", "em_transito"]));
+  });
+
+  it("a 2ª página começa logo depois da 1ª, sem repetir nem pular", () => {
+    const todos = chamar("GET", `obras/${obraId()}/pedidos`).corpo as Pedido[];
+    const p1 = chamar("GET", `obras/${obraId()}/pedidos?limite=2`).corpo as Pedido[];
+    const p2 = chamar("GET", `obras/${obraId()}/pedidos?limite=2&antes_de=${encodeURIComponent(p1.at(-1)!.criado_em)}`).corpo as Pedido[];
+    expect(p2.some((p) => p1.some((x) => x.id === p.id))).toBe(false);
+    const juntos = [...p1, ...p2];
+    expect(juntos.map((p) => p.id)).toEqual(todos.slice(0, juntos.length).map((p) => p.id));
+  });
+});

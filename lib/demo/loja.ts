@@ -799,6 +799,16 @@ export function relatorioUso(e: EstadoDemo, de: string, ate: string) {
 
 /* ---------- roteamento das rotas do contrato ---------- */
 
+/** Mais novos primeiro e o cursor `antes_de` exclusivo, como a API (aqui sem completar empate de instante: na demonstração
+ * duas escritas no mesmo milissegundo não acontecem na prática). */
+function paginar<T extends { criado_em: string }>(xs: T[], params: URLSearchParams, limite: number): T[] {
+  const antes = params.get("antes_de");
+  return xs
+    .filter((x) => !antes || x.criado_em < antes)
+    .sort((x, y) => y.criado_em.localeCompare(x.criado_em))
+    .slice(0, limite);
+}
+
 export interface RespostaDemo {
   status: number;
   corpo: unknown;
@@ -941,15 +951,24 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "GET" && b === "insumos" && id2 && c2 === "movimentos") {
         const lim = Math.min(200, Number(params.get("limite") ?? 50) || 50);
         return ok(
-          e.movimentos
-            .filter((m) => m.insumo_id === id2)
-            .sort((x, y) => y.criado_em.localeCompare(x.criado_em))
-            .slice(0, lim),
+          paginar(
+            e.movimentos.filter((m) => m.insumo_id === id2),
+            params,
+            lim,
+          ),
         );
       }
       if (metodo === "GET" && b === "pedidos") {
-        const st = params.get("status");
-        return ok(e.pedidos.filter((p) => p.obra_id === id && (!st || p.status === st)).sort((x, y) => y.criado_em.localeCompare(x.criado_em)));
+        // ?status= pode repetir (a API filtra com "in")
+        const sts = params.getAll("status");
+        const lim = Math.min(500, Number(params.get("limite") ?? 100) || 100);
+        return ok(
+          paginar(
+            e.pedidos.filter((p) => p.obra_id === id && (!sts.length || sts.includes(p.status))),
+            params,
+            lim,
+          ),
+        );
       }
       if (metodo === "POST" && b === "pedidos" && !id2) {
         exigirAdmin(u);
@@ -1007,7 +1026,14 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         const st = params.get("status");
         const ob = params.get("obra_id");
         if (st && !STATUS_PROPOSTA.includes(st as StatusProposta)) return erro(422, "status inválido");
-        return ok(e.propostas.filter((p) => (!st || p.status === st) && (!ob || p.obra_id === ob)).sort((x, y) => y.criado_em.localeCompare(x.criado_em)));
+        const lim = Math.min(500, Number(params.get("limite") ?? 100) || 100);
+        return ok(
+          paginar(
+            e.propostas.filter((p) => (!st || p.status === st) && (!ob || p.obra_id === ob)),
+            params,
+            lim,
+          ),
+        );
       }
       if (metodo === "POST" && id && b === "aprovar") return ok(aprovar(id, u, (c.ajustes as Record<string, unknown> | undefined) ?? null));
       if (metodo === "POST" && id && b === "recusar") return ok(recusar(id, String(c.motivo ?? ""), u));
@@ -1017,10 +1043,11 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         const ob = params.get("obra_id");
         const lim = Math.min(200, Number(params.get("limite") ?? 50) || 50);
         return ok(
-          e.registro
-            .filter((r) => !ob || r.obra_id === ob)
-            .sort((x, y) => y.criado_em.localeCompare(x.criado_em))
-            .slice(0, lim),
+          paginar(
+            e.registro.filter((r) => !ob || r.obra_id === ob),
+            params,
+            lim,
+          ),
         );
       }
       if (metodo === "POST" && id && b === "desfazer") return ok(desfazer(id, u));
@@ -1031,7 +1058,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       return ok(
         [...e.sessoes.values()]
           .map((x) => x.sessao)
-          .filter((s) => s.dono === u.id && (!ob || s.obra_id === ob))
+          .filter((s) => s.dono === u.id && (!ob || s.obra_id === ob) && (!params.get("antes_de") || s.atualizado_em < params.get("antes_de")!))
           .sort((x, y) => y.atualizado_em.localeCompare(x.atualizado_em))
           .slice(0, lim),
       );

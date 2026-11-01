@@ -1,0 +1,173 @@
+/* =====================================================================================================
+   Casca do workspace: topo (marca · obra · telas em pílulas · conta), trilho de atalhos, painel das conversas e o
+   palco. Tudo flutua em vidro sobre a foto desfocada do fundo. Os tokens (cores, vidro, sombras) vêm do globals.css,
+   nos dois temas; aqui só a forma e o lugar das peças.
+   ≥ 900 px: trilho fixo à esquerda e painel ao lado dele (abre e fecha). < 900 px: sem trilho, painel em gaveta,
+   pílulas numa linha que rola na horizontal.
+   ===================================================================================================== */
+html:has(.app),html:has(.app) body{overflow:hidden}
+.app{display:grid;grid-template-columns:60px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
+  padding:14px 18px 14px 14px}
+.app.com-painel{grid-template-columns:60px 272px minmax(0,1fr)}
+.app>.topo{grid-column:1/-1;grid-row:1}
+.app>.trilho{grid-column:1;grid-row:2}
+.app>.painel{grid-column:2;grid-row:2}
+.app>.palco{grid-column:-2/-1;grid-row:2}
+@media (prefers-reduced-motion:no-preference){ .app{transition:grid-template-columns var(--mv-base) var(--ease)} }
+
+/* a barra do topo tem fundo próprio, como a da landing: escura no tema escuro, vidro claro no claro */
+:root,[data-tema=escuro]{--barra:rgba(15,22,36,.78);--sombraBarra:0 12px 32px -16px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.05)}
+[data-tema=claro]{--barra:rgba(253,253,252,.80);--sombraBarra:0 1px 2px rgba(15,26,46,.04),0 12px 32px -16px rgba(15,26,46,.22)}
+
+/* marca e avatar: o quadrado ocre com o prumo, igual à landing (usados também na Moldura e no login) */
+.logo{width:28px;height:28px;display:grid;place-items:center;flex:none;color:var(--marinho);border-radius:9px;
+  background:linear-gradient(150deg,#f5c978 0%,#e8b04a 55%,#d99a2e 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 2px 6px -1px rgba(0,0,0,.3)}
+.av{width:30px;height:30px;border-radius:50%;color:var(--marinho);display:grid;place-items:center;font-size:12px;font-weight:600;flex:none;
+  background:linear-gradient(150deg,#f5c978 0%,#e8b04a 55%,#d99a2e 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 2px 6px -1px rgba(0,0,0,.3)}
+
+/* vidro das peças que flutuam */
+.trilho,.painel,.palco-conversa{
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--edge);box-shadow:var(--hl),var(--shadow)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .trilho,.painel,.palco-conversa{background:var(--cardSolido,var(--card))}
+  .topo{background:var(--cardSolido,var(--card))}
+}
+
+/* ---------- topo ---------- */
+/* acima do trilho e do painel: o vidro cria camada própria, e os menus do topo (obra, conta) têm de abrir por cima deles */
+.topo{position:relative;z-index:20;display:flex;align-items:center;gap:10px;min-width:0;padding:7px 7px 7px 12px;border-radius:16px;
+  background:var(--barra);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);box-shadow:var(--sombraBarra)}
+.topo-marca{display:flex;align-items:center;gap:10px;flex:none;font:600 21px var(--sans);letter-spacing:-.02em;color:var(--ink);padding-right:4px}
+.topo-marca .logo{width:34px;height:34px;border-radius:10px}
+.topo-marca .tag{font:500 12px var(--sans);letter-spacing:0;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:0 8px}
+.seletor{position:relative;flex:none;min-width:0}
+.seletor-bt{display:flex;align-items:center;gap:10px;min-height:44px;max-width:260px;padding:0 14px 0 12px;border-radius:12px;color:var(--ink);text-align:left;
+  background:var(--sunk);border:1px solid var(--line2);transition:transform .12s var(--ease),background-color .15s var(--ease)}
+.seletor-bt:active{transform:scale(.98)}
+.seletor-bt .dot,.seletor-pop .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.seletor-t{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+.seletor-nome{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seletor-st{font-size:12px;color:var(--muted)}
+.seletor-bt>.ic{color:var(--muted);flex:none}
+/* menu sobre vidro: quase sólido, senão o painel atrás aparece através do texto */
+.seletor-pop,.ca-menu-pop.perfil-pop{background:var(--cardSolido);-webkit-backdrop-filter:none;backdrop-filter:none}
+.seletor-pop{min-width:320px;display:flex;flex-direction:column;max-height:min(460px,calc(100dvh - 120px))}
+.seletor-busca{flex:none;margin:2px 2px 6px;min-width:0}
+.seletor-busca input{min-height:38px}
+.seletor-lista{overflow:auto;min-height:0;scrollbar-width:thin}
+.seletor-vazio{padding:10px 12px;color:var(--muted);font-size:var(--t-meta)}
+.seletor-nova{flex:none}
+.seletor-pop button[aria-current=true]{background:var(--sunk);font-weight:600}
+.seletor-pop-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seletor-pop-st{font-size:12px;color:var(--muted);flex:none}
+.ca-menu-pop a[role=menuitem]{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:10px;font-size:var(--t-body);color:var(--ink)}
+.ca-menu-pop a[role=menuitem] .ic{color:var(--muted)}
+.seletor-nova{border-top:1px solid var(--line2);margin-top:4px}
+
+.topo-nav{display:flex;align-items:center;gap:2px;margin:0 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.topo-nav::-webkit-scrollbar{display:none}
+.pilula{flex:none;display:inline-flex;align-items:center;gap:7px;height:42px;padding:0 16px;border:0;border-radius:12px;background:none;color:var(--ink2);
+  font-size:15px;font-weight:500;white-space:nowrap;transition:background-color .15s var(--ease),color .15s var(--ease),transform .12s var(--ease)}
+.pilula:active{transform:scale(.97)}
+.pilula.on{background:var(--ativo);color:var(--ink)}
+.pilula .n{font-size:12px;font-weight:600;color:var(--onAccent,#1d1505);background:var(--accent);border-radius:99px;min-width:20px;text-align:center;padding:0 6px;line-height:20px}
+.pilula:focus-visible{outline-offset:-2px}
+.topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
+.topo-nav + .topo-dir{margin-left:0}
+.av-bt{width:44px;height:44px;padding:0;border:0;border-radius:50%;background:none;display:grid;place-items:center}
+.av-bt .av{width:36px;height:36px;font-size:13px}
+.perfil{position:relative}
+.ca-menu-pop.perfil-pop{top:calc(100% + 8px);bottom:auto;left:auto;right:0;min-width:240px;transform-origin:top right}
+.sp{flex:1}
+
+/* ---------- trilho ---------- */
+.trilho{display:flex;flex-direction:column;align-items:center;gap:6px;align-self:start;padding:10px 0;border-radius:999px;max-height:100%;overflow:auto;scrollbar-width:none}
+.tr-btn{position:relative;display:grid;place-items:center;width:42px;height:42px;padding:0;border:0;border-radius:50%;background:none;color:var(--ink2);flex:none;
+  transition:background-color .15s var(--ease),color .15s var(--ease),transform .12s var(--ease)}
+.tr-btn:active{transform:scale(.95)}
+.tr-btn.on{background:var(--ativo);color:var(--ink)}
+.tr-sep{width:26px;height:1px;background:var(--line);margin:4px 0;flex:none}
+@media (hover:hover){
+  .tr-btn:hover,.pilula:not(.on):hover{background:var(--sunk);color:var(--ink)}
+  .seletor-bt:hover{background:var(--hover,var(--sunk))}
+}
+
+/* ---------- painel das conversas ---------- */
+.painel{display:flex;flex-direction:column;gap:6px;min-height:0;padding:16px 12px 12px;border-radius:24px;overflow:hidden}
+.painel[hidden]{display:none}
+.painel-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:0 4px 6px}
+.painel-t{font-size:var(--t-sec);font-weight:600}
+.painel-sub{font-size:var(--t-meta);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px}
+.painel-x{width:34px;height:34px;margin:-4px -4px 0 0}
+.painel-nova{display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;border:0;border-radius:999px;background:var(--accent);color:var(--onAccent,#1d1505);
+  font-weight:600;flex:none;transition:transform .12s var(--ease),filter .15s var(--ease)}
+.painel-nova:active{transform:scale(.97)}
+.painel-lista{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0;margin:6px -4px 0;padding:0 4px;scrollbar-width:thin}
+.painel-sess{display:flex;align-items:center;gap:9px;min-height:38px;padding:6px 12px;border:0;border-radius:14px;background:none;color:var(--ink2);text-align:left;font-size:var(--t-body);
+  transition:background-color .15s var(--ease),color .15s var(--ease)}
+.painel-sess .ic{color:var(--muted);flex:none}
+.painel-sess.on{background:var(--ativo);color:var(--ink);font-weight:500}
+.painel-sess.atual{color:var(--ink)}
+.painel-sess.atual .ic{color:var(--accentInk)}
+@media (hover:hover){ .painel-sess:not(.on):hover{background:var(--sunk);color:var(--ink)} .painel-nova:hover{filter:brightness(1.06)} }
+.sess-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.painel-mais{display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;margin-top:6px;border:1px dashed var(--line);border-radius:14px;background:none;
+  color:var(--muted);font-size:var(--t-meta)}
+@media (hover:hover){ .painel-mais:hover{color:var(--ink);border-style:solid} }
+.painel-pe{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line2)}
+.painel-link{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:14px;color:var(--ink2)}
+.painel-link .ic{color:var(--muted)}
+.fict{display:flex;gap:8px;margin-top:auto;padding:8px 6px 0;color:var(--muted);font-size:12px;line-height:1.45}
+.painel-pe + .fict{margin-top:8px}
+.fict .ic{margin-top:1px;color:var(--accentInk);flex:none}
+
+/* ---------- palco ---------- */
+.palco{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.palco-tela{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain}
+.palco-tela .page{padding:6px 6px 32px}
+.palco-conversa{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:24px;overflow:hidden}
+.palco-conversa[hidden]{display:none}
+.conversa-cab{display:flex;align-items:center;gap:12px;padding:14px 22px 10px;border-bottom:1px solid var(--line2);flex:none}
+.conversa-t{margin:0;font:600 var(--t-sec) var(--sans);letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.palco>.card.vazio,.palco>.aviso-erro,.palco>.carregando{margin-top:24px}
+
+/* ---------- celular e tablet ---------- */
+.gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
+.gaveta-fundo[hidden]{display:none}
+@media (min-width:900px){ .so-movel{display:none!important} }
+@media (max-width:1180px) and (min-width:900px){
+  .topo-marca-t{display:none}
+  .pilula{padding:0 13px;font-size:14px}
+  .seletor-bt{max-width:200px}
+}
+@media (max-width:899px){
+  .app,.app.com-painel{grid-template-columns:minmax(0,1fr);gap:10px;padding:calc(8px + env(safe-area-inset-top)) 10px 0 10px}
+  .app>.palco{grid-column:1}
+  .trilho{display:none}
+  .topo{flex-wrap:wrap;gap:6px;padding:6px}
+  .topo-marca .logo{width:32px;height:32px}
+  .topo-marca{min-height:42px;min-width:42px;justify-content:center}
+  /* as pílulas rolam: o esmaecido na borda diz que tem mais tela para o lado */
+  .topo-nav{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .topo-marca-t,.topo-marca .tag{display:none}
+  .seletor{flex:1;position:static}
+  /* no celular o menu da obra ocupa a largura da barra (ancorado nela, não no botão), senão sai pela direita */
+  .seletor-pop{left:0;right:0;top:calc(100% + 6px);min-width:0;max-height:min(70dvh,520px)}
+  .seletor-bt{min-height:42px;max-width:none;width:100%}
+  .topo-nav{order:5;flex:1 0 100%;margin:0;justify-content:flex-start;padding-top:4px;border-top:1px solid var(--line2)}
+  .pilula{height:40px;padding:0 14px;font-size:14px}
+  .av-bt{width:44px;height:44px}
+  .tr-btn{width:44px;height:44px}
+  .topo-menu{width:42px;height:42px}
+  /* a gaveta desliza da esquerda; fechada, sai da árvore de foco (inert) e da tela */
+  .app>.painel{position:fixed;top:0;bottom:0;left:0;z-index:50;width:min(320px,86vw);border-radius:0 24px 24px 0;background:var(--glassStrong);
+    padding:calc(14px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+    animation:mvGaveta 260ms var(--ease)}
+  .painel-sess{min-height:44px}
+  .palco-conversa{border-radius:20px 20px 0 0}
+  .conversa-cab{padding:10px 12px 8px 16px}
+  .palco-tela .page{padding:4px 2px calc(24px + env(safe-area-inset-bottom))}
+}
+@keyframes mvGaveta{from{transform:translateX(-100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){ .app>.painel{animation:none} }

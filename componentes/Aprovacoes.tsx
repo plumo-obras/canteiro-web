@@ -11,6 +11,7 @@ import { api } from "@/lib/cliente";
 import { CartaoProposta } from "./CartaoProposta";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
+import { CabecalhoPagina } from "./CabecalhoPagina";
 
 export function Aprovacoes({ obra, obras }: { obra: Obra; obras: Obra[] }) {
   const { cartoes, receberPropostas } = useCasca();
@@ -39,26 +40,44 @@ export function Aprovacoes({ obra, obras }: { obra: Obra; obras: Obra[] }) {
   }, [escopo, receberPropostas]);
 
   // Proposta nova que chega pela conversa enquanto a aba está aberta entra no fim da lista.
-  const lista = [...(ids ?? []), ...Object.values(cartoes).filter((c) => (!escopo || c.proposta.obra_id === escopo) && c.proposta.status === "pendente" && !(ids ?? []).includes(c.proposta.id)).map((c) => c.proposta.id)];
+  const lista = [
+    ...(ids ?? []),
+    ...Object.values(cartoes)
+      .filter((c) => (!escopo || c.proposta.obra_id === escopo) && c.proposta.status === "pendente" && !(ids ?? []).includes(c.proposta.id))
+      .map((c) => c.proposta.id),
+  ];
+  const pendentesAgora = lista.filter((id) => cartoes[id]?.proposta.status === "pendente").length;
   const primeiraPendente = lista.find((id) => cartoes[id]?.proposta.status === "pendente");
 
   return (
     <div className="page">
-      <div className="cab-tela">
-        <h2>Aprovações</h2>
-        {obras.length > 1 ? (
-          <div className="seg seg-pq cab-acao" role="radiogroup" aria-label="De quais obras">
-            <button type="button" role="radio" aria-checked={!todas} className={!todas ? "on" : ""} onClick={() => setTodas(false)}>
-              {obra.nome}
-            </button>
-            <button type="button" role="radio" aria-checked={todas} className={todas ? "on" : ""} onClick={() => setTodas(true)}>
-              Todas as obras
-            </button>
-          </div>
-        ) : (
-          <span className="mut sm">{obra.nome}</span>
-        )}
-      </div>
+      <CabecalhoPagina
+        titulo="Aprovações"
+        kpis={
+          ids !== null
+            ? [
+                {
+                  icone: "checkCircle",
+                  n: pendentesAgora,
+                  r: todas ? "esperando você em todas as obras" : `esperando você em ${obra.nome}`,
+                  ...(pendentesAgora ? { tag: "pede você", tom: "atencao" as const } : {}),
+                },
+              ]
+            : []
+        }
+        acoes={
+          obras.length > 1 ? (
+            <div className="seg" role="radiogroup" aria-label="De quais obras">
+              <button type="button" role="radio" aria-checked={!todas} className={!todas ? "on" : ""} onClick={() => setTodas(false)}>
+                {obra.nome}
+              </button>
+              <button type="button" role="radio" aria-checked={todas} className={todas ? "on" : ""} onClick={() => setTodas(true)}>
+                Todas as obras
+              </button>
+            </div>
+          ) : null
+        }
+      />
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />

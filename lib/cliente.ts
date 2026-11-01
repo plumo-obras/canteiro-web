@@ -119,19 +119,29 @@ export const api = {
   },
   aprovarOrcamento: (obraId: string) => chamar<ComRegistro<Obra>>("POST", `/obras/${seg(obraId)}/orcamento/aprovar`),
   listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),
-  listarMovimentos: (obraId: string, insumoId: string, limite = 50) =>
-    chamar<Movimento[]>("GET", `/obras/${seg(obraId)}/insumos/${seg(insumoId)}/movimentos${q({ limite })}`),
-  listarPedidos: (obraId: string, status?: StatusPedido) => chamar<Pedido[]>("GET", `/obras/${seg(obraId)}/pedidos${q({ status })}`),
+  listarMovimentos: (obraId: string, insumoId: string, limite = 50, antes_de?: string) =>
+    chamar<Movimento[]>("GET", `/obras/${seg(obraId)}/insumos/${seg(insumoId)}/movimentos${q({ limite, antes_de })}`),
+  /** Vários status viram `?status=a&status=b` (a API filtra com "in"). Sem status: os mais recentes, até `limite`. */
+  listarPedidos: (obraId: string, filtro: { status?: StatusPedido | StatusPedido[]; limite?: number; antes_de?: string } = {}) => {
+    const p = new URLSearchParams();
+    for (const st of [filtro.status ?? []].flat()) p.append("status", st);
+    if (filtro.limite) p.set("limite", String(filtro.limite));
+    if (filtro.antes_de) p.set("antes_de", filtro.antes_de);
+    const t = p.toString();
+    return chamar<Pedido[]>("GET", `/obras/${seg(obraId)}/pedidos${t ? `?${t}` : ""}`);
+  },
   avancarPedido: (pedidoId: string, para: StatusPedido, extra: Omit<CorpoAvancar, "para"> = {}) =>
     chamar<ComRegistro<Pedido>>("POST", `/pedidos/${seg(pedidoId)}/avancar`, { para, ...extra }),
   criarPedido: (obraId: string, corpo: CorpoPedido) => chamar<ComRegistro<Pedido>>("POST", `/obras/${seg(obraId)}/pedidos`, corpo),
   criarInsumo: (obraId: string, corpo: CorpoInsumo) => chamar<ComRegistro<Insumo>>("POST", `/obras/${seg(obraId)}/insumos`, corpo),
   lancarMovimento: (obraId: string, corpo: CorpoMovimento) => chamar<ComRegistro<Movimento>>("POST", `/obras/${seg(obraId)}/movimentos`, corpo),
-  listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string } = {}) => chamar<Proposta[]>("GET", `/propostas${q({ ...filtro })}`),
+  listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string; limite?: number; antes_de?: string } = {}) =>
+    chamar<Proposta[]>("GET", `/propostas${q({ ...filtro })}`),
   recusarProposta: (id: string, motivo: string) => chamar<Proposta>("POST", `/propostas/${seg(id)}/recusar`, { motivo }),
-  listarRegistro: (obraId: string, limite = 100) => chamar<EntradaRegistro[]>("GET", `/registro${q({ obra_id: obraId, limite })}`),
+  listarRegistro: (obraId: string, limite = 50, antes_de?: string) => chamar<EntradaRegistro[]>("GET", `/registro${q({ obra_id: obraId, limite, antes_de })}`),
   desfazerRegistro: (id: string) => chamar<EntradaRegistro>("POST", `/registro/${seg(id)}/desfazer`),
-  listarSessoes: (filtro: { obra_id?: string; limite?: number } = {}) => chamar<SessaoApi[]>("GET", `/sessoes${q({ limite: 30, ...filtro })}`),
+  listarSessoes: (filtro: { obra_id?: string; limite?: number; antes_de?: string } = {}) =>
+    chamar<SessaoApi[]>("GET", `/sessoes${q({ limite: 30, ...filtro })}`),
 
   /** Todas as mensagens da sessão, em páginas de 200 (o contrato pagina por seq com `depois_de`). */
   async mensagensSessao(id: string): Promise<MensagemSessao[]> {

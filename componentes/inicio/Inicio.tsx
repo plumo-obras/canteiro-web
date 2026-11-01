@@ -12,11 +12,19 @@ import type { SessaoApi } from "@/lib/historico";
 import { fmtReais } from "@/lib/formato";
 import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
+import { Paginacao, usePaginas } from "../Paginacao";
 import s from "./inicio.module.css";
 import { haQuanto, primeiroNome } from "./tempo";
 
 const TXT_STATUS: Record<StatusObra, string> = { em_andamento: "Em andamento", em_orcamento: "Em orçamento", concluida: "Concluída" };
 const ORDEM_STATUS: Record<StatusObra, number> = { em_andamento: 0, em_orcamento: 1, concluida: 2 };
+
+const POR_PAGINA = 12;
+const normal = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
@@ -40,6 +48,14 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
     ? [...resumos].sort((a, b) => ORDEM_STATUS[a.obra.status] - ORDEM_STATUS[b.obra.status] || a.obra.nome.localeCompare(b.obra.nome, "pt-BR"))
     : null;
   const esperando = (resumos ?? []).reduce((t, r) => t + r.pendencias, 0);
+  const [busca, setBusca] = useState("");
+  const [status, setStatus] = useState<StatusObra | "todas">("todas");
+  const q = normal(busca);
+  const filtrados = (ordenados ?? []).filter(
+    (r) => (status === "todas" || r.obra.status === status) && (!q || normal(`${r.obra.nome} ${r.obra.cidade} ${r.obra.cliente ?? ""}`).includes(q)),
+  );
+  const pag = usePaginas(filtrados, POR_PAGINA, [busca, status]);
+  const conta = (st: StatusObra) => (resumos ?? []).filter((r) => r.obra.status === st).length;
 
   return (
     <>
@@ -102,11 +118,47 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
           ) : null}
         </div>
       ) : (
-        <ul className={s.grade} aria-label="Obras">
-          {ordenados.map((r) => (
-            <CartaoObra key={r.obra.id} r={r} href={hrefDaObra(r.obra.id, sessoes)} />
-          ))}
-        </ul>
+        <>
+          {/* com poucas obras a lista inteira cabe à vista: busca e filtro só aparecem quando ajudam */}
+          {ordenados.length > POR_PAGINA / 2 ? (
+            <div className="barra-acoes">
+              <label className="busca">
+                <Icone nome="busca" tam={16} />
+                <span className="sr-only">Buscar obra</span>
+                <input type="search" placeholder="Buscar por nome, cidade ou cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
+              </label>
+              <div className="chips" role="radiogroup" aria-label="Filtrar por situação">
+                {(["todas", "em_andamento", "em_orcamento", "concluida"] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    role="radio"
+                    aria-checked={status === st}
+                    className={`chip${status === st ? " on" : ""}`}
+                    onClick={() => setStatus(st)}
+                  >
+                    {st === "todas" ? "Todas" : TXT_STATUS[st]}
+                    <span className="chip-n">{st === "todas" ? resumos!.length : conta(st)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {filtrados.length ? (
+            <ul className={s.grade} aria-label="Obras">
+              {pag.visiveis.map((r) => (
+                <CartaoObra key={r.obra.id} r={r} href={hrefDaObra(r.obra.id, sessoes)} />
+              ))}
+            </ul>
+          ) : (
+            <div className="card vazio">
+              <Icone nome="busca" tam={24} />
+              <h3>Nenhuma obra encontrada</h3>
+              <p>Nada com «{busca.trim() || TXT_STATUS[status as StatusObra]}». Tente outro nome ou limpe o filtro.</p>
+            </div>
+          )}
+          <Paginacao pagina={pag.pagina} total={pag.total} mudar={pag.setPagina} quantos={filtrados.length} porPagina={POR_PAGINA} nome="obras" />
+        </>
       )}
     </>
   );

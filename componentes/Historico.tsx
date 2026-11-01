@@ -10,14 +10,19 @@ import { api } from "@/lib/cliente";
 import { fmtHora } from "@/lib/formato";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
-import { useCarregar } from "./useCarregar";
+import { CabecalhoPagina } from "./CabecalhoPagina";
+import { BotaoMais, useMaisAntigos } from "./Paginacao";
+
+const LIMITE = 50;
 import { ROTULO_STATUS } from "./CartaoProposta";
 
 const ORIGEM: Record<string, string> = { tela: "pela tela", agente: "aprovou do agente", whatsapp: "pelo WhatsApp", sistema: "sistema" };
 
 // O registro grava o status como na API ("em_transito"); na tela vale o rótulo do quadro ("Em trânsito").
 const legivel = (t: string) =>
-  t.replace(/\b(em_cotacao|aprovado|enviado|em_transito|recebido|conferido|cancelado)\b/g, (st) => ROTULO_STATUS[st as keyof typeof ROTULO_STATUS].toLowerCase());
+  t.replace(/\b(em_cotacao|aprovado|enviado|em_transito|recebido|conferido|cancelado)\b/g, (st) =>
+    ROTULO_STATUS[st as keyof typeof ROTULO_STATUS].toLowerCase(),
+  );
 
 const fDia = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", timeZone: "America/Sao_Paulo" });
 const chaveDia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -66,7 +71,9 @@ function Linha({ r }: { r: EntradaRegistro }) {
 
 export function Historico({ obra }: { obra: Obra }) {
   const { versao } = useCasca();
-  const { dado, erro, carregando } = useCarregar(() => api.listarRegistro(obra.id), [obra.id, versao]);
+  const mais = useMaisAntigos((antes) => api.listarRegistro(obra.id, LIMITE, antes), LIMITE, [obra.id, versao]);
+  const { itens: dado, erro } = mais;
+  const carregando = mais.buscando;
   const dias: [string, EntradaRegistro[]][] = [];
   for (const r of dado ?? []) {
     const d = rotuloDia(r.criado_em);
@@ -77,10 +84,17 @@ export function Historico({ obra }: { obra: Obra }) {
 
   return (
     <div className="page">
-      <div className="cab-tela">
-        <h2>Histórico</h2>
-        <span className="mut sm">{obra.nome}</span>
-      </div>
+      <CabecalhoPagina
+        titulo="Histórico"
+        kpis={
+          dado
+            ? [
+                { icone: "history", n: dado.filter((r) => rotuloDia(r.criado_em) === "Hoje").length, r: "registros hoje" },
+                { icone: "undo", n: dado.filter((r) => r.desfazer && !r.desfeito).length, r: "ainda dá para desfazer" },
+              ]
+            : []
+        }
+      />
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -110,6 +124,7 @@ export function Historico({ obra }: { obra: Obra }) {
           </section>
         ))
       )}
+      {dado?.length ? <BotaoMais acabou={mais.acabou} buscando={mais.buscando} carregarMais={mais.carregarMais} rotulo="Registros mais antigos" /> : null}
     </div>
   );
 }

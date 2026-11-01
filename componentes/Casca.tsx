@@ -1,7 +1,9 @@
 "use client";
 /**
- * A casca do app, como no protótipo: lateral só com conversas (agrupadas por obra), topo da sessão com as abas
- * (Conversa + as telas que você abre) e o "+" como único menu para abrir telas. Uma coisa por vez na área principal.
+ * A casca do app: topo de vidro com a obra e as telas em pílulas (Agente, Orçamento, Almoxarifado…), trilho de
+ * atalhos à esquerda e o painel das conversas com o agente, que abre ao lado do trilho. Uma tela por vez no palco;
+ * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
+ * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
  */
 import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -18,18 +20,19 @@ import { Icone, Logo, type NomeIcone } from "./Icone";
 import { Pedidos } from "./Pedidos";
 import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
-import { TELAS_VALIDAS, novaSessao, redutorSessoes, type AbaAtiva, type Sessao, type Tela } from "./sessoes";
+import { BotaoTema } from "./tema";
+import { TELAS_VALIDAS, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
-const TELAS: { k: Tela; rotulo: string; icone: NomeIcone }[] = [
+const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
+  { k: "conversa", rotulo: "Agente", icone: "message" },
   { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
   { k: "almoxarifado", rotulo: "Almoxarifado", icone: "package" },
   { k: "pedidos", rotulo: "Pedidos", icone: "cart" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
   { k: "historico", rotulo: "Histórico", icone: "history" },
 ];
-const rotuloTela = (k: Tela) => TELAS.find((t) => t.k === k)!.rotulo;
 
-const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "#8a938f", concluida: "var(--blue)" };
+const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "var(--gray)", concluida: "var(--blue)" };
 const TXT_STATUS: Record<Obra["status"], string> = { em_andamento: "em andamento", em_orcamento: "em orçamento", concluida: "concluída" };
 const iniciais = (n: string) =>
   n
@@ -76,9 +79,10 @@ export function Casca({ demo }: { demo: boolean }) {
   );
 }
 
-/** Abaixo disto a lateral vira gaveta; acima, coluna fixa que recolhe num trilho. */
+/** Abaixo disto o trilho some e o painel das conversas vira gaveta. */
 const MOVEL = "(max-width: 899px)";
-const CHAVE_LATERAL = "canteiro.lateral";
+const CHAVE_PAINEL = "plumo.painel";
+const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useSyncExternalStore(
     (avisar) => {
@@ -91,12 +95,39 @@ function useMovel() {
     () => false,
   );
 }
-function lerRecolhida() {
+function lerPainel() {
   try {
-    return localStorage.getItem(CHAVE_LATERAL) === "fechada";
+    return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
   } catch {
-    return false;
+    return true;
   }
+}
+
+/** Fecha o menu ao clicar fora ou apertar Esc (devolvendo o foco ao botão que abriu); setas andam entre os itens. */
+function useMenu() {
+  const [aberto, setAberto] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    caixa.current?.querySelector<HTMLElement>("[data-foco], [role=menuitem]")?.focus();
+    const fora = (e: PointerEvent) => !caixa.current?.contains(e.target as Node) && setAberto(false);
+    document.addEventListener("pointerdown", fora, true);
+    return () => document.removeEventListener("pointerdown", fora, true);
+  }, [aberto]);
+  const tecla = (e: React.KeyboardEvent) => {
+    if (!aberto) return;
+    const its = [...(caixa.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+    const i = its.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setAberto(false);
+      caixa.current?.querySelector<HTMLElement>("[aria-haspopup]")?.focus();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      its[(i + (e.key === "ArrowDown" ? 1 : -1) + its.length) % its.length]?.focus();
+    } else if (e.key === "Tab") setAberto(false);
+  };
+  return { aberto, setAberto, caixa, tecla };
 }
 
 function App({ usuario }: { usuario: Usuario }) {
@@ -106,44 +137,51 @@ function App({ usuario }: { usuario: Usuario }) {
   const [erro, setErro] = useState<string | null>(null);
   const [sessoes, despachar] = useReducer(redutorSessoes, []);
   const [atual, setAtual] = useState<string | null>(null);
-  const [gruposAbertos, setGrupos] = useState<Record<string, boolean>>({});
+  const [tela, setTela] = useState<AbaAtiva>("conversa");
   const movel = useMovel();
-  const [recolhida, setRecolhida] = useState(lerRecolhida);
+  const [painelDesk, setPainelDesk] = useState(lerPainel);
   const [gaveta, setGaveta] = useState(false);
-  const lateral = useRef<HTMLElement>(null);
+  const painel = useRef<HTMLElement>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
-  const trilho = recolhida && !movel;
-  const gavetaAberta = gaveta && movel;
+  // No desktop o painel acompanha o Agente: nas outras telas o espaço é delas (o trilho reabre e leva ao Agente).
+  const painelAberto = movel ? gaveta : painelDesk && tela === "conversa";
+  // Conversas mais antigas, por obra. A 1ª lista é global (as 30 mais recentes de todas as obras): tudo o que é mais
+  // novo que a última dela já está aqui, então o cursor de TODAS as obras começa nessa data.
+  const [cursorGlobal, setCursorGlobal] = useState<string | null>(null);
+  const [maisConversas, setMaisConversas] = useState<Record<string, { antes: string | null; buscando?: boolean }>>({});
 
   const iniciou = useRef(false);
   useEffect(() => {
     // Uma vez só (o StrictMode do dev roda o efeito duas vezes e abriria duas conversas vazias).
     if (iniciou.current) return;
     iniciou.current = true;
-    // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; a URL volta limpa.
+    // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto
+    // (a obra recém-criada cai direto no Orçamento). A URL volta limpa.
     const qs = new URLSearchParams(window.location.search);
     const querObra = qs.get("obra");
     const querSessao = qs.get("sessao");
-    // ?tela= abre uma tela junto (a obra recém-criada cai direto no Orçamento).
     const querTela = TELAS_VALIDAS.find((t) => t === qs.get("tela"));
     if (querObra || querSessao || querTela) window.history.replaceState(null, "", window.location.pathname);
+    if (querTela) setTela(querTela);
     api
       .listarObras()
       .then((os) => {
         setObras(os);
-        const o = os.find((x) => x.id === querObra) ?? os[0];
+        // sem obra pedida, abre uma em andamento (a lista vem por nome, e a 1ª pode ser uma obra parada)
+        const o = os.find((x) => x.id === querObra) ?? os.find((x) => x.status === "em_andamento") ?? os[0];
         if (!o) return;
         const abrirNovaEm = (obraId: string) => {
           const s = novaSessao(obraId);
-          despachar({ tipo: "nova", sessao: querTela ? { ...s, abas: [querTela], ativa: querTela } : s });
+          despachar({ tipo: "nova", sessao: s });
           setAtual(s.id);
         };
         if (!querSessao) abrirNovaEm(o.id);
-        // Histórico na lateral: falha aqui não impede de conversar, só some a lista antiga.
+        // Histórico das conversas: falha aqui não impede de conversar, só some a lista antiga.
         api
-          .listarSessoes()
+          .listarSessoes({ limite: LIMITE_CONVERSAS })
           .then((ss) => {
             despachar({ tipo: "listadas", sessoes: ss, obraPadrao: o.id });
+            setCursorGlobal(ss.length < LIMITE_CONVERSAS ? null : ss.at(-1)!.atualizado_em);
             if (querSessao) ss.some((x) => x.id === querSessao) ? setAtual(querSessao) : abrirNovaEm(o.id);
           })
           .catch(() => querSessao && abrirNovaEm(o.id));
@@ -187,569 +225,448 @@ function App({ usuario }: { usuario: Usuario }) {
       .catch(() => undefined);
   }, [versao, receberPropostas]);
 
-  const recolher = (on: boolean) => {
-    setRecolhida(on);
-    try {
-      localStorage.setItem(CHAVE_LATERAL, on ? "fechada" : "aberta");
-    } catch {
-      // navegador sem armazenamento: a escolha vale só nesta aba
-    }
-  };
-  // Ctrl/⌘ + \ recolhe e abre, como no protótipo; no celular a gaveta tem o próprio botão.
-  useEffect(() => {
-    const tecla = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "\\" && !movel) {
-        e.preventDefault();
-        recolher(!recolhida);
-      }
-    };
-    document.addEventListener("keydown", tecla);
-    return () => document.removeEventListener("keydown", tecla);
-  }, [movel, recolhida]);
-  // Depois de recolher ou abrir, o foco segue para o botão que desfaz (quem usa teclado não fica perdido no body).
-  const trocouLateral = useRef(false);
-  useEffect(() => {
-    if (!trocouLateral.current) {
-      trocouLateral.current = true;
-      return;
-    }
-    if (!movel) lateral.current?.querySelector<HTMLElement>("[data-alterna-lateral]")?.focus({ preventScroll: true });
-  }, [recolhida, movel]);
-
-  const abrirGaveta = () => {
-    quemAbriu.current = document.activeElement as HTMLElement | null;
-    setGaveta(true);
-  };
   const fecharGaveta = (devolverFoco = true) => {
     setGaveta(false);
     if (devolverFoco) quemAbriu.current?.focus({ preventScroll: true });
   };
+  const alternarPainel = () => {
+    if (movel) {
+      if (gaveta) fecharGaveta();
+      else {
+        quemAbriu.current = document.activeElement as HTMLElement | null;
+        setGaveta(true);
+      }
+      return;
+    }
+    if (tela !== "conversa") {
+      setTela("conversa");
+      if (painelDesk) return;
+    }
+    const novo = !painelDesk;
+    setPainelDesk(novo);
+    try {
+      localStorage.setItem(CHAVE_PAINEL, novo ? "aberto" : "fechado");
+    } catch {
+      // navegador sem armazenamento: a escolha vale só nesta aba
+    }
+  };
   useEffect(() => {
-    if (!gavetaAberta) return;
-    lateral.current?.querySelector<HTMLElement>("button,a")?.focus({ preventScroll: true });
+    if (!gaveta || !movel) return;
+    painel.current?.querySelector<HTMLElement>("button,a")?.focus({ preventScroll: true });
     const esc = (e: KeyboardEvent) => e.key === "Escape" && fecharGaveta();
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
-  }, [gavetaAberta]);
+  }, [gaveta, movel]);
 
   const pendentes = (obraId: string) => Object.values(cartoes).filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente").length;
   const sessao = sessoes.find((s) => s.id === atual);
   const obra = obras?.find((o) => o.id === sessao?.obraId);
 
-  const escolher = (id: string) => {
+  const escolherSessao = (id: string) => {
     setAtual(id);
+    setTela("conversa");
     if (movel) fecharGaveta(false);
   };
   const abrirNova = (obraId: string) => {
     const s = novaSessao(obraId);
     despachar({ tipo: "nova", sessao: s });
-    escolher(s.id);
+    escolherSessao(s.id);
   };
-  const botaoGaveta = <BotaoGaveta aberta={gavetaAberta} abrir={abrirGaveta} />;
-  // Sem sessão aberta: no celular ainda precisa de um topo com o botão da gaveta.
-  const topoSimples = (
-    <header className="ses-top topo-simples so-movel">
-      <div className="ses-tit">
-        {botaoGaveta}
-        <h1>Plumo</h1>
-      </div>
-    </header>
-  );
+  /** Trocar de obra mantém a tela aberta; a conversa vai para a mais recente da obra (ou uma nova). */
+  const trocarObra = (obraId: string) => {
+    const recente = sessoes.find((s) => s.obraId === obraId);
+    if (recente) setAtual(recente.id);
+    else {
+      const s = novaSessao(obraId);
+      despachar({ tipo: "nova", sessao: s });
+      setAtual(s.id);
+    }
+  };
+
+  const podeCadastrar = usuario.papel !== "viewer";
+  const cursorDa = (obraId: string) => (obraId in maisConversas ? maisConversas[obraId]!.antes : cursorGlobal);
+  const carregarConversas = async (obraId: string) => {
+    const antes = cursorDa(obraId);
+    if (!antes) return;
+    setMaisConversas((m) => ({ ...m, [obraId]: { antes, buscando: true } }));
+    try {
+      const ss = await api.listarSessoes({ obra_id: obraId, limite: LIMITE_CONVERSAS, antes_de: antes });
+      despachar({ tipo: "listadas", sessoes: ss, obraPadrao: obraId });
+      setMaisConversas((m) => ({ ...m, [obraId]: { antes: ss.length < LIMITE_CONVERSAS ? null : ss.at(-1)!.atualizado_em } }));
+    } catch {
+      setMaisConversas((m) => ({ ...m, [obraId]: { antes } }));
+    }
+  };
+  const conteudo = erro ? (
+    <div className="aviso-erro" role="alert">
+      <Icone nome="alert" tam={15} />
+      Não consegui carregar as obras: {erro}
+    </div>
+  ) : !obras || (obras.length && !sessao) ? (
+    <div className="carregando page" role="status">
+      <Icone nome="loader" className="spin" tam={15} />
+      {obras ? "Abrindo a conversa…" : "Carregando obras…"}
+    </div>
+  ) : !sessao || !obra ? (
+    <div className="card vazio">
+      <Icone nome="predio" tam={24} />
+      <h3>Nenhuma obra ainda</h3>
+      <p>Cadastre a primeira obra para começar pelo orçamento. As conversas com o agente aparecem aqui.</p>
+      {podeCadastrar ? (
+        <Link href="/obras/nova" className="btn amb">
+          Cadastrar obra
+        </Link>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
-    <div className={`app${trilho ? " lat-fechada" : ""}${gavetaAberta ? " gaveta-aberta" : ""}`}>
-      <aside className="side" id="lateral" aria-label="Conversas" ref={lateral} inert={movel && !gaveta}>
-        {trilho ? (
-          <Trilho
-            obras={obras ?? []}
-            sessoes={sessoes}
-            obraAtual={obra?.id}
-            pendentes={pendentes}
-            escolher={escolher}
-            abrirNova={abrirNova}
-            abrir={() => recolher(false)}
-          />
-        ) : (
-          <>
-            <div className="brand">
-              <Logo />
-              Plumo
-              {demo ? (
-                <span className="tag" title="Modo de demonstração">
-                  demo
-                </span>
-              ) : null}
-              {movel ? (
-                <button type="button" className="side-fechar" aria-label="Fechar a lateral" onClick={() => fecharGaveta()}>
-                  <Icone nome="x" tam={18} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="side-fechar"
-                  data-alterna-lateral
-                  aria-label="Recolher a lateral"
-                  aria-expanded="true"
-                  aria-controls="lateral"
-                  aria-keyshortcuts="Control+Backslash"
-                  title="Recolher a lateral (Ctrl+\)"
-                  onClick={() => recolher(true)}
-                >
-                  <Icone nome="painel" tam={17} />
-                </button>
-              )}
-            </div>
-            <Link href="/inicio" className="nav side-link">
+    <div className={`app${painelAberto ? " com-painel" : ""}`}>
+      <Topo
+        obras={obras ?? []}
+        obra={obra}
+        tela={tela}
+        setTela={setTela}
+        pendentes={obra ? pendentes(obra.id) : 0}
+        trocarObra={trocarObra}
+        usuario={usuario}
+        demo={demo}
+        painelAberto={painelAberto}
+        alternarPainel={alternarPainel}
+        inerte={movel && gaveta}
+        sair={async () => {
+          await sair();
+          router.replace("/entrar");
+        }}
+      />
+      <nav className="trilho" aria-label="Atalhos">
+        <Link href="/inicio" className="tr-btn" aria-label="Início" title="Início">
+          <Icone nome="home" tam={18} />
+        </Link>
+        <button
+          type="button"
+          className={`tr-btn${painelAberto ? " on" : ""}`}
+          aria-label={painelAberto ? "Esconder as conversas" : "Mostrar as conversas"}
+          aria-expanded={painelAberto}
+          aria-controls="painel-conversas"
+          title="Conversas com o agente"
+          onClick={alternarPainel}
+        >
+          <Icone nome="conversas" tam={18} />
+        </button>
+        {obra ? (
+          <button type="button" className="tr-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
+            <Icone nome="plus" tam={18} />
+          </button>
+        ) : null}
+        {podeCadastrar ? (
+          <Link href="/obras/nova" className="tr-btn" aria-label="Nova obra" title="Nova obra">
+            <Icone nome="predio" tam={18} />
+          </Link>
+        ) : null}
+        <span className="tr-sep" aria-hidden="true" />
+        <Link href="/conta" className="tr-btn" aria-label="Conta e créditos" title="Conta e créditos">
+          <Icone nome="user" tam={18} />
+        </Link>
+        <BotaoTema className="tr-btn" />
+      </nav>
+      <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
+        <div className="painel-cab">
+          <div>
+            <div className="painel-t">Conversas</div>
+            {obra ? <div className="painel-sub">{obra.nome}</div> : null}
+          </div>
+          <button type="button" className="tr-btn painel-x" aria-label="Fechar as conversas" onClick={() => (movel ? fecharGaveta() : alternarPainel())}>
+            <Icone nome="x" tam={16} />
+          </button>
+        </div>
+        {obra ? (
+          <button type="button" className="painel-nova" onClick={() => abrirNova(obra.id)}>
+            <Icone nome="plus" tam={16} />
+            Nova conversa
+          </button>
+        ) : null}
+        <div className="painel-lista">
+          {sessoes
+            .filter((s) => s.obraId === obra?.id)
+            .map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`painel-sess${s.id === atual ? (tela === "conversa" ? " on" : " atual") : ""}`}
+                aria-current={s.id === atual ? "true" : undefined}
+                title={s.titulo}
+                onClick={() => escolherSessao(s.id)}
+              >
+                <Icone nome="message" tam={14} />
+                <span className="sess-t">{s.titulo}</span>
+              </button>
+            ))}
+          {obra && cursorDa(obra.id) ? (
+            <button
+              type="button"
+              className="painel-mais"
+              disabled={maisConversas[obra.id]?.buscando}
+              aria-busy={maisConversas[obra.id]?.buscando}
+              onClick={() => carregarConversas(obra.id)}
+            >
+              {maisConversas[obra.id]?.buscando ? <Icone nome="loader" className="spin" tam={14} /> : null}
+              Conversas mais antigas
+            </button>
+          ) : null}
+        </div>
+        {movel ? (
+          <div className="painel-pe">
+            <Link href="/inicio" className="painel-link">
               <Icone nome="home" tam={16} />
               Início
             </Link>
-            {obras?.[0] ? (
-              <button type="button" className="side-nova" onClick={() => abrirNova(obra?.id ?? obras[0]!.id)}>
-                <Icone nome="plus" tam={16} />
-                Nova conversa
-              </button>
-            ) : null}
-            {(obras ?? []).map((o) => {
-              const ss = sessoes.filter((s) => s.obraId === o.id);
-              const aberto = gruposAbertos[o.id] ?? (sessao?.obraId === o.id || (obras?.length ?? 0) === 1);
-              const n = pendentes(o.id);
-              return (
-                <div key={o.id}>
-                  <button
-                    type="button"
-                    className="grp"
-                    aria-expanded={aberto}
-                    aria-controls={`grp-${o.id}`}
-                    onClick={() => setGrupos((g) => ({ ...g, [o.id]: !aberto }))}
-                  >
-                    <Icone nome="chevRight" tam={14} className="grp-chev" />
-                    <span className="dot" style={{ background: COR_STATUS[o.status] }} aria-hidden="true" />
-                    <span className="sess-t">{o.nome}</span>
-                    {n ? (
-                      <span className="count" aria-label={`${n} esperando aprovação`}>
-                        {n}
-                      </span>
-                    ) : null}
-                  </button>
-                  <div className="grp-l" id={`grp-${o.id}`} hidden={!aberto}>
-                    {ss.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className={`nav sess${s.id === atual ? " on" : ""}`}
-                        aria-current={s.id === atual ? "page" : undefined}
-                        title={s.titulo}
-                        onClick={() => escolher(s.id)}
-                      >
-                        <span className="sess-t">{s.titulo}</span>
-                      </button>
-                    ))}
-                    <button type="button" className="nav sess sess-nova" onClick={() => abrirNova(o.id)}>
-                      <span className="sess-t">+ Nova conversa nesta obra</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {demo ? (
-              <div className="fict" role="note">
-                <Icone nome="info" tam={14} />
-                <span>Modo de demonstração: dados fictícios da Casa Vila Nova, em memória. Nada vai para a API.</span>
-              </div>
-            ) : null}
-            <div className="side-pe">
-              <Link href="/conta" className="nav side-link">
-                <Icone nome="user" tam={16} />
-                Conta e créditos
+            {podeCadastrar ? (
+              <Link href="/obras/nova" className="painel-link">
+                <Icone nome="predio" tam={16} />
+                Nova obra
               </Link>
-              <Perfil
-                usuario={usuario}
-                sair={async () => {
-                  await sair();
-                  router.replace("/entrar");
-                }}
-              />
-            </div>
-          </>
-        )}
+            ) : null}
+            <Link href="/conta" className="painel-link">
+              <Icone nome="user" tam={16} />
+              Conta e créditos
+            </Link>
+          </div>
+        ) : null}
+        {demo ? (
+          <div className="fict" role="note">
+            <Icone nome="info" tam={14} />
+            <span>Modo de demonstração: dados fictícios, em memória. Nada vai para a API.</span>
+          </div>
+        ) : null}
       </aside>
       {movel ? <div className="gaveta-fundo" aria-hidden="true" hidden={!gaveta} onClick={() => fecharGaveta()} /> : null}
 
-      {erro ? (
-        <>
-          {topoSimples}
-          <main className="main cheia" inert={gavetaAberta}>
-            <div className="page">
-              <div className="aviso-erro" role="alert">
-                <Icone nome="alert" tam={15} />
-                Não consegui carregar as obras: {erro}
-              </div>
-            </div>
-          </main>
-        </>
-      ) : !obras || (obras.length && !sessao) ? (
-        <>
-          {topoSimples}
-          <main className="main cheia" inert={gavetaAberta}>
-            <div className="carregando page" role="status">
-              <Icone nome="loader" className="spin" tam={15} />
-              {obras ? "Abrindo a conversa…" : "Carregando obras…"}
-            </div>
-          </main>
-        </>
-      ) : !sessao || !obra ? (
-        <>
-          {topoSimples}
-          <main className="main cheia" inert={gavetaAberta}>
-            <div className="card vazio">
-              <Icone nome="info" tam={24} />
-              <h3>Nenhuma obra ainda</h3>
-              <p>Cadastre a primeira obra para começar pelo orçamento. As conversas com o agente aparecem aqui.</p>
-              {usuario.papel !== "viewer" ? (
-                <Link href="/obras/nova" className="btn amb">
-                  Cadastrar obra
-                </Link>
+      <main className="palco" inert={movel && gaveta}>
+        {conteudo ??
+          (sessao && obra ? (
+            <>
+              {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
+              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o agente" hidden={tela !== "conversa"}>
+                <div className="conversa-cab">
+                  <h1 className="conversa-t" title={sessao.titulo}>
+                    {sessao.titulo}
+                  </h1>
+                  <button type="button" className="btn sm so-movel" onClick={alternarPainel}>
+                    <Icone nome="conversas" tam={15} />
+                    Conversas
+                  </button>
+                </div>
+                <Conversa key={sessao.id} sessao={sessao} obra={obra} despachar={despachar} />
+              </section>
+              {tela !== "conversa" ? (
+                <section className="palco-tela" aria-label={NAV.find((n) => n.k === tela)!.rotulo}>
+                  {tela === "orcamento" ? (
+                    <Orcamento obra={obra} />
+                  ) : tela === "almoxarifado" ? (
+                    <Almoxarifado obra={obra} />
+                  ) : tela === "pedidos" ? (
+                    <Pedidos obra={obra} />
+                  ) : tela === "historico" ? (
+                    <Historico obra={obra} />
+                  ) : (
+                    <Aprovacoes obra={obra} obras={obras ?? []} />
+                  )}
+                </section>
               ) : null}
-            </div>
-          </main>
-        </>
-      ) : (
-        <SessaoAberta
-          sessao={sessao}
-          obra={obra}
-          obras={obras ?? []}
-          despachar={despachar}
-          pendentes={pendentes(obra.id)}
-          botaoGaveta={botaoGaveta}
-          inerte={gavetaAberta}
-        />
-      )}
+            </>
+          ) : null)}
+      </main>
     </div>
   );
 }
 
-function BotaoGaveta({ aberta, abrir }: { aberta: boolean; abrir: () => void }) {
+function Topo(p: {
+  obras: Obra[];
+  obra: Obra | undefined;
+  tela: AbaAtiva;
+  setTela: (t: AbaAtiva) => void;
+  pendentes: number;
+  trocarObra: (id: string) => void;
+  usuario: Usuario;
+  demo: boolean;
+  painelAberto: boolean;
+  alternarPainel: () => void;
+  inerte: boolean;
+  sair: () => void;
+}) {
+  const { obra, tela } = p;
+  const nav = useRef<HTMLDivElement>(null);
+  // No celular as pílulas rolam: a escolhida não pode ficar fora da tela.
+  useEffect(() => {
+    nav.current?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tela]);
   return (
-    <button type="button" className="bt-gaveta so-movel" aria-label="Abrir a lateral" aria-expanded={aberta} aria-controls="lateral" onClick={abrir}>
-      <Icone nome="menu" tam={20} />
-    </button>
+    <header className="topo" inert={p.inerte}>
+      <button
+        type="button"
+        className="tr-btn so-movel topo-menu"
+        aria-label="Conversas e atalhos"
+        aria-expanded={p.painelAberto}
+        aria-controls="painel-conversas"
+        onClick={p.alternarPainel}
+      >
+        <Icone nome="menu" tam={20} />
+      </button>
+      <Link href="/inicio" className="topo-marca" aria-label="Plumo, início">
+        <Logo />
+        <span className="topo-marca-t">Plumo</span>
+        {p.demo ? <span className="tag">demo</span> : null}
+      </Link>
+      {obra ? <SeletorObra obras={p.obras} obra={obra} trocar={p.trocarObra} /> : null}
+      {obra ? (
+        <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
+          {NAV.map((n) => (
+            <button
+              key={n.k}
+              type="button"
+              className={`pilula${tela === n.k ? " on" : ""}`}
+              aria-current={tela === n.k ? "page" : undefined}
+              onClick={() => p.setTela(n.k)}
+            >
+              {n.rotulo}
+              {n.k === "aprovacoes" && p.pendentes ? (
+                <span className="n" aria-label={`${p.pendentes} pendentes`}>
+                  {p.pendentes}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </nav>
+      ) : (
+        <span className="sp" />
+      )}
+      <div className="topo-dir">
+        <BotaoTema className="tr-btn so-movel" />
+        <Perfil usuario={p.usuario} sair={p.sair} />
+      </div>
+    </header>
   );
 }
 
-/** Lateral recolhida (desktop): trilho de 64 px que mantém o que pede atenção, o status e o contador de cada obra. */
-function Trilho({
-  obras,
-  sessoes,
-  obraAtual,
-  pendentes,
-  escolher,
-  abrirNova,
-  abrir,
-}: {
-  obras: Obra[];
-  sessoes: Sessao[];
-  obraAtual: string | undefined;
-  pendentes: (obraId: string) => number;
-  escolher: (id: string) => void;
-  abrirNova: (obraId: string) => void;
-  abrir: () => void;
-}) {
+function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; trocar: (id: string) => void }) {
+  const { aberto, setAberto, caixa, tecla } = useMenu();
+  const [busca, setBusca] = useState("");
+  const q = busca
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const lista = q
+    ? obras.filter((o) =>
+        o.nome
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .includes(q),
+      )
+    : obras;
+  useEffect(() => {
+    if (!aberto) setBusca("");
+  }, [aberto]);
   return (
-    <>
-      <button type="button" className="r-btn r-logo" aria-label="Abrir a lateral" title="Abrir a lateral (Ctrl+\)" onClick={abrir}>
-        <Logo />
+    <div className="seletor" ref={caixa} onKeyDown={tecla}>
+      <button type="button" className="seletor-bt" aria-haspopup="menu" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
+        <span className="dot" style={{ background: COR_STATUS[obra.status] }} aria-hidden="true" />
+        <span className="seletor-t">
+          <span className="seletor-nome">{obra.nome}</span>
+          <span className="seletor-st">{TXT_STATUS[obra.status]}</span>
+        </span>
+        <Icone nome="chevDown" tam={14} />
       </button>
-      <Link href="/inicio" className="r-btn" aria-label="Início" title="Início">
-        <Icone nome="home" tam={18} />
-      </Link>
-      {obras[0] ? (
-        <button type="button" className="r-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obraAtual ?? obras[0]!.id)}>
-          <Icone nome="plus" tam={18} />
-        </button>
+      {aberto ? (
+        <div className="ca-menu-pop seletor-pop" role="menu" aria-label="Trocar de obra">
+          {obras.length > 6 ? (
+            <label className="busca seletor-busca">
+              <Icone nome="busca" tam={15} />
+              <span className="sr-only">Buscar obra</span>
+              <input
+                data-foco
+                type="search"
+                placeholder="Buscar obra"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                onKeyDown={(e) => {
+                  // ↓ sai da busca para a lista; Enter com um resultado só já troca
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    e.stopPropagation(); // senão o menu também anda e pula o 1º item
+                    caixa.current?.querySelector<HTMLElement>(".seletor-lista [role=menuitem]")?.focus();
+                  } else if (e.key === "Enter" && lista.length === 1) {
+                    setAberto(false);
+                    trocar(lista[0]!.id);
+                  }
+                }}
+              />
+            </label>
+          ) : null}
+          <div className="seletor-lista">
+            {lista.length ? null : <div className="seletor-vazio">Nenhuma obra com «{busca.trim()}».</div>}
+            {lista.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                aria-current={o.id === obra.id ? "true" : undefined}
+                onClick={() => {
+                  setAberto(false);
+                  trocar(o.id);
+                }}
+              >
+                <span className="dot" style={{ background: COR_STATUS[o.status] }} aria-hidden="true" />
+                <span className="seletor-pop-n">{o.nome}</span>
+                <span className="seletor-pop-st">{TXT_STATUS[o.status]}</span>
+              </button>
+            ))}
+          </div>
+          <Link href="/obras/nova" role="menuitem" tabIndex={-1} className="seletor-nova">
+            <Icone nome="plus" tam={15} />
+            Nova obra
+          </Link>
+        </div>
       ) : null}
-      <span className="r-sep" aria-hidden="true" />
-      {obras.map((o) => {
-        const n = pendentes(o.id);
-        const recente = sessoes.find((s) => s.obraId === o.id);
-        const rotulo = `${o.nome} · ${TXT_STATUS[o.status]}${n ? ` · ${n} esperando aprovação` : ""}`;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            className={`r-btn${o.id === obraAtual ? " on" : ""}`}
-            aria-label={rotulo}
-            aria-current={o.id === obraAtual ? "true" : undefined}
-            title={rotulo}
-            onClick={() => (recente ? escolher(recente.id) : abrirNova(o.id))}
-          >
-            <span className="r-ini" aria-hidden="true">
-              {iniciais(o.nome)}
-            </span>
-            <span className="r-dot" style={{ background: COR_STATUS[o.status] }} aria-hidden="true" />
-            {n ? (
-              <span className="r-n" aria-hidden="true">
-                {n}
-              </span>
-            ) : null}
-          </button>
-        );
-      })}
-      <span className="sp" />
-      <Link href="/conta" className="r-btn" aria-label="Conta e créditos" title="Conta e créditos">
-        <Icone nome="user" tam={18} />
-      </Link>
-      <button
-        type="button"
-        className="r-btn"
-        data-alterna-lateral
-        aria-label="Abrir a lateral"
-        aria-expanded="false"
-        aria-controls="lateral"
-        title="Abrir a lateral (Ctrl+\)"
-        onClick={abrir}
-      >
-        <Icone nome="painel" tam={18} />
-      </button>
-    </>
+    </div>
   );
 }
 
 function Perfil({ usuario, sair }: { usuario: Usuario; sair: () => void }) {
-  const [aberto, setAberto] = useState(false);
-  const caixa = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!aberto) return;
-    const fora = (e: PointerEvent) => !caixa.current?.contains(e.target as Node) && setAberto(false);
-    document.addEventListener("pointerdown", fora, true);
-    return () => document.removeEventListener("pointerdown", fora, true);
-  }, [aberto]);
+  const { aberto, setAberto, caixa, tecla } = useMenu();
   const PAPEL = { viewer: "leitura", admin: "admin", master: "master" } as const;
   return (
-    <div className="perfil" ref={caixa} onKeyDown={(e) => e.key === "Escape" && setAberto(false)}>
+    <div className="perfil" ref={caixa} onKeyDown={tecla}>
+      <button
+        type="button"
+        className="av-bt"
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        aria-label={`${usuario.nome}, ${PAPEL[usuario.papel]}`}
+        onClick={() => setAberto((a) => !a)}
+      >
+        <span className="av" aria-hidden="true">
+          {iniciais(usuario.nome)}
+        </span>
+      </button>
       {aberto ? (
         <div className="ca-menu-pop perfil-pop" role="menu" aria-label="Conta">
-          <button type="button" role="menuitem" onClick={sair} autoFocus>
+          <div className="pop-sec" aria-hidden="true">
+            {usuario.nome} · {PAPEL[usuario.papel]}
+          </div>
+          <Link href="/conta" role="menuitem" tabIndex={-1}>
+            <Icone nome="user" tam={15} />
+            Conta e créditos
+          </Link>
+          <button type="button" role="menuitem" tabIndex={-1} onClick={sair}>
             <Icone nome="logout" tam={15} />
             Sair
           </button>
         </div>
       ) : null}
-      <button type="button" className="foot" aria-haspopup="menu" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
-        <span className="av" aria-hidden="true">
-          {iniciais(usuario.nome)}
-        </span>
-        <span className="foot-t">
-          {usuario.nome}
-          <span>{PAPEL[usuario.papel]}</span>
-        </span>
-        <Icone nome="chevDown" tam={14} />
-      </button>
     </div>
-  );
-}
-
-function SessaoAberta({
-  sessao,
-  obra,
-  obras,
-  despachar,
-  pendentes,
-  botaoGaveta,
-  inerte,
-}: {
-  sessao: Sessao;
-  obra: Obra;
-  obras: Obra[];
-  despachar: React.Dispatch<Parameters<typeof redutorSessoes>[1]>;
-  pendentes: number;
-  botaoGaveta: React.ReactNode;
-  inerte: boolean;
-}) {
-  const [menu, setMenu] = useState(false);
-  const abas = useRef<HTMLDivElement>(null);
-  const botaoMais = useRef<HTMLButtonElement>(null);
-  const popMais = useRef<HTMLDivElement>(null);
-  const ativa = sessao.ativa;
-  const ativar = (aba: AbaAtiva) => despachar({ tipo: "ativar", sessaoId: sessao.id, aba });
-  const fechar = (t: Tela) => despachar({ tipo: "fecharTela", sessaoId: sessao.id, tela: t });
-
-  useEffect(() => {
-    if (!menu) return;
-    popMais.current?.querySelector<HTMLButtonElement>("[role=menuitem]")?.focus();
-    const fora = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (!popMais.current?.contains(t) && !botaoMais.current?.contains(t)) setMenu(false);
-    };
-    document.addEventListener("pointerdown", fora, true);
-    return () => document.removeEventListener("pointerdown", fora, true);
-  }, [menu]);
-
-  // No celular as abas rolam na horizontal: a aba que acabou de abrir não pode ficar escondida fora da tela.
-  useEffect(() => {
-    abas.current?.querySelector<HTMLElement>("[aria-selected=true]")?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [ativa, sessao.abas.length]);
-
-  // ← → entre as abas, Home/End; Delete fecha a aba de tela focada (a Conversa não fecha).
-  const teclaAbas = (e: React.KeyboardEvent) => {
-    const bs = [...(abas.current?.querySelectorAll<HTMLButtonElement>("[role=tab]") ?? [])];
-    const i = bs.indexOf(document.activeElement as HTMLButtonElement);
-    if (i < 0) return;
-    const ir = (j: number) => {
-      e.preventDefault();
-      const b = bs[(j + bs.length) % bs.length]!;
-      b.focus();
-      b.click();
-    };
-    if (e.key === "ArrowRight") ir(i + 1);
-    else if (e.key === "ArrowLeft") ir(i - 1);
-    else if (e.key === "Home") ir(0);
-    else if (e.key === "End") ir(bs.length - 1);
-    else if ((e.key === "Delete" || e.key === "Backspace") && bs[i]!.dataset.k !== "conversa") {
-      e.preventDefault();
-      fechar(bs[i]!.dataset.k as Tela);
-      bs[i - 1]?.focus();
-    }
-  };
-  const teclaMenu = (e: React.KeyboardEvent) => {
-    const its = [...(popMais.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? [])];
-    const i = its.indexOf(document.activeElement as HTMLButtonElement);
-    if (e.key === "Escape") {
-      e.preventDefault();
-      setMenu(false);
-      botaoMais.current?.focus();
-    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      its[(i + (e.key === "ArrowDown" ? 1 : -1) + its.length) % its.length]?.focus();
-    } else if (e.key === "Tab") setMenu(false);
-  };
-
-  return (
-    <>
-      <header className="ses-top" inert={inerte}>
-        <div className="ses-tit">
-          {botaoGaveta}
-          <h1 title={`${obra.nome} · ${sessao.titulo}`}>
-            <span className="dot" style={{ background: COR_STATUS[obra.status] }} aria-hidden="true" />
-            <span className="ses-obra">{obra.nome}</span>
-            <span className="sepr" aria-hidden="true">
-              ·
-            </span>
-            <span className="ses-nome">{sessao.titulo}</span>
-          </h1>
-          {/* No celular o título mostra só a sessão; a obra desce para esta linha. */}
-          <span className="ses-st">
-            <span className="so-movel">{obra.nome} · </span>
-            {TXT_STATUS[obra.status]}
-          </span>
-        </div>
-        <div className="abas-linha">
-          <div className="abas" role="tablist" aria-label="Abas da sessão" ref={abas} onKeyDown={teclaAbas}>
-            <button
-              type="button"
-              role="tab"
-              className={`aba${ativa === "conversa" ? " on" : ""}`}
-              data-k="conversa"
-              aria-selected={ativa === "conversa"}
-              aria-controls="painel-conversa"
-              tabIndex={ativa === "conversa" ? 0 : -1}
-              onClick={() => ativar("conversa")}
-            >
-              <Icone nome="message" tam={15} />
-              Conversa
-            </button>
-            {sessao.abas.map((t) => {
-              const def = TELAS.find((x) => x.k === t)!;
-              const on = ativa === t;
-              return (
-                <span key={t} className={`aba-c${on ? " on" : ""}`}>
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`aba${on ? " on" : ""}`}
-                    data-k={t}
-                    aria-selected={on}
-                    aria-controls="painel-tela"
-                    tabIndex={on ? 0 : -1}
-                    aria-keyshortcuts="Delete"
-                    onClick={() => ativar(t)}
-                  >
-                    <Icone nome={def.icone} tam={15} />
-                    {def.rotulo}
-                    {t === "aprovacoes" && pendentes ? (
-                      <span className="n" aria-label={`${pendentes} pendentes`}>
-                        {pendentes}
-                      </span>
-                    ) : null}
-                  </button>
-                  <button type="button" className="aba-x" tabIndex={-1} aria-label={`Fechar ${def.rotulo}`} title="Fechar" onClick={() => fechar(t)}>
-                    <Icone nome="x" tam={13} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-          <span className="abas-mais">
-            <button
-              ref={botaoMais}
-              type="button"
-              className="aba-add"
-              aria-haspopup="menu"
-              aria-expanded={menu}
-              aria-label="Abrir uma tela nesta sessão"
-              title="Abrir uma tela"
-              onClick={() => setMenu((m) => !m)}
-            >
-              <Icone nome="plus" tam={16} />
-            </button>
-            {menu ? (
-              <div className="ca-menu-pop abas-pop" role="menu" aria-label="Abrir uma tela" ref={popMais} onKeyDown={teclaMenu}>
-                <div className="pop-sec" aria-hidden="true">
-                  {obra.nome}
-                </div>
-                {TELAS.map((t) => (
-                  <button
-                    key={t.k}
-                    type="button"
-                    role="menuitem"
-                    tabIndex={-1}
-                    onClick={() => {
-                      setMenu(false);
-                      despachar({ tipo: "abrirTela", sessaoId: sessao.id, tela: t.k });
-                    }}
-                  >
-                    <Icone nome={t.icone} tam={15} />
-                    <span>{t.rotulo}</span>
-                    {t.k === "aprovacoes" && pendentes ? (
-                      <span className="n" aria-label={`${pendentes} pendentes`}>
-                        {pendentes}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </span>
-        </div>
-      </header>
-      {/* A conversa fica montada (escondida) enquanto uma tela está aberta: o texto digitado e o "Parar" não se perdem. */}
-      <main className="main ca" id="painel-conversa" role="tabpanel" aria-label="Conversa" hidden={ativa !== "conversa"} inert={inerte}>
-        <Conversa key={sessao.id} sessao={sessao} obra={obra} despachar={despachar} />
-      </main>
-      {ativa !== "conversa" ? (
-        <section className="visao" id="painel-tela" role="tabpanel" aria-label={rotuloTela(ativa)} inert={inerte}>
-          {ativa === "orcamento" ? (
-            <Orcamento obra={obra} />
-          ) : ativa === "almoxarifado" ? (
-            <Almoxarifado obra={obra} />
-          ) : ativa === "pedidos" ? (
-            <Pedidos obra={obra} />
-          ) : ativa === "historico" ? (
-            <Historico obra={obra} />
-          ) : (
-            <Aprovacoes obra={obra} obras={obras} />
-          )}
-        </section>
-      ) : null}
-    </>
   );
 }

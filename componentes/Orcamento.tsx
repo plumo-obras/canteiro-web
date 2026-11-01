@@ -14,7 +14,11 @@ import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
 import { ImportarOrcamento } from "./obra/ImportarOrcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
-import { ComparaVerba } from "./obra/verba";
+import { tagVerba } from "./obra/verba";
+import { CabecalhoPagina } from "./CabecalhoPagina";
+import { Paginacao, usePaginas } from "./Paginacao";
+
+const POR_PAGINA = 50;
 import { PADROES, REGIMES, TIPOLOGIAS } from "./obra/CamposObra";
 
 /** precisa (milésimos) × preço (centavos) → centavos */
@@ -46,6 +50,23 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const emOrcamento = obra.status === "em_orcamento";
   const resumo = resumoDaObra(obra);
   const faltaDado = !obra.area_construida || !obra.padrao;
+  const [busca, setBusca] = useState("");
+  const q = busca
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const achados = q
+    ? itens.filter((i) =>
+        i.insumo.nome
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .includes(q),
+      )
+    : itens;
+  const pag = usePaginas(achados, POR_PAGINA, [busca, obra.id]);
+  const verba = tagVerba(total, obra.verba);
 
   const aprovar = async () => {
     setAprovando(true);
@@ -62,15 +83,39 @@ export function Orcamento({ obra }: { obra: Obra }) {
 
   return (
     <div className="page">
-      <div className="cab-tela">
-        <h2>Orçamento</h2>
-        <span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{emOrcamento ? "em orçamento" : "aprovado"}</span>
-        {podeOperar && itens.length ? (
-          <button type="button" className="btn cab-acao" onClick={() => setModal("importar")}>
-            Importar planilha
-          </button>
-        ) : null}
-      </div>
+      <CabecalhoPagina
+        titulo="Orçamento"
+        sub={<span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{emOrcamento ? "em orçamento" : "aprovado"}</span>}
+        kpis={
+          itens.length
+            ? [
+                { icone: "calc", n: fmtReais(total), r: "total do orçamento", tag: verba?.texto, tom: verba?.tom },
+                {
+                  icone: "package",
+                  n: itens.length,
+                  r: semPreco ? `insumos · ${semPreco} sem preço, fora do total` : itens.length === 1 ? "insumo no orçamento" : "insumos no orçamento",
+                },
+                ...(obra.verba ? [{ icone: "predio" as const, n: fmtReais(obra.verba), r: "verba do dono" }] : []),
+              ]
+            : []
+        }
+        acoes={
+          podeOperar && itens.length ? (
+            <>
+              <button type="button" className="btn" onClick={() => setModal("importar")}>
+                <Icone nome="planilha" tam={15} />
+                Importar planilha
+              </button>
+              {emOrcamento ? (
+                <button type="button" className="btn amb" disabled={aprovando} aria-busy={aprovando} onClick={aprovar}>
+                  <Icone nome="check" tam={15} />
+                  Aprovar orçamento
+                </button>
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       <section className="card orc-obra" aria-label="Dados da obra">
         <div>
@@ -115,31 +160,19 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         <>
-          <div className="prev-resumo orc-tot">
-            <div>
-              <span className="prev-n">{fmtReais(total)}</span>
-              <span>
-                total do orçamento
-                <ComparaVerba total={total} verba={obra.verba} />
-              </span>
-            </div>
-            <div>
-              <span className="prev-n">{itens.length}</span>
-              <span>
-                {itens.length === 1 ? "insumo" : "insumos"}
-                {semPreco ? <small className="verba-atencao">{semPreco} sem preço, fora do total</small> : null}
-              </span>
-            </div>
-            {emOrcamento && podeOperar ? (
-              <button type="button" className="btn amb orc-aprovar" disabled={aprovando} aria-busy={aprovando} onClick={aprovar}>
-                Aprovar orçamento
-              </button>
-            ) : null}
-          </div>
           {emOrcamento ? (
             <p className="mut sm">
               Aprovado, a obra passa para em andamento e o almoxarifado começa a cobrar a falta destas quantidades. Dá para desfazer pelo Histórico.
             </p>
+          ) : null}
+          {itens.length > POR_PAGINA / 2 ? (
+            <div className="barra-acoes">
+              <label className="busca">
+                <Icone nome="busca" tam={16} />
+                <span className="sr-only">Buscar insumo do orçamento</span>
+                <input type="search" placeholder="Buscar insumo" value={busca} onChange={(e) => setBusca(e.target.value)} />
+              </label>
+            </div>
           ) : null}
           <div className="card lista">
             <table className="tbl-orc">
@@ -161,7 +194,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
                 </tr>
               </thead>
               <tbody>
-                {itens.map((i) => {
+                {pag.visiveis.map((i) => {
                   const t = totalDoItem(i);
                   return (
                     <tr key={i.insumo.id}>
@@ -172,7 +205,15 @@ export function Orcamento({ obra }: { obra: Obra }) {
                         </span>
                       </td>
                       <td className="num">{fmtQtdUn(i.insumo.precisa_ate_o_fim, i.insumo.unidade)}</td>
-                      <td className="num">{i.insumo.valor_unitario ? fmtReais(i.insumo.valor_unitario) : "—"}</td>
+                      <td className="num">{i.insumo.valor_unitario ? (
+                          <>
+                            {fmtReais(i.insumo.valor_unitario)}
+                            {/* no celular a coluna "Unitário" some: o valor precisa dizer que é por unidade */}
+                            <span className="por-un">/{i.insumo.unidade}</span>
+                          </>
+                        ) : (
+                          "—"
+                        )}</td>
                       <td className="num">{t ? fmtReais(t) : "—"}</td>
                       <td className="num mut">{total && t ? `${((t / total) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}</td>
                     </tr>
@@ -181,6 +222,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
               </tbody>
             </table>
           </div>
+          <Paginacao pagina={pag.pagina} total={pag.total} mudar={pag.setPagina} quantos={achados.length} porPagina={POR_PAGINA} nome="insumos do orçamento" />
         </>
       ) : null}
 
