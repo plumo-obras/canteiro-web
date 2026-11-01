@@ -9,12 +9,41 @@ import { ProvedorCasca } from "./contexto";
 import { Conversa } from "./Conversa";
 import { novaSessao, redutorSessoes } from "./sessoes";
 
-const OBRA: Obra = { id: "o1", tenant_id: "t-1", criado_em: "", nome: "Casa Vila Nova", cidade: "", cep: "", verba: 0, status: "em_andamento" };
+const OBRA: Obra = {
+  id: "o1",
+  tenant_id: "t-1",
+  criado_em: "",
+  nome: "Casa Vila Nova",
+  cidade: "",
+  cep: "",
+  verba: 0,
+  status: "em_andamento",
+  endereco: "",
+  uf: "",
+  tipologia: null,
+  area_construida: 0,
+  pavimentos: 0,
+  padrao: null,
+  regime: null,
+  cliente: "",
+  inicio: null,
+  prazo_meses: 0,
+};
 const PROPOSTA = {
-  id: "p1", tenant_id: "t-1", criado_em: "2026-10-30T13:00:00Z", obra_id: "o1", tipo: "criar_pedido",
-  titulo: "Comprar 640 un de bloco", conta: "precisa 3.400 un − saldo 2.760 un = falta 640 un", fonte: "almoxarifado",
-  dados: { insumo_id: "i1", quantidade: 640000, fornecedor: "Cerâmica", valor: 204800 }, sugerido_por: "agente",
-  status: "pendente", decidido_por: null, decidido_em: null, motivo_recusa: null,
+  id: "p1",
+  tenant_id: "t-1",
+  criado_em: "2026-10-30T13:00:00Z",
+  obra_id: "o1",
+  tipo: "criar_pedido",
+  titulo: "Comprar 640 un de bloco",
+  conta: "precisa 3.400 un − saldo 2.760 un = falta 640 un",
+  fonte: "almoxarifado",
+  dados: { insumo_id: "i1", quantidade: 640000, fornecedor: "Cerâmica", valor: 204800 },
+  sugerido_por: "agente",
+  status: "pendente",
+  decidido_por: null,
+  decidido_em: null,
+  motivo_recusa: null,
 };
 const ev = (evento: string, dados: unknown) => `event: ${evento}\ndata: ${JSON.stringify(dados)}\n\n`;
 
@@ -43,7 +72,10 @@ describe("conversa por SSE", () => {
       "POST /srv/auth/renovar": renovarOk,
       "POST /srv/agente/conversa": () => sse(corpoSSE, 5),
       "POST /srv/api/propostas/p1/aprovar": () =>
-        json({ proposta: { ...PROPOSTA, status: "aprovada", decidido_por: "u-1", decidido_por_nome: "Rizzi", decidido_em: "2026-10-30T13:32:00Z" }, registro: { id: "r1" } }),
+        json({
+          proposta: { ...PROPOSTA, status: "aprovada", decidido_por: "u-1", decidido_por_nome: "Rizzi", decidido_em: "2026-10-30T13:32:00Z" },
+          registro: { id: "r1" },
+        }),
     });
     render(<Harness />);
     await userEvent.type(screen.getByLabelText("Pergunte ao agente"), "precisa comprar bloco?{Enter}");

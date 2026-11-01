@@ -6,7 +6,7 @@ import type { ItemInsumo } from "@/lib/contrato";
 import { CampoInsumo, type EscolhaInsumo } from "./CampoInsumo";
 
 const item = (id: string, nome: string): ItemInsumo => ({
-  insumo: { id, tenant_id: "t", criado_em: "", obra_id: "o", nome, unidade: "sc", precisa_ate_o_fim: 0, curva: "C" },
+  insumo: { id, tenant_id: "t", criado_em: "", obra_id: "o", nome, unidade: "sc", precisa_ate_o_fim: 0, curva: "C", valor_unitario: 0 },
   conta: { precisa: 0, saldo: 46_000, a_caminho: 0, cotando: 0, transferencia: 0, falta: 0, comprar: 0 },
 });
 const itens = [item("c", "Cimento CP-II 50 kg"), item("a", "Areia média lavada")];
