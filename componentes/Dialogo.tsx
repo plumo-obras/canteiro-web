@@ -3,7 +3,7 @@
  * Modal × drawer, como no protótipo: o modal GRAVA (clicar fora não fecha, para não perder o que foi digitado) e o
  * drawer CONSULTA (clicar fora fecha). Os dois: role=dialog, X, Esc, foco preso enquanto abertos e devolvido ao fechar.
  */
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icone } from "./Icone";
 
@@ -83,5 +83,56 @@ export function Drawer(props: { titulo: ReactNode; fechar: () => void; children:
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Confirmação antes de uma ação que pesa (aprovar o orçamento): diz o que vai acontecer e espera o "sim". Enquanto a API
+ * responde, o botão trava; o erro aparece dentro do próprio diálogo, para a pessoa tentar de novo sem perder o contexto.
+ */
+export function Confirmar(props: {
+  titulo: string;
+  children: ReactNode;
+  confirmar: string;
+  fechar: () => void;
+  aoConfirmar: () => Promise<void>;
+}) {
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const sim = useRef<HTMLButtonElement>(null);
+  const ir = async () => {
+    setOcupado(true);
+    setErro(null);
+    try {
+      await props.aoConfirmar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Algo deu errado. Tente de novo.");
+      setOcupado(false);
+    }
+  };
+  return (
+    <Modal
+      titulo={props.titulo}
+      fechar={props.fechar}
+      focoInicial={sim}
+      rodape={
+        <>
+          <button type="button" className="btn" onClick={props.fechar}>
+            Voltar
+          </button>
+          <button ref={sim} type="button" className="btn amb" disabled={ocupado} aria-busy={ocupado} onClick={ir}>
+            {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
+            {props.confirmar}
+          </button>
+        </>
+      }
+    >
+      {props.children}
+      {erro ? (
+        <div className="aviso-erro form-erro" role="alert">
+          {erro}
+        </div>
+      ) : null}
+    </Modal>
   );
 }

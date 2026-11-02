@@ -47,6 +47,11 @@ export interface Obra extends Documento {
   /** AAAA-MM-DD */
   inicio: string | null;
   prazo_meses: number;
+  numero_contrato: string;
+  /** Centésimos de ponto percentual (22,91% = 2291); 0 = não informado. */
+  bdi: number;
+  /** AAAA-MM: mês dos preços de referência. */
+  data_base: string | null;
 }
 
 /** PATCH /obras/{id}: só os campos enviados mudam. */
@@ -57,6 +62,10 @@ export type CorpoObra = DadosObra & { nome: string; chave_idempotencia: string }
 export interface Mapeamento {
   planilha: string;
   linha_cabecalho: number;
+  /** Só no orçamento (EAP): nº do item ("3.2.1"), código e fonte (SINAPI, SEINFRA, próprio). */
+  item: number | null;
+  codigo: number | null;
+  fonte: number | null;
   nome: number | null;
   unidade: number | null;
   quantidade: number | null;
@@ -101,6 +110,102 @@ export interface PreviaOrcamento {
 }
 
 export type CurvaABC = "A" | "B" | "C";
+
+/* ---------- orçamento da obra (EAP, em versões) ---------- */
+
+export type TipoVersao = "contrato" | "aditivo";
+
+export interface VersaoOrcamento {
+  id: string;
+  obra_id: string;
+  tipo: TipoVersao;
+  /** 0 no contrato; 1, 2… nos aditivos. */
+  numero: number;
+  descricao: string;
+  /** AAAA-MM-DD */
+  data: string | null;
+  arquivo: string;
+  itens: number;
+  etapas: number;
+  total: Centavos;
+  /** false = desfeita ou substituída. */
+  ativa: boolean;
+  substitui: string | null;
+  /** A EntradaRegistro da importação: o Desfazer da versão usa este ID. */
+  registro_id: string | null;
+  criado_em: DataISO;
+}
+
+export interface ItemPrevia {
+  ordem: number;
+  tipo: "etapa" | "item";
+  numero: string;
+  nivel: number;
+  /** Número da etapa raiz ("2" para "2.1.1"). */
+  etapa: string;
+  codigo: string;
+  fonte: string;
+  descricao: string;
+  unidade: string;
+  quantidade: Milesimos;
+  valor_unitario: Centavos;
+  total: Centavos;
+  linha: number;
+}
+
+export interface ItemOrcamento extends ItemPrevia {
+  id: string;
+  obra_id: string;
+  versao_id: string;
+}
+
+export interface EtapaPrevia {
+  etapa: string;
+  descricao: string;
+  total: Centavos;
+}
+
+export interface PreviaVersao {
+  aplicado: boolean;
+  tipo: TipoVersao;
+  itens: ItemPrevia[];
+  ignoradas: { linha: number; texto: string; motivo: string }[];
+  erros: { linha: number; campo: string | null; mensagem: string }[];
+  avisos: { linha: number; mensagem: string }[];
+  total: Centavos;
+  n_itens: number;
+  n_etapas: number;
+  etapas: EtapaPrevia[];
+  substitui: { versao_id: string; total: Centavos; itens: number } | null;
+  versao_id: string | null;
+  registro_id: string | null;
+}
+
+export interface EtapaOrcamento {
+  etapa: string;
+  descricao: string;
+  contratado: Centavos;
+  aditivos: Centavos;
+  atual: Centavos;
+}
+
+/** `GET /obras/{id}/orcamento`. */
+export interface Orcamento {
+  versoes: VersaoOrcamento[];
+  itens: (ItemOrcamento & { curva: CurvaABC | null })[];
+  etapas: EtapaOrcamento[];
+  totais: { contratado: Centavos; aditivos: Centavos; atual: Centavos; n_itens: number; n_etapas: number };
+}
+
+/** O que acompanha a planilha no `POST …/orcamento/versoes`. */
+export interface CorpoVersao {
+  mapeamento: Mapeamento;
+  tipo: TipoVersao;
+  descricao?: string;
+  data?: string | null;
+  aplicar: boolean;
+  chave_idempotencia?: string;
+}
 
 export interface Insumo extends Documento {
   obra_id: string;

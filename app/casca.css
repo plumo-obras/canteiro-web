@@ -136,6 +136,12 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
 .gaveta-fundo[hidden]{display:none}
 @media (min-width:900px){ .so-movel{display:none!important} }
+/* notebook de 1366: as seis abas, com contadores, e o nome da obra cabem sem cortar a última */
+@media (max-width:1480px) and (min-width:1181px){
+  .topo-marca-t{display:none}
+  .pilula{padding:0 12px}
+  .seletor-bt{max-width:220px}
+}
 @media (max-width:1180px) and (min-width:900px){
   .topo-marca-t{display:none}
   .pilula{padding:0 13px;font-size:14px}

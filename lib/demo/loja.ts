@@ -16,6 +16,7 @@ import type {
   MinhaConta,
   Movimento,
   Obra,
+  Orcamento,
   Pedido,
   Proposta,
   RespostaEntrar,
@@ -94,6 +95,9 @@ const OBRA_VAZIA = {
   cliente: "",
   inicio: null,
   prazo_meses: 0,
+  numero_contrato: "",
+  bdi: 0,
+  data_base: null,
 } satisfies Omit<Obra, "id" | "tenant_id" | "criado_em" | "nome" | "status">;
 
 const CAMPOS_OBRA = Object.keys(OBRA_VAZIA).concat("nome") as (keyof DadosObra)[];
@@ -103,7 +107,7 @@ const ROTULO_CAMPO: Record<string, string> = {
   cep: "CEP",
   uf: "UF",
   endereco: "endereço",
-  verba: "verba",
+  verba: "valor do contrato",
   tipologia: "tipo",
   area_construida: "área",
   pavimentos: "pavimentos",
@@ -112,6 +116,9 @@ const ROTULO_CAMPO: Record<string, string> = {
   cliente: "cliente",
   inicio: "início",
   prazo_meses: "prazo",
+  numero_contrato: "nº do contrato",
+  bdi: "BDI",
+  data_base: "data-base",
 };
 
 /** Só os campos conhecidos; o resto do corpo é ignorado (a API recusaria campo desconhecido com 422). */
@@ -121,6 +128,42 @@ function dadosObra(c: Record<string, unknown>): DadosObra {
   if (typeof d.nome === "string") d.nome = d.nome.replace(/\s+/g, " ").trim();
   if ("nome" in d && (!d.nome || String(d.nome).length > 120)) throw new RegraViolada("Dê um nome para a obra (até 120 letras).");
   return d as DadosObra;
+}
+
+/**
+ * A demonstração não reimplementa a importação por etapas: o orçamento dela é um contrato montado dos insumos da obra,
+ * numa etapa só, para a tela do orçamento ter o que mostrar sem fingir que leu uma planilha.
+ */
+function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
+  const ins = [...e.insumos.values()].filter((i) => i.obra_id === o.id && i.precisa_ate_o_fim > 0);
+  if (!ins.length) return { versoes: [], itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, n_itens: 0, n_etapas: 0 } };
+  const versao_id = `demo-contrato-${o.id}`;
+  const base = { obra_id: o.id, versao_id, etapa: "1", codigo: "", fonte: "" };
+  const itens: Orcamento["itens"] = ins.map((i, n) => ({
+    ...base,
+    id: `${versao_id}-${n + 1}`,
+    ordem: n + 1,
+    tipo: "item",
+    numero: `1.${n + 1}`,
+    nivel: 2,
+    descricao: i.nome,
+    unidade: i.unidade,
+    quantidade: i.precisa_ate_o_fim,
+    valor_unitario: i.valor_unitario,
+    total: Math.round((i.precisa_ate_o_fim * i.valor_unitario) / 1000),
+    linha: n + 3,
+    curva: i.curva,
+  }));
+  const total = itens.reduce((t, i) => t + i.total, 0);
+  const etapa = { ...base, id: `${versao_id}-0`, ordem: 0, tipo: "etapa" as const, numero: "1", nivel: 1, descricao: "Orçamento", unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: 2, curva: null };
+  return {
+    versoes: [
+      { id: versao_id, obra_id: o.id, tipo: "contrato", numero: 0, descricao: "", data: null, arquivo: "", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: o.criado_em },
+    ],
+    itens: [etapa, ...itens],
+    etapas: [{ etapa: "1", descricao: "Orçamento", contratado: total, aditivos: 0, atual: total }],
+    totais: { contratado: total, aditivos: 0, atual: total, n_itens: itens.length, n_etapas: 1 },
+  };
 }
 
 function semear(): EstadoDemo {
@@ -885,8 +928,10 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         });
         return ok({ ...o, registro_id: reg.id });
       }
+      if (metodo === "GET" && b === "orcamento" && !id2) return ok(orcamentoDemo(e, obraPorId(e, id)));
       if (metodo === "POST" && b === "orcamento") {
         exigirAdmin(u);
+        if (id2 === "versoes") return erro(422, "Na demonstração a importação do orçamento por etapas não está disponível.");
         const existentes = () =>
           [...e.insumos.values()]
             .filter((i) => i.obra_id === id)

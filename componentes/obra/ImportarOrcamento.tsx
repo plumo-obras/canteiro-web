@@ -1,42 +1,64 @@
 "use client";
 /**
- * Importar a planilha do orçamento em três passos: escolher o arquivo, dizer qual coluna é qual (a API sugere pelo
- * cabeçalho) e conferir a prévia antes de gravar. A planilha de orçamento de verdade não tem as nossas colunas: tem
- * título, subtotal por etapa e o mesmo material repetido em várias etapas. A API pula os títulos, junta os
- * repetidos e calcula a curva ABC pelo valor; aqui a pessoa vê tudo isso antes de confirmar.
+ * Importar uma planilha em quatro passos: dizer o que ela é, escolher o arquivo, dizer qual coluna é qual (a API sugere
+ * pelo cabeçalho) e conferir a prévia antes de gravar. A pergunta do 1º passo existe porque as duas planilhas que a
+ * construtora tem parecem iguais e significam coisas diferentes:
+ * - o **orçamento da obra** (serviços por etapa) vira uma versão — o contrato ou um aditivo — e cada linha é um item,
+ *   sem juntar repetidos, para o total fechar no centavo com a planilha (`POST …/orcamento/versoes`);
+ * - a **lista de materiais** (insumos para comprar e estocar) junta os repetidos e alimenta o almoxarifado
+ *   (`POST …/orcamento/importar`).
  */
 import { useRef, useState } from "react";
-import type { LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento } from "@/lib/contrato";
+import type { ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import { fmtQtdUn, fmtReais } from "@/lib/formato";
+import { fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
+import { uuid7 } from "@/lib/ids";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { ErroApi } from "../formularios/Campos";
+import { Campo, ErroApi } from "../formularios/Campos";
 import { ComparaVerba } from "./verba";
 
-type Passo = { k: "arquivo" } | { k: "colunas"; leitura: LeituraPlanilha } | { k: "previa"; leitura: LeituraPlanilha; previa: PreviaOrcamento };
+type Tipo = "eap" | "materiais";
+type Previa = { k: "eap"; p: PreviaVersao } | { k: "materiais"; p: PreviaOrcamento };
+type Passo =
+  | { k: "tipo" }
+  | { k: "arquivo" }
+  | { k: "colunas"; leitura: LeituraPlanilha }
+  | { k: "previa"; leitura: LeituraPlanilha; previa: Previa; chave: string };
 
-const CAMPOS: { k: keyof Omit<Mapeamento, "planilha" | "linha_cabecalho">; rotulo: string; obrigatorio?: boolean; dica?: string }[] = [
+type CampoMapa = keyof Omit<Mapeamento, "planilha" | "linha_cabecalho">;
+const CAMPOS: { k: CampoMapa; rotulo: string; obrigatorio?: boolean; dica?: string; so?: Tipo }[] = [
+  { k: "item", rotulo: "Item (nº)", so: "eap", dica: "O número do item, ex.: 3.2.1. Dá a etapa de cada linha." },
+  { k: "codigo", rotulo: "Código", so: "eap" },
+  { k: "fonte", rotulo: "Fonte", so: "eap", dica: "SINAPI, SEINFRA, próprio…" },
   { k: "nome", rotulo: "Descrição do item", obrigatorio: true },
   { k: "unidade", rotulo: "Unidade", obrigatorio: true },
   { k: "quantidade", rotulo: "Quantidade", obrigatorio: true },
   { k: "valor_unitario", rotulo: "Preço unitário", dica: "Sem ele, o preço sai do total ÷ quantidade." },
   { k: "valor_total", rotulo: "Preço total" },
-  { k: "saldo", rotulo: "Já tem em estoque", dica: "Raro no orçamento: só se a planilha trouxer o que já está na obra." },
-  { k: "curva", rotulo: "Curva ABC", dica: "Sem ela, a curva é calculada pelo valor de cada item." },
+  { k: "saldo", rotulo: "Já tem em estoque", so: "materiais", dica: "Só se a planilha trouxer o que já está na obra." },
+  { k: "curva", rotulo: "Curva ABC", so: "materiais", dica: "Sem ela, a curva é calculada pelo valor de cada item." },
 ];
 
 const MAX_LINHAS_PREVIA = 60;
+const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
+const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
 
 export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar: () => void; feito?: () => void }) {
-  const { mudou, avisar } = useCasca();
-  const [passo, setPasso] = useState<Passo>({ k: "arquivo" });
+  const { mudou, avisar, avisarFeito } = useCasca();
+  const [passo, setPasso] = useState<Passo>({ k: "tipo" });
+  const [tipo, setTipo] = useState<Tipo | null>(null);
+  const [versao, setVersao] = useState<TipoVersao>("contrato");
+  const [descricao, setDescricao] = useState("");
+  const [data, setData] = useState("");
+  const [errosTipo, setErrosTipo] = useState<{ descricao?: string | null; data?: string | null }>({});
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [mapa, setMapa] = useState<Mapeamento | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
+  const campos = CAMPOS.filter((c) => !c.so || c.so === tipo);
 
   const rodar = async (f: () => Promise<void>) => {
     setErro(null);
@@ -50,6 +72,20 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     }
   };
 
+  const seguirDoTipo = () => {
+    if (!tipo) return;
+    if (tipo === "eap" && versao === "aditivo") {
+      const e = {
+        descricao: !descricao.trim() ? "Diga do que é o aditivo, ex.: ampliação do refeitório." : descricao.trim().length > 200 ? "Até 200 letras." : null,
+        data: !data ? "Informe a data do aditivo." : null,
+      };
+      setErrosTipo(e);
+      if (e.descricao || e.data) return;
+    }
+    setErrosTipo({});
+    setPasso({ k: "arquivo" });
+  };
+
   const ler = (arq: File, planilha?: string) =>
     rodar(async () => {
       const leitura = await api.lerPlanilha(obra.id, arq, planilha);
@@ -58,30 +94,80 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       setPasso({ k: "colunas", leitura });
     });
 
-  const faltando = mapa ? CAMPOS.filter((c) => c.obrigatorio && mapa[c.k] === null) : [];
+  // O que não vale para o tipo escolhido vai nulo: a API só olha item/código/fonte no orçamento e saldo/curva na lista.
+  const mapaDoTipo = (): Mapeamento => {
+    const m = { ...mapa! };
+    for (const c of CAMPOS) if (c.so && c.so !== tipo) m[c.k] = null;
+    return m;
+  };
+
+  const importar = (aplicar: boolean, chave: string): Promise<Previa> =>
+    tipo === "eap"
+      ? api
+          .versaoOrcamento(obra.id, arquivo!, {
+            mapeamento: mapaDoTipo(),
+            tipo: versao,
+            descricao: versao === "aditivo" ? descricao.trim() : undefined,
+            data: versao === "aditivo" ? data : undefined,
+            aplicar,
+            chave_idempotencia: aplicar ? chave : undefined,
+          })
+          .then((p) => ({ k: "eap", p }))
+      : api.importarOrcamento(obra.id, arquivo!, mapaDoTipo(), aplicar).then((p) => ({ k: "materiais", p }));
+
+  const faltando = mapa ? campos.filter((c) => c.obrigatorio && mapa[c.k] === null) : [];
   const verPrevia = (leitura: LeituraPlanilha) =>
     rodar(async () => {
-      const previa = await api.importarOrcamento(obra.id, arquivo!, mapa!, false);
-      setPasso({ k: "previa", leitura, previa });
+      // Uma chave por prévia: clicar duas vezes em importar (ou a rede repetir) não grava duas versões.
+      const chave = uuid7();
+      setPasso({ k: "previa", leitura, previa: await importar(false, chave), chave });
     });
 
-  const aplicar = (previa: PreviaOrcamento) =>
+  const aplicar = (passoAtual: Extract<Passo, { k: "previa" }>) =>
     rodar(async () => {
-      const r = await api.importarOrcamento(obra.id, arquivo!, mapa!, true);
-      if (!r.aplicado) {
-        // a planilha mudou entre a prévia e o aplicar (ou alguém cadastrou um insumo no meio): mostra o que a API viu
-        setPasso((p) => (p.k === "previa" ? { ...p, previa: r } : p));
+      const r = await importar(true, passoAtual.chave);
+      if (!r.p.aplicado) {
+        // a planilha mudou entre a prévia e o aplicar (ou alguém gravou no meio): mostra o que a API viu
+        setPasso({ ...passoAtual, previa: r });
         return;
       }
       mudou();
       fechar();
-      avisar(`Orçamento importado: ${previa.linhas.length} ${previa.linhas.length === 1 ? "insumo" : "insumos"}, ${fmtReais(r.total)}.`);
+      if (r.k === "eap") {
+        const p = r.p;
+        const texto =
+          p.tipo === "contrato"
+            ? `Contrato importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
+            : `Aditivo importado: ${comSinal(p.total)} em ${plural(p.n_itens, "item", "itens")}.`;
+        avisarFeito(texto, p.registro_id);
+      } else avisar(`Lista de materiais importada: ${plural(r.p.linhas.length, "insumo", "insumos")}, ${fmtReais(r.p.total)}.`);
       feito?.();
     });
 
+  const nLinhas = (p: Previa) => (p.k === "eap" ? p.p.n_itens : p.p.linhas.length);
+  const rotuloImportar = (p: Previa) =>
+    p.p.erros.length
+      ? "Corrija os erros para importar"
+      : p.k === "eap"
+        ? p.p.tipo === "contrato"
+          ? p.p.substitui
+            ? "Substituir o contrato"
+            : `Importar o contrato (${plural(p.p.n_itens, "item", "itens")})`
+          : `Importar o aditivo (${comSinal(p.p.total)})`
+        : `Importar ${plural(p.p.linhas.length, "insumo", "insumos")}`;
+
   const rodape =
-    passo.k === "arquivo" ? (
-      <button type="button" className="btn" onClick={fechar}>
+    passo.k === "tipo" ? (
+      <>
+        <button type="button" className="btn" onClick={fechar}>
+          Voltar
+        </button>
+        <button type="button" className="btn amb" disabled={!tipo} onClick={seguirDoTipo}>
+          Continuar
+        </button>
+      </>
+    ) : passo.k === "arquivo" ? (
+      <button type="button" className="btn" onClick={() => setPasso({ k: "tipo" })}>
         Voltar
       </button>
     ) : passo.k === "colunas" ? (
@@ -101,22 +187,21 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         <button
           type="button"
           className="btn amb"
-          disabled={ocupado || passo.previa.erros.length > 0 || !passo.previa.linhas.length}
+          disabled={ocupado || passo.previa.p.erros.length > 0 || !nLinhas(passo.previa)}
           aria-busy={ocupado}
-          onClick={() => aplicar(passo.previa)}
+          onClick={() => aplicar(passo)}
         >
-          {passo.previa.erros.length
-            ? "Corrija os erros para importar"
-            : `Importar ${passo.previa.linhas.length} ${passo.previa.linhas.length === 1 ? "insumo" : "insumos"}`}
+          {rotuloImportar(passo.previa)}
         </button>
       </>
     );
 
+  const ordem = ["tipo", "arquivo", "colunas", "previa"];
   return (
-    <Modal titulo="Importar a planilha do orçamento" fechar={fechar} rodape={rodape} largo={passo.k !== "arquivo"}>
+    <Modal titulo="Importar planilha" fechar={fechar} rodape={rodape} largo={passo.k === "colunas" || passo.k === "previa"}>
       <ol className="passos-mini" aria-label="Passos">
-        {(["Arquivo", "Colunas", "Prévia"] as const).map((t, i) => {
-          const atual = ["arquivo", "colunas", "previa"].indexOf(passo.k);
+        {(["Tipo", "Arquivo", "Colunas", "Prévia"] as const).map((t, i) => {
+          const atual = ordem.indexOf(passo.k);
           return (
             <li key={t} className={i === atual ? "on" : i < atual ? "feito" : ""} aria-current={i === atual ? "step" : undefined}>
               {t}
@@ -125,7 +210,76 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         })}
       </ol>
 
-      {passo.k === "arquivo" ? (
+      {passo.k === "tipo" ? (
+        <>
+          <p className="mut" style={{ margin: "0 0 4px" }}>
+            O que é esta planilha?
+          </p>
+          <div className="portas" role="radiogroup" aria-label="O que é esta planilha?" style={{ marginTop: 6 }}>
+            <button type="button" role="radio" aria-checked={tipo === "eap"} className={`porta${tipo === "eap" ? "" : " porta-sec"}`} onClick={() => setTipo("eap")}>
+              <Icone nome="planilha" tam={22} />
+              <span>
+                <b>Orçamento da obra</b>
+                <small>Serviços por etapa, como foi contratado: cada linha vira um item, e o total fecha com a planilha.</small>
+              </span>
+              {tipo === "eap" ? <Icone nome="checkCircle" tam={18} /> : null}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={tipo === "materiais"}
+              className={`porta${tipo === "materiais" ? "" : " porta-sec"}`}
+              onClick={() => setTipo("materiais")}
+            >
+              <Icone nome="package" tam={22} />
+              <span>
+                <b>Lista de materiais</b>
+                <small>Insumos para comprar e estocar: o almoxarifado cobra a falta destas quantidades. Repetidos são juntados.</small>
+              </span>
+              {tipo === "materiais" ? <Icone nome="checkCircle" tam={18} /> : null}
+            </button>
+          </div>
+          {tipo === "eap" ? (
+            <>
+              <div className="campo">
+                <span className="l">Esta planilha é</span>
+                <div className="seg" role="radiogroup" aria-label="Contrato ou aditivo">
+                  {(["contrato", "aditivo"] as const).map((v) => (
+                    <button key={v} type="button" role="radio" aria-checked={versao === v} className={versao === v ? "on" : ""} onClick={() => setVersao(v)}>
+                      {v === "contrato" ? "O contrato" : "Um aditivo"}
+                    </button>
+                  ))}
+                </div>
+                <p className="seg-dica mut sm">
+                  {versao === "contrato"
+                    ? "Se já houver um contrato importado, este o substitui por inteiro (a prévia avisa, e dá para desfazer)."
+                    : "Soma ao contrato, que fica intacto. Quantidade negativa é supressão."}
+                </p>
+              </div>
+              {versao === "aditivo" ? (
+                <div className="campos2">
+                  <Campo rotulo="Do que é o aditivo" erro={errosTipo.descricao}>
+                    {(a) => (
+                      <input
+                        {...a}
+                        className="f"
+                        maxLength={200}
+                        autoComplete="off"
+                        placeholder="Ex.: ampliação do refeitório"
+                        value={descricao}
+                        onChange={(e) => setDescricao(e.target.value)}
+                      />
+                    )}
+                  </Campo>
+                  <Campo rotulo="Data do aditivo" erro={errosTipo.data}>
+                    {(a) => <input {...a} type="date" className="f" value={data} onChange={(e) => setData(e.target.value)} />}
+                  </Campo>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      ) : passo.k === "arquivo" ? (
         <div
           className="solta"
           onDragOver={(e) => e.preventDefault()}
@@ -135,7 +289,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             if (f) ler(f);
           }}
         >
-          <Icone nome="package" tam={26} />
+          <Icone nome="planilha" tam={26} />
           <p>
             <b>Arraste a planilha aqui</b> ou escolha o arquivo.
           </p>
@@ -147,7 +301,9 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             ref={entrada}
             type="file"
             accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-            hidden
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Arquivo da planilha"
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = "";
@@ -158,6 +314,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       ) : passo.k === "colunas" && mapa ? (
         <Colunas
           leitura={passo.leitura}
+          campos={campos}
           mapa={mapa}
           setMapa={setMapa}
           trocarAba={(p) => ler(arquivo!, p)}
@@ -165,7 +322,11 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
           faltando={faltando.map((c) => c.rotulo)}
         />
       ) : passo.k === "previa" ? (
-        <Previa previa={passo.previa} obra={obra} />
+        passo.previa.k === "eap" ? (
+          <PreviaEap previa={passo.previa.p} obra={obra} />
+        ) : (
+          <PreviaMateriais previa={passo.previa.p} />
+        )
       ) : null}
       <ErroApi texto={erro} />
     </Modal>
@@ -174,14 +335,15 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
 
 function Colunas(props: {
   leitura: LeituraPlanilha;
+  campos: typeof CAMPOS;
   mapa: Mapeamento;
   setMapa: (m: Mapeamento) => void;
   trocarAba: (p: string) => void;
   ocupado: boolean;
   faltando: string[];
 }) {
-  const { leitura, mapa, setMapa } = props;
-  const usadas = new Map(CAMPOS.filter((c) => mapa[c.k] !== null).map((c) => [mapa[c.k]!, c.rotulo]));
+  const { leitura, mapa, setMapa, campos } = props;
+  const usadas = new Map(campos.filter((c) => mapa[c.k] !== null).map((c) => [mapa[c.k]!, c.rotulo]));
   return (
     <>
       <p className="mut" style={{ margin: "4px 0 0" }}>
@@ -201,7 +363,7 @@ function Colunas(props: {
         </div>
       ) : null}
       <div className="mapa">
-        {CAMPOS.map((c) => (
+        {campos.map((c) => (
           <div className="campo" key={c.k}>
             <label className="l" htmlFor={`mapa-${c.k}`}>
               {c.rotulo}
@@ -261,24 +423,145 @@ function Colunas(props: {
   );
 }
 
-function Previa({ previa, obra }: { previa: PreviaOrcamento; obra: Obra }) {
-  const { linhas, erros, ignoradas } = previa;
+function ErrosDaPrevia({ erros }: { erros: { linha: number; mensagem: string }[] }) {
+  if (!erros.length) return null;
+  return (
+    <div className="prev-erros" role="alert">
+      <b>{erros.length === 1 ? "1 linha precisa de correção" : `${erros.length} linhas precisam de correção`} antes de importar. Nada foi gravado.</b>
+      <ul>
+        {erros.slice(0, 12).map((e, i) => (
+          <li key={i}>
+            Linha {e.linha}: {e.mensagem}
+          </li>
+        ))}
+        {erros.length > 12 ? <li>e mais {erros.length - 12}.</li> : null}
+      </ul>
+      <p className="sm">Corrija na planilha e escolha o arquivo de novo, ou ajuste as colunas.</p>
+    </div>
+  );
+}
+
+function Ignoradas({ ignoradas }: { ignoradas: { linha: number; texto: string; motivo: string }[] }) {
+  if (!ignoradas.length) return null;
+  return (
+    <details className="prev-ign">
+      <summary>
+        {ignoradas.length === 1 ? "1 linha ficou de fora" : `${ignoradas.length} linhas ficaram de fora`} (títulos, subtotais, linhas vazias): ver quais
+      </summary>
+      <ul>
+        {ignoradas.map((g) => (
+          <li key={g.linha}>
+            Linha {g.linha}: {g.texto || "(vazia)"} <span className="mut">· {g.motivo}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function PreviaEap({ previa, obra }: { previa: PreviaVersao; obra: Obra }) {
+  const aditivo = previa.tipo === "aditivo";
+  const porEtapa = new Map<string, ItemPrevia[]>();
+  for (const i of previa.itens) {
+    if (i.tipo === "etapa" && i.nivel <= 1) continue;
+    porEtapa.set(i.etapa, [...(porEtapa.get(i.etapa) ?? []), i]);
+  }
   return (
     <>
-      {erros.length ? (
-        <div className="prev-erros" role="alert">
-          <b>{erros.length === 1 ? "1 linha precisa de correção" : `${erros.length} linhas precisam de correção`} antes de importar. Nada foi gravado.</b>
-          <ul>
-            {erros.slice(0, 12).map((e, i) => (
-              <li key={i}>
-                Linha {e.linha}: {e.mensagem}
-              </li>
-            ))}
-            {erros.length > 12 ? <li>e mais {erros.length - 12}.</li> : null}
-          </ul>
-          <p className="sm">Corrija na planilha e escolha o arquivo de novo, ou ajuste as colunas.</p>
+      <ErrosDaPrevia erros={previa.erros} />
+      {previa.substitui ? (
+        <div className="prev-subst" role="alert">
+          <Icone nome="alert" tam={16} />
+          <span>
+            <b>
+              Esta planilha substitui o contrato atual ({fmtReais(previa.substitui.total)}, {plural(previa.substitui.itens, "item", "itens")}).
+            </b>{" "}
+            O contrato atual sai de vigência; dá para voltar a ele com Desfazer.
+          </span>
         </div>
       ) : null}
+      <div className="prev-resumo">
+        <div>
+          <span className="prev-n">{aditivo ? comSinal(previa.total) : fmtReais(previa.total)}</span>
+          <span>
+            {aditivo ? "no aditivo" : "total do contrato"}
+            {aditivo ? null : <ComparaVerba total={previa.total} verba={obra.verba} />}
+          </span>
+        </div>
+        <div>
+          <span className="prev-n">{previa.n_etapas.toLocaleString("pt-BR")}</span>
+          <span>{previa.n_etapas === 1 ? "etapa" : "etapas"}</span>
+        </div>
+        <div>
+          <span className="prev-n">{previa.n_itens.toLocaleString("pt-BR")}</span>
+          <span>{previa.n_itens === 1 ? "item" : "itens"}</span>
+        </div>
+      </div>
+      {previa.avisos.length ? (
+        <details className="prev-ign prev-avisos" open={previa.avisos.length <= 3}>
+          <summary>{previa.avisos.length === 1 ? "1 aviso (grava mesmo assim)" : `${previa.avisos.length} avisos (grava mesmo assim)`}</summary>
+          <ul>
+            {previa.avisos.map((a, i) => (
+              <li key={i}>
+                Linha {a.linha}: {a.mensagem}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      <Ignoradas ignoradas={previa.ignoradas} />
+      {previa.etapas.length ? (
+        <div className="tbl-rola prev-etapas">
+          {previa.etapas.map((e) => {
+            const its = porEtapa.get(e.etapa) ?? [];
+            return (
+              <details key={e.etapa}>
+                <summary>
+                  <span className="eap-num">{e.etapa}</span>
+                  <span className="eap-desc">{e.descricao}</span>
+                  <span className="mut sm">{plural(its.filter((i) => i.tipo === "item").length, "item", "itens")}</span>
+                  <span className="num">
+                    <b>{aditivo ? comSinal(e.total) : fmtReais(e.total)}</b>
+                  </span>
+                </summary>
+                <table className="tbl-eap">
+                  <tbody>
+                    {its.slice(0, MAX_LINHAS_PREVIA).map((i) =>
+                      i.tipo === "etapa" ? (
+                        <tr key={i.ordem} className="eap-sub">
+                          <td className="eap-n">{i.numero}</td>
+                          <td colSpan={4}>{i.descricao}</td>
+                        </tr>
+                      ) : (
+                        <tr key={i.ordem}>
+                          <td className="eap-n">{i.numero}</td>
+                          <td className="eap-d">
+                            {i.descricao}
+                            {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
+                          </td>
+                          <td className="num">{fmtQtd(i.quantidade)} {i.unidade}</td>
+                          <td className="num">{fmtReais(i.valor_unitario)}</td>
+                          <td className="num">{fmtReais(i.total)}</td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+                {its.length > MAX_LINHAS_PREVIA ? <p className="mut sm prev-mais">e mais {its.length - MAX_LINHAS_PREVIA} linhas nesta etapa.</p> : null}
+              </details>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function PreviaMateriais({ previa }: { previa: PreviaOrcamento }) {
+  const { linhas, ignoradas } = previa;
+  return (
+    <>
+      <ErrosDaPrevia erros={previa.erros} />
       <div className="prev-resumo">
         <div>
           <span className="prev-n">{linhas.length}</span>
@@ -293,34 +576,15 @@ function Previa({ previa, obra }: { previa: PreviaOrcamento; obra: Obra }) {
         </div>
         <div>
           <span className="prev-n">{fmtReais(previa.total)}</span>
-          <span>
-            total do orçamento
-            <ComparaVerba total={previa.total} verba={obra.verba} />
-          </span>
+          <span>total da lista</span>
         </div>
       </div>
-      {previa.juntadas || ignoradas.length ? (
+      {previa.juntadas ? (
         <p className="mut sm">
-          {previa.juntadas
-            ? `${previa.juntadas} ${previa.juntadas === 1 ? "linha repetida foi juntada" : "linhas repetidas foram juntadas"} (o mesmo material em etapas diferentes). `
-            : ""}
-          {ignoradas.length
-            ? `${ignoradas.length} ${ignoradas.length === 1 ? "linha ficou de fora" : "linhas ficaram de fora"}: títulos, subtotais e linhas sem quantidade.`
-            : ""}
+          {previa.juntadas} {previa.juntadas === 1 ? "linha repetida foi juntada" : "linhas repetidas foram juntadas"} (o mesmo material em etapas diferentes).
         </p>
       ) : null}
-      {ignoradas.length ? (
-        <details className="prev-ign">
-          <summary>Ver as linhas que ficaram de fora</summary>
-          <ul>
-            {ignoradas.map((g) => (
-              <li key={g.linha}>
-                Linha {g.linha}: {g.texto || "(vazia)"} <span className="mut">· {g.motivo}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
+      <Ignoradas ignoradas={ignoradas} />
       {linhas.length ? (
         <div className="tbl-rola">
           <table className="tbl-orc">

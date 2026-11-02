@@ -28,7 +28,7 @@ export function NovaObraPagina({ demo }: { demo: boolean }) {
 const PASSOS = [
   { k: "onde", titulo: "Onde é a obra", sub: "O nome e o endereço. O resto pode ficar para depois." },
   { k: "oque", titulo: "O que vai ser construído", sub: "Área e padrão dão a régua de preço por m² para conferir o orçamento." },
-  { k: "contrato", titulo: "O contrato com o dono", sub: "A verba é o número contra o qual o orçamento vai ser comparado." },
+  { k: "contrato", titulo: "O contrato com o dono", sub: "O valor do contrato é o número contra o qual o orçamento vai ser comparado." },
   { k: "orcamento", titulo: "Agora, o orçamento", sub: "É o próximo passo de toda obra. Comece pela planilha que você já tem." },
 ] as const;
 

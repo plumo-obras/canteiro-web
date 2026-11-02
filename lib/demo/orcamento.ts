@@ -53,6 +53,9 @@ type Campo = Exclude<keyof Mapeamento, "planilha" | "linha_cabecalho">;
 function campoDoTitulo(titulo: string): Campo | null {
   const t = semAcento(titulo);
   if (!t) return null;
+  if (["item", "no", "n", "nº", "n°"].includes(t) || t.startsWith("item ")) return "item";
+  if (t.startsWith("cod")) return "codigo";
+  if (["fonte", "banco", "base", "referencia", "ref"].includes(t)) return "fonte";
   if (t.includes("unit")) return t.includes("unid") ? "unidade" : "valor_unitario";
   if (["descricao", "discriminacao", "insumo", "material", "servico", "nome", "especificacao"].some((s) => t.includes(s))) return "nome";
   if (t === "un" || ["unid", "und", "unidade"].some((s) => t.includes(s))) return "unidade";
@@ -72,6 +75,9 @@ export function lerPlanilhaDemo(texto: string, nomeArquivo: string): LeituraPlan
   const sugestao: Mapeamento = {
     planilha: "CSV",
     linha_cabecalho: cab + 1,
+    item: null,
+    codigo: null,
+    fonte: null,
     nome: null,
     unidade: null,
     quantidade: null,

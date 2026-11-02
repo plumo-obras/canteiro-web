@@ -1,9 +1,10 @@
 "use client";
 /**
  * Os dados da obra, em três blocos que o cadastro mostra um por passo e a edição mostra juntos: onde (nome e
- * endereço), o que é (tipologia, área, padrão) e o contrato (regime, verba, prazo). Só o nome é obrigatório: quem
+ * endereço), o que é (tipologia, área, padrão) e o contrato (regime, valor, nº, BDI, data-base, prazo). Só o nome é obrigatório: quem
  * ainda não sabe a área não pode travar no cadastro, e o que faltar se completa depois.
  */
+import { useEffect, useRef, useState } from "react";
 import type { DadosObra, Obra, Padrao, Regime, Tipologia } from "@/lib/contrato";
 import { lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { Campo } from "../formularios/Campos";
@@ -41,6 +42,10 @@ export interface FormObra {
   padrao: Padrao | null;
   regime: Regime | null;
   verba: string;
+  numero_contrato: string;
+  bdi: string;
+  /** "MM/AAAA" na tela; a API grava "AAAA-MM". */
+  data_base: string;
   inicio: string;
   prazo: string;
   cliente: string;
@@ -61,10 +66,37 @@ export function formDe(o?: Obra): FormObra {
     padrao: o?.padrao ?? null,
     regime: o?.regime ?? null,
     verba: o?.verba ? reaisParaCampo(o.verba) : "",
+    numero_contrato: o?.numero_contrato ?? "",
+    bdi: o?.bdi ? pctParaCampo(o.bdi) : "",
+    data_base: o?.data_base ? `${o.data_base.slice(5, 7)}/${o.data_base.slice(0, 4)}` : "",
     inicio: o?.inicio ?? "",
     prazo: o?.prazo_meses ? String(o.prazo_meses) : "",
     cliente: o?.cliente ?? "",
   };
+}
+
+/** 2291 → "22,91"; 2500 → "25". */
+export const pctParaCampo = (c: number) => (c % 100 ? `${Math.floor(c / 100)},${String(c % 100).padStart(2, "0")}` : String(c / 100));
+/** "22,91" (ou "22.91", "22,91%") → 2291 centésimos de ponto; null se não for percentual de 0 a 100. */
+export function lerPct(t: string): number | null {
+  const m = t.trim().replace(/%$/, "").trim().match(/^(\d{1,3})(?:[.,](\d{1,2}))?$/);
+  if (!m) return null;
+  const v = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0") || 0);
+  return v <= 10000 ? v : null;
+}
+/** "05/2025", "5/2025" ou "2025-05" → "2025-05"; null se não for mês válido. */
+export function lerMesAno(t: string): string | null {
+  const s = t.trim();
+  const br = s.match(/^(\d{1,2})\/(\d{4})$/);
+  const iso = s.match(/^(\d{4})-(\d{2})$/);
+  const [mes, ano] = br ? [Number(br[1]), br[2]!] : iso ? [Number(iso[2]), iso[1]!] : [0, ""];
+  return mes >= 1 && mes <= 12 ? `${ano}-${String(mes).padStart(2, "0")}` : null;
+}
+
+/** Máscara 00000-000 enquanto digita; colar com ou sem traço (ou com pontos) dá no mesmo. */
+export function mascararCep(t: string): string {
+  const d = t.replace(/\D/g, "").slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
 }
 
 const inteiro = (t: string) => (t.trim() === "" ? 0 : /^\d+$/.test(t.trim()) ? Number(t.trim()) : null);
@@ -84,7 +116,10 @@ export function validarObra(f: FormObra, bloco: "onde" | "oque" | "contrato" | "
     e.pavimentos = p === null || p > 200 ? "Número de pavimentos, ex.: 2." : null;
   }
   if (bloco === "contrato" || bloco === "tudo") {
-    e.verba = f.verba.trim() && lerReais(f.verba) === null ? "Digite a verba em reais, ex.: 850.000." : null;
+    e.verba = f.verba.trim() && lerReais(f.verba) === null ? "Digite o valor em reais, ex.: 850.000." : null;
+    e.numero_contrato = f.numero_contrato.trim().length > 40 ? "Nº do contrato com até 40 caracteres." : null;
+    e.bdi = f.bdi.trim() && lerPct(f.bdi) === null ? "BDI em %, de 0 a 100, ex.: 22,91." : null;
+    e.data_base = f.data_base.trim() && lerMesAno(f.data_base) === null ? "Mês e ano, ex.: 05/2025." : null;
     const m = inteiro(f.prazo);
     e.prazo = m === null || m > 240 ? "Prazo em meses, ex.: 14." : null;
   }
@@ -106,6 +141,9 @@ export function dadosDe(f: FormObra, antes?: Obra): DadosObra {
     padrao: f.padrao,
     regime: f.regime,
     verba: f.verba.trim() ? lerReais(f.verba)! : 0,
+    numero_contrato: f.numero_contrato.trim(),
+    bdi: f.bdi.trim() ? lerPct(f.bdi)! : 0,
+    data_base: f.data_base.trim() ? lerMesAno(f.data_base) : null,
     inicio: f.inicio || null,
     prazo_meses: inteiro(f.prazo)!,
     cliente: f.cliente.trim(),
@@ -115,14 +153,15 @@ export function dadosDe(f: FormObra, antes?: Obra): DadosObra {
 }
 
 /** CEP → cidade e UF pelo ViaCEP. Ajuda, não depende: se falhar, a pessoa digita. */
-export async function buscarCep(cep: string): Promise<{ cidade: string; uf: string; endereco: string } | null> {
+export async function buscarCep(cep: string): Promise<{ cidade: string; uf: string; endereco: string; geral: boolean } | null> {
   const n = cep.replace(/\D/g, "");
   if (n.length !== 8) return null;
   try {
     const r = await fetch(`https://viacep.com.br/ws/${n}/json/`);
     const j = (await r.json()) as { erro?: boolean; localidade?: string; uf?: string; logradouro?: string; bairro?: string };
     if (!r.ok || j.erro) return null;
-    return { cidade: j.localidade ?? "", uf: j.uf ?? "", endereco: [j.logradouro, j.bairro].filter(Boolean).join(", ") };
+    // CEP geral (cidade pequena, um CEP só) volta sem logradouro: cidade e UF valem, a rua a pessoa digita.
+    return { cidade: j.localidade ?? "", uf: j.uf ?? "", endereco: [j.logradouro, j.bairro].filter(Boolean).join(", "), geral: !j.logradouro };
   } catch {
     return null;
   }
@@ -131,10 +170,29 @@ export async function buscarCep(cep: string): Promise<{ cidade: string; uf: stri
 type Props = { f: FormObra; mudar: (p: Partial<FormObra>) => void; erros: ErrosObra; nomeRef?: React.Ref<HTMLInputElement> };
 
 export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
-  const aoSairCep = async () => {
-    const r = await buscarCep(f.cep);
+  // A resposta do ViaCEP chega depois: o que vale é o formulário de agora, não o do momento em que se digitou.
+  const atual = useRef(f);
+  useEffect(() => {
+    atual.current = f;
+  });
+  const buscado = useRef(f.cep.replace(/\D/g, ""));
+  const [dicaCep, setDicaCep] = useState<string | null>(null);
+  const mudarCep = async (texto: string) => {
+    const cep = mascararCep(texto);
+    mudar({ cep });
+    const n = cep.replace(/\D/g, "");
+    if (n.length !== 8) {
+      setDicaCep(null);
+      return;
+    }
+    if (n === buscado.current) return;
+    buscado.current = n;
+    const r = await buscarCep(n);
+    const g = atual.current;
+    if (!r || g.cep.replace(/\D/g, "") !== n) return;
     // Só preenche o que está vazio: não apaga o que a pessoa já digitou.
-    if (r) mudar({ cidade: f.cidade || r.cidade, uf: f.uf || r.uf, endereco: f.endereco || r.endereco });
+    mudar({ cidade: g.cidade || r.cidade, uf: g.uf || r.uf, endereco: g.endereco || r.endereco });
+    setDicaCep(r.geral ? "CEP da cidade inteira: digite a rua." : null);
   };
   return (
     <>
@@ -160,9 +218,9 @@ export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
               inputMode="numeric"
               autoComplete="postal-code"
               placeholder="00000-000"
+              maxLength={9}
               value={f.cep}
-              onChange={(e) => mudar({ cep: e.target.value })}
-              onBlur={aoSairCep}
+              onChange={(e) => mudarCep(e.target.value)}
             />
           )}
         </Campo>
@@ -184,7 +242,7 @@ export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
           </Campo>
         </div>
       </div>
-      <Campo rotulo="Endereço (opcional)">
+      <Campo rotulo="Endereço (opcional)" dica={dicaCep} alerta={!!dicaCep}>
         {(a) => <input {...a} className="f" autoComplete="street-address" value={f.endereco} onChange={(e) => mudar({ endereco: e.target.value })} />}
       </Campo>
     </>
@@ -288,7 +346,7 @@ export function CamposContrato({ f, mudar, erros }: Props) {
         {regime ? <p className="seg-dica mut sm">{regime.dica}</p> : null}
       </div>
       <div className="campos2">
-        <Campo rotulo="Verba do dono (R$)" erro={erros.verba} dica="Quanto o dono quer gastar. O orçamento é comparado com ela.">
+        <Campo rotulo="Valor do contrato (R$)" erro={erros.verba} dica="O valor fechado com o cliente. O orçamento é comparado com ele.">
           {(a) => (
             <input
               {...a}
@@ -304,6 +362,34 @@ export function CamposContrato({ f, mudar, erros }: Props) {
         <Campo rotulo="Cliente (opcional)">
           {(a) => <input {...a} className="f" autoComplete="off" value={f.cliente} onChange={(e) => mudar({ cliente: e.target.value })} />}
         </Campo>
+      </div>
+      <div className="campos2">
+        <Campo rotulo="Nº do contrato (opcional)" erro={erros.numero_contrato}>
+          {(a) => (
+            <input {...a} className="f" autoComplete="off" maxLength={40} value={f.numero_contrato} onChange={(e) => mudar({ numero_contrato: e.target.value })} />
+          )}
+        </Campo>
+        <div className="campos2">
+          <Campo rotulo="BDI (%)" erro={erros.bdi}>
+            {(a) => (
+              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 22,91" value={f.bdi} onChange={(e) => mudar({ bdi: e.target.value })} />
+            )}
+          </Campo>
+          <Campo rotulo="Data-base" erro={erros.data_base} dica="Mês dos preços.">
+            {(a) => (
+              <input
+                {...a}
+                className="f"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="MM/AAAA"
+                maxLength={7}
+                value={f.data_base}
+                onChange={(e) => mudar({ data_base: e.target.value })}
+              />
+            )}
+          </Campo>
+        </div>
       </div>
       <div className="campos2">
         <Campo rotulo="Início previsto (opcional)">

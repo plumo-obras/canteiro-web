@@ -27,15 +27,25 @@ function numeros(pagina: number, total: number): (number | "…")[] {
   return ord.flatMap((n, i) => (i && n - ord[i - 1]! > 1 ? (["…", n] as const) : ([n] as const)));
 }
 
-export function Paginacao(props: { pagina: number; total: number; mudar: (p: number) => void; quantos: number; porPagina: number; nome: string }) {
+export function Paginacao(props: {
+  pagina: number;
+  total: number;
+  mudar: (p: number) => void;
+  quantos: number;
+  porPagina: number;
+  nome: string;
+  /** A lista vem da API aos poucos e ainda há mais: "1–20 de 60+". */
+  mais?: boolean;
+}) {
   const { pagina, total, mudar, quantos, porPagina } = props;
-  if (total <= 1) return null;
+  if (total <= 1 && !props.mais) return null;
   const de = (pagina - 1) * porPagina + 1;
   const ate = Math.min(quantos, pagina * porPagina);
   return (
     <nav className="paginacao" aria-label={`Páginas de ${props.nome}`}>
       <span className="pag-conta">
         {de}–{ate} de {quantos}
+        {props.mais ? "+" : ""}
       </span>
       <div className="pag-bts">
         <button type="button" className="pag-bt" disabled={pagina === 1} aria-label="Página anterior" onClick={() => mudar(pagina - 1)}>

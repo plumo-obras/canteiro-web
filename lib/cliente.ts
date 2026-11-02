@@ -9,6 +9,9 @@ import type {
   CorpoAvancar,
   CorpoInsumo,
   CorpoObra,
+  CorpoVersao,
+  Orcamento,
+  PreviaVersao,
   DadosObra,
   LeituraPlanilha,
   Mapeamento,
@@ -116,6 +119,20 @@ export const api = {
     f.set("mapeamento", JSON.stringify(mapeamento));
     f.set("aplicar", String(aplicar));
     return chamar<PreviaOrcamento>("POST", `/obras/${seg(obraId)}/orcamento/importar`, f);
+  },
+  /** O orçamento da obra (EAP): versões, itens vigentes com curva, totais por etapa. */
+  orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
+  /** Contrato ou aditivo. `aplicar: false` é a prévia; com `aplicar: true` a chave de idempotência é obrigatória. */
+  versaoOrcamento: (obraId: string, arquivo: File, corpo: CorpoVersao) => {
+    const f = new FormData();
+    f.set("arquivo", arquivo);
+    f.set("mapeamento", JSON.stringify(corpo.mapeamento));
+    f.set("tipo", corpo.tipo);
+    if (corpo.descricao) f.set("descricao", corpo.descricao);
+    if (corpo.data) f.set("data", corpo.data);
+    f.set("aplicar", String(corpo.aplicar));
+    if (corpo.chave_idempotencia) f.set("chave_idempotencia", corpo.chave_idempotencia);
+    return chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/versoes`, f);
   },
   aprovarOrcamento: (obraId: string) => chamar<ComRegistro<Obra>>("POST", `/obras/${seg(obraId)}/orcamento/aprovar`),
   listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),

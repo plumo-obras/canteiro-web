@@ -9,7 +9,7 @@ export interface Kpi {
   icone: NomeIcone;
   n: ReactNode;
   r: ReactNode;
-  /** Pílula ao lado do número (ex.: "8% acima da verba"). */
+  /** Pílula ao lado do número (ex.: "8% acima do contrato"). */
   tag?: ReactNode;
   tom?: "ok" | "atencao" | "acima" | "info";
 }
