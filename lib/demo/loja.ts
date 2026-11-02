@@ -51,7 +51,7 @@ interface EstadoDemo {
   obras: Obra[];
   insumos: Map<string, ItemDemo>;
   movimentos: Movimento[];
-  pedidos: Pedido[];
+  pedidos: PedidoDemo[];
   propostas: Proposta[];
   registro: EntradaRegistro[];
   contadorPedido: number;
@@ -166,6 +166,60 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   };
 }
 
+/**
+ * A demonstração ainda guarda o pedido antigo, de uma linha só (Fase 2: a importação de pedidos com várias linhas,
+ * fornecedores e recebimentos chega à demo no fim da fase). Na saída ele vira o pedido do contrato novo.
+ */
+export interface PedidoDemo {
+  id: string;
+  tenant_id: string;
+  criado_em: string;
+  numero: string;
+  obra_id: string;
+  insumo_id: string;
+  quantidade: number;
+  fornecedor: string;
+  valor: number;
+  status: StatusPedido;
+  previsao: string | null;
+  rastreio: string | null;
+  quantidade_recebida?: number | null;
+  nf?: string | null;
+}
+
+function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
+  const ins = e.insumos.get([...e.insumos.keys()].find((k) => e.insumos.get(k)!.id === p.insumo_id) ?? "");
+  const recebida = p.status === "conferido" ? (p.quantidade_recebida ?? p.quantidade) : 0;
+  return {
+    id: p.id,
+    numero: p.numero,
+    obra_id: p.obra_id,
+    fornecedor: p.fornecedor,
+    fornecedor_id: null,
+    previsao: p.previsao,
+    observacao: p.nf ? `NF ${p.nf}` : "",
+    status: p.status,
+    valor: p.valor,
+    recebimentos: p.status === "conferido" ? 1 : 0,
+    criado_em: p.criado_em,
+    linhas: [
+      {
+        insumo_id: p.insumo_id,
+        nome: ins?.nome ?? "insumo",
+        unidade: ins?.unidade ?? "",
+        tipo: "material",
+        etapa: null,
+        quantidade: p.quantidade,
+        valor_unitario: p.quantidade ? Math.round((p.valor * 1000) / p.quantidade) : 0,
+        total: p.valor,
+        recebida,
+      },
+    ],
+  };
+}
+
+const INDISPONIVEL = "Indisponível na demonstração.";
+
 function semear(): EstadoDemo {
   const doc = <T extends object>(x: T, criado = agoraISO()) => ({ id: uuid7(), tenant_id: TENANT, criado_em: criado, ...x });
   const obra: Obra = doc({
@@ -219,12 +273,12 @@ function semear(): EstadoDemo {
     mov("areia", "entrada", 30_000, 18, { origem_doc: "PED-0150" }),
     mov("areia", "saida", 18_000, 5, { destino: "Reboco interno" }),
   ];
-  const ped = (numero: string, k: string, q: number, valor: number, status: StatusPedido, previsao: string | null, dias: number): Pedido =>
+  const ped = (numero: string, k: string, q: number, valor: number, status: StatusPedido, previsao: string | null, dias: number): PedidoDemo =>
     doc(
       { numero, obra_id: obra.id, insumo_id: id(k), quantidade: q, fornecedor: REFERENCIA[k]!.fornecedor, valor, status, previsao, rastreio: null },
       diasAtras(dias),
     );
-  const pedidos: Pedido[] = [
+  const pedidos: PedidoDemo[] = [
     ped("PED-0157", "areia", 40_000, 560000, "recebido", "chegou ontem · NF 4471", 6),
     ped("PED-0158", "aco", 3_200_000, 2112000, "em_transito", "chega quinta", 5),
     ped("PED-0160", "cimento", 120_000, 468000, "enviado", "chega segunda", 3),
@@ -506,7 +560,7 @@ function pedidoPorIdOuNulo(e: EstadoDemo, id: string) {
 
 function pedidoPorId(e: EstadoDemo, id: string) {
   const p = e.pedidos.find((x) => x.id === id);
-  if (!p) throw new NaoEncontrado("Pedido não encontrado.");
+  if (!p) throw new NaoEncontrado("PedidoDemo não encontrado.");
   return p;
 }
 
@@ -519,7 +573,7 @@ interface Recebimento {
  * Avança o pedido como servicos/pedidos.preparar_avancar: conferir dá entrada do que CHEGOU (padrão: o pedido inteiro)
  * e guarda a NF. Devolve o texto do registro e a receita de desfazer.
  */
-function avancar(e: EstadoDemo, u: Usuario, p: Pedido, para: StatusPedido, origem: string, rec: Recebimento = {}) {
+function avancar(e: EstadoDemo, u: Usuario, p: PedidoDemo, para: StatusPedido, origem: string, rec: Recebimento = {}) {
   const temRec = rec.quantidade_recebida != null || !!rec.nf;
   if (temRec && para !== "conferido") throw new RegraViolada("Quantidade recebida e NF só valem para conferir.");
   if (rec.quantidade_recebida != null && !(Number.isInteger(rec.quantidade_recebida) && rec.quantidade_recebida > 0))
@@ -563,7 +617,7 @@ function criarPedido(e: EstadoDemo, obraId: string, d: DadosCriarPedido, aprovad
   if (!(Number.isInteger(d.valor) && d.valor >= 0)) throw new RegraViolada("Valor inválido.");
   if (!String(d.fornecedor ?? "").trim()) throw new RegraViolada("Diga o fornecedor.");
   const status: StatusPedido = aprovado ? "aprovado" : "em_cotacao";
-  const p: Pedido = {
+  const p: PedidoDemo = {
     id: uuid7(),
     tenant_id: TENANT,
     criado_em: agoraISO(),
@@ -928,6 +982,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         });
         return ok({ ...o, registro_id: reg.id });
       }
+      if (metodo === "GET" && b === "etapas" && !id2) return ok([]);
       if (metodo === "GET" && b === "orcamento" && !id2) return ok(orcamentoDemo(e, obraPorId(e, id)));
       if (metodo === "POST" && b === "orcamento") {
         exigirAdmin(u);
@@ -1012,14 +1067,21 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             e.pedidos.filter((p) => p.obra_id === id && (!sts.length || sts.includes(p.status))),
             params,
             lim,
-          ),
+          ).map((p) => pedidoApi(e, p)),
         );
       }
       if (metodo === "POST" && b === "pedidos" && !id2) {
         exigirAdmin(u);
-        const r = criarPedido(e, id, c as unknown as DadosCriarPedido, c.aprovado === true);
+        // Corpo novo (várias linhas): a demo só aceita uma linha, que é o que o pedido dela sabe guardar.
+        const linhas = c.linhas as { insumo_id: string; quantidade: number; valor_unitario: number }[] | undefined;
+        if (linhas && linhas.length !== 1) return erro(422, "Na demonstração o pedido tem uma linha só.");
+        const d = linhas
+          ? { insumo_id: linhas[0]!.insumo_id, quantidade: linhas[0]!.quantidade, fornecedor: c.fornecedor, previsao: c.previsao ?? null,
+              valor: Math.round((linhas[0]!.quantidade * linhas[0]!.valor_unitario) / 1000) }
+          : c;
+        const r = criarPedido(e, id, d as unknown as DadosCriarPedido, c.aprovado === true);
         const reg = registrar(e, u, { obra_id: id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
-        return ok({ ...r.pedido, registro_id: reg.id }, 201);
+        return ok({ ...pedidoApi(e, r.pedido), registro_id: reg.id }, 201);
       }
       if (metodo === "POST" && b === "insumos" && !id2) {
         exigirAdmin(u);
@@ -1064,8 +1126,13 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       const para = c.para as StatusPedido;
       const r = avancar(e, u, p, para, "tela", { quantidade_recebida: c.quantidade_recebida as number | undefined, nf: c.nf as string | undefined });
       const reg = registrar(e, u, { obra_id: p.obra_id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
-      return ok({ ...p, registro_id: reg.id });
+      return ok({ ...pedidoApi(e, p), registro_id: reg.id });
     }
+    // Fase 2 (fornecedores, recebimentos, etapas, edição do pedido): a demo ganha no fim da fase.
+    if (a === "fornecedores" && metodo === "GET" && !id) return ok([]);
+    if (a === "fornecedores") return erro(422, INDISPONIVEL);
+    if (a === "pedidos" && id && b === "recebimentos" && metodo === "GET") return ok([]);
+    if (a === "pedidos" && id && (b === "recebimentos" || (metodo === "PATCH" && !b))) return erro(422, INDISPONIVEL);
     if (a === "propostas") {
       if (metodo === "GET" && !id) {
         const st = params.get("status");

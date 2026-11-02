@@ -73,7 +73,9 @@ export function Drawer(props: { titulo: ReactNode; fechar: () => void; children:
   const id = useId();
   useFocoPreso(caixa, props.fechar);
   return createPortal(
-    <div className="drawer" onMouseDown={(e) => e.target === e.currentTarget && props.fechar()}>
+    // Fecha no clique inteiro (mousedown e mouseup no fundo), não no mousedown: fechando no mousedown, o mouseup cai no
+    // que estava atrás da gaveta, e o clique vira "Registrar entrega" no cartão de outro pedido.
+    <div className="drawer" onClick={(e) => e.target === e.currentTarget && props.fechar()}>
       <div ref={caixa} className="pane" role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1}>
         <button type="button" className="iconbtn dlg-x" aria-label="Fechar" onClick={props.fechar}>
           <Icone nome="x" tam={18} />

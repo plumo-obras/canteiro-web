@@ -27,7 +27,10 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1"], "PATCH")).toBe(true);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
-    expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(false);
+    expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(true); // previsão e observação (Fase 2)
+    expect(caminhoPermitido(["fornecedores", "f1"], "PATCH")).toBe(true);
+    expect(caminhoPermitido(["pedidos", "p1", "recebimentos"], "PATCH")).toBe(false);
+    expect(caminhoPermitido(["fornecedores"], "GET")).toBe(true);
   });
 
   it("cookie de renovação só com o header próprio e da mesma origem", () => {

@@ -187,7 +187,8 @@ describe("demonstração: conferir com a quantidade real", () => {
   it("entra o que chegou; a diferença volta para a falta; desfazer estorna só o que entrou", () => {
     const antes = conta("areia");
     const r = chamar("POST", `pedidos/${ped157().id}/avancar`, { para: "conferido", quantidade_recebida: 36_000, nf: "4471" });
-    expect(r.corpo).toMatchObject({ status: "conferido", quantidade_recebida: 36_000, nf: "4471" });
+    expect(r.corpo).toMatchObject({ status: "conferido", linhas: [expect.objectContaining({ quantidade: 40_000, recebida: 36_000 })] });
+    expect(ped157()).toMatchObject({ quantidade_recebida: 36_000, nf: "4471" });
     const depois = conta("areia");
     expect(depois.saldo).toBe(antes.saldo + 36_000);
     expect(depois.falta).toBe(antes.falta + 4_000); // saiu do "a caminho" com 40, entrou 36

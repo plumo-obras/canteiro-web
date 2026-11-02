@@ -18,6 +18,13 @@ import type {
   PreviaOrcamento,
   CorpoMovimento,
   CorpoPedido,
+  CorpoEditarPedido,
+  CorpoFornecedor,
+  CorpoRecebimento,
+  EtapaObra,
+  Fornecedor,
+  Recebimento,
+  RespostaRecebimento,
   CorpoConversa,
   MinhaConta,
   RelatorioUso,
@@ -150,6 +157,15 @@ export const api = {
   avancarPedido: (pedidoId: string, para: StatusPedido, extra: Omit<CorpoAvancar, "para"> = {}) =>
     chamar<ComRegistro<Pedido>>("POST", `/pedidos/${seg(pedidoId)}/avancar`, { para, ...extra }),
   criarPedido: (obraId: string, corpo: CorpoPedido) => chamar<ComRegistro<Pedido>>("POST", `/obras/${seg(obraId)}/pedidos`, corpo),
+  editarPedido: (pedidoId: string, dados: CorpoEditarPedido) => chamar<ComRegistro<Pedido>>("PATCH", `/pedidos/${seg(pedidoId)}`, dados),
+  registrarRecebimento: (pedidoId: string, corpo: CorpoRecebimento) =>
+    chamar<RespostaRecebimento>("POST", `/pedidos/${seg(pedidoId)}/recebimentos`, corpo),
+  listarRecebimentos: (pedidoId: string) => chamar<Recebimento[]>("GET", `/pedidos/${seg(pedidoId)}/recebimentos`),
+  /** Etapas do orçamento vigente, para apropriar pedido e saída. Vazia = obra sem orçamento importado. */
+  etapas: (obraId: string) => chamar<EtapaObra[]>("GET", `/obras/${seg(obraId)}/etapas`),
+  listarFornecedores: () => chamar<Fornecedor[]>("GET", "/fornecedores"),
+  criarFornecedor: (corpo: CorpoFornecedor) => chamar<ComRegistro<Fornecedor>>("POST", "/fornecedores", corpo),
+  editarFornecedor: (id: string, dados: Partial<CorpoFornecedor>) => chamar<ComRegistro<Fornecedor>>("PATCH", `/fornecedores/${seg(id)}`, dados),
   criarInsumo: (obraId: string, corpo: CorpoInsumo) => chamar<ComRegistro<Insumo>>("POST", `/obras/${seg(obraId)}/insumos`, corpo),
   lancarMovimento: (obraId: string, corpo: CorpoMovimento) => chamar<ComRegistro<Movimento>>("POST", `/obras/${seg(obraId)}/movimentos`, corpo),
   listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string; limite?: number; antes_de?: string } = {}) =>
@@ -185,6 +201,12 @@ export async function* conversar(corpo: CorpoConversa, sinal?: AbortSignal): Asy
     signal: sinal,
   });
   if (!r.ok || !r.body) {
+    // 500 sem corpo do Next = o repasse não alcançou o agente: é o mesmo caso do serviço desligado.
+    if (r.status >= 500) {
+      const e = await erroDe(r);
+      yield { tipo: "erro", mensagem: e.message === "Algo deu errado. Tente de novo." ? "O agente ainda não está ligado nesta instalação." : e.message };
+      return;
+    }
     yield { tipo: "erro", mensagem: (await erroDe(r)).message };
     return;
   }

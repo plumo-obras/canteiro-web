@@ -111,6 +111,9 @@ export interface PreviaOrcamento {
 
 export type CurvaABC = "A" | "B" | "C";
 
+/** Serviço (terraplanagem, empreiteiro) não tem estoque: saldo 0, sem entrada/saída/ajuste; "a caminho" = contratado e não medido. */
+export type TipoInsumo = "material" | "servico";
+
 /* ---------- orçamento da obra (EAP, em versões) ---------- */
 
 export type TipoVersao = "contrato" | "aditivo";
@@ -215,6 +218,8 @@ export interface Insumo extends Documento {
   curva: CurvaABC;
   /** Preço unitário do orçamento; 0 = sem preço. */
   valor_unitario: Centavos;
+  /** Ausente nas respostas antigas = material. */
+  tipo?: TipoInsumo;
 }
 
 /** Calculada por `regras.conta_de_falta` na API. O front só mostra; nunca refaz a conta. */
@@ -252,6 +257,7 @@ export interface Movimento extends Documento {
 export interface CorpoInsumo {
   nome: string;
   unidade: string;
+  tipo?: TipoInsumo;
   curva?: CurvaABC;
   precisa_ate_o_fim?: Milesimos;
 }
@@ -263,41 +269,122 @@ export interface CorpoMovimento {
   quantidade: Milesimos;
   destino?: string | null;
   origem_doc?: string | null;
+  /** Apropriação do consumo: obrigatória na saída quando a obra tem orçamento importado. */
+  etapa?: string | null;
   chave_idempotencia: string;
 }
 
-export type StatusPedido = "em_cotacao" | "aprovado" | "enviado" | "em_transito" | "recebido" | "conferido" | "cancelado";
+/** `GET /obras/{id}/etapas`: as etapas das versões vigentes. Lista vazia = obra sem orçamento, etapa opcional. */
+export interface EtapaObra {
+  etapa: string;
+  descricao: string;
+}
 
-export interface Pedido extends Documento {
+/* ---------- suprimentos: fornecedores, pedidos com linhas e recebimentos ---------- */
+
+/** Do tenant, vale para todas as obras. `cnpj` só dígitos ou "". */
+export interface Fornecedor {
+  id: string;
+  nome: string;
+  cnpj: string;
+  contato: string;
+  telefone: string;
+  email: string;
+}
+export type CorpoFornecedor = Partial<Omit<Fornecedor, "id">> & { nome: string };
+
+/**
+ * `parcial` = recebeu parte, o resto continua a caminho. `conferido` a tela chama de "Recebido". `recebido` é o status
+ * antigo (chegou, falta conferir), que só a demonstração ainda usa.
+ */
+export type StatusPedido = "em_cotacao" | "aprovado" | "enviado" | "em_transito" | "parcial" | "recebido" | "conferido" | "cancelado";
+
+export interface LinhaPedido {
+  insumo_id: string;
+  nome: string;
+  unidade: string;
+  tipo: TipoInsumo;
+  etapa: string | null;
+  quantidade: Milesimos;
+  valor_unitario: Centavos;
+  /** quantidade × unitário, arredondado ao centavo. */
+  total: Centavos;
+  recebida: Milesimos;
+}
+
+export interface Pedido {
+  id: string;
   numero: string;
   obra_id: string;
-  insumo_id: string;
-  quantidade: Milesimos;
   fornecedor: string;
-  valor: Centavos;
-  status: StatusPedido;
+  fornecedor_id: string | null;
   previsao: string | null;
-  rastreio: string | null;
-  /** Gravados ao conferir: o que chegou de fato (pode ser menos ou mais que o pedido) e a NF. */
-  quantidade_recebida?: Milesimos | null;
-  nf?: string | null;
+  observacao: string;
+  status: StatusPedido;
+  /** Soma dos `total` das linhas. */
+  valor: Centavos;
+  /** Quantos recebimentos (entregas) o pedido já teve. */
+  recebimentos: number;
+  criado_em: DataISO;
+  linhas: LinhaPedido[];
 }
 
-/** `POST /obras/{id}/pedidos`. `aprovado` cria já aprovado; sem ele, o pedido nasce em cotação. */
-export interface CorpoPedido {
+export interface CorpoLinhaPedido {
   insumo_id: string;
   quantidade: Milesimos;
-  fornecedor: string;
-  valor: Centavos;
-  previsao?: string | null;
-  aprovado?: boolean;
+  valor_unitario: Centavos;
+  etapa?: string | null;
 }
 
-/** `POST /pedidos/{id}/avancar`. A quantidade recebida e a NF só valem para `para: "conferido"`. */
+/** `POST /obras/{id}/pedidos`: 1 a 50 linhas, sem repetir insumo. `aprovado` cria já aprovado. */
+export interface CorpoPedido {
+  fornecedor_id?: string | null;
+  fornecedor: string;
+  previsao?: string | null;
+  observacao?: string;
+  aprovado: boolean;
+  linhas: CorpoLinhaPedido[];
+}
+
+/** `PATCH /pedidos/{id}`. */
+export interface CorpoEditarPedido {
+  previsao?: string | null;
+  observacao?: string;
+}
+
+/** `POST /pedidos/{id}/avancar`: os status sem entrega; `conferido` vindo de `parcial` encerra o resto. */
 export interface CorpoAvancar {
   para: StatusPedido;
   quantidade_recebida?: Milesimos;
   nf?: string;
+}
+
+export interface CorpoRecebimento {
+  nf_numero?: string | null;
+  nf_data?: string | null;
+  nf_valor?: Centavos | null;
+  /** `indice` = posição da linha no pedido. */
+  linhas: { indice: number; quantidade: Milesimos }[];
+  chave_idempotencia: string;
+}
+
+export interface Recebimento {
+  id: string;
+  numero: number;
+  nf_numero: string | null;
+  nf_data: string | null;
+  nf_valor: Centavos | null;
+  /** Soma das linhas pelo preço do pedido. */
+  valor: Centavos;
+  criado_em: DataISO;
+  quem: string;
+  linhas: { indice: number; insumo_id: string; nome: string; unidade: string; quantidade: Milesimos; valor: Centavos; etapa: string | null }[];
+}
+
+export interface RespostaRecebimento {
+  recebimento: Recebimento;
+  pedido: Pedido;
+  registro_id: string | null;
 }
 
 /** As escritas da tela devolvem o ID da EntradaRegistro criada: é o que o "Desfazer" do aviso usa. */

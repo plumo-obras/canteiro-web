@@ -1,23 +1,22 @@
 "use client";
 /**
- * Aba Almoxarifado: um insumo por linha, com três números que qualquer um lê (tem, a caminho, a obra precisa), a barra
+ * Itens de Suprimentos (o antigo almoxarifado): um insumo por linha, com três números que qualquer um lê (tem, a caminho, a obra precisa), a barra
  * de cobertura e a situação em palavras. O que falta vem primeiro, com o "Pedir" na própria linha. A fórmula inteira
  * (a Conta da API) fica no painel do insumo, para quem quer conferir. Clicar no item abre o painel com os movimentos.
+ * Serviço (terraplanagem, empreiteiro) não tem estoque: não mostra saldo nem entrada, saída ou contagem; o que está
+ * "a caminho" dele é o contratado e ainda não medido.
  */
 import { useState } from "react";
-import type { Conta, ItemInsumo, Movimento, Obra, TipoMovimento } from "@/lib/contrato";
+import type { Conta, EtapaObra, ItemInsumo, Movimento, Obra, TipoInsumo, TipoMovimento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtDiaHora, fmtQtdUn } from "@/lib/formato";
-import { useCasca } from "./contexto";
-import { Drawer } from "./Dialogo";
-import { Icone } from "./Icone";
-import { LinhaConta } from "./LinhaConta";
-import { useCarregar } from "./useCarregar";
-import { ModalMovimento, type TipoLancamento } from "./formularios/ModalMovimento";
-import { ModalNovoPedido } from "./formularios/ModalNovoPedido";
-import { ImportarOrcamento } from "./obra/ImportarOrcamento";
-import { CabecalhoPagina } from "./CabecalhoPagina";
-import { BotaoMais, Paginacao, useMaisAntigos, usePaginas } from "./Paginacao";
+import { useCasca } from "../contexto";
+import { Drawer } from "../Dialogo";
+import { Icone } from "../Icone";
+import { LinhaConta } from "../LinhaConta";
+import type { TipoLancamento } from "../formularios/ModalMovimento";
+import { ImportarOrcamento } from "../obra/ImportarOrcamento";
+import { BotaoMais, Paginacao, useMaisAntigos, usePaginas } from "../Paginacao";
 
 // A planilha do orçamento pode ter milhares de linhas: 50 por página e a busca pelo nome.
 const POR_PAGINA = 50;
@@ -43,7 +42,9 @@ function sinal(m: Movimento) {
 }
 
 /** Situação de cada insumo em palavras: é o que a pessoa procura ao abrir a tela ("o que preciso comprar?"). */
-function situacao(c: Conta): "falta" | "coberto" | "fora" {
+export const ehServico = (i: ItemInsumo) => i.insumo.tipo === "servico";
+
+export function situacao(c: Conta): "falta" | "coberto" | "fora" {
   if (c.precisa === 0) return "fora";
   return c.falta > 0 ? "falta" : "coberto";
 }
@@ -88,6 +89,7 @@ function Lista({ itens, abrir, pedir }: { itens: ItemInsumo[]; abrir: (i: ItemIn
         const un = it.insumo.unidade;
         const st = situacao(c);
         const vem = c.a_caminho + c.cotando + c.transferencia;
+        const servico = ehServico(it);
         return (
           <div key={it.insumo.id} className={`ax-l ax-${st}`} role="row" onClick={() => abrir(it)}>
             <span role="cell" className="ax-nome">
@@ -104,13 +106,15 @@ function Lista({ itens, abrir, pedir }: { itens: ItemInsumo[]; abrir: (i: ItemIn
               <span className={`curva c${it.insumo.curva}`} title={`Curva ${it.insumo.curva}`}>
                 {it.insumo.curva}
               </span>
+              {servico ? <span className="pill ax-serv">serviço</span> : null}
               <Cobertura c={c} />
             </span>
             <span role="cell" className="num ax-n" data-rot="Tem">
-              {fmtQtdUn(c.saldo, un)}
+              {servico ? "—" : fmtQtdUn(c.saldo, un)}
             </span>
-            <span role="cell" className="num ax-n" data-rot="A caminho">
+            <span role="cell" className="num ax-n" data-rot={servico ? "Contratado" : "A caminho"}>
               {vem ? fmtQtdUn(vem, un) : "—"}
+              {servico && vem ? <small>contratado, a medir</small> : null}
               {c.cotando ? <small>{fmtQtdUn(c.cotando, un)} em cotação</small> : null}
             </span>
             <span role="cell" className="num ax-n" data-rot="A obra precisa">
@@ -129,15 +133,15 @@ function Lista({ itens, abrir, pedir }: { itens: ItemInsumo[]; abrir: (i: ItemIn
                         pedir(it);
                       }}
                     >
-                      Pedir
+                      {servico ? "Contratar" : "Pedir"}
                     </button>
                   ) : null}
                 </>
               ) : st === "coberto" ? (
                 <span className="pill ok">coberto</span>
               ) : (
-                <span className="pill" title="Não está na planilha do orçamento: não entra na conta de falta">
-                  fora do orçamento
+                <span className="pill" title="Sem quantidade prevista, a conta de falta não tem com o que comparar">
+                  sem quantidade prevista
                 </span>
               )}
             </span>
@@ -155,10 +159,11 @@ function PainelItem({ obraId, item, fechar, lancar }: { obraId: string; item: It
   const carregando = mais.buscando;
   const un = item.insumo.unidade;
   const estornados = new Set((movs ?? []).map((m) => m.desfaz).filter(Boolean));
+  const servico = ehServico(item);
   return (
     <Drawer titulo={item.insumo.nome} fechar={fechar}>
       <p className="mut sm" style={{ margin: 0 }}>
-        Curva {item.insumo.curva} · unidade {un}
+        {servico ? "Serviço · sem estoque" : "Material"} · curva {item.insumo.curva} · unidade {un}
       </p>
       <div className="card">
         <LinhaConta conta={item.conta} un={un} />
@@ -168,19 +173,32 @@ function PainelItem({ obraId, item, fechar, lancar }: { obraId: string; item: It
           {item.conta.comprar > 0 ? (
             <button type="button" className="btn amb" onClick={() => lancar({ tipo: "pedido", insumoId: item.insumo.id })}>
               <Icone nome="cart" tam={15} />
-              Pedir {fmtQtdUn(item.conta.comprar, un)}
+              {servico ? "Contratar" : "Pedir"} {fmtQtdUn(item.conta.comprar, un)}
             </button>
           ) : null}
-          <button type="button" className="btn" onClick={() => lancar({ tipo: "saida", insumoId: item.insumo.id })}>
-            Lançar saída
-          </button>
-          <button type="button" className="btn" onClick={() => lancar({ tipo: "contagem", insumoId: item.insumo.id })}>
-            Contei o estoque
-          </button>
-          <button type="button" className="btn" onClick={() => lancar({ tipo: "entrada", insumoId: item.insumo.id })}>
-            Entrada sem pedido
-          </button>
+          {servico ? null : (
+            <>
+              <button type="button" className="btn" onClick={() => lancar({ tipo: "saida", insumoId: item.insumo.id })}>
+                Lançar saída
+              </button>
+              <button type="button" className="btn" onClick={() => lancar({ tipo: "contagem", insumoId: item.insumo.id })}>
+                Contei o estoque
+              </button>
+              <button type="button" className="btn" onClick={() => lancar({ tipo: "entrada", insumoId: item.insumo.id })}>
+                Entrada sem pedido
+              </button>
+            </>
+          )}
         </div>
+      ) : null}
+      {servico ? (
+        <p className="mut sm">Serviço não tem estoque: o que foi contratado e medido aparece nos pedidos, em Suprimentos › Pedidos.</p>
+      ) : null}
+      {!item.conta.precisa ? (
+        <p className="campo-dica alerta">
+          Sem quantidade prevista: a conta de falta fica em zero porque não sabe quanto a obra vai usar. A quantidade prevista vem da lista de materiais
+          (Orçamento › Importar planilha › Lista de materiais) ou do cadastro do item em «Novo item».
+        </p>
       ) : null}
       <h3 className="sectit">Movimentos</h3>
       {erro ? (
@@ -244,116 +262,91 @@ function PainelItem({ obraId, item, fechar, lancar }: { obraId: string; item: It
   );
 }
 
-/** O que está aberto por cima da aba: um lançamento no almoxarifado ou um pedido novo (o "Pedir" do painel). */
-type Lancar = { tipo: TipoLancamento | "pedido"; insumoId?: string };
+/** O que está aberto por cima da lista: um lançamento no almoxarifado ou um pedido novo (o "Pedir" do painel). */
+export type Lancar = { tipo: TipoLancamento | "pedido"; insumoId?: string };
 
-export function Almoxarifado({ obra }: { obra: Obra }) {
-  const { versao, podeOperar } = useCasca();
-  const [lancando, setLancando] = useState<Lancar | null>(null);
-  const { dado, erro, carregando } = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
+const FILTROS: { k: TipoInsumo | null; rotulo: string }[] = [
+  { k: null, rotulo: "Todos" },
+  { k: "material", rotulo: "Materiais" },
+  { k: "servico", rotulo: "Serviços" },
+];
+
+/** Seção Itens de Suprimentos. Os dados vêm de cima (a tela carrega uma vez e as três seções usam). */
+export function Itens(props: { obra: Obra; itens: ItemInsumo[]; etapas: EtapaObra[]; lancar: (l: Lancar) => void; lancando: boolean }) {
+  const { obra, itens } = props;
+  const { podeOperar } = useCasca();
   const [aberto, setAberto] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
-  const itens = dado ?? [];
+  const [filtro, setFiltro] = useState<TipoInsumo | null>(null);
   const peso = (i: ItemInsumo) => (i.conta.precisa ? i.conta.falta / i.conta.precisa : i.conta.falta);
   const ordem = { falta: 0, coberto: 1, fora: 2 } as const;
-  const lista = [...itens].sort(
-    (a, b) => ordem[situacao(a.conta)] - ordem[situacao(b.conta)] || peso(b) - peso(a) || a.insumo.nome.localeCompare(b.insumo.nome, "pt-BR"),
-  );
-  const nFalta = itens.filter((i) => situacao(i.conta) === "falta").length;
+  const lista = [...itens]
+    .filter((i) => !filtro || (i.insumo.tipo ?? "material") === filtro)
+    .sort((a, b) => ordem[situacao(a.conta)] - ordem[situacao(b.conta)] || peso(b) - peso(a) || a.insumo.nome.localeCompare(b.insumo.nome, "pt-BR"));
   const item = itens.find((i) => i.insumo.id === aberto);
   const [busca, setBusca] = useState("");
   const q = semAcento(busca);
   const achados = q ? lista.filter((i) => semAcento(i.insumo.nome).includes(q)) : lista;
-  const pag = usePaginas(achados, POR_PAGINA, [busca, obra.id]);
+  const pag = usePaginas(achados, POR_PAGINA, [busca, filtro, obra.id]);
+  const temServico = itens.some(ehServico);
+
+  if (!itens.length)
+    return (
+      <div className="card vazio">
+        <Icone nome="package" tam={24} />
+        <h3>Nenhum item nesta obra</h3>
+        <p>Importe a lista de materiais da obra para o almoxarifado começar a fazer a conta, ou cadastre um item em «Novo item».</p>
+        {podeOperar ? (
+          <button type="button" className="btn amb" onClick={() => setImportando(true)}>
+            Importar lista de materiais
+          </button>
+        ) : null}
+        {importando ? <ImportarOrcamento obra={obra} fechar={() => setImportando(false)} /> : null}
+      </div>
+    );
 
   return (
-    <div className="page">
-      <CabecalhoPagina
-        titulo="Almoxarifado"
-        kpis={
-          itens.length
-            ? [
-                {
-                  icone: "alert",
-                  n: nFalta,
-                  r: nFalta === 1 ? "insumo faltando para terminar a obra" : "insumos faltando para terminar a obra",
-                  ...(nFalta ? { tag: "comprar", tom: "acima" as const } : {}),
-                },
-                { icone: "checkCircle", n: itens.filter((i) => situacao(i.conta) === "coberto").length, r: "cobertos até o fim" },
-                { icone: "cart", n: itens.filter((i) => i.conta.a_caminho > 0).length, r: "com material a caminho" },
-              ]
-            : []
-        }
-        acoes={
-          podeOperar && itens.length ? (
-            <button type="button" className="btn amb" onClick={() => setLancando({ tipo: "saida" })}>
-              <Icone nome="plus" tam={15} />
-              Lançar entrada ou saída
-            </button>
-          ) : null
-        }
-      />
-      {erro ? (
-        <div className="aviso-erro" role="alert">
-          <Icone nome="alert" tam={15} />
-          {erro}
-        </div>
+    <>
+      <div className="barra-acoes">
+        {itens.length > POR_PAGINA / 2 ? (
+          <label className="busca">
+            <Icone nome="busca" tam={16} />
+            <span className="sr-only">Buscar item</span>
+            <input type="search" placeholder="Buscar item, ex.: cimento" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          </label>
+        ) : null}
+        {temServico || filtro ? (
+          <div className="seg seg-pq" role="radiogroup" aria-label="Filtrar por tipo">
+            {FILTROS.map((f) => (
+              <button key={f.rotulo} type="button" role="radio" aria-checked={filtro === f.k} className={filtro === f.k ? "on" : ""} onClick={() => setFiltro(f.k)}>
+                {f.rotulo}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <p className="ax-legenda">
+        <span className="mut">Falta é o que a obra ainda precisa menos o que tem e o que já está a caminho.</span>
+        <span>
+          <i className="cob-tem" /> tem
+        </span>
+        <span>
+          <i className="cob-vem" /> a caminho
+        </span>
+        <span>
+          <i className="cob-falta" /> falta
+        </span>
+      </p>
+      {(q || filtro) && !achados.length ? <div className="card vazio sm">Nenhum item{q ? ` com «${busca.trim()}»` : ""} neste filtro.</div> : null}
+      {achados.length ? (
+        <Lista
+          itens={pag.visiveis}
+          abrir={(i) => setAberto(i.insumo.id)}
+          pedir={podeOperar ? (i) => props.lancar({ tipo: "pedido", insumoId: i.insumo.id }) : null}
+        />
       ) : null}
-      {carregando && !dado ? (
-        <div className="carregando" role="status">
-          <Icone nome="loader" className="spin" tam={15} />
-          Carregando insumos…
-        </div>
-      ) : dado && itens.length === 0 ? (
-        <div className="card vazio">
-          <Icone nome="package" tam={24} />
-          <h3>Nenhum insumo nesta obra</h3>
-          <p>Importe a planilha do orçamento para o almoxarifado começar a fazer a conta.</p>
-          {podeOperar ? (
-            <button type="button" className="btn amb" onClick={() => setImportando(true)}>
-              Importar planilha do orçamento
-            </button>
-          ) : null}
-          {importando ? <ImportarOrcamento obra={obra} fechar={() => setImportando(false)} /> : null}
-        </div>
-      ) : (
-        <>
-          {itens.length > POR_PAGINA / 2 ? (
-            <div className="barra-acoes">
-              <label className="busca">
-                <Icone nome="busca" tam={16} />
-                <span className="sr-only">Buscar insumo</span>
-                <input type="search" placeholder="Buscar insumo, ex.: cimento" value={busca} onChange={(e) => setBusca(e.target.value)} />
-              </label>
-            </div>
-          ) : null}
-          <p className="ax-legenda">
-            <span className="mut">Falta é o que a obra ainda precisa menos o que tem e o que já está a caminho.</span>
-            <span>
-              <i className="cob-tem" /> tem
-            </span>
-            <span>
-              <i className="cob-vem" /> a caminho
-            </span>
-            <span>
-              <i className="cob-falta" /> falta
-            </span>
-          </p>
-          {q && !achados.length ? <div className="card vazio sm">Nenhum insumo com «{busca.trim()}».</div> : null}
-          <Lista
-            itens={pag.visiveis}
-            abrir={(i) => setAberto(i.insumo.id)}
-            pedir={podeOperar ? (i) => setLancando({ tipo: "pedido", insumoId: i.insumo.id }) : null}
-          />
-          <Paginacao pagina={pag.pagina} total={pag.total} mudar={pag.setPagina} quantos={achados.length} porPagina={POR_PAGINA} nome="insumos" />
-        </>
-      )}
-      {item && !lancando ? <PainelItem obraId={obra.id} item={item} fechar={() => setAberto(null)} lancar={setLancando} /> : null}
-      {lancando?.tipo === "pedido" ? (
-        <ModalNovoPedido obraId={obra.id} itens={itens} insumoInicial={lancando.insumoId} fechar={() => setLancando(null)} />
-      ) : lancando ? (
-        <ModalMovimento obraId={obra.id} itens={itens} insumoInicial={lancando.insumoId} tipoInicial={lancando.tipo} fechar={() => setLancando(null)} />
-      ) : null}
-    </div>
+      <Paginacao pagina={pag.pagina} total={pag.total} mudar={pag.setPagina} quantos={achados.length} porPagina={POR_PAGINA} nome="itens" />
+      {item && !props.lancando ? <PainelItem obraId={obra.id} item={item} fechar={() => setAberto(null)} lancar={props.lancar} /> : null}
+    </>
   );
 }

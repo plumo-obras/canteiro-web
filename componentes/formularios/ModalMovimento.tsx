@@ -3,10 +3,11 @@
  * Lançar no almoxarifado: saída (foi usado ou perdido), entrada sem pedido (sobra de outra obra, compra no balcão) e
  * contagem. Na contagem a pessoa diz quanto TEM, não quanto ajustar: é o que ela acabou de contar, e a conta da
  * diferença é nossa. Saída de curva A exige a frente de serviço (a mesma regra de regras.validar_saida). Só a entrada
- * aceita insumo novo: o que nunca entrou não tem saldo para sair nem para contar.
+ * aceita insumo novo: o que nunca entrou não tem saldo para sair nem para contar. A saída diz a etapa do orçamento
+ * onde o material foi usado (apropriação do consumo), obrigatória quando a obra tem orçamento importado.
  */
 import { useRef, useState } from "react";
-import type { ItemInsumo } from "@/lib/contrato";
+import type { EtapaObra, ItemInsumo } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { uuid7 } from "@/lib/ids";
 import { fmtQtdUn, lerQtd } from "@/lib/formato";
@@ -23,7 +24,16 @@ const TIPOS: { k: TipoLancamento; rotulo: string }[] = [
   { k: "contagem", rotulo: "Contagem" },
 ];
 
-export function ModalMovimento(props: { obraId: string; itens: ItemInsumo[]; insumoInicial?: string; tipoInicial?: TipoLancamento; fechar: () => void }) {
+export function ModalMovimento(props: {
+  obraId: string;
+  itens: ItemInsumo[];
+  etapas?: EtapaObra[];
+  insumoInicial?: string;
+  tipoInicial?: TipoLancamento;
+  fechar: () => void;
+}) {
+  const etapas = props.etapas ?? [];
+  const [etapa, setEtapa] = useState("");
   const { avisarFeito, mudou } = useCasca();
   const [tipo, setTipo] = useState<TipoLancamento>(props.tipoInicial ?? "saida");
   const [escolha, setEscolha] = useState<EscolhaInsumo>(props.insumoInicial ? { tipo: "existente", id: props.insumoInicial } : null);
@@ -75,6 +85,7 @@ export function ModalMovimento(props: { obraId: string; itens: ItemInsumo[]; ins
                 ? `Sai mais do que o saldo (${fmtQtdUn(saldo, un)}). Se o saldo está errado, faça uma contagem.`
                 : null,
       texto: tipo === "saida" && curvaA && !texto.trim() ? "Item curva A só sai com a frente de serviço." : null,
+      etapa: tipo === "saida" && etapas.length && !etapa ? "Escolha a etapa onde o material foi usado." : null,
     }),
     async () => {
       const t = texto.trim() || null;
@@ -86,6 +97,7 @@ export function ModalMovimento(props: { obraId: string; itens: ItemInsumo[]; ins
           quantidade: tipo === "contagem" ? ajuste! : q!,
           destino: tipo === "entrada" ? null : t,
           origem_doc: tipo === "entrada" ? t : tipo === "contagem" ? "Contagem" : null,
+          ...(tipo === "saida" && etapa ? { etapa } : {}),
           chave_idempotencia: chave.current,
         })
         .catch((x) => {
@@ -151,7 +163,7 @@ export function ModalMovimento(props: { obraId: string; itens: ItemInsumo[]; ins
           {tipo === "saida"
             ? "Material que foi usado, perdido ou levado para outra obra."
             : tipo === "entrada"
-              ? "Material que chegou sem pedido no Plumo. Chegada de pedido se confere na aba Pedidos."
+              ? "Material que chegou sem pedido no Plumo. Entrega de pedido se registra no próprio pedido."
               : "Você contou o estoque: diga quanto tem e o saldo é ajustado pela diferença."}
         </p>
         <Campo rotulo="Insumo" erro={erros.insumo} dica={item ? `Tem agora: ${fmtQtdUn(saldo, un)}` : undefined}>
@@ -170,6 +182,20 @@ export function ModalMovimento(props: { obraId: string; itens: ItemInsumo[]; ins
         >
           {(a) => <input {...a} className="f" inputMode="decimal" autoComplete="off" value={qtd} onChange={(e) => setQtd(e.target.value)} />}
         </Campo>
+        {tipo === "saida" && etapas.length ? (
+          <Campo rotulo="Etapa do orçamento" erro={erros.etapa} dica="Onde o material foi usado: o consumo conta nesta etapa.">
+            {(a) => (
+              <select {...a} className="f" value={etapa} onChange={(e) => setEtapa(e.target.value)}>
+                <option value="">Escolha…</option>
+                {etapas.map((e) => (
+                  <option key={e.etapa} value={e.etapa}>
+                    {e.etapa} · {e.descricao}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Campo>
+        ) : null}
         <Campo rotulo={rotuloTexto} erro={erros.texto} dica={dicaTexto}>
           {(a) => <input {...a} className="f" autoComplete="off" value={texto} onChange={(e) => setTexto(e.target.value)} />}
         </Campo>

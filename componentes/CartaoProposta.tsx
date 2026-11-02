@@ -18,8 +18,10 @@ export const ROTULO_STATUS: Record<StatusPedido, string> = {
   aprovado: "Aprovado",
   enviado: "Enviado",
   em_transito: "Em trânsito",
-  recebido: "Recebido",
-  conferido: "Conferido",
+  parcial: "Parcial",
+  // `recebido` é o status antigo (chegou, falta conferir); `conferido` é o que a tela chama de recebido.
+  recebido: "Chegou",
+  conferido: "Recebido",
   cancelado: "Cancelado",
 };
 

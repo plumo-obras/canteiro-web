@@ -22,7 +22,7 @@ const ORIGEM: Record<string, string> = { tela: "pela tela", agente: "aprovou do 
 
 // O registro grava o status como na API ("em_transito"); na tela vale o rótulo do quadro ("Em trânsito").
 const legivel = (t: string) =>
-  t.replace(/\b(em_cotacao|aprovado|enviado|em_transito|recebido|conferido|cancelado)\b/g, (st) =>
+  t.replace(/\b(em_cotacao|aprovado|enviado|em_transito|parcial|recebido|conferido|cancelado)\b/g, (st) =>
     ROTULO_STATUS[st as keyof typeof ROTULO_STATUS].toLowerCase(),
   );
 

@@ -7,8 +7,11 @@ import type { EventoConversa } from "@/lib/contrato";
 import type { Msg, MsgAgente, MsgEu, SessaoApi } from "@/lib/historico";
 import { uuid7 } from "@/lib/ids";
 
-export type Tela = "orcamento" | "almoxarifado" | "pedidos" | "aprovacoes" | "historico";
-export const TELAS_VALIDAS: Tela[] = ["orcamento", "almoxarifado", "pedidos", "aprovacoes", "historico"];
+export type Tela = "orcamento" | "suprimentos" | "aprovacoes" | "historico";
+export const TELAS_VALIDAS: Tela[] = ["orcamento", "suprimentos", "aprovacoes", "historico"];
+/** Almoxarifado e Pedidos viraram Suprimentos: links antigos (?tela=pedidos) abrem a tela nova. */
+export const telaDe = (t: string | null): Tela | undefined =>
+  t === "almoxarifado" || t === "pedidos" ? "suprimentos" : TELAS_VALIDAS.find((x) => x === t);
 export type AbaAtiva = "conversa" | Tela;
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";

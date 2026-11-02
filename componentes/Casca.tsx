@@ -1,6 +1,6 @@
 "use client";
 /**
- * A casca do app: topo de vidro com a obra e as telas em pílulas (Agente, Orçamento, Almoxarifado…), trilho de
+ * A casca do app: topo de vidro com a obra e as telas em pílulas (Agente, Orçamento, Suprimentos…), trilho de
  * atalhos à esquerda e o painel das conversas com o agente, que abre ao lado do trilho. Uma tela por vez no palco;
  * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
  * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
@@ -12,22 +12,20 @@ import type { Obra, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { formatarHistorico } from "@/lib/historico";
 import { assinarSessao, renovar, sair, usuarioAtual } from "@/lib/sessao";
-import { Almoxarifado } from "./Almoxarifado";
 import { Aprovacoes } from "./Aprovacoes";
 import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
 import { Conversa } from "./Conversa";
 import { Icone, Logo, type NomeIcone } from "./Icone";
-import { Pedidos } from "./Pedidos";
+import { Suprimentos } from "./Suprimentos";
 import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
 import { BotaoTema } from "./tema";
-import { TELAS_VALIDAS, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
+import { telaDe, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
 const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
   { k: "conversa", rotulo: "Agente", icone: "message" },
   { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
-  { k: "almoxarifado", rotulo: "Almoxarifado", icone: "package" },
-  { k: "pedidos", rotulo: "Pedidos", icone: "cart" },
+  { k: "suprimentos", rotulo: "Suprimentos", icone: "package" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
   { k: "historico", rotulo: "Histórico", icone: "history" },
 ];
@@ -160,7 +158,7 @@ function App({ usuario }: { usuario: Usuario }) {
     const qs = new URLSearchParams(window.location.search);
     const querObra = qs.get("obra");
     const querSessao = qs.get("sessao");
-    const querTela = TELAS_VALIDAS.find((t) => t === qs.get("tela"));
+    const querTela = telaDe(qs.get("tela"));
     if (querObra || querSessao || querTela) window.history.replaceState(null, "", window.location.pathname);
     if (querTela) setTela(querTela);
     api
@@ -463,10 +461,8 @@ function App({ usuario }: { usuario: Usuario }) {
                 <section className="palco-tela" aria-label={NAV.find((n) => n.k === tela)!.rotulo}>
                   {tela === "orcamento" ? (
                     <Orcamento obra={obra} />
-                  ) : tela === "almoxarifado" ? (
-                    <Almoxarifado obra={obra} />
-                  ) : tela === "pedidos" ? (
-                    <Pedidos obra={obra} />
+                  ) : tela === "suprimentos" ? (
+                    <Suprimentos obra={obra} />
                   ) : tela === "historico" ? (
                     <Historico obra={obra} />
                   ) : (

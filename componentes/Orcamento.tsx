@@ -162,14 +162,14 @@ export function Orcamento({ obra }: { obra: Obra }) {
               Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
             </p>
           ) : null}
-          <Versoes versoes={dado.versoes} />
+          <Versoes versoes={dado.versoes} atual={dado.totais.atual} />
           <Arvore orc={dado} />
           <p className="orc-fase mut sm">
             <Icone nome="info" tam={14} />
             <span>
               <b>Comprometido</b> (pedidos e contratos com fornecedores) e <b>Realizado</b> (notas e medições) entram aqui por etapa quando a obra estiver
               andando.
-              {materiais.length ? ` A lista de materiais (${plural(materiais.length, "insumo", "insumos")}, ${fmtReais(totalMateriais)}) fica no Almoxarifado.` : ""}
+              {materiais.length ? ` A lista de materiais (${plural(materiais.length, "insumo", "insumos")}, ${fmtReais(totalMateriais)}) fica em Suprimentos.` : ""}
             </span>
           </p>
         </>
@@ -214,34 +214,38 @@ function kpisDoOrcamento(t: DadosOrcamento["totais"], obra: Obra): Kpi[] {
       : { icone: "plus", n: "—", r: "nenhum aditivo" },
     { icone: "planilha", n: fmtReais(t.atual), r: `orçado atual · ${plural(t.n_itens, "item", "itens")}`, tag: verba?.texto, tom: verba?.tom },
   ];
-  // O valor do contrato da obra só ganha número próprio quando não bate com o contrato importado. Centavos de
-  // arredondamento entre a planilha e o contrato assinado não são diferença: ficam só no texto.
-  const dif = obra.verba - t.contratado;
-  if (obra.verba && Math.abs(dif) >= MARGEM_CENTAVOS)
-    ks.push({ icone: "predio", n: fmtReais(obra.verba), r: `valor do contrato · ${fmtReais(Math.abs(dif))} ${dif > 0 ? "acima" : "abaixo"} do contratado` });
-  else if (obra.verba && dif) ks[0]!.r = `contratado · diferença de ${fmtReais(Math.abs(dif))} do valor do contrato`;
+  // O valor do contrato ganha número próprio quando o orçado atual não bate com ele, e a frase parte do orçado (é o que
+  // mexe): "orçado atual R$ Y (Z%) acima do valor do contrato". Centavos de arredondamento ficam só no texto.
+  const dif = t.atual - obra.verba;
+  if (obra.verba && Math.abs(dif) >= MARGEM_CENTAVOS) {
+    const p = ((Math.abs(dif) / obra.verba) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+    ks.push({ icone: "predio", n: fmtReais(obra.verba), r: `valor do contrato · orçado atual ${fmtReais(Math.abs(dif))} (${p}%) ${dif > 0 ? "acima" : "abaixo"}` });
+  } else if (obra.verba && dif) ks[2]!.r = `orçado atual · diferença de ${fmtReais(Math.abs(dif))} do valor do contrato`;
   return ks;
 }
 
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */
 
-function Versoes({ versoes }: { versoes: VersaoOrcamento[] }) {
-  const { podeOperar, mudou, avisar } = useCasca();
-  const [ocupado, setOcupado] = useState<string | null>(null);
+function Versoes({ versoes, atual }: { versoes: VersaoOrcamento[]; atual: number }) {
+  const { podeOperar, mudou, avisarFeito } = useCasca();
+  const [confirmando, setConfirmando] = useState<VersaoOrcamento | null>(null);
   const situacao = (v: VersaoOrcamento) =>
     v.ativa ? "vigente" : versoes.some((o) => o.substitui === v.id && o.ativa) ? "substituída" : "desfeita";
 
-  const desfazer = async (v: VersaoOrcamento, regId: string) => {
-    setOcupado(v.id);
-    try {
-      await api.desfazerRegistro(regId);
-      mudou();
-      avisar(`${nomeVersao(v)} desfeito.`);
-    } catch (e) {
-      avisar(mensagemDe(e), true);
-    } finally {
-      setOcupado(null);
-    }
+  /** O que muda de fato ao desfazer: com um clique só, a pessoa tirava o contrato de vigência sem saber. */
+  const consequencia = (v: VersaoOrcamento) => {
+    if (v.tipo === "aditivo") return `O ${nomeVersao(v)} sai de vigência e o orçado atual volta para ${fmtReais(atual - v.total)}.`;
+    const anterior = versoes.find((o) => o.id === v.substitui);
+    return anterior
+      ? `O contrato sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${anterior.arquivo ? ` (${anterior.arquivo})` : ""}.`
+      : "O contrato sai de vigência e a obra fica sem orçamento: os pedidos e saídas perdem a lista de etapas até importar de novo.";
+  };
+
+  const desfazer = async (v: VersaoOrcamento) => {
+    await api.desfazerRegistro(v.registro_id!);
+    setConfirmando(null);
+    mudou();
+    avisarFeito(`${nomeVersao(v)} desfeito.`, null);
   };
 
   return (
@@ -264,15 +268,8 @@ function Versoes({ versoes }: { versoes: VersaoOrcamento[] }) {
               </div>
               <span className="num orc-v-n">{v.tipo === "aditivo" ? comSinal(v.total) : fmtReais(v.total)}</span>
               {podeOperar && v.ativa && v.registro_id ? (
-                <button
-                  type="button"
-                  className="btn hist-b"
-                  disabled={ocupado === v.id}
-                  aria-busy={ocupado === v.id}
-                  onClick={() => desfazer(v, v.registro_id!)}
-                  aria-label={`Desfazer ${nomeVersao(v)}`}
-                >
-                  {ocupado === v.id ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="undo" tam={14} />}
+                <button type="button" className="btn hist-b" onClick={() => setConfirmando(v)} aria-label={`Desfazer ${nomeVersao(v)}`}>
+                  <Icone nome="undo" tam={14} />
                   Desfazer
                 </button>
               ) : null}
@@ -280,6 +277,11 @@ function Versoes({ versoes }: { versoes: VersaoOrcamento[] }) {
           );
         })}
       </ul>
+      {confirmando ? (
+        <Confirmar titulo={`Desfazer o ${nomeVersao(confirmando).toLowerCase()}?`} confirmar="Desfazer" fechar={() => setConfirmando(null)} aoConfirmar={() => desfazer(confirmando)}>
+          <p style={{ margin: "4px 0 0" }}>{consequencia(confirmando)}</p>
+        </Confirmar>
+      ) : null}
     </section>
   );
 }

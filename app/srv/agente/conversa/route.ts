@@ -10,6 +10,8 @@ import { emSSE, roteiroDemo } from "@/lib/demo/agente";
 // A conversa pode levar mais que o padrão: o plano Hobby da Vercel (Fluid Compute) permite até 300 s.
 export const maxDuration = 300;
 
+const AGENTE_DESLIGADO = "O agente ainda não está ligado nesta instalação.";
+
 const CABECALHOS_SSE = {
   "content-type": "text/event-stream; charset=utf-8",
   "cache-control": "no-cache, no-transform",
@@ -38,13 +40,21 @@ export async function POST(req: Request) {
 
   const h = headersDeRepasse(req);
   h.set("accept", "text/event-stream");
-  const r = await fetch(`${urlAgente()}/conversa`, {
-    method: "POST",
-    headers: h,
-    body: await req.arrayBuffer(),
-    cache: "no-store",
-    signal: req.signal, // a pessoa clicou em Parar ou fechou a aba: o agente para de gastar token
-  });
+  let r: Response;
+  try {
+    r = await fetch(`${urlAgente()}/conversa`, {
+      method: "POST",
+      headers: h,
+      body: await req.arrayBuffer(),
+      cache: "no-store",
+      signal: req.signal, // a pessoa clicou em Parar ou fechou a aba: o agente para de gastar token
+    });
+  } catch (e) {
+    if (req.signal.aborted) throw e;
+    // Serviço do agente fora do ar (ou sem URL nesta instalação): a tela diz isso, não "algo deu errado".
+    return json({ detail: AGENTE_DESLIGADO }, 503);
+  }
+  if (r.status === 502 || r.status === 503 || r.status === 504) return json({ detail: AGENTE_DESLIGADO }, 503);
   if (!r.ok || !r.body) {
     return new Response(r.body, { status: r.status, headers: { "content-type": r.headers.get("content-type") ?? "application/json" } });
   }

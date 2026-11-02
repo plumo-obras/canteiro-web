@@ -743,3 +743,81 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
   .eap-rola .tbl-eap tr.eap-sub td:nth-child(2){grid-column:2/-1}
   .eap-un{display:inline}
 }
+
+/* ---------------- suprimentos (Fase 2): quadro, pedido com linhas, entrega, fornecedores e a folha impressa ---------------- */
+.col[data-st=parcial]{--etapa:var(--amber)}
+.kc-click{cursor:pointer}
+.kc .kc-abrir{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--accentInk);cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px}
+@media (hover:hover){ .kc-click:hover .kc-abrir{text-decoration-color:currentColor} }
+.seg-n{margin-left:6px;padding:0 7px;border-radius:var(--rp);background:var(--sunk);font-size:12px;font-weight:600;line-height:18px}
+.pill.ax-serv{margin-left:6px;color:var(--blueInk)}
+.campos3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.ped-obs{margin:8px 0 0;padding:8px 12px;border-radius:var(--ri);background:var(--sunk);font-size:var(--t-meta)}
+.ped-prev{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.ped-prev .campo{flex:0 1 220px}
+.ped-prev .btn{margin-bottom:var(--s3,12px)}
+.tbl-ped tfoot td{font-weight:500;border-top:1px solid var(--line);border-bottom:0}
+.tbl-ped td.t-perda{color:var(--amberInk);font-weight:600}
+.ped-entregas{margin:0;padding:0;list-style:none}
+.ped-ent{display:flex;align-items:flex-start;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line2)}
+.ped-ent:last-child{border-bottom:0}
+.ped-ent-t{flex:1;min-width:0}
+.ped-ent-t .conf-dif{margin-top:8px}
+.ped-ent .num{font-weight:600}
+.tbl-ent td{vertical-align:middle}
+.ent-q{display:inline-flex;align-items:center;gap:6px}
+.ent-q input{width:96px;text-align:right}
+.ent-q small{color:var(--muted);min-width:2em;text-align:left}
+.ped-total{margin-right:auto;align-self:center;color:var(--muted)}
+.ped-total b{color:var(--ink);font-size:var(--t-body);margin-left:6px;font-variant-numeric:tabular-nums}
+.ped-linhas{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}
+.ped-linha{position:relative;display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,.9fr);gap:0 10px;align-items:start;
+  padding:10px 40px 0 12px;border:1px solid var(--line2);border-radius:var(--ri);background:var(--sunk)}
+.ped-linha.com-etapa{grid-template-columns:minmax(0,2.4fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,1.6fr) minmax(0,.9fr)}
+.ped-linha.com-erro{border-color:color-mix(in srgb,var(--redInk) 45%,var(--line2))}
+.ped-l-novo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-4px 0 10px}
+.ped-l-novo select{flex:0 1 130px}
+.ped-l-novo .seg{margin-top:0}
+.ped-l-tot{display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px;font-variant-numeric:tabular-nums}
+.ped-l-tot b{padding-top:9px;white-space:nowrap}
+.ped-l-x{position:absolute;top:6px;right:6px}
+.ped-l-erro{grid-column:1/-1;margin:-6px 0 10px}
+.forn-cnpj{font-family:var(--mono);font-size:var(--t-meta);white-space:nowrap}
+.folha-pedido{display:none}
+@media (max-width:760px){
+  .campos3{grid-template-columns:1fr}
+  .ped-linha,.ped-linha.com-etapa{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .ped-linha .ped-l-ins{grid-column:1/-1}
+  .ped-l-tot{align-items:flex-start}
+}
+
+/* A folha de pedido: só ela vai para o papel, em preto no branco, sem vidro nem tema. */
+@media print{
+  @page{margin:16mm}
+  body > *:not(.folha-pedido){display:none!important}
+  html,body{background:#fff!important;color:#000!important;overflow:visible!important;height:auto!important}
+  .folha-pedido{display:block!important;font:11pt/1.45 var(--sans),system-ui,sans-serif;color:#000}
+  .folha-pedido header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px}
+  .folha-pedido h1{font:700 18pt/1.1 var(--sans),system-ui,sans-serif;margin:0 0 4px;color:#000}
+  .folha-pedido p{margin:0}
+  .folha-pedido .folha-obra{text-align:right}
+  .folha-pedido .folha-forn{margin-bottom:14px}
+  .folha-pedido .folha-forn small{display:block;text-transform:uppercase;letter-spacing:.06em;font-size:8pt;color:#444}
+  .folha-pedido table{width:100%;border-collapse:collapse;font-size:10pt}
+  .folha-pedido th,.folha-pedido td{border:0;border-bottom:1px solid #999;padding:5px 6px;background:none;color:#000;text-align:left}
+  .folha-pedido th{font-weight:600;border-bottom:1.5px solid #000}
+  .folha-pedido .num{text-align:right;white-space:nowrap}
+  .folha-pedido tfoot td{font-weight:700;border-top:1.5px solid #000;border-bottom:0}
+  .folha-pedido .folha-obs{margin-top:12px}
+  .folha-pedido footer{display:flex;justify-content:space-between;margin-top:48px;font-size:9pt;color:#444}
+  .folha-pedido .folha-ass{border-top:1px solid #000;padding-top:4px;min-width:220px;text-align:center}
+}
+.ent-amais{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:var(--muted);cursor:pointer}
+.ent-acima{margin-top:4px;font-size:12px;font-weight:600;color:var(--amberInk)}
+.ent-semnf{margin:8px 0 0;font-size:var(--t-meta);color:var(--muted)}
+.ped-l-todas{display:block;margin:-8px 0 10px;font-size:12px}
+.pergunta-versao{border:0;margin:18px 0 0;padding:14px 16px;border-radius:var(--ri);background:var(--amberSoft)}
+.pergunta-versao legend{float:left;width:100%;padding:0;margin:0 0 4px;font:600 var(--t-body) var(--sans);color:var(--ink)}
+.pergunta-versao .portas{margin-top:8px;clear:both}
+.prev-subst .btn{flex:none;margin-left:auto;align-self:center;white-space:nowrap}
+@media (max-width:760px){ .prev-subst{flex-wrap:wrap} .prev-subst .btn{margin-left:25px} }

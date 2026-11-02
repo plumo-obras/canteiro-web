@@ -6,9 +6,10 @@
 /**
  * Rotas de dados do contrato que a web pode repassar, por método. /auth fica nas rotas próprias. A conta e o consumo só
  * se leem daqui; fora de GET/POST, só a chave própria da Anthropic (o papel master quem confere é a API) e o PATCH dos
- * dados de uma obra.
+ * dados de uma obra, de um pedido (previsão, observação) e de um fornecedor.
  */
-const PREFIXOS = new Set(["obras", "pedidos", "propostas", "registro", "creditos", "sessoes"]);
+const PREFIXOS = new Set(["obras", "pedidos", "fornecedores", "propostas", "registro", "creditos", "sessoes"]);
+const EDITAVEIS = new Set(["obras", "pedidos", "fornecedores"]);
 const SO_LEITURA = new Set(["conta", "conta/chave-anthropic", "uso"]);
 const CHAVE = "conta/chave-anthropic";
 
@@ -18,7 +19,7 @@ export function caminhoPermitido(seg: string[], metodo = "GET"): boolean {
   const rota = seg.join("/");
   const m = metodo.toUpperCase();
   if (m === "PUT" || m === "DELETE") return rota === CHAVE;
-  if (m === "PATCH") return seg.length === 2 && seg[0] === "obras";
+  if (m === "PATCH") return seg.length === 2 && EDITAVEIS.has(seg[0]!);
   if (SO_LEITURA.has(rota)) return m === "GET";
   return (m === "GET" || m === "POST") && PREFIXOS.has(seg[0]!);
 }

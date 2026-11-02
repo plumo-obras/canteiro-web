@@ -104,8 +104,10 @@ function AjustarConferencia({ p, fechar }: { p: Proposta; fechar: () => void }) 
   const d = p.dados as unknown as DadosAvancarPedido;
   const { dado } = useCarregar(() => Promise.all([api.listarPedidos(p.obra_id, { limite: 500 }), api.listarInsumos(p.obra_id)]), [p.obra_id]);
   const ped = dado?.[0].find((x) => x.id === d.pedido_id);
-  const un = dado?.[1].find((i) => i.insumo.id === ped?.insumo_id)?.insumo.unidade ?? "";
-  const pedida = ped?.quantidade ?? null;
+  // A proposta de conferência do agente é do pedido de uma linha (o pedido com várias linhas recebe pela tela).
+  const linha = ped?.linhas[0];
+  const un = linha?.unidade ?? "";
+  const pedida = linha?.quantidade ?? null;
   const [qtd, setQtd] = useState<string | null>(d.quantidade_recebida != null ? qtdParaCampo(d.quantidade_recebida) : null);
   const [nf, setNf] = useState(d.nf ?? "");
   const aprovar = useAprovarAjustado(p, fechar);

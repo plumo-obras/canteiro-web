@@ -18,6 +18,7 @@ import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { Campo, ErroApi } from "../formularios/Campos";
 import { ComparaVerba } from "./verba";
+import { useCarregar } from "../useCarregar";
 
 type Tipo = "eap" | "materiais";
 type Previa = { k: "eap"; p: PreviaVersao } | { k: "materiais"; p: PreviaOrcamento };
@@ -49,7 +50,12 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
   const { mudou, avisar, avisarFeito } = useCasca();
   const [passo, setPasso] = useState<Passo>({ k: "tipo" });
   const [tipo, setTipo] = useState<Tipo | null>(null);
-  const [versao, setVersao] = useState<TipoVersao>("contrato");
+  // Com contrato vigente, nada vem marcado: o testador passou pelo seletor sem ver e substituiu o contrato por um
+  // aditivo. Sem contrato, só pode ser o contrato (aditivo sem contrato a API recusa).
+  const [versaoEscolhida, setVersao] = useState<TipoVersao | null>(null);
+  const orc = useCarregar(() => api.orcamento(obra.id).catch(() => null), [obra.id]);
+  const vigente = orc.dado?.versoes.find((v) => v.tipo === "contrato" && v.ativa) ?? null;
+  const versao: TipoVersao | null = versaoEscolhida ?? (orc.dado && !vigente ? "contrato" : null);
   const [descricao, setDescricao] = useState("");
   const [data, setData] = useState("");
   const [errosTipo, setErrosTipo] = useState<{ descricao?: string | null; data?: string | null }>({});
@@ -72,8 +78,17 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     }
   };
 
+  const validarAditivo = () => {
+    const e = {
+      descricao: !descricao.trim() ? "Diga do que é o aditivo, ex.: ampliação do refeitório." : descricao.trim().length > 200 ? "Até 200 letras." : null,
+      data: !data ? "Informe a data do aditivo." : null,
+    };
+    setErrosTipo(e);
+    return !e.descricao && !e.data;
+  };
+
   const seguirDoTipo = () => {
-    if (!tipo) return;
+    if (!tipo || (tipo === "eap" && !versao)) return;
     if (tipo === "eap" && versao === "aditivo") {
       const e = {
         descricao: !descricao.trim() ? "Diga do que é o aditivo, ex.: ampliação do refeitório." : descricao.trim().length > 200 ? "Até 200 letras." : null,
@@ -101,14 +116,14 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     return m;
   };
 
-  const importar = (aplicar: boolean, chave: string): Promise<Previa> =>
+  const importar = (aplicar: boolean, chave: string, tv: TipoVersao = versao ?? "contrato"): Promise<Previa> =>
     tipo === "eap"
       ? api
           .versaoOrcamento(obra.id, arquivo!, {
             mapeamento: mapaDoTipo(),
-            tipo: versao,
-            descricao: versao === "aditivo" ? descricao.trim() : undefined,
-            data: versao === "aditivo" ? data : undefined,
+            tipo: tv,
+            descricao: tv === "aditivo" && descricao.trim() ? descricao.trim() : undefined,
+            data: tv === "aditivo" && data ? data : undefined,
             aplicar,
             chave_idempotencia: aplicar ? chave : undefined,
           })
@@ -123,8 +138,17 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       setPasso({ k: "previa", leitura, previa: await importar(false, chave), chave });
     });
 
+  /** "Não, é um aditivo": troca o tipo e refaz a prévia com a mesma planilha e as mesmas colunas. */
+  const virarAditivo = (passoAtual: Extract<Passo, { k: "previa" }>) =>
+    rodar(async () => {
+      setVersao("aditivo");
+      const chave = uuid7();
+      setPasso({ ...passoAtual, previa: await importar(false, chave, "aditivo"), chave });
+    });
+
   const aplicar = (passoAtual: Extract<Passo, { k: "previa" }>) =>
     rodar(async () => {
+      if (passoAtual.previa.k === "eap" && passoAtual.previa.p.tipo === "aditivo" && !validarAditivo()) return;
       const r = await importar(true, passoAtual.chave);
       if (!r.p.aplicado) {
         // a planilha mudou entre a prévia e o aplicar (ou alguém gravou no meio): mostra o que a API viu
@@ -162,7 +186,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         <button type="button" className="btn" onClick={fechar}>
           Voltar
         </button>
-        <button type="button" className="btn amb" disabled={!tipo} onClick={seguirDoTipo}>
+        <button type="button" className="btn amb" disabled={!tipo || (tipo === "eap" && !versao)} onClick={seguirDoTipo}>
           Continuar
         </button>
       </>
@@ -241,21 +265,45 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
           </div>
           {tipo === "eap" ? (
             <>
-              <div className="campo">
-                <span className="l">Esta planilha é</span>
-                <div className="seg" role="radiogroup" aria-label="Contrato ou aditivo">
-                  {(["contrato", "aditivo"] as const).map((v) => (
-                    <button key={v} type="button" role="radio" aria-checked={versao === v} className={versao === v ? "on" : ""} onClick={() => setVersao(v)}>
-                      {v === "contrato" ? "O contrato" : "Um aditivo"}
+              {vigente ? (
+                <fieldset className="pergunta-versao">
+                  <legend>Esta planilha é um aditivo ou o contrato novo?</legend>
+                  <div className="portas" role="radiogroup" aria-label="Aditivo ou contrato novo">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={versao === "aditivo"}
+                      className={`porta${versao === "aditivo" ? "" : " porta-sec"}`}
+                      onClick={() => setVersao("aditivo")}
+                    >
+                      <Icone nome="plus" tam={20} />
+                      <span>
+                        <b>Um aditivo</b>
+                        <small>Soma ao contrato vigente ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é supressão.</small>
+                      </span>
+                      {versao === "aditivo" ? <Icone nome="checkCircle" tam={18} /> : null}
                     </button>
-                  ))}
-                </div>
-                <p className="seg-dica mut sm">
-                  {versao === "contrato"
-                    ? "Se já houver um contrato importado, este o substitui por inteiro (a prévia avisa, e dá para desfazer)."
-                    : "Soma ao contrato, que fica intacto. Quantidade negativa é supressão."}
-                </p>
-              </div>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={versao === "contrato"}
+                      className={`porta${versao === "contrato" ? "" : " porta-sec"}`}
+                      onClick={() => setVersao("contrato")}
+                    >
+                      <Icone nome="planilha" tam={20} />
+                      <span>
+                        <b>O contrato novo</b>
+                        <small>
+                          Substitui por inteiro o contrato vigente ({fmtReais(vigente.total)}, {plural(vigente.itens, "item", "itens")}). Dá para desfazer.
+                        </small>
+                      </span>
+                      {versao === "contrato" ? <Icone nome="checkCircle" tam={18} /> : null}
+                    </button>
+                  </div>
+                </fieldset>
+              ) : orc.dado ? (
+                <p className="seg-dica mut sm">A obra ainda não tem contrato importado: esta planilha vira o contrato. Os aditivos vêm depois dele.</p>
+              ) : null}
               {versao === "aditivo" ? (
                 <div className="campos2">
                   <Campo rotulo="Do que é o aditivo" erro={errosTipo.descricao}>
@@ -323,7 +371,29 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         />
       ) : passo.k === "previa" ? (
         passo.previa.k === "eap" ? (
-          <PreviaEap previa={passo.previa.p} obra={obra} />
+          <>
+            <PreviaEap previa={passo.previa.p} obra={obra} virarAditivo={() => virarAditivo(passo)} ocupado={ocupado} />
+            {passo.previa.p.tipo === "aditivo" ? (
+              <div className="campos2">
+                <Campo rotulo="Do que é o aditivo" erro={errosTipo.descricao}>
+                  {(a) => (
+                    <input
+                      {...a}
+                      className="f"
+                      maxLength={200}
+                      autoComplete="off"
+                      placeholder="Ex.: serviços fora da planilha"
+                      value={descricao}
+                      onChange={(e) => setDescricao(e.target.value)}
+                    />
+                  )}
+                </Campo>
+                <Campo rotulo="Data do aditivo" erro={errosTipo.data}>
+                  {(a) => <input {...a} type="date" className="f" value={data} onChange={(e) => setData(e.target.value)} />}
+                </Campo>
+              </div>
+            ) : null}
+          </>
         ) : (
           <PreviaMateriais previa={passo.previa.p} />
         )
@@ -459,7 +529,9 @@ function Ignoradas({ ignoradas }: { ignoradas: { linha: number; texto: string; m
   );
 }
 
-function PreviaEap({ previa, obra }: { previa: PreviaVersao; obra: Obra }) {
+function PreviaEap({ previa, obra, virarAditivo, ocupado }: { previa: PreviaVersao; obra: Obra; virarAditivo: () => void; ocupado: boolean }) {
+  // Um contrato novo de verdade raramente custa menos da metade do vigente; uma planilha de aditivo, quase sempre.
+  const fracao = previa.substitui?.total ? previa.total / previa.substitui.total : 1;
   const aditivo = previa.tipo === "aditivo";
   const porEtapa = new Map<string, ItemPrevia[]>();
   for (const i of previa.itens) {
@@ -477,7 +549,18 @@ function PreviaEap({ previa, obra }: { previa: PreviaVersao; obra: Obra }) {
               Esta planilha substitui o contrato atual ({fmtReais(previa.substitui.total)}, {plural(previa.substitui.itens, "item", "itens")}).
             </b>{" "}
             O contrato atual sai de vigência; dá para voltar a ele com Desfazer.
+            {fracao < 0.5 ? (
+              <>
+                {" "}
+                <b>
+                  Parece um aditivo: o total é {(fracao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do contrato.
+                </b>
+              </>
+            ) : null}
           </span>
+          <button type="button" className="btn sm" disabled={ocupado} onClick={virarAditivo}>
+            Não, é um aditivo
+          </button>
         </div>
       ) : null}
       <div className="prev-resumo">

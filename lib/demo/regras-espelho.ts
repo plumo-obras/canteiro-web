@@ -28,6 +28,7 @@ export const TRANSICOES: Record<StatusPedido, StatusPedido[]> = {
   em_cotacao: ["aprovado", "cancelado"],
   aprovado: ["enviado", "cancelado"],
   enviado: ["em_transito", "recebido", "cancelado"],
+  parcial: ["conferido"],
   em_transito: ["recebido"],
   recebido: ["conferido"],
   conferido: [],
