@@ -986,6 +986,19 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok({ ...o, registro_id: reg.id });
       }
       if (metodo === "GET" && b === "etapas" && !id2) return ok([]);
+      // Fase 4 (cronograma e medição): a demo ganha no fim da fase. O GET vem vazio, com as etapas do orçamento dela.
+      if (metodo === "GET" && b === "cronograma" && !id2) {
+        const orc = orcamentoDemo(e, obraPorId(e, id));
+        return ok({
+          inicio: null,
+          meses: 0,
+          etapas: orc.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, percentuais: [], medido_acumulado: 0 })),
+          mensal: [],
+          medicoes: [],
+          prazo: { termino_contratual: null, termino_projetado: null, atraso_meses: null, pct_previsto_na_medicao: null, pct_medido: null, mes_referencia: null },
+        });
+      }
+      if ((metodo === "PUT" && b === "cronograma") || (metodo === "POST" && b === "medicoes")) return erro(422, INDISPONIVEL);
       if (metodo === "GET" && b === "orcamento" && !id2) return ok(orcamentoDemo(e, obraPorId(e, id)));
       if (metodo === "POST" && b === "orcamento") {
         exigirAdmin(u);

@@ -552,3 +552,86 @@ export interface RelatorioUso {
   por_obra: (SomaUso & { obra_id: string | null })[];
   por_rota: (SomaUso & { rota: string })[];
 }
+
+/* ---------- cronograma físico-financeiro e medição (Fase 4) ---------- */
+
+/** Centésimos de ponto percentual: 12,5% = 1250; 100% = 10000. */
+export type Centesimos = number;
+
+export interface EtapaCronograma {
+  etapa: string;
+  descricao: string;
+  /** Orçado atual da etapa (centavos). */
+  atual: Centavos;
+  /** Um por mês do cronograma; a etapa soma 10000 ou é toda zero (fora do cronograma). */
+  percentuais: Centesimos[];
+  medido_acumulado: Centesimos;
+}
+
+export interface MesCronograma {
+  /** AAAA-MM */
+  mes: string;
+  previsto: Centavos;
+  previsto_acumulado: Centavos;
+  pct_previsto_acumulado: Centesimos;
+  /** null depois da última medição. */
+  medido: Centavos | null;
+  medido_acumulado: Centavos | null;
+  pct_medido_acumulado: Centesimos | null;
+}
+
+export interface PrazoCronograma {
+  termino_contratual: string | null;
+  termino_projetado: string | null;
+  /** Meses, arredondado (meio mês para cima); negativo = adiantada. */
+  atraso_meses: number | null;
+  /** Décimos de mês, interpolado dentro do mês (1,4 mês = 14); negativo = adiantada. */
+  atraso_decimos?: number | null;
+  pct_previsto_na_medicao: Centesimos | null;
+  pct_medido: Centesimos | null;
+  mes_referencia: string | null;
+}
+
+export interface Medicao {
+  id: string;
+  numero: number;
+  mes: string;
+  etapas: { etapa: string; pct_acumulado: Centesimos; pct_periodo: Centesimos; valor_periodo: Centavos }[];
+  valor: Centavos;
+  pct_obra_acumulado: Centesimos;
+  observacao: string;
+  quem: string;
+  criado_em: DataISO;
+  /** Se a API mandar, o Desfazer usa direto; senão a tela procura no registro. */
+  registro_id?: string | null;
+}
+
+/** `GET /obras/{id}/cronograma`. Sem cronograma: `inicio` null e `meses` 0. */
+export interface Cronograma {
+  inicio: string | null;
+  meses: number;
+  etapas: EtapaCronograma[];
+  mensal: MesCronograma[];
+  medicoes: Medicao[];
+  prazo: PrazoCronograma;
+  registro_id?: string | null;
+}
+
+export interface CorpoCronograma {
+  inicio: string;
+  meses: number;
+  etapas: { etapa: string; percentuais: Centesimos[] }[];
+}
+
+export interface CorpoMedicao {
+  mes: string;
+  etapas: { etapa: string; pct_acumulado: Centesimos }[];
+  observacao?: string;
+  chave_idempotencia: string;
+}
+
+export interface RespostaMedicao {
+  medicao: Medicao;
+  cronograma: Cronograma;
+  registro_id?: string | null;
+}

@@ -17,6 +17,7 @@ import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
 import { Conversa } from "./Conversa";
 import { Icone, Logo, type NomeIcone } from "./Icone";
 import { Suprimentos } from "./Suprimentos";
+import { Cronograma } from "./cronograma/Cronograma";
 import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
 import { BotaoTema } from "./tema";
@@ -25,6 +26,7 @@ import { telaDe, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
   { k: "conversa", rotulo: "Agente", icone: "message" },
   { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
+  { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
   { k: "suprimentos", rotulo: "Suprimentos", icone: "package" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
   { k: "historico", rotulo: "Histórico", icone: "history" },
@@ -461,6 +463,8 @@ function App({ usuario }: { usuario: Usuario }) {
                 <section className="palco-tela" aria-label={NAV.find((n) => n.k === tela)!.rotulo}>
                   {tela === "orcamento" ? (
                     <Orcamento obra={obra} />
+                  ) : tela === "cronograma" ? (
+                    <Cronograma obra={obra} />
                   ) : tela === "suprimentos" ? (
                     <Suprimentos obra={obra} />
                   ) : tela === "historico" ? (

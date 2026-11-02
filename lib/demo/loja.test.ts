@@ -422,3 +422,13 @@ describe("demonstração: orçamento por etapas", () => {
     expect(r.corpo).toMatchObject({ detail: "Na demonstração a importação do orçamento por etapas não está disponível." });
   });
 });
+
+describe("demonstração: cronograma (Fase 4)", () => {
+  it("GET vem vazio com as etapas; PUT e medição respondem 422", () => {
+    const c = chamar("GET", `obras/${obraId()}/cronograma`).corpo as import("../contrato").Cronograma;
+    expect(c).toMatchObject({ inicio: null, meses: 0, mensal: [], medicoes: [] });
+    expect(c.etapas.length).toBeGreaterThan(0);
+    expect(chamar("PUT", `obras/${obraId()}/cronograma`, { inicio: "2026-11", meses: 1, etapas: [] }).status).toBe(422);
+    expect(chamar("POST", `obras/${obraId()}/medicoes`, {}).status).toBe(422);
+  });
+});

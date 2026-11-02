@@ -18,6 +18,10 @@ import type {
   PreviaOrcamento,
   CorpoMovimento,
   CorpoPedido,
+  Cronograma,
+  CorpoCronograma,
+  CorpoMedicao,
+  RespostaMedicao,
   CorpoEditarPedido,
   CorpoFornecedor,
   CorpoRecebimento,
@@ -141,6 +145,10 @@ export const api = {
     if (corpo.chave_idempotencia) f.set("chave_idempotencia", corpo.chave_idempotencia);
     return chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/versoes`, f);
   },
+  cronograma: (obraId: string) => chamar<Cronograma>("GET", `/obras/${seg(obraId)}/cronograma`),
+  /** Substitui o cronograma inteiro (o Desfazer volta o anterior). */
+  salvarCronograma: (obraId: string, corpo: CorpoCronograma) => chamar<ComRegistro<Cronograma>>("PUT", `/obras/${seg(obraId)}/cronograma`, corpo),
+  criarMedicao: (obraId: string, corpo: CorpoMedicao) => chamar<RespostaMedicao>("POST", `/obras/${seg(obraId)}/medicoes`, corpo),
   aprovarOrcamento: (obraId: string) => chamar<ComRegistro<Obra>>("POST", `/obras/${seg(obraId)}/orcamento/aprovar`),
   listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),
   listarMovimentos: (obraId: string, insumoId: string, limite = 50, antes_de?: string) =>

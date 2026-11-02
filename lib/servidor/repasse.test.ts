@@ -24,6 +24,9 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["conta", "outra"], "GET")).toBe(false);
     expect(caminhoPermitido(["obras", "o1"], "DELETE")).toBe(false);
     expect(caminhoPermitido(["propostas", "p1"], "PUT")).toBe(false);
+    expect(caminhoPermitido(["obras", "o1", "cronograma"], "PUT")).toBe(true); // Fase 4
+    expect(caminhoPermitido(["obras", "o1", "cronograma"], "DELETE")).toBe(false);
+    expect(caminhoPermitido(["obras", "o1", "insumos"], "PUT")).toBe(false);
     expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1"], "PATCH")).toBe(true);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
