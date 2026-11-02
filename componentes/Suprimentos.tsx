@@ -50,23 +50,16 @@ export function Suprimentos({ obra, secaoInicial = "itens" }: { obra: Obra; seca
   const valorAberto = pedidos.reduce((t, p) => t + valorAReceber(p), 0);
   const parciais = pedidos.filter((p) => p.status === "parcial").length;
 
-  const kpis: Kpi[] = dado
-    ? [
-        {
-          icone: "alert",
-          n: nFalta,
-          r: nFalta === 1 ? "item faltando para terminar a obra" : "itens faltando para terminar a obra",
-          ...(nFalta ? { tag: "comprar", tom: "acima" as const } : {}),
-        },
-        { icone: "cart", n: fmtReais(valorAberto), r: `a receber em ${pedidos.length} ${pedidos.length === 1 ? "pedido aberto" : "pedidos abertos"}` },
-        {
-          icone: "package",
-          n: parciais,
-          r: parciais === 1 ? "entrega pela metade" : "entregas pela metade",
-          ...(parciais ? { tag: "a receber", tom: "atencao" as const } : {}),
-        },
-      ]
-    : [];
+  // Só o que existe: "0 itens faltando" engana quando nenhum item tem quantidade prevista.
+  const kpis: Kpi[] = [];
+  if (dado && nFalta)
+    kpis.push({ icone: "alert", n: nFalta, r: nFalta === 1 ? "item faltando para terminar a obra" : "itens faltando para terminar a obra", tag: "comprar", tom: "acima" });
+  // Pedido aberto e entrega pela metade são o mesmo pedido: uma linha só ("R$ 910,00 a receber · 1 pedido, entrega pela metade").
+  if (dado && pedidos.length) {
+    const ped = `${pedidos.length} ${pedidos.length === 1 ? "pedido" : "pedidos"}`;
+    const meio = !parciais ? "" : parciais === pedidos.length ? (parciais === 1 ? ", entrega pela metade" : ", entregas pela metade") : `, ${parciais} com entrega pela metade`;
+    kpis.push({ icone: "cart", n: fmtReais(valorAberto), r: `a receber · ${ped}${meio}` });
+  }
 
   const acoes = (
     <>
@@ -81,15 +74,15 @@ export function Suprimentos({ obra, secaoInicial = "itens" }: { obra: Obra; seca
       {podeOperar && dado ? (
         secao === "itens" ? (
           <>
-            <button type="button" className="btn" onClick={() => setModal({ k: "item" })}>
-              <Icone nome="plus" tam={15} />
-              Novo item
-            </button>
             {itens.some((i) => !ehServico(i)) ? (
               <button type="button" className="btn amb" onClick={() => setLancando({ tipo: "saida" })}>
                 Lançar entrada ou saída
               </button>
             ) : null}
+            <button type="button" className="link acao-sec" onClick={() => setModal({ k: "item" })}>
+              <Icone nome="plus" tam={14} />
+              Novo item
+            </button>
           </>
         ) : secao === "pedidos" ? (
           <button type="button" className="btn amb" onClick={() => setLancando({ tipo: "pedido" })}>

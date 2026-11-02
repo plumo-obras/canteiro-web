@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { distanciaMeses, distribuirIgual, fmtMes, fmtPct, listaMeses, previsaoMensal, redimensionar, somarMes, somaPct } from "./cronograma";
+import {
+  distanciaMeses,
+  distribuirIgual,
+  fmtMes,
+  fmtPct,
+  fmtReaisCurto,
+  indiceDoMes,
+  intervaloEtapa,
+  listaMeses,
+  previsaoMensal,
+  previstoAte,
+  redimensionar,
+  situacaoEtapa,
+  somarMes,
+  somaPct,
+} from "./cronograma";
 
 describe("cronograma", () => {
   it("meses", () => {
@@ -35,5 +50,30 @@ describe("cronograma", () => {
     );
     expect(r.previsto).toEqual([5_000_00, 5_000_00 + 99_990, 200_010]);
     expect(r.acumulado.at(-1)).toBe(13_000_00);
+  });
+});
+
+
+describe("situação da etapa no Gantt", () => {
+  const ps = [500, 2500, 4000, 3000, 0, 0]; // FUNDAÇÕES: 5, 25, 40, 30
+  it("atrasada quando o medido fica abaixo do previsto acumulado até o mês da medição", () => {
+    expect(situacaoEtapa(ps, 3000, 1)).toEqual({ situacao: "em_dia", previsto: 3000, falta: 0 });
+    expect(situacaoEtapa(ps, 3000, 2)).toEqual({ situacao: "atrasada", previsto: 7000, falta: 4000 });
+    expect(situacaoEtapa(ps, 10000, 2).situacao).toBe("concluida");
+    expect(situacaoEtapa([0, 0, 5000, 5000], 0, 1).situacao).toBe("nao_comecou");
+    expect(situacaoEtapa([0, 0, 5000, 5000], 1000, 1).situacao).toBe("em_dia"); // adiantada conta como em dia
+    expect(situacaoEtapa(ps, 0, null).situacao).toBe("nao_comecou"); // sem medição
+    expect(situacaoEtapa(ps, 9000, 9).situacao).toBe("atrasada"); // medição depois do término
+  });
+  it("auxiliares", () => {
+    expect(previstoAte(ps, 2)).toBe(7000);
+    expect(previstoAte(ps, -1)).toBe(0);
+    expect(indiceDoMes("2026-11", "2026-12")).toBe(1);
+    expect(intervaloEtapa(ps)).toEqual({ de: 0, ate: 3 });
+    expect(intervaloEtapa([0, 0, 1000, 0, 9000, 0])).toEqual({ de: 2, ate: 4 });
+    expect(intervaloEtapa([0, 0])).toBeNull();
+    expect(fmtReaisCurto(19_276_831)).toBe("193 mil");
+    expect(fmtReaisCurto(5_543_363)).toBe("55,4 mil");
+    expect(fmtReaisCurto(124_000_000)).toBe("1,24 mi");
   });
 });

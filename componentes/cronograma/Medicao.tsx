@@ -13,7 +13,7 @@ import { uuid7 } from "@/lib/ids";
 import { useCasca } from "../contexto";
 import { Confirmar, Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
+import { Campo, useEnvio } from "../formularios/Campos";
 import { lerMesAno, lerPct, pctParaCampo } from "../obra/CamposObra";
 
 const ultimaDe = (ms: Medicao[]) => ms.reduce<Medicao | null>((u, m) => (!u || m.numero > u.numero ? m : u), null);
@@ -69,14 +69,24 @@ export function ModalMedicao({ obra, crono, fechar }: { obra: Obra; crono: Crono
     },
   );
 
+  const problema = erroApi ?? erros.mes ?? erros.linhas ?? erros.obs ?? null;
   return (
     <Modal
       titulo={ultima ? `${ultima.numero + 1}ª medição` : "1ª medição"}
+      classe="medicao"
       fechar={fechar}
       focoInicial={primeiro}
       largo
       rodape={
         <>
+          {/* Erro de validação ou da API fica aqui, ao lado do botão: no celular a tabela é longa e o aviso lá embaixo
+              passava despercebido ("não gravou, sem mensagem"). */}
+          {problema ? (
+            <div className="rodape-erro" role="alert">
+              <Icone nome="alert" tam={14} />
+              {problema}
+            </div>
+          ) : null}
           <span className="ped-total">
             No período <b>{fmtReais(total)}</b> · obra em <b>{fmtPct(pctObra)}</b>
           </span>
@@ -120,12 +130,12 @@ export function ModalMedicao({ obra, crono, fechar }: { obra: Obra; crono: Crono
             <tbody>
               {linhas.map((l) => (
                 <tr key={l.etapa} className={l.erro ? "crono-ruim" : l.periodo > 0 ? "med-andou" : ""}>
-                  <td>
+                  <td className="med-nome">
                     <span className="eap-num">{l.etapa}</span> {l.descricao}
                   </td>
-                  <td className="num">{fmtReais(l.atual)}</td>
-                  <td className="num mut">{l.medido_acumulado ? fmtPct(l.medido_acumulado) : "—"}</td>
-                  <td className="num">
+                  <td className="num med-orc" data-rot="Orçado">{fmtReais(l.atual)}</td>
+                  <td className="num mut med-ant" data-rot="Antes">{l.medido_acumulado ? fmtPct(l.medido_acumulado) : "—"}</td>
+                  <td className="num med-agora">
                     <span className="ent-q">
                       <input
                         className="f"
@@ -139,7 +149,7 @@ export function ModalMedicao({ obra, crono, fechar }: { obra: Obra; crono: Crono
                     </span>
                     {l.erro ? <div className="ent-acima t-neg">{l.erro}</div> : null}
                   </td>
-                  <td className="num">
+                  <td className="num med-per">
                     {l.periodo > 0 ? (
                       <>
                         {fmtReais(l.valor)}
@@ -154,12 +164,7 @@ export function ModalMedicao({ obra, crono, fechar }: { obra: Obra; crono: Crono
             </tbody>
           </table>
         </div>
-        {erros.linhas ? (
-          <div className="campo-erro" role="alert">
-            {erros.linhas}
-          </div>
-        ) : null}
-        <ErroApi texto={erroApi} />
+        {erros.linhas ? <div className="campo-erro">{erros.linhas}</div> : null}
       </form>
     </Modal>
   );

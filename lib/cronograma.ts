@@ -63,3 +63,44 @@ export function previsaoMensal(etapas: { atual: number; percentuais: number[] }[
   const acumulado = previsto.map((v) => (acc += v));
   return { previsto, acumulado };
 }
+
+/* ---------- Gantt: situação de cada etapa no mês de referência (o da última medição) ---------- */
+
+export type Situacao = "concluida" | "em_dia" | "atrasada" | "nao_comecou";
+
+/** Índice do mês no cronograma (pode passar do fim, quando a medição é depois do término); null sem referência. */
+export const indiceDoMes = (inicio: string | null, mes: string | null) => (inicio && mes ? distanciaMeses(inicio, mes) : null);
+
+/** Previsto acumulado da etapa até o índice (inclusive), em centésimos. */
+export const previstoAte = (ps: number[], ate: number | null) => (ate === null || ate < 0 ? 0 : somaPct(ps.slice(0, ate + 1)));
+
+/**
+ * Situação da etapa no mês de referência: concluída (medido 100%), atrasada (medido < previsto acumulado até o mês),
+ * não começou (nada previsto nem medido até lá) ou em dia (medido ≥ previsto, inclusive adiantada).
+ */
+export function situacaoEtapa(ps: number[], medido: number, ref: number | null): { situacao: Situacao; previsto: number; falta: number } {
+  const previsto = previstoAte(ps, ref);
+  const falta = Math.max(0, previsto - medido);
+  if (medido >= CEM) return { situacao: "concluida", previsto, falta: 0 };
+  if (medido < previsto) return { situacao: "atrasada", previsto, falta };
+  if (!medido && !previsto) return { situacao: "nao_comecou", previsto, falta: 0 };
+  return { situacao: "em_dia", previsto, falta: 0 };
+}
+
+/** Primeiro e último mês com % (índices); null se a etapa está fora do cronograma. */
+export function intervaloEtapa(ps: number[]): { de: number; ate: number } | null {
+  const de = ps.findIndex((p) => p > 0);
+  if (de < 0) return null;
+  let ate = ps.length - 1;
+  while (ate > de && !ps[ate]) ate--;
+  return { de, ate };
+}
+
+/** "192,8 mil", "1,24 mi", "850": dinheiro curto para a linha de total, onde a coluna do mês é estreita. */
+export function fmtReaisCurto(c: number): string {
+  const r = c / 100;
+  const a = Math.abs(r);
+  if (a >= 1_000_000) return `${(r / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi`;
+  if (a >= 1_000) return `${(r / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: a >= 100_000 ? 0 : 1 })} mil`;
+  return r.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+}

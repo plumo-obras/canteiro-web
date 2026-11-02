@@ -94,3 +94,7 @@
   .dados>div{grid-template-columns:80px minmax(0,1fr)}
   .grafico{grid-template-rows:120px auto}
 }
+.acoesChave{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 4px}
+.como{margin-top:14px;font-size:var(--t-meta)}
+.como summary{cursor:pointer;color:var(--ink2);font-weight:500;min-height:32px;display:flex;align-items:center}
+.como p{margin:6px 0 0}

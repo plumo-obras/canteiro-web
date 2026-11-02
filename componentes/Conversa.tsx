@@ -160,8 +160,8 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
             <div className="aiav">
               <Icone nome="spark" tam={20} />
             </div>
-            <h2>O que você quer saber da {obra?.nome ?? "obra"}?</h2>
-            <p>O agente consulta o almoxarifado e os pedidos, mostra a conta e prepara a compra. Nada é gravado sem a sua aprovação.</p>
+            {/* a obra já está no topo: o título não a repete */}
+            <h2>O que você quer saber?</h2>
             <div className="chips">
               {SUGESTOES.map((s) => (
                 <button key={s} type="button" className="chip" onClick={() => void perguntar(s)}>
@@ -169,6 +169,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
                 </button>
               ))}
             </div>
+            <p className="ca-vazio-nota">Nada é gravado sem a sua aprovação.</p>
           </div>
         ) : (
           sessao.mensagens.map((m) =>
@@ -201,7 +202,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
             ref={campo}
             rows={1}
             value={texto}
-            placeholder={`Pergunte sobre a ${obra?.nome ?? "obra"}…`}
+            placeholder="Pergunte sobre a obra…"
             onChange={(e) => {
               setTexto(e.target.value);
               crescer(e.target);

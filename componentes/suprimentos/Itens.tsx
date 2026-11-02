@@ -66,23 +66,33 @@ function Cobertura({ c }: { c: Conta }) {
   );
 }
 
-function Lista({ itens, abrir, pedir }: { itens: ItemInsumo[]; abrir: (i: ItemInsumo) => void; pedir: ((i: ItemInsumo) => void) | null }) {
+const aCaminho = (c: Conta) => c.a_caminho + c.cotando + c.transferencia;
+
+function Lista({ itens, abrir, pedir, semPrevisao }: { itens: ItemInsumo[]; abrir: (i: ItemInsumo) => void; pedir: ((i: ItemInsumo) => void) | null; semPrevisao: boolean }) {
+  // "A caminho" só existe onde há algo a caminho: sem nenhum, a coluna some; no celular, o campo aparece só no item que tem.
+  const semCaminho = !itens.some((i) => aCaminho(i.conta) > 0);
   return (
-    <div className="card lista almox" role="table" aria-label="Insumos da obra">
+    <div className={`card lista almox${semPrevisao ? " sem-prev" : ""}${semCaminho ? " sem-caminho" : ""}`} role="table" aria-label="Insumos da obra">
       <div className="ax-l ax-cab" role="row">
         <span role="columnheader">Insumo</span>
         <span role="columnheader" className="num">
           Tem
         </span>
-        <span role="columnheader" className="num">
-          A caminho
-        </span>
-        <span role="columnheader" className="num">
-          A obra precisa
-        </span>
-        <span role="columnheader" className="num">
-          Situação
-        </span>
+        {semCaminho ? null : (
+          <span role="columnheader" className="num">
+            A caminho
+          </span>
+        )}
+        {semPrevisao ? null : (
+          <>
+            <span role="columnheader" className="num">
+              A obra precisa
+            </span>
+            <span role="columnheader" className="num">
+              Situação
+            </span>
+          </>
+        )}
       </div>
       {itens.map((it) => {
         const c = it.conta;
@@ -103,48 +113,47 @@ function Lista({ itens, abrir, pedir }: { itens: ItemInsumo[]; abrir: (i: ItemIn
               >
                 {it.insumo.nome}
               </button>
-              <span className={`curva c${it.insumo.curva}`} title={`Curva ${it.insumo.curva}`}>
-                {it.insumo.curva}
-              </span>
               {servico ? <span className="pill ax-serv">serviço</span> : null}
               <Cobertura c={c} />
             </span>
             <span role="cell" className="num ax-n" data-rot="Tem">
               {servico ? "—" : fmtQtdUn(c.saldo, un)}
             </span>
-            <span role="cell" className="num ax-n" data-rot={servico ? "Contratado" : "A caminho"}>
-              {vem ? fmtQtdUn(vem, un) : "—"}
-              {servico && vem ? <small>contratado, a medir</small> : null}
-              {c.cotando ? <small>{fmtQtdUn(c.cotando, un)} em cotação</small> : null}
-            </span>
-            <span role="cell" className="num ax-n" data-rot="A obra precisa">
-              {c.precisa ? fmtQtdUn(c.precisa, un) : "—"}
-            </span>
-            <span role="cell" className="num ax-sit">
-              {st === "falta" ? (
-                <>
-                  <span className="pill bad">falta {fmtQtdUn(c.falta, un)}</span>
-                  {pedir ? (
-                    <button
-                      type="button"
-                      className="btn ax-pedir"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        pedir(it);
-                      }}
-                    >
-                      {servico ? "Contratar" : "Pedir"}
-                    </button>
-                  ) : null}
-                </>
-              ) : st === "coberto" ? (
-                <span className="pill ok">coberto</span>
-              ) : (
-                <span className="pill" title="Sem quantidade prevista, a conta de falta não tem com o que comparar">
-                  sem quantidade prevista
+            {semCaminho ? null : (
+              <span role="cell" className={`num ax-n${vem ? "" : " ax-nada"}`} data-rot={servico ? "Contratado" : "A caminho"}>
+                {vem ? fmtQtdUn(vem, un) : "—"}
+                {servico && vem ? <small>contratado, a medir</small> : null}
+                {c.cotando ? <small>{fmtQtdUn(c.cotando, un)} em cotação</small> : null}
+              </span>
+            )}
+            {semPrevisao ? null : (
+              <>
+                <span role="cell" className="num ax-n" data-rot="A obra precisa">
+                  {c.precisa ? fmtQtdUn(c.precisa, un) : "—"}
                 </span>
-              )}
-            </span>
+                <span role="cell" className="num ax-sit">
+                  {st === "falta" ? (
+                    <>
+                      <span className="pill bad">falta {fmtQtdUn(c.falta, un)}</span>
+                      {pedir ? (
+                        <button
+                          type="button"
+                          className="btn ax-pedir"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            pedir(it);
+                          }}
+                        >
+                          {servico ? "Contratar" : "Pedir"}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : st === "coberto" ? (
+                    <span className="pill ok">coberto</span>
+                  ) : null}
+                </span>
+              </>
+            )}
           </div>
         );
       })}
@@ -289,6 +298,9 @@ export function Itens(props: { obra: Obra; itens: ItemInsumo[]; etapas: EtapaObr
   const achados = q ? lista.filter((i) => semAcento(i.insumo.nome).includes(q)) : lista;
   const pag = usePaginas(achados, POR_PAGINA, [busca, filtro, obra.id]);
   const temServico = itens.some(ehServico);
+  // Sem nenhum item com quantidade prevista, a conta de falta não tem o que mostrar: some a coluna e o selo por linha,
+  // e uma linha só diz como ligar ao orçamento.
+  const semPrevisao = !itens.some((i) => i.conta.precisa > 0);
 
   if (!itens.length)
     return (
@@ -325,24 +337,31 @@ export function Itens(props: { obra: Obra; itens: ItemInsumo[]; etapas: EtapaObr
           </div>
         ) : null}
       </div>
-      <p className="ax-legenda">
-        <span className="mut">Falta é o que a obra ainda precisa menos o que tem e o que já está a caminho.</span>
-        <span>
-          <i className="cob-tem" /> tem
-        </span>
-        <span>
-          <i className="cob-vem" /> a caminho
-        </span>
-        <span>
-          <i className="cob-falta" /> falta
-        </span>
-      </p>
+      {semPrevisao ? (
+        <p className="mut sm ax-semprev">
+          Nenhum item tem quantidade prevista, então o Plumo ainda não calcula o que falta comprar. Importe a lista de materiais em Orçamento › Importar
+          planilha, ou informe a quantidade no cadastro do item.
+        </p>
+      ) : (
+        <p className="ax-legenda">
+          <span>
+            <i className="cob-tem" /> tem
+          </span>
+          <span>
+            <i className="cob-vem" /> a caminho
+          </span>
+          <span>
+            <i className="cob-falta" /> falta
+          </span>
+        </p>
+      )}
       {(q || filtro) && !achados.length ? <div className="card vazio sm">Nenhum item{q ? ` com «${busca.trim()}»` : ""} neste filtro.</div> : null}
       {achados.length ? (
         <Lista
           itens={pag.visiveis}
           abrir={(i) => setAberto(i.insumo.id)}
           pedir={podeOperar ? (i) => props.lancar({ tipo: "pedido", insumoId: i.insumo.id }) : null}
+          semPrevisao={semPrevisao}
         />
       ) : null}
       <Paginacao pagina={pag.pagina} total={pag.total} mudar={pag.setPagina} quantos={achados.length} porPagina={POR_PAGINA} nome="itens" />

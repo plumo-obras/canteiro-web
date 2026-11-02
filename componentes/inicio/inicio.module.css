@@ -6,8 +6,18 @@
 .denovo{background:none;border:0;padding:0;color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;min-height:24px}
 
 .grade{list-style:none;margin:0;padding:0;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
-.cartao{display:flex;flex-direction:column;gap:14px;min-width:0;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
-  border:1px solid var(--edge);border-radius:var(--r);padding:22px 24px;box-shadow:var(--hl),var(--shadow)}
+.item{min-width:0;display:flex}
+.cartao{display:flex;flex-direction:column;gap:12px;flex:1;min-width:0;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--edge);border-radius:var(--r);padding:20px 22px;box-shadow:var(--hl),var(--shadow);color:var(--ink);text-decoration:none;
+  transition:border-color .15s var(--ease),transform .12s var(--ease)}
+.cartao:active{transform:scale(.99)}
+.cartao:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (hover:hover){ .cartao:hover{border-color:var(--edgeHi,var(--line))} .cartao:hover .nome{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)} }
+.pends{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:var(--t-body);font-weight:500}
+.pends li[data-tom="pede"]{color:var(--amberInk)}
+.pends li[data-tom="falta"]{color:var(--redInk)}
+.pends li[data-tom="info"]{color:var(--blueInk)}
+.emdia{font-size:var(--t-body);color:var(--greenInk);font-weight:500}
 .topo{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:var(--t-meta);color:var(--muted)}
 .status{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--ink2)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--gray)}
@@ -16,21 +26,8 @@
 .cidade{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nome{font-size:var(--t-bloco);line-height:1.2;margin:0;overflow-wrap:anywhere}
 
-/* Números: uma caixa interna 2×2, como a caixa de estatística dos cartões. */
-.numeros{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;padding:14px 16px;border-radius:var(--ri);background:var(--sunk);border:1px solid var(--line2)}
-.num{min-width:0}
-.num dt{font-size:var(--t-meta);color:var(--muted);line-height:1.35}
-.num dd{margin:2px 0 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
-.valor{font:600 var(--t-sec)/1.35 var(--sans);color:var(--ink)}
-.extra{font-size:var(--t-meta);color:var(--ink2)}
-.num[data-tom="pede"] .valor{color:var(--amberInk)}
-.num[data-tom="falta"] .valor{color:var(--redInk)}
-.num[data-tom="info"] .valor{color:var(--blueInk)}
-.num[data-tom="zero"] .valor{color:var(--muted);font-weight:500}
-
-.rodape{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:auto}
+.rodape{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;color:var(--muted)}
 .quando{font-size:var(--t-meta);color:var(--muted)}
-.abrir{min-height:44px;padding:8px 16px}
 
 .esqueleto{gap:12px}
 .osso{display:block;height:13px;border-radius:8px;background:var(--sunk)}
@@ -43,6 +40,6 @@
   .ola{font-size:30px}
   .sub{font-size:var(--t-body)}
 
-  .cartao{padding:16px}
-  .abrir{flex:1}
+  .cartao{padding:14px 16px;gap:8px}
+  .grade{gap:10px}
 }

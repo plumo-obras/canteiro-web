@@ -180,32 +180,31 @@ export function QuadroPedidos(props: Contexto & { pedidos: Pedido[] }) {
   // O pedido aberto acompanha a lista recarregada (depois de uma entrega, o status e as quantidades mudam). Recebido
   // ou cancelado ele sai dos abertos: vale então a versão que a própria escrita devolveu (`atualizar`).
   const atual = aberto ? (pedidos.find((p) => p.id === aberto.id) ?? aberto) : null;
+  const colunas = COLUNAS.map((st) => ({ st, ps: pedidos.filter((p) => (COLUNA_DE[p.status] ?? p.status) === st) })).filter((c) => c.ps.length);
   return (
     <>
-      <div className="kb">
-        {COLUNAS.map((st) => {
-          const ps = pedidos.filter((p) => (COLUNA_DE[p.status] ?? p.status) === st);
-          return (
+      {/* Coluna vazia não aparece: "0 — Nenhum pedido." quatro vezes antes do único pedido real era ruído. */}
+      {colunas.length ? (
+        <div className="kb" style={{ "--n-col": colunas.length } as React.CSSProperties}>
+          {colunas.map(({ st, ps }) => (
             <section key={st} className="col" data-st={st} aria-labelledby={`col-${st}`}>
               <h3 id={`col-${st}`}>
                 <i className="col-dot" aria-hidden="true" />
                 {ROTULO_STATUS[st]}
                 <small>{ps.length}</small>
               </h3>
-              <div className="col-total">{ps.length ? fmtReais(ps.reduce((t, p) => t + p.valor, 0)) : "—"}</div>
-              {ps.length ? (
-                <ul>
-                  {ps.map((p) => (
-                    <CartaoPedido key={p.id} p={p} abrir={() => setAberto(p)} />
-                  ))}
-                </ul>
-              ) : (
-                <div className="vz">{st === "parcial" ? "Nenhuma entrega pela metade." : "Nenhum pedido."}</div>
-              )}
+              <div className="col-total">{fmtReais(ps.reduce((t, p) => t + p.valor, 0))}</div>
+              <ul>
+                {ps.map((p) => (
+                  <CartaoPedido key={p.id} p={p} abrir={() => setAberto(p)} />
+                ))}
+              </ul>
             </section>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mut">Nenhum pedido aberto.</p>
+      )}
       {(["conferido", "cancelado"] as const).map((st) => (
         <Encerrados key={st} status={st} ctx={ctx} abrir={setAberto} />
       ))}

@@ -29,6 +29,7 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [remover, setRemover] = useState(false);
+  const [aberto, setAberto] = useState(false);
   const cancelar = useRef<HTMLButtonElement>(null);
 
   const salvar = async (e: React.FormEvent) => {
@@ -85,19 +86,19 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
           </span>
         )}
       </p>
-      <p className={s.texto}>
-        Com uma chave própria, o Plumo usa a sua conta da Anthropic e não desconta créditos. A cobrança vem da Anthropic
-        direto para você.
-      </p>
-      <div className={s.aviso} role="note">
-        <Icone nome="info" tam={15} />
-        <span>
-          Precisa ser uma <b>chave de API de uma organização</b> no Console da Anthropic (console.anthropic.com, começa com{" "}
-          <code>sk-ant-</code>). A assinatura Pro ou Max do Claude não serve.
-        </span>
-      </div>
-
-      {podeTrocar ? (
+      {/* Estado + um botão; o formulário só aparece quando a pessoa vai conectar ou trocar. */}
+      {podeTrocar && !aberto ? (
+        <div className={s.acoesChave}>
+          <button type="button" className="btn" onClick={() => setAberto(true)}>
+            {ativa ? "Trocar chave" : "Conectar chave"}
+          </button>
+          {ativa ? (
+            <button type="button" className={`btn ${s.remover}`} onClick={() => setRemover(true)} disabled={ocupado}>
+              Remover chave
+            </button>
+          ) : null}
+        </div>
+      ) : podeTrocar ? (
         <form className={s.form} onSubmit={salvar} noValidate>
           <label className={s.rotulo} htmlFor="chave-anthropic">
             {ativa ? "Trocar por outra chave" : "Colar a chave"}
@@ -137,11 +138,17 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
               A chave é guardada cifrada e nunca mais aparece na tela, nem para você.
             </div>
           )}
-          {ativa ? (
-            <button type="button" className={`btn ${s.remover}`} onClick={() => setRemover(true)} disabled={ocupado}>
-              Remover chave
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              setAberto(false);
+              setValor("");
+              setErro(null);
+            }}
+          >
+            Cancelar
+          </button>
         </form>
       ) : (
         <p className={s.so}>
@@ -149,6 +156,17 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
           Só quem tem o papel master conecta, troca ou remove a chave.
         </p>
       )}
+
+      <details className={s.como}>
+        <summary>Como conseguir a chave</summary>
+        <p className={s.texto}>
+          Com uma chave própria, o Plumo usa a sua conta da Anthropic e não desconta créditos; a cobrança vem da Anthropic direto para você.
+        </p>
+        <p className={s.texto}>
+          Precisa ser uma <b>chave de API de uma organização</b> no Console da Anthropic (console.anthropic.com, começa com <code>sk-ant-</code>). A
+          assinatura Pro ou Max do Claude não serve.
+        </p>
+      </details>
 
       {remover ? (
         <Modal

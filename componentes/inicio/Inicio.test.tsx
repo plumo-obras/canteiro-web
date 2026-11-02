@@ -37,12 +37,17 @@ describe("Inicio", () => {
     const cartoes = await screen.findAllByRole("listitem");
     // em andamento primeiro
     expect(cartoes[0]!.textContent).toContain("Casa Vila Nova");
-    expect(cartoes[0]!.textContent).toContain("R$ 29.800,00");
-    expect(cartoes[0]!.textContent).toContain("1 insumo");
-    const abrir = screen.getAllByRole("link", { name: "Abrir obra" });
+    expect(cartoes[0]!.textContent).toContain("3 pedidos a receber · R$ 29.800,00");
+    expect(cartoes[0]!.textContent).toContain("1 insumo a comprar");
+    // o cartão inteiro é o link; sem botão "Abrir obra"
+    expect(screen.queryByRole("link", { name: "Abrir obra" })).toBeNull();
+    const abrir = screen.getAllByRole("link").filter((l) => l.getAttribute("href")?.startsWith("/?obra="));
     expect(abrir[0]!.getAttribute("href")).toBe("/?obra=a&sessao=s1");
     expect(abrir[1]!.getAttribute("href")).toBe("/?obra=b");
-    expect(screen.getByText(/2 aprovações esperando você/)).toBeTruthy();
-    expect(cartoes[1]!.textContent).toContain("Sem atividade ainda");
+    expect(screen.getAllByText(/2 aprovações esperando você/).length).toBeGreaterThan(0);
+    // sem pendência nenhuma: uma linha só, nada de "nenhuma/nada"
+    expect(cartoes.at(-1)!.textContent).toContain("Tudo em dia");
+    expect(cartoes.at(-1)!.textContent).not.toMatch(/nenhum|nada/);
+    expect(cartoes.at(-1)!.textContent).toContain("Sem atividade ainda");
   });
 });

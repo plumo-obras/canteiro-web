@@ -29,6 +29,9 @@ describe("chave própria da Anthropic", () => {
   it("master conecta com campo de senha; o campo esvazia depois de enviar", async () => {
     const rede = criarRede({ "PUT /srv/api/conta/chave-anthropic": () => json({ chave_propria: true, final: "mnop" }) });
     const mudou = montar();
+    // estado + botão: o campo só aparece depois de "Conectar chave"
+    expect(screen.queryByLabelText("Colar a chave")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Conectar chave" }));
     const campo = screen.getByLabelText("Colar a chave") as HTMLInputElement;
     expect(campo.type).toBe("password");
     await userEvent.type(campo, "sk-ant-api03-abcdefghijklmnop");

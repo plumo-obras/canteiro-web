@@ -388,7 +388,8 @@ function App({ usuario }: { usuario: Usuario }) {
         ) : null}
         <div className="painel-lista">
           {sessoes
-            .filter((s) => s.obraId === obra?.id)
+            // A conversa nova e vazia já é o botão "Nova conversa" acima: não entra na lista duas vezes.
+            .filter((s) => s.obraId === obra?.id && !(s.carregada && s.mensagens.length === 0))
             .map((s) => (
               <button
                 key={s.id}
@@ -571,7 +572,14 @@ function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; troca
   }, [aberto]);
   return (
     <div className="seletor" ref={caixa} onKeyDown={tecla}>
-      <button type="button" className="seletor-bt" aria-haspopup="menu" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
+      <button
+        type="button"
+        className="seletor-bt"
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        title={`${obra.nome} · ${TXT_STATUS[obra.status]}`}
+        onClick={() => setAberto((a) => !a)}
+      >
         <span className="dot" style={{ background: COR_STATUS[obra.status] }} aria-hidden="true" />
         <span className="seletor-t">
           <span className="seletor-nome">{obra.nome}</span>

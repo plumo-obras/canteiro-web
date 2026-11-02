@@ -37,7 +37,11 @@ function rotuloDia(iso: string) {
   return d === hoje ? "Hoje" : d === ontem ? "Ontem" : fDia.format(new Date(iso));
 }
 
-function Linha({ r }: { r: EntradaRegistro }) {
+/** Autor só quando muda em relação à linha anterior, ou quando é o agente (aí sempre importa saber). */
+export const mostrarAutor = (r: EntradaRegistro, anterior: EntradaRegistro | undefined) =>
+  r.origem === "agente" || !anterior || (anterior.quem_nome ?? anterior.quem) !== (r.quem_nome ?? r.quem) || anterior.origem !== r.origem;
+
+function Linha({ r, autor }: { r: EntradaRegistro; autor: boolean }) {
   const { podeOperar, mudou, avisar } = useCasca();
   const [confirmando, setConfirmando] = useState(false);
   // Desfazer pelo Histórico pede confirmação com o texto da entrada, como no Orçamento: um clique desfazia um
@@ -53,15 +57,16 @@ function Linha({ r }: { r: EntradaRegistro }) {
       <span className="hist-h">{fmtHora(r.criado_em)}</span>
       <div className="hist-t">
         <div>{legivel(r.texto)}</div>
-        <div className="mut sm">
-          {r.quem_nome ?? r.quem}
-          {ORIGEM[r.origem] ? ` · ${ORIGEM[r.origem]}` : ""}
-          {r.desfeito ? " · desfeito" : ""}
-        </div>
+        {autor || r.desfeito ? (
+          <div className="mut sm">
+            {autor ? `${r.quem_nome ?? r.quem}${ORIGEM[r.origem] ? ` · ${ORIGEM[r.origem]}` : ""}` : ""}
+            {r.desfeito ? `${autor ? " · " : ""}desfeito` : ""}
+          </div>
+        ) : null}
       </div>
       {podeOperar && r.desfazer && !r.desfeito ? (
-        <button type="button" className="btn hist-b" onClick={() => setConfirmando(true)} aria-label={`Desfazer: ${r.texto}`}>
-          <Icone nome="undo" tam={14} />
+        <button type="button" className="link hist-desf" onClick={() => setConfirmando(true)} aria-label={`Desfazer: ${r.texto}`}>
+          <Icone nome="undo" tam={13} />
           Desfazer
         </button>
       ) : null}
@@ -99,17 +104,7 @@ export function Historico({ obra }: { obra: Obra }) {
 
   return (
     <div className="page">
-      <CabecalhoPagina
-        titulo="Histórico"
-        kpis={
-          dado
-            ? [
-                { icone: "history", n: dado.filter((r) => rotuloDia(r.criado_em) === "Hoje").length, r: "registros hoje" },
-                { icone: "undo", n: dado.filter((r) => r.desfazer && !r.desfeito).length, r: "ainda dá para desfazer" },
-              ]
-            : []
-        }
-      />
+      <CabecalhoPagina titulo="Histórico" />
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -132,8 +127,8 @@ export function Historico({ obra }: { obra: Obra }) {
           <section key={dia} className="hist-dia" aria-label={dia}>
             <h3 className="sectit">{dia}</h3>
             <ul className="card lista hist">
-              {rs.map((r) => (
-                <Linha key={r.id} r={r} />
+              {rs.map((r, i) => (
+                <Linha key={r.id} r={r} autor={mostrarAutor(r, rs[i - 1])} />
               ))}
             </ul>
           </section>

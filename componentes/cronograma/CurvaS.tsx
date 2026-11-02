@@ -7,7 +7,7 @@ import { fmtMes, fmtPct } from "@/lib/cronograma";
 
 const L = 720;
 const A = 240;
-const M = { e: 44, d: 16, t: 14, b: 30 };
+const M = { e: 64, d: 22, t: 14, b: 32 };
 
 export function CurvaS({ mensal, comBase = false }: { mensal: MesCronograma[]; comBase?: boolean }) {
   if (!mensal.length) return null;
@@ -36,14 +36,14 @@ export function CurvaS({ mensal, comBase = false }: { mensal: MesCronograma[]; c
         {[0, 2500, 5000, 7500, 10000].map((c) => (
           <g key={c}>
             <line className="cs-grade" x1={M.e} x2={L - M.d} y1={y(c)} y2={y(c)} />
-            <text className="cs-rot" x={M.e - 8} y={y(c) + 4} textAnchor="end">
+            <text className={`cs-rot${c % 5000 ? " cs-sec" : ""}`} x={M.e - 8} y={y(c) + 4} textAnchor="end">
               {c / 100}%
             </text>
           </g>
         ))}
         {mensal.map((m, i) =>
           i % k === 0 || i === n - 1 ? (
-            <text key={m.mes} className="cs-rot" x={x(i)} y={A - 10} textAnchor="middle">
+            <text key={m.mes} className={`cs-rot${i % (k * 3) ? " cs-sec" : ""}`} x={x(i)} y={A - 10} textAnchor="middle">
               {fmtMes(m.mes)}
             </text>
           ) : null,
@@ -65,7 +65,6 @@ export function CurvaS({ mensal, comBase = false }: { mensal: MesCronograma[]; c
             <i className="cs-base" /> cronograma original
           </span>
         ) : null}
-        <span className="mut">{desc}</span>
       </figcaption>
     </figure>
   );

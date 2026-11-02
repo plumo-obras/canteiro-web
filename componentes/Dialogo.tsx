@@ -49,13 +49,15 @@ export function Modal(props: {
   focoInicial?: React.RefObject<HTMLElement | null>;
   /** Caixa larga, para tabela (a prévia da planilha). */
   largo?: boolean;
+  /** Classe extra na caixa (ex.: "medicao", que no celular vira tela cheia). */
+  classe?: string;
 }) {
   const caixa = useRef<HTMLDivElement>(null);
   const id = useId();
   useFocoPreso(caixa, props.fechar, props.focoInicial);
   return createPortal(
     <div className="modal">
-      <div ref={caixa} className={`box${props.largo ? " largo" : ""}`} role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1}>
+      <div ref={caixa} className={`box${props.largo ? " largo" : ""}${props.classe ? ` ${props.classe}` : ""}`} role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1}>
         <button type="button" className="iconbtn dlg-x" aria-label="Fechar" onClick={props.fechar}>
           <Icone nome="x" tam={18} />
         </button>

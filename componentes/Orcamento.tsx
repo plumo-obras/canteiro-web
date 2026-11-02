@@ -17,7 +17,8 @@ import { ImportarOrcamento } from "./obra/ImportarOrcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { MARGEM_CENTAVOS, tagVerba } from "./obra/verba";
 import { CabecalhoPagina, type Kpi } from "./CabecalhoPagina";
-import { AndamentoEtapas, BlocoAditivos, NotaAndamento } from "./orcamento/Andamento";
+import { AndamentoEtapas, BlocoAditivos } from "./orcamento/Andamento";
+import { Ajuda } from "./Ajuda";
 import { PADROES, REGIMES, TIPOLOGIAS, pctParaCampo } from "./obra/CamposObra";
 
 type ItemComCurva = DadosOrcamento["itens"][number];
@@ -106,23 +107,20 @@ export function Orcamento({ obra }: { obra: Obra }) {
         }
       />
 
-      <section className="card orc-obra" aria-label="Dados da obra">
-        <div>
-          <div className="orc-obra-n">{obra.nome}</div>
-          <div className="mut sm">{resumo.length ? resumo.join(" · ") : "Sem os dados da obra ainda."}</div>
-          {faltaDado ? (
-            <div className="campo-dica alerta">
-              Falta {!obra.area_construida && !obra.padrao ? "a área e o padrão" : !obra.area_construida ? "a área" : "o padrão"}: eles dão a régua de preço por
-              m² para conferir o orçamento.
-            </div>
-          ) : null}
-        </div>
+      <p className="orc-dados" aria-label="Dados da obra">
+        <span className="mut">{resumo.length ? resumo.join(" · ") : "Sem os dados da obra ainda."}</span>
+        {faltaDado ? (
+          <Ajuda rotulo="a área e o padrão">
+            Falta {!obra.area_construida && !obra.padrao ? "a área e o padrão" : !obra.area_construida ? "a área" : "o padrão"}: eles dão a régua de preço por m² para
+            conferir o orçamento.
+          </Ajuda>
+        ) : null}
         {podeOperar ? (
-          <button type="button" className="btn" onClick={() => setModal("dados")}>
+          <button type="button" className="link" onClick={() => setModal("dados")}>
             Editar dados
           </button>
         ) : null}
-      </section>
+      </p>
 
       {orc.erro ? (
         <div className="aviso-erro" role="alert">
@@ -163,7 +161,6 @@ export function Orcamento({ obra }: { obra: Obra }) {
               Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
             </p>
           ) : null}
-          <NotaAndamento />
           <AndamentoEtapas obra={obra} orc={dado} />
           <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
           <Versoes versoes={dado.versoes} atual={dado.totais.atual} />
@@ -202,27 +199,42 @@ export function Orcamento({ obra }: { obra: Obra }) {
 function kpisDoOrcamento(t: DadosOrcamento["totais"], obra: Obra): Kpi[] {
   const pctDo = (v: number) => (t.atual ? `${((v / t.atual) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "");
   const verba = tagVerba(t.atual, obra.verba);
-  // Contra o valor do contrato a frase parte do orçado (é o que mexe): "R$ Y (Z%) acima do valor do contrato".
-  const dif = t.atual - obra.verba;
-  const contraContrato =
-    obra.verba && Math.abs(dif) >= MARGEM_CENTAVOS
-      ? ` · ${fmtReais(Math.abs(dif))} (${((Math.abs(dif) / obra.verba) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%) ${dif > 0 ? "acima" : "abaixo"} do valor do contrato`
-      : "";
   const saldo = t.atual - t.comprometido;
+  // Uma frase curta ("3% acima do contrato (aditivo +R$ 59.831,80)"); a conta inteira fica no "?".
+  const frase = [verba && verba.texto !== "bate com o contrato" ? verba.texto : null, t.aditivos ? `(aditivo ${comSinal(t.aditivos)})` : null].filter(Boolean).join(" ");
   return [
     {
       icone: "planilha",
       n: fmtReais(t.atual),
-      r: `orçado atual${t.aditivos ? ` · contrato ${fmtReais(t.contratado)} ${comSinal(t.aditivos)} em aditivos` : ""}${contraContrato}`,
-      tag: verba?.texto,
-      tom: verba?.tom,
+      r: (
+        <>
+          orçado atual{frase ? ` · ${frase}` : ""}
+          <Ajuda rotulo="o orçado atual">
+            Contrato {fmtReais(t.contratado)}
+            {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
+            {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}.` : ""}
+          </Ajuda>
+        </>
+      ),
     },
     {
       icone: "cart",
       n: fmtReais(t.comprometido),
       r: `comprometido${t.comprometido ? ` · ${pctDo(t.comprometido)}` : ""}${t.cotando ? ` · ${fmtReais(t.cotando)} em cotação` : ""}`,
     },
-    { icone: "checkCircle", n: fmtReais(t.realizado), r: "realizado (compras e serviços recebidos)" },
+    {
+      icone: "checkCircle",
+      n: fmtReais(t.realizado),
+      r: (
+        <>
+          realizado
+          <Ajuda rotulo="o realizado">
+            Compras e serviços recebidos, pelo preço do pedido. O orçado é preço de contrato (com BDI e mão de obra), então o realizado de uma etapa não é o %
+            executado dela: a medição física fica no Cronograma.
+          </Ajuda>
+        </>
+      ),
+    },
     { icone: "calc", n: fmtReais(saldo), r: "saldo a comprometer", ...(saldo < 0 ? { tag: "estourou", tom: "acima" as const } : {}) },
   ];
 }
@@ -251,35 +263,47 @@ function Versoes({ versoes, atual }: { versoes: VersaoOrcamento[]; atual: number
     avisarFeito(`${nomeVersao(v)} desfeito.`, null);
   };
 
+  const vigentes = versoes.filter((v) => v.ativa);
+  const antigas = versoes.filter((v) => !v.ativa);
+  const linha = (v: VersaoOrcamento) => {
+          const st = situacao(v);
+    return (
+      <li key={v.id} className={`orc-v${v.ativa ? "" : " desfeito"}`}>
+        <div className="orc-v-t">
+          <div>
+            <b>{nomeVersao(v)}</b>
+            {v.descricao ? <span>: {v.descricao}</span> : null}
+            <span className={`pill ${st === "vigente" ? "st-ok" : "st-orc"}`}>{st}</span>
+          </div>
+          <div className="mut sm">
+            {[fmtData(v.data), plural(v.itens, "item", "itens"), plural(v.etapas, "etapa", "etapas"), v.arquivo].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+        <span className="num orc-v-n">{v.tipo === "aditivo" ? comSinal(v.total) : fmtReais(v.total)}</span>
+        {podeOperar && v.ativa && v.registro_id ? (
+          <button type="button" className="btn hist-b" onClick={() => setConfirmando(v)} aria-label={`Desfazer ${nomeVersao(v)}`}>
+            <Icone nome="undo" tam={14} />
+            Desfazer
+          </button>
+        ) : null}
+      </li>
+    );
+  };
+
   return (
     <section aria-label="Versões do orçamento">
       <h3 className="sectit">Versões</h3>
-      <ul className="card lista orc-versoes">
-        {versoes.map((v) => {
-          const st = situacao(v);
-          return (
-            <li key={v.id} className={`orc-v${v.ativa ? "" : " desfeito"}`}>
-              <div className="orc-v-t">
-                <div>
-                  <b>{nomeVersao(v)}</b>
-                  {v.descricao ? <span>: {v.descricao}</span> : null}
-                  <span className={`pill ${st === "vigente" ? "st-ok" : "st-orc"}`}>{st}</span>
-                </div>
-                <div className="mut sm">
-                  {[fmtData(v.data), plural(v.itens, "item", "itens"), plural(v.etapas, "etapa", "etapas"), v.arquivo].filter(Boolean).join(" · ")}
-                </div>
-              </div>
-              <span className="num orc-v-n">{v.tipo === "aditivo" ? comSinal(v.total) : fmtReais(v.total)}</span>
-              {podeOperar && v.ativa && v.registro_id ? (
-                <button type="button" className="btn hist-b" onClick={() => setConfirmando(v)} aria-label={`Desfazer ${nomeVersao(v)}`}>
-                  <Icone nome="undo" tam={14} />
-                  Desfazer
-                </button>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+      <ul className="card lista orc-versoes">{vigentes.map(linha)}</ul>
+      {/* desfeitas e substituídas só servem para conferir: recolhidas, para a lista mostrar o que vale hoje */}
+      {antigas.length ? (
+        <details className="cobertos">
+          <summary>
+            <Icone nome="chevRight" tam={14} />
+            Ver versões desfeitas ({antigas.length})
+          </summary>
+          <ul className="card lista orc-versoes">{antigas.map(linha)}</ul>
+        </details>
+      ) : null}
       {confirmando ? (
         <Confirmar titulo={`Desfazer o ${nomeVersao(confirmando).toLowerCase()}?`} confirmar="Desfazer" fechar={() => setConfirmando(null)} aoConfirmar={() => desfazer(confirmando)}>
           <p style={{ margin: "4px 0 0" }}>{consequencia(confirmando)}</p>

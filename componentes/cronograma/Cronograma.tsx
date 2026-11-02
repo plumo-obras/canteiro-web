@@ -15,8 +15,10 @@ import { useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
+import { MenuMais } from "../MenuMais";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
+import { Gantt } from "./Gantt";
 import { EditorCronograma } from "./Editor";
 import { ListaMedicoes, ModalMedicao } from "./Medicao";
 
@@ -64,6 +66,38 @@ export function kpisDoCronograma(c: DadosCronograma): Kpi[] {
   return ks;
 }
 
+/**
+ * O topo numa linha: "Termina set/2027 · em dia · 7,65% medido". O projetado só aparece quando difere do contratual,
+ * e o atraso contra o cronograma original só depois de reprogramar.
+ */
+export function textoPrazo(c: DadosCronograma): { termina: string; contrato: string | null; sit: { texto: string; tom: string } | null; medido: string | null; base: string | null } {
+  const p = c.prazo;
+  const sit = situacaoPrazo(p);
+  const projetado = sit && p.termino_projetado && p.termino_projetado !== p.termino_contratual;
+  const sb = c.revisoes && p.termino_base ? situacaoAtraso(p.atraso_base_decimos, p.atraso_base_meses) : null;
+  return {
+    termina: fmtMesLongo(projetado ? p.termino_projetado : p.termino_contratual),
+    contrato: projetado ? fmtMesLongo(p.termino_contratual) : null,
+    sit,
+    medido: p.pct_medido !== null ? `${fmtPct(p.pct_medido)} medido` : null,
+    base: sb && sb.texto !== "em dia" ? `${sb.texto} contra o original` : null,
+  };
+}
+
+function ResumoPrazo({ c }: { c: DadosCronograma }) {
+  const t = textoPrazo(c);
+  return (
+    <p className="crono-resumo">
+      Termina <b>{t.termina}</b>
+      {t.contrato ? <span className="mut"> (contrato {t.contrato})</span> : null}
+      {" · "}
+      {t.sit ? <span className={`crono-sit t-${t.sit.tom}`}>{t.sit.texto}</span> : <span className="mut">sem medição ainda</span>}
+      {t.medido ? ` · ${t.medido}` : ""}
+      {t.base ? <span className="crono-sit t-acima"> · {t.base}</span> : null}
+    </p>
+  );
+}
+
 export function Cronograma({ obra }: { obra: Obra }) {
   const { versao, podeOperar } = useCasca();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
@@ -76,7 +110,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Cronograma"
-        kpis={tem && !editando ? kpisDoCronograma(dado) : []}
+        sub={tem && !editando ? <ResumoPrazo c={dado} /> : undefined}
         acoes={
           podeOperar && tem && !editando ? (
             <>
@@ -84,12 +118,13 @@ export function Cronograma({ obra }: { obra: Obra }) {
                 <Icone nome="plus" tam={15} />
                 Nova medição
               </button>
-              <button type="button" className="btn" onClick={() => setModo({ k: "editar" })}>
-                Editar cronograma
-              </button>
-              <button type="button" className="btn" onClick={() => setModal("prazo")}>
-                Aditivo de prazo
-              </button>
+              <MenuMais
+                rotulo="Mais ações do cronograma"
+                itens={[
+                  { rotulo: "Editar cronograma", acao: () => setModo({ k: "editar" }) },
+                  { rotulo: "Aditivo de prazo", acao: () => setModal("prazo") },
+                ]}
+              />
             </>
           ) : null
         }
@@ -127,7 +162,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
       ) : (
         <>
           <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
-          <GradeLeitura crono={dado} />
+          <Gantt crono={dado} />
           <h3 className="sectit">Medições</h3>
           <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
         </>
@@ -145,106 +180,6 @@ export function Cronograma({ obra }: { obra: Obra }) {
         />
       ) : null}
     </div>
-  );
-}
-
-/** A grade em leitura: % de cada etapa por mês (vazio = 0), o medido acumulado da etapa e os totais do mês. */
-function GradeLeitura({ crono }: { crono: DadosCronograma }) {
-  const meses = listaMeses(crono.inicio!, crono.meses);
-  const ref = crono.prazo.mes_referencia;
-  const etapas = crono.etapas.filter((e) => e.percentuais.some(Boolean) || e.medido_acumulado);
-  const fora = crono.etapas.length - etapas.length;
-  return (
-    <section aria-labelledby="crono-grade">
-      <h3 className="sectit" id="crono-grade">
-        Físico-financeiro
-      </h3>
-      <div className="tbl-rola crono-rola">
-        <table className="tbl-crono leitura">
-          <thead>
-            <tr>
-              <th scope="col" className="crono-et">
-                Etapa
-              </th>
-              <th scope="col" className="num">
-                Medido
-              </th>
-              {meses.map((m) => (
-                <th key={m} scope="col" className={`num${ref && m <= ref ? " crono-passado" : ""}`}>
-                  {fmtMes(m)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {etapas.map((e) => (
-              <tr key={e.etapa}>
-                <th scope="row" className="crono-et">
-                  <span className="eap-num">{e.etapa}</span> {e.descricao}
-                  <small className="mut">{fmtReais(e.atual)}</small>
-                </th>
-                <td className="num crono-med">{e.medido_acumulado ? fmtPct(e.medido_acumulado) : "—"}</td>
-                {meses.map((m, i) => {
-                  const p = e.percentuais[i] ?? 0;
-                  return (
-                    <td key={m} className={`num${p ? " crono-tem" : ""}${ref && m <= ref ? " crono-passado" : ""}`}>
-                      {p ? (p / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : ""}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row" className="crono-et">
-                Previsto no mês
-              </th>
-              <td />
-              {crono.mensal.map((m) => (
-                <td key={m.mes} className="num">
-                  {m.previsto ? fmtReais(m.previsto) : "—"}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <th scope="row" className="crono-et">
-                Previsto acumulado
-              </th>
-              <td />
-              {crono.mensal.map((m) => (
-                <td key={m.mes} className="num">
-                  {fmtPct(m.pct_previsto_acumulado)}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <th scope="row" className="crono-et">
-                Medido no mês
-              </th>
-              <td />
-              {crono.mensal.map((m) => (
-                <td key={m.mes} className="num">
-                  {m.medido === null ? "" : fmtReais(m.medido)}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <th scope="row" className="crono-et">
-                Medido acumulado
-              </th>
-              <td />
-              {crono.mensal.map((m) => (
-                <td key={m.mes} className={`num${m.pct_medido_acumulado !== null && m.pct_medido_acumulado < m.pct_previsto_acumulado ? " t-neg" : ""}`}>
-                  {m.pct_medido_acumulado === null ? "" : fmtPct(m.pct_medido_acumulado)}
-                </td>
-              ))}
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      {fora ? <p className="mut sm">{fora === 1 ? "1 etapa do orçamento está" : `${fora} etapas do orçamento estão`} fora do cronograma (sem % em nenhum mês).</p> : null}
-    </section>
   );
 }
 

@@ -63,10 +63,8 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
         <div>
           <h1 className={s.ola}>Olá, {primeiroNome(usuario.nome)}</h1>
           <p className={s.sub}>
-            Gerencie suas obras
             {resumos?.length ? (
               <>
-                {" · "}
                 {plural(resumos.length, "obra", "obras")}
                 {esperando ? (
                   <>
@@ -164,55 +162,48 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
   );
 }
 
-function CartaoObra({ r, href }: { r: ResumoObra; href: string }) {
-  const { obra } = r;
-  const titulo = `titulo-${obra.id}`;
-  return (
-    <li className={s.cartao}>
-      <div className={s.topo}>
-        <span className={s.status} data-st={obra.status}>
-          <span className={s.dot} aria-hidden="true" />
-          {TXT_STATUS[obra.status]}
-        </span>
-        <span className={s.cidade}>{obra.cidade}</span>
-      </div>
-      <h2 className={s.nome} id={titulo}>
-        {obra.nome}
-      </h2>
-      <dl className={s.numeros}>
-        <Numero rotulo="Aprovações pendentes" valor={r.pendencias} tom="pede" texto={String(r.pendencias)} zero="nenhuma" />
-        <Numero rotulo="Falta comprar" valor={r.falta_comprar} tom="falta" texto={plural(r.falta_comprar, "insumo", "insumos")} zero="nada" />
-        <Numero
-          rotulo="Pedidos abertos"
-          valor={r.pedidos_abertos}
-          tom="info"
-          texto={String(r.pedidos_abertos)}
-          zero="nenhum"
-          extra={r.pedidos_abertos ? fmtReais(r.valor_pedidos_abertos) : undefined}
-        />
-        <Numero rotulo="NF para conferir" valor={r.nf_para_conferir} tom="pede" texto={String(r.nf_para_conferir)} zero="nenhuma" />
-      </dl>
-      <div className={s.rodape}>
-        <span className={s.quando}>{r.ultima_atividade ? `Última atividade ${haQuanto(r.ultima_atividade)}` : "Sem atividade ainda"}</span>
-        <Link href={href} className={`btn amb ${s.abrir}`} aria-describedby={titulo}>
-          Abrir obra
-          <Icone nome="chevRight" tam={15} />
-        </Link>
-      </div>
-    </li>
-  );
+/** Só o que pede ação, em frases curtas; zero não aparece. Sem nada pendente, "Tudo em dia". */
+export function pendenciasDe(r: ResumoObra): { texto: string; tom: "pede" | "falta" | "info" }[] {
+  const ps: { texto: string; tom: "pede" | "falta" | "info" }[] = [];
+  if (r.pendencias) ps.push({ texto: plural(r.pendencias, "aprovação esperando você", "aprovações esperando você"), tom: "pede" });
+  if (r.nf_para_conferir) ps.push({ texto: plural(r.nf_para_conferir, "NF para conferir", "NFs para conferir"), tom: "pede" });
+  if (r.falta_comprar) ps.push({ texto: `${plural(r.falta_comprar, "insumo", "insumos")} a comprar`, tom: "falta" });
+  if (r.pedidos_abertos)
+    ps.push({ texto: `${plural(r.pedidos_abertos, "pedido a receber", "pedidos a receber")} · ${fmtReais(r.valor_pedidos_abertos)}`, tom: "info" });
+  return ps;
 }
 
-/** Zero fica apagado: o olho vai direto para o que pede ação. */
-function Numero(p: { rotulo: string; valor: number; texto: string; zero: string; tom: "pede" | "falta" | "info"; extra?: string }) {
-  const { rotulo, valor, texto, zero, tom, extra } = p;
+/** O cartão inteiro é o link para a obra: um alvo grande, sem botão disputando a atenção. */
+function CartaoObra({ r, href }: { r: ResumoObra; href: string }) {
+  const { obra } = r;
+  const ps = pendenciasDe(r);
   return (
-    <div className={s.num} data-tom={valor ? tom : "zero"}>
-      <dt>{rotulo}</dt>
-      <dd>
-        <span className={s.valor}>{valor ? texto : zero}</span>
-        {extra ? <span className={s.extra}>{extra}</span> : null}
-      </dd>
-    </div>
+    <li className={s.item}>
+      <Link href={href} className={s.cartao}>
+        <span className={s.topo}>
+          <span className={s.status} data-st={obra.status}>
+            <span className={s.dot} aria-hidden="true" />
+            {TXT_STATUS[obra.status]}
+          </span>
+          {obra.cidade ? <span className={s.cidade}>{obra.cidade}</span> : null}
+        </span>
+        <h2 className={s.nome}>{obra.nome}</h2>
+        {ps.length ? (
+          <ul className={s.pends}>
+            {ps.map((p) => (
+              <li key={p.texto} data-tom={p.tom}>
+                {p.texto}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className={s.emdia}>Tudo em dia</span>
+        )}
+        <span className={s.rodape}>
+          <span className={s.quando}>{r.ultima_atividade ? `Última atividade ${haQuanto(r.ultima_atividade)}` : "Sem atividade ainda"}</span>
+          <Icone nome="chevRight" tam={16} />
+        </span>
+      </Link>
+    </li>
   );
 }
