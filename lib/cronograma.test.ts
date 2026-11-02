@@ -77,3 +77,35 @@ describe("situação da etapa no Gantt", () => {
     expect(fmtReaisCurto(124_000_000)).toBe("1,24 mi");
   });
 });
+
+import { colarBloco, textoSoma } from "./cronograma";
+describe("editor do cronograma", () => {
+  it("colar bloco do Excel a partir da célula focada", () => {
+    const g = [
+      ["", "", ""],
+      ["", "", ""],
+      ["", "", ""],
+    ];
+    expect(colarBloco(g, 1, 1, "40\t60%\n 25 \t75\n99\t99\n")).toEqual([
+      ["", "", ""],
+      ["", "40", "60"],
+      ["", "25", "75"],
+    ]);
+    expect(colarBloco(g, 0, 2, "10\t20")).toEqual([["", "", "10"], ["", "", ""], ["", "", ""]]);
+  });
+  it("soma da linha", () => {
+    expect(textoSoma(10000)).toEqual({ texto: "100%", ok: true });
+    expect(textoSoma(8500)).toEqual({ texto: "85% · faltam 15", ok: false });
+    expect(textoSoma(11000).texto).toBe("110% · sobram 10");
+    expect(textoSoma(0).ok).toBe(true);
+  });
+});
+
+import { valoresMes } from "./cronograma";
+describe("R$ por mês pelo acumulado (como a API)", () => {
+  it("fecha no orçado da etapa", () => {
+    expect(valoresMes(10001, [3333, 3333, 3333, 1])).toEqual([3333, 3334, 3333, 1]);
+    const vs = valoresMes(9_550_346, [500, 2500, 4000, 3000]);
+    expect(vs.reduce((a, b) => a + b, 0)).toBe(9_550_346);
+  });
+});

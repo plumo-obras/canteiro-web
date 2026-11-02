@@ -10,15 +10,15 @@ import type { Cronograma as DadosCronograma, Obra, PrazoCronograma } from "@/lib
 import { api } from "@/lib/cliente";
 import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
-import { CabecalhoPagina, type Kpi } from "../CabecalhoPagina";
+import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
 import { useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
-import { MenuMais } from "../MenuMais";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
 import { Gantt } from "./Gantt";
+import { TabelaFisicoFinanceira } from "./Tabela";
 import { EditorCronograma } from "./Editor";
 import { ListaMedicoes, ModalMedicao } from "./Medicao";
 
@@ -36,35 +36,6 @@ export function situacaoAtraso(decimos: number | null | undefined, meses: number
 
 export const situacaoPrazo = (p: PrazoCronograma) => situacaoAtraso(p.atraso_decimos, p.atraso_meses);
 
-export function kpisDoCronograma(c: DadosCronograma): Kpi[] {
-  const p = c.prazo;
-  const sit = situacaoPrazo(p);
-  const ks: Kpi[] = [
-    { icone: "calendario", n: fmtMesLongo(p.termino_contratual), r: `término contratual · ${c.meses} meses desde ${fmtMesLongo(c.inicio)}` },
-    sit
-      ? { icone: "history", n: fmtMesLongo(p.termino_projetado), r: `término projetado pela última medição${c.revisoes ? " · contra o cronograma atual" : ""}`, tag: sit.texto, tom: sit.tom }
-      : { icone: "history", n: "—", r: "término projetado · sai na 1ª medição" },
-    p.pct_medido !== null
-      ? {
-          icone: "checkCircle",
-          n: fmtPct(p.pct_medido),
-          r: `medido × ${fmtPct(p.pct_previsto_na_medicao ?? 0)} previsto em ${fmtMes(p.mes_referencia)}`,
-          ...((p.pct_medido ?? 0) < (p.pct_previsto_na_medicao ?? 0) ? { tag: "abaixo do previsto", tom: "atencao" as const } : {}),
-        }
-      : { icone: "checkCircle", n: "—", r: "medido × previsto · sem medição ainda" },
-  ];
-  // Depois de reprogramar, o atraso do cronograma atual zera; o do original é o que o diretor precisa ver.
-  if (c.revisoes && p.termino_base) {
-    const sb = situacaoAtraso(p.atraso_base_decimos, p.atraso_base_meses);
-    ks.push({
-      icone: "alert",
-      n: fmtMesLongo(p.termino_base),
-      r: `contra o cronograma original (${c.revisoes} ${c.revisoes === 1 ? "reprogramação" : "reprogramações"})`,
-      ...(sb ? { tag: sb.texto, tom: sb.tom } : {}),
-    });
-  }
-  return ks;
-}
 
 /**
  * O topo numa linha: "Termina set/2027 · em dia · 7,65% medido". O projetado só aparece quando difere do contratual,
@@ -84,18 +55,19 @@ export function textoPrazo(c: DadosCronograma): { termina: string; contrato: str
   };
 }
 
-function ResumoPrazo({ c }: { c: DadosCronograma }) {
+/** O prazo na faixa do cabeçalho: o término (com a situação) grande; medido, contrato e o original embaixo, só se houver. */
+function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros"> {
   const t = textoPrazo(c);
-  return (
-    <p className="crono-resumo">
-      Termina <b>{t.termina}</b>
-      {t.contrato ? <span className="mut"> (contrato {t.contrato})</span> : null}
-      {" · "}
-      {t.sit ? <span className={`crono-sit t-${t.sit.tom}`}>{t.sit.texto}</span> : <span className="mut">sem medição ainda</span>}
-      {t.medido ? ` · ${t.medido}` : ""}
-      {t.base ? <span className="crono-sit t-acima"> · {t.base}</span> : null}
-    </p>
-  );
+  const p = c.prazo;
+  const numeros: Numero[] = [];
+  if (p.pct_medido !== null)
+    numeros.push({ rotulo: "Medido", valor: fmtPct(p.pct_medido), sub: `de ${fmtPct(p.pct_previsto_na_medicao ?? 0)} previsto em ${fmtMes(p.mes_referencia)}` });
+  if (t.contrato) numeros.push({ rotulo: "Término do contrato", valor: t.contrato });
+  if (t.base) numeros.push({ rotulo: "Contra o original", valor: fmtMesLongo(p.termino_base ?? null), tag: t.base.replace(" contra o original", ""), tom: "acima" });
+  return {
+    principal: { rotulo: "Termina", valor: t.termina, tag: t.sit ? t.sit.texto : "sem medição ainda", tom: t.sit ? (t.sit.tom === "acima" ? "acima" : "ok") : "info" },
+    numeros,
+  };
 }
 
 export function Cronograma({ obra }: { obra: Obra }) {
@@ -103,6 +75,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
+  const [tabela, setTabela] = useState(false);
   const tem = !!dado?.inicio && dado.meses > 0;
   const editando = modo.k === "editar" && dado;
 
@@ -110,25 +83,31 @@ export function Cronograma({ obra }: { obra: Obra }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Cronograma"
-        sub={tem && !editando ? <ResumoPrazo c={dado} /> : undefined}
-        acoes={
+        acao={
           podeOperar && tem && !editando ? (
-            <>
-              <button type="button" className="btn amb" onClick={() => setModal("medicao")}>
-                <Icone nome="plus" tam={15} />
-                Nova medição
-              </button>
-              <MenuMais
-                rotulo="Mais ações do cronograma"
-                itens={[
-                  { rotulo: "Editar cronograma", acao: () => setModo({ k: "editar" }) },
-                  { rotulo: "Aditivo de prazo", acao: () => setModal("prazo") },
-                ]}
-              />
-            </>
+            <button type="button" className="btn amb" onClick={() => setModal("medicao")}>
+              <Icone nome="plus" tam={15} />
+              Nova medição
+            </button>
           ) : null
         }
+        menu={
+          tem && !editando
+            ? [
+                { rotulo: "Ver tabela físico-financeira", acao: () => setTabela(true) },
+                ...(podeOperar
+                  ? [
+                      { rotulo: "Editar cronograma", acao: () => setModo({ k: "editar" }) },
+                      { rotulo: "Aditivo de prazo", acao: () => setModal("prazo") },
+                    ]
+                  : []),
+              ]
+            : []
+        }
+        rotuloMenu="Mais ações do cronograma"
+        {...(tem && !editando ? numerosPrazo(dado) : {})}
       />
+      {tabela && dado ? <TabelaFisicoFinanceira crono={dado} fechar={() => setTabela(false)} /> : null}
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />

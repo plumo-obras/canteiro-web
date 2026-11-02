@@ -1,12 +1,12 @@
 "use client";
 /**
- * O "?" ao lado de um rótulo: a explicação que só serve na primeira vez sai da tela e fica a um toque. É um botão de
+ * O "?" ao lado de um rótulo (ou, com `gatilho`, uma pílula ou valor que abre o detalhe): a explicação que só serve na primeira vez sai da tela e fica a um toque. É um botão de
  * verdade (Tab alcança, Enter/Espaço abrem, Esc fecha, toque abre e fecha), com aria-label dizendo do que é a ajuda
  * e aria-expanded; o balão é um popover pequeno ancorado no botão, que fecha ao clicar fora.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-export function Ajuda({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+export function Ajuda({ rotulo, children, gatilho, classe }: { rotulo: string; children: ReactNode; gatilho?: ReactNode; classe?: string }) {
   const [aberto, setAberto] = useState(false);
   const id = useId();
   const caixa = useRef<HTMLSpanElement>(null);
@@ -32,8 +32,9 @@ export function Ajuda({ rotulo, children }: { rotulo: string; children: ReactNod
     <span className="ajuda" ref={caixa}>
       <button
         type="button"
-        className="ajuda-b"
-        aria-label={`O que é ${rotulo}?`}
+        className={gatilho ? `ajuda-g${classe ? ` ${classe}` : ""}` : "ajuda-b"}
+        aria-label={gatilho ? undefined : `O que é ${rotulo}?`}
+        title={gatilho ? rotulo : undefined}
         aria-expanded={aberto}
         aria-controls={id}
         onClick={(e) => {
@@ -41,7 +42,7 @@ export function Ajuda({ rotulo, children }: { rotulo: string; children: ReactNod
           setAberto((a) => !a);
         }}
       >
-        ?
+        {gatilho ?? "?"}
       </button>
       {aberto ? (
         <span id={id} role="note" className="ajuda-pop">

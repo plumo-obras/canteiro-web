@@ -5,54 +5,27 @@
  * vêm prontas da API (GET /obras/{id}/orcamento), a tela só agrupa e filtra o que já chegou. Comprometido e Realizado
  * dependem de pedidos e notas, então só aparecem quando a obra estiver andando: aqui não se inventa número.
  */
-import { useMemo, useState } from "react";
-import type { CurvaABC, Obra, Orcamento as DadosOrcamento, VersaoOrcamento } from "@/lib/contrato";
+import { useState } from "react";
+import type { Obra, Orcamento as DadosOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import { fmtQtd, fmtReais } from "@/lib/formato";
+import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "./contexto";
-import { Confirmar } from "./Dialogo";
+import { Confirmar, Drawer } from "./Dialogo";
+import { CabecalhoPagina } from "./CabecalhoPagina";
 import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
 import { ImportarOrcamento } from "./obra/ImportarOrcamento";
-import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { MARGEM_CENTAVOS, tagVerba } from "./obra/verba";
-import { CabecalhoPagina, type Kpi } from "./CabecalhoPagina";
-import { AndamentoEtapas, BlocoAditivos } from "./orcamento/Andamento";
+import { BlocoAditivos, csvAndamento } from "./orcamento/Andamento";
+import { baixarCsv } from "@/lib/csv";
+import { MenuMais } from "./MenuMais";
+import { ListaEtapas } from "./orcamento/ListaEtapas";
 import { Ajuda } from "./Ajuda";
-import { PADROES, REGIMES, TIPOLOGIAS, pctParaCampo } from "./obra/CamposObra";
 
-type ItemComCurva = DadosOrcamento["itens"][number];
-
-export function resumoDaObra(o: Obra): string[] {
-  return [
-    TIPOLOGIAS.find((t) => t.k === o.tipologia)?.rotulo,
-    o.area_construida ? `${fmtQtd(o.area_construida)} m²` : null,
-    o.pavimentos ? `${o.pavimentos} ${o.pavimentos === 1 ? "pavimento" : "pavimentos"}` : null,
-    o.padrao ? `padrão ${PADROES.find((p) => p.k === o.padrao)!.rotulo.toLowerCase()}` : null,
-    [o.cidade, o.uf].filter(Boolean).join("/") || null,
-    o.regime ? REGIMES.find((r) => r.k === o.regime)!.rotulo.toLowerCase() : null,
-    o.prazo_meses ? `${o.prazo_meses} meses` : null,
-  ].filter((x): x is string => !!x);
-}
-
-/** Nº do contrato, BDI e data-base: o que identifica o contrato na conversa com o cliente. */
-export function resumoDoContrato(o: Obra): string[] {
-  return [
-    o.numero_contrato ? `contrato ${o.numero_contrato}` : null,
-    o.verba ? `valor do contrato ${fmtReais(o.verba)}` : null,
-    o.bdi ? `BDI ${pctParaCampo(o.bdi)}%` : null,
-    o.data_base ? `data-base ${o.data_base.slice(5, 7)}/${o.data_base.slice(0, 4)}` : null,
-  ].filter((x): x is string => !!x);
-}
 
 export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Contrato" : `${v.numero}º aditivo`);
 export const fmtData = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
-const semAcento = (t: string) =>
-  t
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
 
 /** precisa (milésimos) × preço (centavos) → centavos, como a lista de materiais soma. */
@@ -62,7 +35,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const { versao, podeOperar, avisarFeito, mudou, avisar } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
-  const [modal, setModal] = useState<"importar" | "dados" | "aprovar" | null>(null);
+  const [modal, setModal] = useState<"importar" | "aprovar" | null>(null);
 
   const dado = orc.dado;
   const materiais = (ins.dado ?? []).filter((i) => i.insumo.precisa_ate_o_fim > 0);
@@ -70,8 +43,6 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const temContrato = !!dado?.versoes.some((v) => v.tipo === "contrato" && v.ativa);
   const emOrcamento = obra.status === "em_orcamento";
   const podeAprovar = emOrcamento && (temContrato || materiais.length > 0);
-  const resumo = [...resumoDaObra(obra), ...resumoDoContrato(obra)];
-  const faltaDado = !obra.area_construida || !obra.padrao;
 
   const aprovar = async () => {
     const r = await api.aprovarOrcamento(obra.id);
@@ -81,46 +52,37 @@ export function Orcamento({ obra }: { obra: Obra }) {
   };
 
   const t = dado?.totais;
-  const kpis: Kpi[] = t && dado.versoes.length ? kpisDoOrcamento(t, obra) : [];
+  const temOrcamento = !!dado?.versoes.length;
+  const [historico, setHistorico] = useState(false);
+  // Um botão só no cabeçalho: as ações de arquivo e o histórico vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
+  const menu = [
+    ...(podeOperar && (temOrcamento || materiais.length) ? [{ rotulo: "Importar planilha", acao: () => setModal("importar") }] : []),
+    ...(dado && temOrcamento ? [{ rotulo: "Exportar CSV", acao: () => exportarCsv(obra, dado) }] : []),
+    ...(dado && dado.versoes.length ? [{ rotulo: "Histórico de versões", acao: () => setHistorico(true) }] : []),
+  ];
 
   return (
     <div className="page">
       <CabecalhoPagina
         titulo="Orçamento"
-        sub={<span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{emOrcamento ? "em orçamento" : "aprovado"}</span>}
-        kpis={kpis}
-        acoes={
-          podeOperar && (dado?.versoes.length || materiais.length) ? (
-            <>
-              <button type="button" className="btn" onClick={() => setModal("importar")}>
-                <Icone nome="planilha" tam={15} />
-                Importar planilha
-              </button>
-              {podeAprovar ? (
-                <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
-                  <Icone nome="check" tam={15} />
-                  Aprovar orçamento
-                </button>
-              ) : null}
-            </>
+        selo={<span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{emOrcamento ? "em orçamento" : "aprovado"}</span>}
+        acao={
+          podeOperar && podeAprovar ? (
+            <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
+              <Icone nome="check" tam={15} />
+              Aprovar
+            </button>
           ) : null
         }
+        menu={menu}
+        rotuloMenu="Mais ações do orçamento"
+        {...(t && temOrcamento ? numerosOrcamento(t, obra) : {})}
       />
-
-      <p className="orc-dados" aria-label="Dados da obra">
-        <span className="mut">{resumo.length ? resumo.join(" · ") : "Sem os dados da obra ainda."}</span>
-        {faltaDado ? (
-          <Ajuda rotulo="a área e o padrão">
-            Falta {!obra.area_construida && !obra.padrao ? "a área e o padrão" : !obra.area_construida ? "a área" : "o padrão"}: eles dão a régua de preço por m² para
-            conferir o orçamento.
-          </Ajuda>
-        ) : null}
-        {podeOperar ? (
-          <button type="button" className="link" onClick={() => setModal("dados")}>
-            Editar dados
-          </button>
-        ) : null}
-      </p>
+      {historico && dado ? (
+        <Drawer titulo="Histórico de versões" fechar={() => setHistorico(false)}>
+          <Versoes versoes={dado.versoes} atual={dado.totais.atual} todas />
+        </Drawer>
+      ) : null}
 
       {orc.erro ? (
         <div className="aviso-erro" role="alert">
@@ -161,10 +123,9 @@ export function Orcamento({ obra }: { obra: Obra }) {
               Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
             </p>
           ) : null}
-          <AndamentoEtapas obra={obra} orc={dado} />
+          <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
           <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
           <Versoes versoes={dado.versoes} atual={dado.totais.atual} />
-          <Arvore orc={dado} />
           {materiais.length ? (
             <p className="mut sm">
               A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Suprimentos.
@@ -174,7 +135,6 @@ export function Orcamento({ obra }: { obra: Obra }) {
       ) : null}
 
       {modal === "importar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} /> : null}
-      {modal === "dados" ? <ModalDadosObra obra={obra} fechar={() => setModal(null)} /> : null}
       {modal === "aprovar" ? (
         <Confirmar titulo="Aprovar o orçamento?" confirmar="Aprovar orçamento" fechar={() => setModal(null)} aoConfirmar={aprovar}>
           <div className="prev-resumo">
@@ -196,52 +156,124 @@ export function Orcamento({ obra }: { obra: Obra }) {
   );
 }
 
-function kpisDoOrcamento(t: DadosOrcamento["totais"], obra: Obra): Kpi[] {
-  const pctDo = (v: number) => (t.atual ? `${((v / t.atual) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "");
-  const verba = tagVerba(t.atual, obra.verba);
+/** "R$ 2,07 mi", "R$ 23,3 mil": o valor curto do celular (o cheio aparece no toque). */
+export function reaisCurtos(c: number): string {
+  const r = Math.abs(c) / 100;
+  const s = c < 0 ? "−" : "";
+  if (r >= 1_000_000) return `${s}R$ ${(r / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi`;
+  if (r >= 1_000) return `${s}R$ ${(r / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`;
+  return fmtReais(c);
+}
+
+/**
+ * Valor que no celular aparece curto; tocar alterna para o cheio. Um só nó de texto (o valor cheio): o curto vem do
+ * data-curto via CSS, então copiar, ler em voz alta ou extrair o texto nunca dá "R$ 24.250,00R$ 24,3 mil".
+ */
+function Valor({ c, classe = "" }: { c: number; classe?: string }) {
+  const [cheio, setCheio] = useState(false);
+  return (
+    <button type="button" className={`of-valor ${classe}${cheio ? " cheio" : ""}`} data-curto={reaisCurtos(c)} onClick={() => setCheio((x) => !x)}>
+      {fmtReais(c)}
+    </button>
+  );
+}
+
+/**
+ * Os números do Orçamento na faixa do cabeçalho: o orçado atual grande (com a pílula do aditivo, o detalhe num toque)
+ * e comprometido · realizado · saldo embaixo. A linha do contrato fecha a faixa.
+ */
+function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros" | "rodapeNumeros"> {
   const saldo = t.atual - t.comprometido;
-  // Uma frase curta ("3% acima do contrato (aditivo +R$ 59.831,80)"); a conta inteira fica no "?".
-  const frase = [verba && verba.texto !== "bate com o contrato" ? verba.texto : null, t.aditivos ? `(aditivo ${comSinal(t.aditivos)})` : null].filter(Boolean).join(" ");
+  const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
+  const pctAdt = t.contratado ? (t.aditivos / t.contratado) * 100 : 0;
+  const verba = tagVerba(t.atual, obra.verba);
+  const pilula = t.aditivos
+    ? `${pctAdt < 0 ? "−" : "+"}${Math.abs(pctAdt).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% aditivo`
+    : verba && verba.texto !== "bate com o contrato"
+      ? verba.texto
+      : null;
+  return {
+    principal: {
+      rotulo: "Orçado atual",
+      valor: fmtReais(t.atual),
+      tag: pilula ? (
+        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${verba?.tom === "acima" ? " t-acima" : ""}`}>
+          Contrato {fmtReais(t.contratado)}
+          {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
+          {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}
+        </Ajuda>
+      ) : undefined,
+    },
+    numeros: [
+      { rotulo: "Comprometido", valor: <Valor c={t.comprometido} />, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` },
+      {
+        rotulo: (
+          <>
+            <span className="fx-rt">Realizado</span>
+            <Ajuda rotulo="o realizado">
+              Compras e serviços recebidos, pelo preço do pedido. O orçado é preço de contrato (com BDI e mão de obra), então o realizado de uma etapa não é o
+              % executado dela: a medição física fica no Cronograma.
+            </Ajuda>
+          </>
+        ),
+        valor: <Valor c={t.realizado} />,
+      },
+      { rotulo: "Saldo", valor: <Valor c={saldo} classe={saldo < 0 ? "t-neg" : ""} /> },
+    ],
+    // cada valor numa peça sem quebra ("R$ 2.035.001,59" nunca parte); quem quebra é o separador
+    rodapeNumeros: textoContrato(obra)
+      ? textoContrato(obra)
+          .split(" · ")
+          .map((t, i) => (
+            <span key={i}>
+              {i ? " · " : ""}
+              <span className="fx-nw">{t}</span>
+            </span>
+          ))
+      : undefined,
+  };
+}
+
+/** Os dados do contrato à vista, só leitura (antes ficavam na linha de dados da obra): o engenheiro consulta sem abrir a edição. */
+export function textoContrato(o: Pick<Obra, "numero_contrato" | "verba" | "bdi" | "data_base">): string {
   return [
-    {
-      icone: "planilha",
-      n: fmtReais(t.atual),
-      r: (
-        <>
-          orçado atual{frase ? ` · ${frase}` : ""}
-          <Ajuda rotulo="o orçado atual">
-            Contrato {fmtReais(t.contratado)}
-            {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
-            {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}.` : ""}
-          </Ajuda>
-        </>
-      ),
-    },
-    {
-      icone: "cart",
-      n: fmtReais(t.comprometido),
-      r: `comprometido${t.comprometido ? ` · ${pctDo(t.comprometido)}` : ""}${t.cotando ? ` · ${fmtReais(t.cotando)} em cotação` : ""}`,
-    },
-    {
-      icone: "checkCircle",
-      n: fmtReais(t.realizado),
-      r: (
-        <>
-          realizado
-          <Ajuda rotulo="o realizado">
-            Compras e serviços recebidos, pelo preço do pedido. O orçado é preço de contrato (com BDI e mão de obra), então o realizado de uma etapa não é o %
-            executado dela: a medição física fica no Cronograma.
-          </Ajuda>
-        </>
-      ),
-    },
-    { icone: "calc", n: fmtReais(saldo), r: "saldo a comprometer", ...(saldo < 0 ? { tag: "estourou", tom: "acima" as const } : {}) },
-  ];
+    o.numero_contrato ? `Contrato nº ${o.numero_contrato}` : null,
+    o.verba ? fmtReais(o.verba) : null,
+    o.bdi ? `BDI ${(o.bdi / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : null,
+    o.data_base ? `data-base ${o.data_base.slice(5, 7)}/${o.data_base.slice(0, 4)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+
+/** CSV do andamento por etapa, para o diretor abrir no Excel (o menu "⋯" do cabeçalho). */
+function exportarCsv(obra: Obra, orc: DadosOrcamento) {
+  const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const nome = obra.nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+  baixarCsv(`andamento-${nome}-${hoje}.csv`, csvAndamento(orc));
 }
 
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */
 
-function Versoes({ versoes, atual }: { versoes: VersaoOrcamento[]; atual: number }) {
+/**
+ * À vista só o que vale hoje para conferir: o contrato vigente e o último aditivo vigente. Os aditivos vigentes mais
+ * antigos, os desfeitos e os substituídos ficam no histórico recolhido (com o mesmo Desfazer, quando couber).
+ */
+export function separarVersoes<T extends Pick<VersaoOrcamento, "id" | "tipo" | "ativa" | "numero">>(versoes: T[]) {
+  const contrato = versoes.find((v) => v.tipo === "contrato" && v.ativa);
+  const ultimoAditivo = versoes.filter((v) => v.tipo === "aditivo" && v.ativa).sort((a, b) => b.numero - a.numero)[0];
+  const ids = new Set([ultimoAditivo?.id, contrato?.id].filter(Boolean));
+  const principais = [ultimoAditivo, contrato].filter((v): v is T => !!v);
+  return { principais, historico: versoes.filter((v) => !ids.has(v.id)) };
+}
+
+function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]; atual: number; todas?: boolean }) {
   const { podeOperar, mudou, avisarFeito } = useCasca();
   const [confirmando, setConfirmando] = useState<VersaoOrcamento | null>(null);
   const situacao = (v: VersaoOrcamento) =>
@@ -263,8 +295,7 @@ function Versoes({ versoes, atual }: { versoes: VersaoOrcamento[]; atual: number
     avisarFeito(`${nomeVersao(v)} desfeito.`, null);
   };
 
-  const vigentes = versoes.filter((v) => v.ativa);
-  const antigas = versoes.filter((v) => !v.ativa);
+  const { principais, historico } = separarVersoes(versoes);
   const linha = (v: VersaoOrcamento) => {
           const st = situacao(v);
     return (
@@ -293,15 +324,15 @@ function Versoes({ versoes, atual }: { versoes: VersaoOrcamento[]; atual: number
   return (
     <section aria-label="Versões do orçamento">
       <h3 className="sectit">Versões</h3>
-      <ul className="card lista orc-versoes">{vigentes.map(linha)}</ul>
+      <ul className="card lista orc-versoes">{(todas ? versoes : principais).map(linha)}</ul>
       {/* desfeitas e substituídas só servem para conferir: recolhidas, para a lista mostrar o que vale hoje */}
-      {antigas.length ? (
+      {!todas && historico.length ? (
         <details className="cobertos">
           <summary>
             <Icone nome="chevRight" tam={14} />
-            Ver versões desfeitas ({antigas.length})
+            Ver histórico de versões ({historico.length})
           </summary>
-          <ul className="card lista orc-versoes">{antigas.map(linha)}</ul>
+          <ul className="card lista orc-versoes">{historico.map(linha)}</ul>
         </details>
       ) : null}
       {confirmando ? (
@@ -309,185 +340,6 @@ function Versoes({ versoes, atual }: { versoes: VersaoOrcamento[]; atual: number
           <p style={{ margin: "4px 0 0" }}>{consequencia(confirmando)}</p>
         </Confirmar>
       ) : null}
-    </section>
-  );
-}
-
-/* ---------------- árvore etapa → itens ---------------- */
-
-interface Grupo {
-  etapa: string;
-  descricao: string;
-  contratado: number;
-  aditivos: number;
-  atual: number;
-  linhas: ItemComCurva[];
-}
-
-function agrupar(orc: DadosOrcamento): Grupo[] {
-  const grupos = new Map<string, Grupo>();
-  for (const e of orc.etapas) grupos.set(e.etapa, { ...e, linhas: [] });
-  for (const i of orc.itens) {
-    // A linha de etapa raiz é o próprio cabeçalho do grupo; sub-etapas viram linha de título dentro dele.
-    if (i.tipo === "etapa" && i.nivel <= 1) continue;
-    let g = grupos.get(i.etapa);
-    if (!g) {
-      g = { etapa: i.etapa, descricao: i.etapa ? `Etapa ${i.etapa}` : "Sem etapa", contratado: 0, aditivos: 0, atual: 0, linhas: [] };
-      grupos.set(i.etapa, g);
-    }
-    g.linhas.push(i);
-  }
-  return [...grupos.values()];
-}
-
-const CURVAS: { k: CurvaABC | null; rotulo: string }[] = [
-  { k: null, rotulo: "Todas" },
-  { k: "A", rotulo: "Curva A" },
-  { k: "B", rotulo: "B" },
-  { k: "C", rotulo: "C" },
-];
-
-function Arvore({ orc }: { orc: DadosOrcamento }) {
-  const [abertas, setAbertas] = useState<Set<string>>(() => new Set());
-  const [busca, setBusca] = useState("");
-  const [curva, setCurva] = useState<CurvaABC | null>(null);
-  const grupos = useMemo(() => agrupar(orc), [orc]);
-  const versoes = useMemo(() => new Map(orc.versoes.map((v) => [v.id, v])), [orc.versoes]);
-  const temAditivo = orc.etapas.some((e) => e.aditivos);
-  const q = semAcento(busca.trim());
-  const filtrando = !!q || !!curva;
-
-  const visiveis = filtrando
-    ? grupos
-        .map((g) => ({
-          ...g,
-          linhas: g.linhas.filter(
-            (i) =>
-              i.tipo === "item" &&
-              (!curva || i.curva === curva) &&
-              (!q || semAcento(`${i.descricao} ${i.codigo} ${i.numero} ${i.fonte}`).includes(q)),
-          ),
-        }))
-        .filter((g) => g.linhas.length)
-    : grupos;
-  const achados = visiveis.reduce((n, g) => n + g.linhas.length, 0);
-
-  const alternar = (k: string) =>
-    setAbertas((s) => {
-      const n = new Set(s);
-      if (n.has(k)) n.delete(k);
-      else n.add(k);
-      return n;
-    });
-  const todasAbertas = grupos.length > 0 && grupos.every((g) => abertas.has(g.etapa));
-
-  return (
-    <section aria-label="Itens do orçamento por etapa">
-      <h3 className="sectit">Itens por etapa</h3>
-      <div className="barra-acoes">
-        <label className="busca">
-          <Icone nome="busca" tam={16} />
-          <span className="sr-only">Buscar item do orçamento</span>
-          <input type="search" placeholder="Buscar por descrição, código ou nº" value={busca} onChange={(e) => setBusca(e.target.value)} />
-        </label>
-        <div className="seg seg-pq" role="radiogroup" aria-label="Filtrar por curva ABC">
-          {CURVAS.map((c) => (
-            <button key={c.rotulo} type="button" role="radio" aria-checked={curva === c.k} className={curva === c.k ? "on" : ""} onClick={() => setCurva(c.k)}>
-              {c.rotulo}
-            </button>
-          ))}
-        </div>
-        {!filtrando ? (
-          <button type="button" className="btn sm" onClick={() => setAbertas(todasAbertas ? new Set() : new Set(grupos.map((g) => g.etapa)))}>
-            {todasAbertas ? "Recolher etapas" : "Abrir todas"}
-          </button>
-        ) : (
-          <span className="mut sm" role="status">
-            {achados ? `${plural(achados, "item", "itens")} em ${plural(visiveis.length, "etapa", "etapas")}` : "Nenhum item encontrado."}
-          </span>
-        )}
-      </div>
-      <div className="card eap">
-        {visiveis.map((g) => {
-          const aberta = filtrando || abertas.has(g.etapa);
-          const id = `eap-${g.etapa || "sem"}`;
-          return (
-            <div key={g.etapa} className={`eap-et${aberta ? " aberta" : ""}`}>
-              <button type="button" className="eap-cab" aria-expanded={aberta} aria-controls={id} disabled={filtrando} onClick={() => alternar(g.etapa)}>
-                <Icone nome="chevRight" tam={15} className="eap-seta" />
-                <span className="eap-num">{g.etapa}</span>
-                <span className="eap-desc">{g.descricao}</span>
-                {temAditivo && g.aditivos ? (
-                  <span className="eap-tot mut sm">
-                    {fmtReais(g.contratado)} contratado · {comSinal(g.aditivos)} aditivo
-                  </span>
-                ) : null}
-                <span className="eap-tot num">{fmtReais(g.atual)}</span>
-              </button>
-              {aberta ? (
-                <div className="eap-rola" id={id}>
-                  <table className="tbl-eap">
-                    <thead>
-                      <tr>
-                        <th scope="col">Nº</th>
-                        <th scope="col">Descrição</th>
-                        <th scope="col">Un.</th>
-                        <th scope="col" className="num">
-                          Quant.
-                        </th>
-                        <th scope="col" className="num">
-                          Unitário
-                        </th>
-                        <th scope="col" className="num">
-                          Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.linhas.map((i) => {
-                        const v = versoes.get(i.versao_id);
-                        if (i.tipo === "etapa")
-                          return (
-                            <tr key={i.id} className="eap-sub">
-                              <td>{i.numero}</td>
-                              <td colSpan={5}>{i.descricao}</td>
-                            </tr>
-                          );
-                        return (
-                          <tr key={i.id}>
-                            <td className="eap-n">{i.numero}</td>
-                            <td className="eap-d">
-                              {i.descricao}
-                              {i.curva ? (
-                                <span className={`curva c${i.curva}`} title={`Curva ${i.curva}`}>
-                                  {i.curva}
-                                </span>
-                              ) : null}
-                              {v?.tipo === "aditivo" ? <span className="pill eap-adt">{nomeVersao(v)}</span> : null}
-                              {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
-                            </td>
-                            <td>{i.unidade}</td>
-                            <td className="num">
-                              {fmtQtd(i.quantidade)}
-                              {/* no celular a coluna da unidade some: a quantidade carrega a unidade */}
-                              <span className="eap-un"> {i.unidade}</span>
-                            </td>
-                            <td className="num">{fmtReais(i.valor_unitario)}</td>
-                            <td className="num">
-                              <b>{fmtReais(i.total)}</b>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-        {!visiveis.length && !filtrando ? <p className="mut sm" style={{ padding: "14px 20px", margin: 0 }}>Nenhum item vigente.</p> : null}
-      </div>
     </section>
   );
 }

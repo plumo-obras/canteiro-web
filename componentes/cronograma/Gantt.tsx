@@ -6,21 +6,23 @@
  * largura (colunas em fração), sem rolagem escondida. No celular vira uma lista de cartões.
  * Os números vêm da API (percentuais, medido, mensal); a tela só soma o previsto da etapa até o mês de referência.
  */
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Cronograma, EtapaCronograma } from "@/lib/contrato";
 import {
   fmtMes,
   fmtMesLongo,
   fmtPct,
   indiceDoMes,
+  barraDaEtapa,
   intervaloEtapa,
   listaMeses,
   situacaoEtapa,
-  valorDe,
+  valoresMes,
   type Situacao,
 } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
 import { Drawer } from "../Dialogo";
+import { BarraFiltros } from "../CabecalhoPagina";
 
 const ROTULO: Record<Situacao, string> = { concluida: "concluída", em_dia: "em dia", atrasada: "atrasada", nao_comecou: "não começou" };
 const NOMES_CURTOS = ["j", "f", "m", "a", "m", "j", "j", "a", "s", "o", "n", "d"];
@@ -30,7 +32,7 @@ interface LinhaGantt extends EtapaCronograma {
   previstoRef: number;
   falta: number;
   intervalo: { de: number; ate: number } | null;
-  maxPct: number;
+  barra: ReturnType<typeof barraDaEtapa>;
 }
 
 type Filtro = "todas" | "atrasadas" | "andamento";
@@ -40,6 +42,9 @@ export function Gantt({ crono }: { crono: Cronograma }) {
   const meses = useMemo(() => listaMeses(crono.inicio!, crono.meses), [crono.inicio, crono.meses]);
   const ref = indiceDoMes(crono.inicio, crono.prazo.mes_referencia);
   const refNaGrade = ref !== null && ref >= 0 && ref < meses.length ? ref : null;
+  // "Referência" é o mês da última medição; "hoje" é o mês do calendário. Se coincidem, uma linha só.
+  const hojeIdx = indiceDoMes(crono.inicio, new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date()));
+  const hojeNaGrade = hojeIdx !== null && hojeIdx >= 0 && hojeIdx < meses.length ? hojeIdx : null;
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [dica, setDica] = useState<{ texto: string; x: number; y: number } | null>(null);
   const [aberta, setAberta] = useState<LinhaGantt | null>(null);
@@ -50,7 +55,7 @@ export function Gantt({ crono }: { crono: Cronograma }) {
         .filter((e) => e.percentuais.some(Boolean) || e.medido_acumulado)
         .map((e) => {
           const s = situacaoEtapa(e.percentuais, e.medido_acumulado, ref);
-          return { ...e, situacao: s.situacao, previstoRef: s.previsto, falta: s.falta, intervalo: intervaloEtapa(e.percentuais), maxPct: Math.max(...e.percentuais, 1) };
+          return { ...e, situacao: s.situacao, previstoRef: s.previsto, falta: s.falta, intervalo: intervaloEtapa(e.percentuais), barra: barraDaEtapa(e.percentuais, e.medido_acumulado) };
         }),
     [crono.etapas, ref],
   );
@@ -63,7 +68,26 @@ export function Gantt({ crono }: { crono: Cronograma }) {
     return [...atr, ...f.filter((l) => l.situacao !== "atrasada")];
   }, [todas, filtro]);
   const nAtrasadas = todas.filter((l) => l.situacao === "atrasada").length;
-  const curto = meses.length > 14;
+  // Se o rótulo do mês não cabe na coluna (cronograma longo ou texto maior, como no portal), vira a inicial.
+  const cab = useRef<HTMLSpanElement>(null);
+  const [encolher, setEncolher] = useState(false);
+  useLayoutEffect(() => {
+    const el = cab.current;
+    if (!el) return;
+    const medir = () => {
+      if (encolher) return;
+      const sobra = [...el.querySelectorAll<HTMLElement>(".g-mes")].some((m) => m.scrollWidth > m.clientWidth + 1);
+      if (sobra) setEncolher(true);
+    };
+    medir();
+    const ro = new ResizeObserver(() => {
+      setEncolher(false);
+      requestAnimationFrame(medir);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [encolher, meses.length]);
+  const curto = encolher || meses.length > 14;
   const rotuloMes = (m: string) => (curto ? NOMES_CURTOS[Number(m.slice(5, 7)) - 1]! : fmtMes(m));
   const grade = { "--n": meses.length } as React.CSSProperties;
 
@@ -72,7 +96,7 @@ export function Gantt({ crono }: { crono: Cronograma }) {
     const caixa = (e.currentTarget as HTMLElement).closest(".gantt")!.getBoundingClientRect();
     const p = l.percentuais[i] ?? 0;
     setDica({
-      texto: `${l.descricao} · ${fmtMes(meses[i]!)}: ${fmtPct(p)} previsto (${fmtReais(valorDe(l.atual, p))})`,
+      texto: `${l.descricao} · ${fmtMes(meses[i]!)}: ${p ? `${fmtPct(p)} previsto (${fmtReais(valoresMes(l.atual, l.percentuais)[i]!)})` : "sem previsão"}${l.medido_acumulado ? ` · medido ${fmtPct(l.medido_acumulado)} da etapa` : ""}`,
       x: alvo.left - caixa.left + alvo.width / 2,
       y: alvo.top - caixa.top,
     });
@@ -105,45 +129,45 @@ export function Gantt({ crono }: { crono: Cronograma }) {
         <h3 className="sectit" id="gantt-titulo">
           Etapas no tempo
         </h3>
-        <div className="seg seg-pq" role="radiogroup" aria-label="Filtrar etapas">
-          {(
-            [
-              ["todas", "Todas"],
-              ["atrasadas", `Atrasadas${nAtrasadas ? ` (${nAtrasadas})` : ""}`],
-              ["andamento", "Em andamento"],
-            ] as const
-          ).map(([k, r]) => (
-            <button key={k} type="button" role="radio" aria-checked={filtro === k} className={filtro === k ? "on" : ""} onClick={() => setFiltro(k)}>
-              {r}
-            </button>
-          ))}
-        </div>
+        <BarraFiltros
+          grupos={[
+            {
+              rotulo: "Mostrar",
+              valor: filtro,
+              opcoes: [
+                { k: "todas", rotulo: "Todas" },
+                { k: "atrasadas", rotulo: `Atrasadas${nAtrasadas ? ` (${nAtrasadas})` : ""}` },
+                { k: "andamento", rotulo: "Em andamento" },
+              ],
+              mudar: (k: Filtro) => setFiltro(k),
+            },
+          ]}
+        />
       </div>
 
       {/* desktop e tablet: a grade de barras */}
       <div className="gantt" style={grade} onMouseLeave={() => setDica(null)}>
         <div className="g-l g-head">
           <span className="g-nome">Etapa</span>
-          <span className="g-meses">
+          <span className="g-meses" ref={cab}>
             {meses.map((m, i) => (
-              <span key={m} className={`g-mes${i === refNaGrade ? " hoje" : ""}`} title={fmtMesLongo(m)}>
-                {/* "hoje" não disputa espaço com os meses vizinhos: o mês fica em destaque e a marca é um traço acima */}
-                {i === refNaGrade ? (
-                  <b aria-label={`hoje, ${fmtMesLongo(m)}`}>{rotuloMes(m)}</b>
-                ) : (
-                  rotuloMes(m)
-                )}
+              <span key={m} className={`g-mes${i === refNaGrade ? " ref" : ""}${i === hojeNaGrade ? " hoje" : ""}`} aria-label={fmtMesLongo(m)}>
+                {rotuloMes(m)}
               </span>
             ))}
           </span>
-          <span className="g-sit">
-            {crono.prazo.mes_referencia ? (
-              <>
-                <i className="g-hoje-leg" aria-hidden="true" /> hoje = {fmtMes(crono.prazo.mes_referencia)}
-              </>
-            ) : (
-              "Situação"
-            )}
+          <span className="g-sit g-leg">
+            {refNaGrade !== null ? (
+              <span>
+                <i className="g-ref-leg" aria-hidden="true" /> referência {fmtMes(crono.prazo.mes_referencia)}
+              </span>
+            ) : null}
+            {hojeNaGrade !== null && hojeNaGrade !== refNaGrade ? (
+              <span>
+                <i className="g-hoje-leg" aria-hidden="true" /> hoje
+              </span>
+            ) : null}
+            {refNaGrade === null && hojeNaGrade === null ? "Situação" : null}
           </span>
         </div>
         {linhas.map((l) => (
@@ -156,37 +180,34 @@ export function Gantt({ crono }: { crono: Cronograma }) {
             </button>
             <span className="g-meses g-trilho">
               {refNaGrade !== null ? <span className="g-hoje" style={{ gridColumn: refNaGrade + 1 }} aria-hidden="true" /> : null}
+              {hojeNaGrade !== null && hojeNaGrade !== refNaGrade ? <span className="g-cal" style={{ gridColumn: hojeNaGrade + 1 }} aria-hidden="true" /> : null}
+              {/* Uma barra contínua do início ao fim da etapa, com o medido por cima, mais escuro. O % de cada mês não pinta
+                  a barra: fica no hover/toque (alvo transparente por mês). Mês sem previsão no meio afina a barra. */}
+              {l.barra ? (
+                <span className="g-barra" style={{ gridColumn: `${l.barra.de + 1} / ${l.barra.ate + 2}` }}>
+                  {l.barra.medida ? (
+                    <span className="g-barra-med" style={{ width: `${l.barra.medida * 100}%` }} />
+                  ) : null}
+                </span>
+              ) : null}
               {l.intervalo
                 ? meses.slice(l.intervalo.de, l.intervalo.ate + 1).map((m, j) => {
                     const i = l.intervalo!.de + j;
                     const p = l.percentuais[i] ?? 0;
-                    // Opacidade pelo % do mês em relação ao maior mês da etapa: o pico da etapa é o segmento mais forte.
-                    // Mês sem % no meio da etapa (pausa) fica vazado, com contorno: a barra continua legível nos dois temas.
-                    const forca = p ? 0.35 + 0.6 * (p / l.maxPct) : 0;
                     return (
                       <span
                         key={m}
-                        className={`g-seg${p ? "" : " pausa"}${i === l.intervalo!.de ? " ini" : ""}${i === l.intervalo!.ate ? " fim" : ""}${forca > 0.65 ? " forte" : ""}`}
-                        style={{ gridColumn: i + 1, "--forca": forca } as React.CSSProperties}
-                        title={`${fmtMes(m)}: ${fmtPct(p)} previsto`}
+                        className={`g-alvo${p ? "" : " pausa"}`}
+                        style={{ gridColumn: i + 1 }}
+                        role="button"
+                        tabIndex={-1}
+                        aria-label={`${l.descricao}, ${fmtMesLongo(m)}: ${p ? `${fmtPct(p)} previsto` : "sem previsão"}`}
                         onMouseEnter={(e) => mostrarDica(e, l, i)}
                         onClick={(e) => mostrarDica(e, l, i)}
                       />
                     );
                   })
                 : null}
-              {l.intervalo && l.medido_acumulado ? (
-                <span
-                  className="g-medido"
-                  style={{
-                    gridColumn: `${l.intervalo.de + 1} / ${l.intervalo.ate + 2}`,
-                    // A barra prevista ocupa a área menos 3 px em cada ponta (margem dos segmentos ini/fim): o medido usa a mesma
-                    // régua, para 100% terminar junto com a barra e nunca passar dela.
-                    width: `calc((100% - 6px) * ${Math.min(1, l.medido_acumulado / 10000)})`,
-                  }}
-                  title={`Medido: ${fmtPct(l.medido_acumulado)} da etapa`}
-                />
-              ) : null}
             </span>
             <span className="g-sit">
               {l.situacao === "atrasada" || l.situacao === "concluida" ? <span className={`g-chip c-${l.situacao}`}>{ROTULO[l.situacao]}</span> : null}
@@ -300,6 +321,7 @@ function GavetaEtapa({ crono, linha: l, meses, fechar }: { crono: Cronograma; li
     return v;
   };
   let acc = 0;
+  const vsMes = valoresMes(l.atual, l.percentuais);
   const tocaram = medicoes.flatMap((m) => {
     const e = m.etapas.find((x) => x.etapa === l.etapa && x.pct_periodo);
     return e ? [{ m, e }] : [];
@@ -338,7 +360,7 @@ function GavetaEtapa({ crono, linha: l, meses, fechar }: { crono: Cronograma; li
                 <tr key={m} className={p ? "" : "mut"}>
                   <td>{fmtMes(m)}</td>
                   <td className="num">{p ? fmtPct(p) : "—"}</td>
-                  <td className="num">{p ? fmtReais(valorDe(l.atual, p)) : "—"}</td>
+                  <td className="num">{p ? fmtReais(vsMes[i]!) : "—"}</td>
                   <td className="num">{acc ? fmtPct(acc) : "—"}</td>
                   <td className={`num${med !== null && med < acc ? " t-neg" : ""}`}>{med === null ? "" : fmtPct(med)}</td>
                 </tr>

@@ -12,6 +12,7 @@ import type { PrazoCronograma, ResumoObra, StatusObra, Usuario } from "@/lib/con
 import { api } from "@/lib/cliente";
 import type { SessaoApi } from "@/lib/historico";
 import { fmtReais } from "@/lib/formato";
+import { BarraFiltros, CabecalhoPagina } from "../CabecalhoPagina";
 import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
 import { Paginacao, usePaginas } from "../Paginacao";
@@ -61,30 +62,30 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
 
   return (
     <>
-      <header className={s.cab}>
-        <div>
-          <h1 className={s.ola}>Olá, {primeiroNome(usuario.nome)}</h1>
-          <p className={s.sub}>
-            {resumos?.length ? (
-              <>
-                {plural(resumos.length, "obra", "obras")}
-                {esperando ? (
-                  <>
-                    {" · "}
-                    <b className={s.pede}>{plural(esperando, "aprovação esperando você", "aprovações esperando você")}</b>
-                  </>
-                ) : null}
-              </>
-            ) : null}
-          </p>
-        </div>
-        {usuario.papel !== "viewer" ? (
-          <Link href="/obras/nova" className="btn amb">
-            <Icone nome="plus" tam={15} />
-            Nova obra
-          </Link>
-        ) : null}
-      </header>
+      <CabecalhoPagina
+        titulo={`Olá, ${primeiroNome(usuario.nome)}`}
+        sub={
+          resumos?.length ? (
+            <>
+              {plural(resumos.length, "obra", "obras")}
+              {esperando ? (
+                <>
+                  {" · "}
+                  <b className={s.pede}>{plural(esperando, "aprovação esperando você", "aprovações esperando você")}</b>
+                </>
+              ) : null}
+            </>
+          ) : undefined
+        }
+        acao={
+          usuario.papel !== "viewer" ? (
+            <Link href="/obras/nova" className="btn amb">
+              <Icone nome="plus" tam={15} />
+              Nova obra
+            </Link>
+          ) : null
+        }
+      />
 
       {erro && !resumos ? (
         <div className="aviso-erro" role="alert">
@@ -121,28 +122,20 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
         <>
           {/* com poucas obras a lista inteira cabe à vista: busca e filtro só aparecem quando ajudam */}
           {ordenados.length > POR_PAGINA / 2 ? (
-            <div className="barra-acoes">
-              <label className="busca">
-                <Icone nome="busca" tam={16} />
-                <span className="sr-only">Buscar obra</span>
-                <input type="search" placeholder="Buscar por nome, cidade ou cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
-              </label>
-              <div className="chips" role="radiogroup" aria-label="Filtrar por situação">
-                {(["todas", "em_andamento", "em_orcamento", "concluida"] as const).map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    role="radio"
-                    aria-checked={status === st}
-                    className={`chip${status === st ? " on" : ""}`}
-                    onClick={() => setStatus(st)}
-                  >
-                    {st === "todas" ? "Todas" : TXT_STATUS[st]}
-                    <span className="chip-n">{st === "todas" ? resumos!.length : conta(st)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <BarraFiltros
+              busca={{ valor: busca, mudar: setBusca, placeholder: "Buscar por nome, cidade ou cliente", rotulo: "Buscar obra" }}
+              grupos={[
+                {
+                  rotulo: "Situação",
+                  valor: status,
+                  opcoes: (["todas", "em_andamento", "em_orcamento", "concluida"] as const).map((st) => ({
+                    k: st,
+                    rotulo: `${st === "todas" ? "Todas" : TXT_STATUS[st]} (${st === "todas" ? resumos!.length : conta(st)})`,
+                  })),
+                  mudar: (k: StatusObra | "todas") => setStatus(k),
+                },
+              ]}
+            />
           ) : null}
           {filtrados.length ? (
             <ul className={s.grade} aria-label="Obras">

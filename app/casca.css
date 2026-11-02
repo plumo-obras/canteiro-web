@@ -214,3 +214,14 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .bi-item span:last-child{overflow:visible;text-overflow:clip}
   html:has(.modal) .barra-inf,html:has(.drawer) .barra-inf,html:has(.folha-fundo) .barra-inf{display:none}
 }
+/* rótulos da barra: cada um preso à sua coluna (nunca invade o vizinho); com fonte maior, reticências */
+@media (max-width:760px){
+  .bi-item{min-width:0;overflow:hidden}
+  .bi-item span:last-child{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:min(10.5px,2.85vw)}
+}
+@media (max-width:760px){
+  .bi-rot{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px}
+  .barra-inf.compacta .bi-item:not(.on) .bi-rot{display:none}
+  .barra-inf.compacta .bi-item.on{overflow:visible;z-index:1}
+  .barra-inf.compacta .bi-item.on .bi-rot{overflow:visible;max-width:none;text-overflow:clip}
+}

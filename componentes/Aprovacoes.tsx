@@ -11,7 +11,7 @@ import { api } from "@/lib/cliente";
 import { CartaoProposta } from "./CartaoProposta";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
-import { CabecalhoPagina } from "./CabecalhoPagina";
+import { BarraFiltros, CabecalhoPagina } from "./CabecalhoPagina";
 
 export function Aprovacoes({ obra, obras }: { obra: Obra; obras: Obra[] }) {
   const { cartoes, receberPropostas } = useCasca();
@@ -53,28 +53,26 @@ export function Aprovacoes({ obra, obras }: { obra: Obra; obras: Obra[] }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Aprovações"
-        kpis={
-          ids !== null
-            ? [
-                {
-                  icone: "checkCircle",
-                  n: pendentesAgora,
-                  r: todas ? "esperando você em todas as obras" : `esperando você em ${obra.nome}`,
-                  ...(pendentesAgora ? { tag: "pede você", tom: "atencao" as const } : {}),
-                },
-              ]
+        numeros={
+          ids !== null && pendentesAgora
+            ? [{ rotulo: todas ? "Esperando você em todas as obras" : "Esperando você nesta obra", valor: pendentesAgora, tag: "pede você", tom: "atencao" as const }]
             : []
         }
-        acoes={
+        barra={
           obras.length > 1 ? (
-            <div className="seg" role="radiogroup" aria-label="De quais obras">
-              <button type="button" role="radio" aria-checked={!todas} className={!todas ? "on" : ""} onClick={() => setTodas(false)}>
-                {obra.nome}
-              </button>
-              <button type="button" role="radio" aria-checked={todas} className={todas ? "on" : ""} onClick={() => setTodas(true)}>
-                Todas as obras
-              </button>
-            </div>
+            <BarraFiltros
+              grupos={[
+                {
+                  rotulo: "Obras",
+                  valor: todas ? "todas" : "esta",
+                  opcoes: [
+                    { k: "esta", rotulo: obra.nome },
+                    { k: "todas", rotulo: "Todas as obras" },
+                  ],
+                  mudar: (k: string) => setTodas(k === "todas"),
+                },
+              ]}
+            />
           ) : null
         }
       />

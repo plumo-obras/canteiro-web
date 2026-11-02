@@ -1,0 +1,329 @@
+"use client";
+/**
+ * O orçamento numa lista só (Onda 3). Antes eram duas listas das mesmas 24 etapas: "Andamento por etapa" (o gasto) e
+ * "Itens por etapa" (a planilha). Agora cada etapa é uma linha (nome, orçado atual, barra do comprometido) que se abre
+ * ali mesmo com o gasto rotulado, os pedidos da etapa e os itens da planilha. Busca e curva filtram os itens e abrem
+ * as etapas que têm resultado; a ordem por desvio continua valendo. Os números vêm da API; a tela só agrupa.
+ */
+import { useEffect, useMemo, useState } from "react";
+import type { CurvaABC, Obra, Orcamento, Pedido } from "@/lib/contrato";
+import { api } from "@/lib/cliente";
+import { fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
+import { ROTULO_STATUS } from "../CartaoProposta";
+import { mensagemDe } from "../contexto";
+import { BarraFiltros } from "../CabecalhoPagina";
+import { Icone } from "../Icone";
+import { Barra, fmtPct, linhasAndamento, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
+
+export type ItemDaEtapa = Orcamento["itens"][number];
+
+export interface EtapaDaLista {
+  linha: LinhaAndamento;
+  /** Itens (e sub-etapas) da planilha nesta etapa, já filtrados pela busca/curva. */
+  itens: ItemDaEtapa[];
+  /** Busca ou curva acharam algo aqui: a etapa abre sozinha. */
+  achou: boolean;
+}
+
+export interface FiltroLista {
+  busca: string;
+  curva: CurvaABC | null;
+  ordem: "desvio" | "planilha";
+}
+
+const semAcento = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+/**
+ * Junta o gasto por etapa (linhasAndamento) com os itens da planilha da mesma etapa. Com busca/curva, ficam só as
+ * etapas com item que bate (e só esses itens); sem filtro, todas, com todos os itens. A ordem por desvio põe o estouro
+ * em cima; "planilha" mantém a ordem do orçamento.
+ */
+export function montarLista(orc: Orcamento, f: FiltroLista): EtapaDaLista[] {
+  const porEtapa = new Map<string, ItemDaEtapa[]>();
+  for (const i of orc.itens) {
+    // A linha de etapa raiz é a própria linha da lista; sub-etapas viram título dentro dela.
+    if (i.tipo === "etapa" && i.nivel <= 1) continue;
+    porEtapa.set(i.etapa, [...(porEtapa.get(i.etapa) ?? []), i]);
+  }
+  const q = semAcento(f.busca.trim());
+  const filtrando = !!q || !!f.curva;
+  const base = linhasAndamento(orc);
+  const ls = f.ordem === "desvio" ? [...base].sort(porDesvio) : base;
+  const out: EtapaDaLista[] = [];
+  for (const linha of ls) {
+    const todos = linha.semEtapa ? [] : (porEtapa.get(linha.etapa) ?? []);
+    if (!filtrando) {
+      out.push({ linha, itens: todos, achou: false });
+      continue;
+    }
+    const itens = todos.filter(
+      (i) => i.tipo === "item" && (!f.curva || i.curva === f.curva) && (!q || semAcento(`${i.descricao} ${i.codigo} ${i.numero} ${i.fonte}`).includes(q)),
+    );
+    if (itens.length) out.push({ linha, itens, achou: true });
+  }
+  return out;
+}
+
+const CURVAS: { k: CurvaABC | null; rotulo: string }[] = [
+  { k: null, rotulo: "Todas" },
+  { k: "A", rotulo: "A" },
+  { k: "B", rotulo: "B" },
+  { k: "C", rotulo: "C" },
+];
+const ORDENS: { k: "desvio" | "planilha"; rotulo: string }[] = [
+  { k: "desvio", rotulo: "Maior desvio" },
+  { k: "planilha", rotulo: "Da planilha" },
+];
+
+export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
+  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: "desvio" });
+  const [abertas, setAbertas] = useState<Set<string>>(() => new Set());
+  const lista = useMemo(() => montarLista(orc, filtro), [orc, filtro]);
+  const filtrando = !!filtro.busca.trim() || !!filtro.curva;
+  const achados = lista.reduce((n, e) => n + e.itens.length, 0);
+  const versoes = useMemo(() => new Map(orc.versoes.map((v) => [v.id, v])), [orc.versoes]);
+  const chave = (l: LinhaAndamento) => (l.semEtapa ? "_sem" : l.etapa);
+
+  // Os pedidos da obra só vêm quando a primeira etapa é aberta (a lista fechada não precisa deles).
+  const [pedidos, setPedidos] = useState<{ dado: Pedido[] | null; erro: string | null }>({ dado: null, erro: null });
+  const precisaPedidos = abertas.size > 0 && pedidos.dado === null && !pedidos.erro;
+  useEffect(() => {
+    if (!precisaPedidos) return;
+    let vivo = true;
+    api
+      .listarPedidos(obra.id, { limite: 500 })
+      .then((d) => vivo && setPedidos({ dado: d, erro: null }))
+      .catch((e) => vivo && setPedidos({ dado: null, erro: mensagemDe(e) }));
+    return () => {
+      vivo = false;
+    };
+  }, [precisaPedidos, obra.id]);
+
+  const alternar = (k: string) =>
+    setAbertas((s) => {
+      const n = new Set(s);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+
+
+  return (
+    <section aria-label="Etapas do orçamento">
+      <BarraFiltros
+        busca={{ valor: filtro.busca, mudar: (t) => setFiltro((f) => ({ ...f, busca: t })), placeholder: "Buscar item: descrição, código ou nº", rotulo: "Buscar item do orçamento" }}
+        grupos={[
+          { rotulo: "Curva", valor: filtro.curva, opcoes: CURVAS, mudar: (k: CurvaABC | null) => setFiltro((f) => ({ ...f, curva: k })) },
+          { rotulo: "Ordem", valor: filtro.ordem, opcoes: ORDENS, mudar: (k: "desvio" | "planilha") => setFiltro((f) => ({ ...f, ordem: k })) },
+        ]}
+      />
+      {filtrando ? (
+        <p className="mut sm le-achados" role="status">
+          {achados ? `${achados} ${achados === 1 ? "item" : "itens"} em ${lista.length} ${lista.length === 1 ? "etapa" : "etapas"}` : "Nenhum item encontrado."}
+        </p>
+      ) : null}
+
+      <ul className="le" aria-label="Etapas do orçamento">
+        <li className="le-cab" aria-hidden="true">
+          <span>Etapa</span>
+          <span className="num">Orçado atual</span>
+          <span className="num">Comprometido</span>
+          <span className="num">Realizado</span>
+          <span className="num">Saldo</span>
+        </li>
+        {lista.map(({ linha: l, itens, achou }) => {
+          const k = chave(l);
+          const aberta = achou || abertas.has(k);
+          const semCompra = !l.comprometido && !l.cotando && !l.realizado;
+          const estouro = l.comprometido > l.atual;
+          return (
+            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}`}>
+              <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
+                <span className="le-nome">
+                  <Icone nome="chevRight" tam={14} className="le-seta" />
+                  {l.etapa ? <span className="eap-num">{l.etapa}</span> : null}
+                  <span className="le-desc">{l.descricao}</span>
+                  {semCompra ? null : <Barra l={l} />}
+                </span>
+                <span className="num le-orc">{l.atual ? fmtReais(l.atual) : "—"}</span>
+                {semCompra ? null : (
+                  <>
+                    <span className="num le-comp">
+                      {fmtReais(l.comprometido)}
+                      <small>{fmtPct(l.pct)}</small>
+                    </span>
+                    <span className="num le-real">{fmtReais(l.realizado)}</span>
+                    <span className={`num le-saldo${l.saldo < 0 ? " t-neg" : ""}`}>{fmtReais(l.saldo)}</span>
+                  </>
+                )}
+                {/* celular: nome + um valor; com compra, "comprometido de orçado · %" embaixo da barra */}
+                <span className="le-movel">
+                  {semCompra ? `${reaisInteiros(l.atual)} orçado` : `${reaisInteiros(l.comprometido)} de ${reaisInteiros(l.atual)} · ${fmtPct(l.pct)}`}
+                </span>
+              </button>
+              {aberta ? (
+                <div className="le-corpo" id={`le-${k}`}>
+                  {semCompra ? null : (
+                    <dl className="and-det">
+                      <div>
+                        <dt>Orçado atual</dt>
+                        <dd>{fmtReais(l.atual)}</dd>
+                      </div>
+                      <div>
+                        <dt>Em cotação</dt>
+                        <dd>{l.cotando ? fmtReais(l.cotando) : "—"}</dd>
+                      </div>
+                      <div>
+                        <dt>Comprometido</dt>
+                        <dd>
+                          {fmtReais(l.comprometido)}
+                          {l.comprometido ? <small> · {fmtPct(l.pct)}</small> : null}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Realizado (compras)</dt>
+                        <dd>{fmtReais(l.realizado)}</dd>
+                      </div>
+                      <div>
+                        <dt>Saldo a comprometer</dt>
+                        <dd className={l.saldo < 0 ? "t-neg" : ""}>{fmtReais(l.saldo)}</dd>
+                      </div>
+                    </dl>
+                  )}
+                  {semCompra ? null : <PedidosDaEtapa linha={l} etapas={orc.etapas.map((e) => e.etapa)} pedidos={pedidos} />}
+                  {itens.length ? <ItensDaEtapa itens={itens} versoes={versoes} nomeVersao={nomeVersao} /> : semCompra ? <p className="mut sm">Sem itens nesta etapa.</p> : null}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+        {!lista.length && !filtrando ? <li className="mut sm le-vazio">Nenhuma etapa vigente.</li> : null}
+      </ul>
+    </section>
+  );
+}
+
+function PedidosDaEtapa({ linha, etapas, pedidos }: { linha: LinhaAndamento; etapas: string[]; pedidos: { dado: Pedido[] | null; erro: string | null } }) {
+  if (pedidos.erro)
+    return (
+      <div className="aviso-erro" role="alert">
+        <Icone nome="alert" tam={15} />
+        {pedidos.erro}
+      </div>
+    );
+  if (!pedidos.dado)
+    return (
+      <div className="carregando" role="status">
+        <Icone nome="loader" className="spin" tam={15} />
+        Carregando pedidos…
+      </div>
+    );
+  const conhecidas = new Set(etapas);
+  const daEtapa = (et: string | null) => (linha.semEtapa ? !et || !conhecidas.has(et) : et === linha.etapa);
+  const ps = pedidos.dado.filter((p) => p.status !== "cancelado" && p.linhas.some((l) => daEtapa(l.etapa)));
+  if (!ps.length) return null;
+  return (
+    <>
+      <h4 className="le-sub">Pedidos</h4>
+      <ul className="le-peds">
+        {ps.map((p) => (
+          <li key={p.id}>
+            <div className="and-ped-t">
+              <b>{p.numero}</b> · {p.fornecedor} <span className={`pill st-${p.status}`}>{ROTULO_STATUS[p.status]}</span>
+            </div>
+            {p.linhas
+              .filter((l) => daEtapa(l.etapa))
+              .map((l, i) => (
+                <div key={i} className="and-ped-l">
+                  <span>
+                    {fmtQtdUn(l.quantidade, l.unidade)} · {l.nome}
+                    {l.recebida ? <small className="mut"> · chegou {fmtQtdUn(l.recebida, l.unidade)}</small> : null}
+                  </span>
+                  <span className="num">{fmtReais(l.total)}</span>
+                </div>
+              ))}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function ItensDaEtapa({
+  itens,
+  versoes,
+  nomeVersao,
+}: {
+  itens: ItemDaEtapa[];
+  versoes: Map<string, { tipo: "contrato" | "aditivo"; numero: number }>;
+  nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string;
+}) {
+  const n = itens.filter((i) => i.tipo === "item").length;
+  return (
+    <>
+      <h4 className="le-sub">
+        Itens da planilha <span className="mut">({n})</span>
+      </h4>
+      <div className="eap-rola">
+        <table className="tbl-eap">
+          <thead>
+            <tr>
+              <th scope="col">Nº</th>
+              <th scope="col">Descrição</th>
+              <th scope="col">Un.</th>
+              <th scope="col" className="num">
+                Quant.
+              </th>
+              <th scope="col" className="num">
+                Unitário
+              </th>
+              <th scope="col" className="num">
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((i) => {
+              const v = versoes.get(i.versao_id);
+              if (i.tipo === "etapa")
+                return (
+                  <tr key={i.id} className="eap-sub">
+                    <td>{i.numero}</td>
+                    <td colSpan={5}>{i.descricao}</td>
+                  </tr>
+                );
+              return (
+                <tr key={i.id}>
+                  <td className="eap-n">{i.numero}</td>
+                  <td className="eap-d">
+                    {i.descricao}
+                    {i.curva ? (
+                      <span className={`curva c${i.curva}`} title={`Curva ${i.curva}`}>
+                        {i.curva}
+                      </span>
+                    ) : null}
+                    {v?.tipo === "aditivo" ? <span className="pill eap-adt">{nomeVersao(v)}</span> : null}
+                    {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
+                  </td>
+                  <td>{i.unidade}</td>
+                  <td className="num">
+                    {fmtQtd(i.quantidade)}
+                    <span className="eap-un"> {i.unidade}</span>
+                  </td>
+                  <td className="num">{fmtReais(i.valor_unitario)}</td>
+                  <td className="num">
+                    <b>{fmtReais(i.total)}</b>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}

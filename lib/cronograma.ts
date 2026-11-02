@@ -56,9 +56,27 @@ export const somaPct = (ps: number[]) => ps.reduce((t, p) => t + p, 0);
 /** Valor de uma fração da etapa: orçado (centavos) × centésimos ÷ 10000, arredondado ao centavo. */
 export const valorDe = (atual: number, centesimos: number) => Math.round((atual * centesimos) / CEM);
 
+/**
+ * R$ de cada mês da etapa, arredondando o ACUMULADO e tirando o anterior (o mesmo método da API, valores_mes em
+ * servicos/cronograma.py): assim a soma dos meses fecha no orçado da etapa, sem os centavos que o arredondamento mês a
+ * mês deixava (2.094.833,44 contra 2.094.833,38).
+ */
+export function valoresMes(atual: number, percentuais: number[]): number[] {
+  let acum = 0;
+  let antes = 0;
+  return percentuais.map((p) => {
+    acum += p;
+    const ate = Math.round((atual * acum) / CEM);
+    const v = ate - antes;
+    antes = ate;
+    return v;
+  });
+}
+
 /** R$ previsto por mês e acumulado, a partir da grade do editor. */
 export function previsaoMensal(etapas: { atual: number; percentuais: number[] }[], meses: number) {
-  const previsto = Array.from({ length: meses }, (_, i) => etapas.reduce((t, e) => t + valorDe(e.atual, e.percentuais[i] ?? 0), 0));
+  const porEtapa = etapas.map((e) => valoresMes(e.atual, Array.from({ length: meses }, (_, i) => e.percentuais[i] ?? 0)));
+  const previsto = Array.from({ length: meses }, (_, i) => porEtapa.reduce((t, vs) => t + vs[i]!, 0));
   let acc = 0;
   const acumulado = previsto.map((v) => (acc += v));
   return { previsto, acumulado };
@@ -103,4 +121,44 @@ export function fmtReaisCurto(c: number): string {
   if (a >= 1_000_000) return `${(r / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi`;
   if (a >= 1_000) return `${(r / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: a >= 100_000 ? 0 : 1 })} mil`;
   return r.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+}
+
+/**
+ * A barra única do Gantt: vai do primeiro ao último mês com %, os meses sem % no meio são pausas (a barra afina ali)
+ * e o medido cobre a fração medida da barra inteira (0 a 1). null = etapa fora do cronograma.
+ */
+export function barraDaEtapa(ps: number[], medido: number): { de: number; ate: number; pausas: number[]; medida: number } | null {
+  const iv = intervaloEtapa(ps);
+  if (!iv) return null;
+  const pausas: number[] = [];
+  for (let i = iv.de; i <= iv.ate; i++) if (!ps[i]) pausas.push(i);
+  return { ...iv, pausas, medida: Math.max(0, Math.min(1, medido / CEM)) };
+}
+
+/**
+ * Colar um bloco copiado do Excel (TSV: linhas por \n, colunas por \t) na grade a partir da célula (r, c). O que passa
+ * da última linha ou coluna é ignorado; o "%" e espaços em volta de cada valor saem. Devolve uma grade nova.
+ */
+export function colarBloco(grade: string[][], r: number, c: number, tsv: string): string[][] {
+  const linhas = tsv.replace(/\r/g, "").replace(/\n+$/, "").split("\n").map((l) => l.split("\t"));
+  const nova = grade.map((l) => [...l]);
+  linhas.forEach((cols, i) => {
+    const rr = r + i;
+    if (rr >= nova.length) return;
+    cols.forEach((v, j) => {
+      const cc = c + j;
+      if (cc >= nova[rr]!.length) return;
+      nova[rr]![cc] = v.trim().replace(/%$/, "").trim();
+    });
+  });
+  return nova;
+}
+
+/** A coluna Soma do editor: "100%" (fecha), "" (etapa vazia) ou "85% · faltam 15" / "110% · sobram 10". */
+export function textoSoma(total: number): { texto: string; ok: boolean } {
+  if (total === CEM) return { texto: "100%", ok: true };
+  if (!total) return { texto: "—", ok: true };
+  const dif = Math.abs(CEM - total) / 100;
+  const n = dif.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  return { texto: `${fmtPct(total)} · ${total < CEM ? `faltam ${n}` : `sobram ${n}`}`, ok: false };
 }

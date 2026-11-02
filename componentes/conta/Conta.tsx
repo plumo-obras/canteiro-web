@@ -6,6 +6,7 @@
 import { useState } from "react";
 import type { Obra, Papel, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { CabecalhoPagina } from "../CabecalhoPagina";
 import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
 import { Chave } from "./Chave";
@@ -39,10 +40,7 @@ export function Conta({ usuario }: { usuario: Usuario }) {
   const c = conta.dado;
   return (
     <>
-      <header className={s.cab}>
-        <h1 className={s.titulo}>Conta</h1>
-        <p className={s.sub}>Seu perfil, a chave da Anthropic e os créditos de IA da empresa.</p>
-      </header>
+      <CabecalhoPagina titulo="Conta" sub="Seu perfil, a chave da Anthropic e os créditos de IA da empresa." />
 
       {conta.erro && !c ? (
         <div className="aviso-erro" role="alert">

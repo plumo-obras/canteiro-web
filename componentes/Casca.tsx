@@ -20,6 +20,7 @@ import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
 import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
+import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { trocarTema, useTema } from "./tema";
 import { telaDe, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
@@ -482,14 +483,41 @@ const BARRA: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
 
 function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pendentes: number; inerte: boolean }) {
   const [mais, setMais] = useState(false);
+  // Com o texto maior (o portal impõe tamanho mínimo de fonte), os rótulos não cabem: aí só os ícones (o nome fica no
+  // aria-label) e o rótulo apenas no item ativo.
+  const barra = useRef<HTMLElement>(null);
+  const [compacta, setCompacta] = useState(false);
+  useEffect(() => {
+    const el = barra.current;
+    if (!el) return;
+    const medir = () => {
+      el.classList.remove("compacta");
+      const sobra = [...el.querySelectorAll<HTMLElement>(".bi-rot")].some((r) => r.scrollWidth > r.clientWidth + 1);
+      setCompacta(sobra);
+      if (sobra) el.classList.add("compacta");
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const noMais = p.tela === "aprovacoes" || p.tela === "historico";
   return (
     <>
-      <nav className="barra-inf" aria-label="Telas da obra" inert={p.inerte}>
+      <nav ref={barra} className={`barra-inf${compacta ? " compacta" : ""}`} aria-label="Telas da obra" inert={p.inerte}>
         {BARRA.map((n) => (
-          <button key={n.k} type="button" className={`bi-item${p.tela === n.k ? " on" : ""}`} aria-current={p.tela === n.k ? "page" : undefined} onClick={() => p.setTela(n.k)}>
+          <button
+            key={n.k}
+            type="button"
+            className={`bi-item${p.tela === n.k ? " on" : ""}`}
+            aria-current={p.tela === n.k ? "page" : undefined}
+            aria-label={n.rotulo}
+            onClick={() => p.setTela(n.k)}
+          >
             <Icone nome={n.icone} tam={20} />
-            <span>{n.rotulo}</span>
+            <span className="bi-rot" aria-hidden="true">
+              {n.rotulo}
+            </span>
           </button>
         ))}
         <button
@@ -502,7 +530,9 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pend
         >
           <Icone nome="more" tam={20} />
           {p.pendentes ? <span className="bi-n" aria-hidden="true">{p.pendentes}</span> : null}
-          <span>Mais</span>
+          <span className="bi-rot" aria-hidden="true">
+            Mais
+          </span>
         </button>
       </nav>
       {mais ? (
@@ -627,6 +657,9 @@ function Topo(p: {
 
 function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; trocar: (id: string) => void }) {
   const { aberto, setAberto, caixa, tecla } = useMenu();
+  const { podeOperar } = useCasca();
+  // Os dados da obra (tipo, área, padrão, contrato, BDI, data-base…) moram aqui: o card que repetia isso no Orçamento saiu.
+  const [dados, setDados] = useState(false);
   const [busca, setBusca] = useState("");
   const q = busca
     .normalize("NFD")
@@ -708,12 +741,28 @@ function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; troca
               </button>
             ))}
           </div>
-          <Link href="/obras/nova" role="menuitem" tabIndex={-1} className="seletor-nova">
-            <Icone nome="plus" tam={15} />
-            Nova obra
-          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            className="seletor-nova"
+            onClick={() => {
+              setAberto(false);
+              setDados(true);
+            }}
+          >
+            <Icone nome="predio" tam={15} />
+            Dados desta obra
+          </button>
+          {podeOperar ? (
+            <Link href="/obras/nova" role="menuitem" tabIndex={-1}>
+              <Icone nome="plus" tam={15} />
+              Nova obra
+            </Link>
+          ) : null}
         </div>
       ) : null}
+      {dados ? <ModalDadosObra obra={obra} fechar={() => setDados(false)} leitura={!podeOperar} /> : null}
     </div>
   );
 }

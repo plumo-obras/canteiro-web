@@ -17,6 +17,7 @@ import { LinhaConta } from "../LinhaConta";
 import type { TipoLancamento } from "../formularios/ModalMovimento";
 import { ImportarOrcamento } from "../obra/ImportarOrcamento";
 import { BotaoMais, Paginacao, useMaisAntigos, usePaginas } from "../Paginacao";
+import { BarraFiltros } from "../CabecalhoPagina";
 
 // A planilha do orçamento pode ter milhares de linhas: 50 por página e a busca pelo nome.
 const POR_PAGINA = 50;
@@ -319,24 +320,12 @@ export function Itens(props: { obra: Obra; itens: ItemInsumo[]; etapas: EtapaObr
 
   return (
     <>
-      <div className="barra-acoes">
-        {itens.length > POR_PAGINA / 2 ? (
-          <label className="busca">
-            <Icone nome="busca" tam={16} />
-            <span className="sr-only">Buscar item</span>
-            <input type="search" placeholder="Buscar item, ex.: cimento" value={busca} onChange={(e) => setBusca(e.target.value)} />
-          </label>
-        ) : null}
-        {temServico || filtro ? (
-          <div className="seg seg-pq" role="radiogroup" aria-label="Filtrar por tipo">
-            {FILTROS.map((f) => (
-              <button key={f.rotulo} type="button" role="radio" aria-checked={filtro === f.k} className={filtro === f.k ? "on" : ""} onClick={() => setFiltro(f.k)}>
-                {f.rotulo}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      {itens.length > POR_PAGINA / 2 || temServico || filtro ? (
+        <BarraFiltros
+          busca={itens.length > POR_PAGINA / 2 ? { valor: busca, mudar: setBusca, placeholder: "Buscar item, ex.: cimento", rotulo: "Buscar item" } : undefined}
+          grupos={temServico || filtro ? [{ rotulo: "Tipo", valor: filtro, opcoes: FILTROS, mudar: setFiltro }] : []}
+        />
+      ) : null}
       {semPrevisao ? (
         <p className="mut sm ax-semprev">
           Nenhum item tem quantidade prevista, então o Plumo ainda não calcula o que falta comprar. Importe a lista de materiais em Orçamento › Importar
