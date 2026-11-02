@@ -1110,3 +1110,69 @@ button.g-nome{cursor:pointer}
   .tbl-g-etapa th:first-child,.tbl-g-etapa td:first-child{padding-left:8px}
   .tbl-g-etapa th:last-child,.tbl-g-etapa td:last-child{padding-right:8px}
 }
+
+/* ---------------- Onda 2: andamento por etapa no celular e detalhe rotulado ---------------- */
+.and-lista{display:none;list-style:none;margin:0;padding:0}
+.and-det{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 16px;margin:4px 0 0}
+.and-det div{min-width:0}
+.and-det dt{font-size:12px;color:var(--muted)}
+.and-det dd{margin:2px 0 0;font-weight:600;font-variant-numeric:tabular-nums}
+.and-det dd small{font-weight:400;color:var(--muted)}
+@media (max-width:760px){
+  .and-rola{display:none}
+  .and-legenda span:not(:last-child){display:none}
+  .and-lista{display:grid;gap:0;border-radius:var(--r);background:var(--cardSolido);border:1px solid var(--edge);overflow:hidden}
+  .and-lista li+li{border-top:1px solid var(--line2)}
+  .and-item{display:flex;flex-direction:column;gap:6px;width:100%;padding:12px 14px;border:0;background:none;color:var(--ink);font:inherit;text-align:left}
+  .and-item:active{background:var(--sunk)}
+  .and-item-n{display:block;font-weight:600;font-size:var(--t-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .and-item-n .eap-num{margin-right:6px;min-width:0}
+  .and-item .and-barra{max-width:none;margin-top:0}
+  .and-item-v{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .and-item.sem-compra{flex-direction:row;justify-content:space-between;align-items:baseline;gap:10px}
+  .and-item.sem-compra .and-item-n{color:var(--muted);font-weight:500;min-width:0}
+  .and-item.sem-compra .and-item-v{color:var(--muted);flex:none}
+  .and-item.estouro .and-item-v{color:var(--redInk);font-weight:600}
+  /* itens de Suprimentos: o rótulo na frente do número, numa linha ("Tem 1.200 kg") */
+  .almox .ax-n{flex-direction:row;align-items:baseline;gap:6px;flex-wrap:wrap}
+  .almox .ax-n::before{content:attr(data-rot);font-size:12px;color:var(--muted)}
+}
+.g-grupo{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+@media (max-width:759px){
+  .gantt-cartoes{display:grid;gap:12px}
+  .g-grupo-rec>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;cursor:pointer;font-weight:600;font-size:var(--t-meta);color:var(--ink2);list-style:none}
+  .g-grupo-rec>summary::-webkit-details-marker{display:none}
+  .g-grupo-rec>summary::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s var(--ease)}
+  .g-grupo-rec[open]>summary::before{transform:rotate(45deg)}
+}
+@media (max-width:760px){
+  /* item de grade com min-width auto crescia até o nome inteiro e empurrava o valor para fora da tela */
+  .and-lista,.and-lista li{min-width:0}
+  .and-lista{grid-template-columns:minmax(0,1fr)}
+  .and-item.sem-compra .and-item-n{flex:1 1 auto}
+  .almox .ax-n{justify-content:flex-start;text-align:left}
+}
+
+/* ---------------- Onda 2, correções da validação (conferidas no WebKit) ---------------- */
+/* gavetas opacas: no WebKit o vidro (cardForte + backdrop) ficava semitransparente dentro do portal */
+.drawer .pane{background:var(--cardSolido);-webkit-backdrop-filter:none;backdrop-filter:none}
+/* andamento no celular: o nome quebra em até 2 linhas e o valor fica à direita, sem cortar o nome */
+@media (max-width:760px){
+  .and-item-n{white-space:normal;overflow:visible;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
+  .and-item.sem-compra{align-items:center}
+  .and-item.sem-compra .and-item-v{flex:none;text-align:right;max-width:44%}
+  /* detalhe da etapa: 2 colunas fixas com folga, rótulo sobre o valor */
+  .and-det{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+  .and-det dt{line-height:1.25}
+  /* filtro do cronograma: ocupa a largura, botões dividem por igual, nada cortado (e rola se a fonte for grande) */
+  .gantt-cab .seg{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
+  .gantt-cab .seg::-webkit-scrollbar{display:none}
+  .gantt-cab .seg button{flex:1 0 auto;padding:0 10px;font-size:13px;white-space:nowrap}
+  /* gaveta do cronograma: R$ sem corte */
+  .tbl-g-etapa td{white-space:nowrap}
+}
+/* Gantt: o mês da medição em destaque com um traço ocre acima; a legenda "hoje = dez/26" vai para a coluna da direita */
+.g-mes.hoje{display:block;position:relative;color:var(--accentInk);font-weight:600}
+.g-mes.hoje::before{content:"";position:absolute;left:50%;top:-7px;width:16px;height:3px;margin-left:-8px;border-radius:2px;background:var(--accent)}
+.g-mes.hoje small{display:none}
+.g-hoje-leg{display:inline-block;width:2px;height:12px;margin-right:4px;vertical-align:-2px;background:var(--accent)}

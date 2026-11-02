@@ -43,3 +43,7 @@
   .cartao{padding:14px 16px;gap:8px}
   .grade{gap:10px}
 }
+.prazo{font-size:var(--t-meta);color:var(--ink2)}
+.prazo [data-tom="acima"]{color:var(--redInk);font-weight:600}
+.prazo [data-tom="ok"]{color:var(--greenInk)}
+.sempend{font-size:var(--t-body);color:var(--ink2);font-weight:500}

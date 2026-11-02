@@ -20,14 +20,14 @@ import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
 import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
-import { BotaoTema } from "./tema";
+import { trocarTema, useTema } from "./tema";
 import { telaDe, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
 const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
   { k: "conversa", rotulo: "Agente", icone: "message" },
   { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
   { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
-  { k: "suprimentos", rotulo: "Suprimentos", icone: "package" },
+  { k: "suprimentos", rotulo: "Compras", icone: "package" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
   { k: "historico", rotulo: "Histórico", icone: "history" },
 ];
@@ -354,21 +354,10 @@ function App({ usuario }: { usuario: Usuario }) {
         >
           <Icone nome="conversas" tam={18} />
         </button>
-        {obra ? (
-          <button type="button" className="tr-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
-            <Icone nome="plus" tam={18} />
-          </button>
-        ) : null}
-        {podeCadastrar ? (
-          <Link href="/obras/nova" className="tr-btn" aria-label="Nova obra" title="Nova obra">
-            <Icone nome="predio" tam={18} />
-          </Link>
-        ) : null}
         <span className="tr-sep" aria-hidden="true" />
         <Link href="/conta" className="tr-btn" aria-label="Conta e créditos" title="Conta e créditos">
           <Icone nome="user" tam={18} />
         </Link>
-        <BotaoTema className="tr-btn" />
       </nav>
       <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
         <div className="painel-cab">
@@ -478,7 +467,104 @@ function App({ usuario }: { usuario: Usuario }) {
             </>
           ) : null)}
       </main>
+      {obra && !conteudo ? <BarraInferior tela={tela} setTela={setTela} pendentes={pendentes(obra.id)} inerte={movel && gaveta} /> : null}
     </div>
+  );
+}
+
+/** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: os cinco destinos do dia a dia, o resto no Mais. */
+const BARRA: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
+  { k: "conversa", rotulo: "Agente", icone: "message" },
+  { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
+  { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
+  { k: "suprimentos", rotulo: "Compras", icone: "package" },
+];
+
+function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pendentes: number; inerte: boolean }) {
+  const [mais, setMais] = useState(false);
+  const noMais = p.tela === "aprovacoes" || p.tela === "historico";
+  return (
+    <>
+      <nav className="barra-inf" aria-label="Telas da obra" inert={p.inerte}>
+        {BARRA.map((n) => (
+          <button key={n.k} type="button" className={`bi-item${p.tela === n.k ? " on" : ""}`} aria-current={p.tela === n.k ? "page" : undefined} onClick={() => p.setTela(n.k)}>
+            <Icone nome={n.icone} tam={20} />
+            <span>{n.rotulo}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`bi-item${noMais ? " on" : ""}`}
+          aria-haspopup="dialog"
+          aria-expanded={mais}
+          aria-label={p.pendentes ? `Mais (${p.pendentes} aprovações pendentes)` : "Mais"}
+          onClick={() => setMais(true)}
+        >
+          <Icone nome="more" tam={20} />
+          {p.pendentes ? <span className="bi-n" aria-hidden="true">{p.pendentes}</span> : null}
+          <span>Mais</span>
+        </button>
+      </nav>
+      {mais ? (
+        <FolhaMais
+          fechar={() => setMais(false)}
+          pendentes={p.pendentes}
+          ir={(t) => {
+            p.setTela(t);
+            setMais(false);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** A folha do Mais: Aprovações (com o contador), Histórico, Conta e Tema. Esc ou toque fora fecham. */
+function FolhaMais({ fechar, pendentes, ir }: { fechar: () => void; pendentes: number; ir: (t: AbaAtiva) => void }) {
+  const caixa = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const antes = document.activeElement as HTMLElement | null;
+    caixa.current?.querySelector<HTMLElement>("button,a")?.focus();
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === "Escape") fechar();
+    };
+    document.addEventListener("keydown", tecla);
+    return () => {
+      document.removeEventListener("keydown", tecla);
+      antes?.focus?.();
+    };
+  }, [fechar]);
+  return (
+    <div className="folha-fundo" onClick={(e) => e.target === e.currentTarget && fechar()}>
+      <div className="folha" role="dialog" aria-modal="true" aria-label="Mais" ref={caixa}>
+        <span className="folha-alca" aria-hidden="true" />
+        <button type="button" className="folha-item" onClick={() => ir("aprovacoes")}>
+          <Icone nome="checkCircle" tam={18} />
+          <span>Aprovações</span>
+          {pendentes ? <span className="n">{pendentes}</span> : null}
+        </button>
+        <button type="button" className="folha-item" onClick={() => ir("historico")}>
+          <Icone nome="history" tam={18} />
+          <span>Histórico</span>
+        </button>
+        <Link href="/conta" className="folha-item">
+          <Icone nome="user" tam={18} />
+          <span>Conta</span>
+        </Link>
+        <ItemTema />
+      </div>
+    </div>
+  );
+}
+
+function ItemTema() {
+  const tema = useTema();
+  const outro = tema === "escuro" ? "claro" : "escuro";
+  return (
+    <button type="button" className="folha-item" onClick={() => trocarTema(outro)}>
+      <Icone nome={tema === "escuro" ? "sol" : "lua"} tam={18} />
+      <span>Tema {outro}</span>
+    </button>
   );
 }
 
@@ -504,16 +590,6 @@ function Topo(p: {
   }, [tela]);
   return (
     <header className="topo" inert={p.inerte}>
-      <button
-        type="button"
-        className="tr-btn so-movel topo-menu"
-        aria-label="Conversas e atalhos"
-        aria-expanded={p.painelAberto}
-        aria-controls="painel-conversas"
-        onClick={p.alternarPainel}
-      >
-        <Icone nome="menu" tam={20} />
-      </button>
       <Link href="/inicio" className="topo-marca" aria-label="Plumo, início">
         <Logo />
         <span className="topo-marca-t">Plumo</span>
@@ -543,7 +619,6 @@ function Topo(p: {
         <span className="sp" />
       )}
       <div className="topo-dir">
-        <BotaoTema className="tr-btn so-movel" />
         <Perfil usuario={p.usuario} sair={p.sair} />
       </div>
     </header>
@@ -643,6 +718,18 @@ function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; troca
   );
 }
 
+/** O tema saiu do trilho e do topo: no desktop fica no menu do avatar (no celular, no Mais). */
+function ItemTemaMenu() {
+  const tema = useTema();
+  const outro = tema === "escuro" ? "claro" : "escuro";
+  return (
+    <button type="button" role="menuitem" tabIndex={-1} onClick={() => trocarTema(outro)}>
+      <Icone nome={tema === "escuro" ? "sol" : "lua"} tam={15} />
+      Tema {outro}
+    </button>
+  );
+}
+
 function Perfil({ usuario, sair }: { usuario: Usuario; sair: () => void }) {
   const { aberto, setAberto, caixa, tecla } = useMenu();
   const PAPEL = { viewer: "leitura", admin: "admin", master: "master" } as const;
@@ -669,6 +756,7 @@ function Perfil({ usuario, sair }: { usuario: Usuario; sair: () => void }) {
             <Icone nome="user" tam={15} />
             Conta e créditos
           </Link>
+          <ItemTemaMenu />
           <button type="button" role="menuitem" tabIndex={-1} onClick={sair}>
             <Icone nome="logout" tam={15} />
             Sair

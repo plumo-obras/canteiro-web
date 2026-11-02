@@ -30,3 +30,23 @@ describe("Onda 1: zero não aparece, autor só quando muda, prazo numa frase", (
     expect(textoPrazo(c({ termino_projetado: null, atraso_meses: null, pct_medido: null }))).toMatchObject({ termina: "set/2027", sit: null, medido: null });
   });
 });
+
+import { gruposCelular } from "./cronograma/Gantt";
+describe("Onda 2: cronograma no celular", () => {
+  it("atenção aberta em cima; concluídas e próximas recolhidas, só se houver", () => {
+    const l = (situacao: "atrasada" | "em_dia" | "concluida" | "nao_comecou") => ({ situacao, medido_acumulado: 0, previstoRef: 0 });
+    const g = gruposCelular([l("nao_comecou"), l("em_dia"), l("concluida"), l("atrasada"), l("nao_comecou")]);
+    expect(g.map((x) => [x.k, x.itens.length, x.aberto])).toEqual([["atencao", 2, true], ["concluidas", 1, false], ["proximas", 2, false]]);
+    expect(gruposCelular([l("nao_comecou")]).map((x) => x.k)).toEqual(["proximas"]);
+  });
+});
+
+import { frasePrazo } from "./inicio/Inicio";
+describe("Onda 2: prazo no cartão da Início", () => {
+  const p = (x: object) => ({ termino_contratual: "2027-09", termino_projetado: "2027-09", atraso_meses: 0, atraso_decimos: 0, pct_previsto_na_medicao: 765, pct_medido: 765, mes_referencia: "2026-12", ...x });
+  it("em dia, atraso com fração e sem medição", () => {
+    expect(frasePrazo(p({}))).toEqual({ termina: "set/2027", sit: { texto: "em dia", tom: "ok" } });
+    expect(frasePrazo(p({ termino_projetado: "2027-10", atraso_meses: 1, atraso_decimos: 8 }))).toEqual({ termina: "out/2027", sit: { texto: "0,8 mês de atraso", tom: "acima" } });
+    expect(frasePrazo(p({ termino_projetado: null, atraso_meses: null, atraso_decimos: null })).sit).toBeNull();
+  });
+});

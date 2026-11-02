@@ -50,6 +50,9 @@ export function linhasAndamento(orc: Orcamento): LinhaAndamento[] {
 /** Maior desvio primeiro: o que já comprometeu mais do orçado da etapa (estouro no topo, em vermelho). */
 export const porDesvio = (a: LinhaAndamento, b: LinhaAndamento) => b.pct - a.pct || b.comprometido - a.comprometido;
 
+/** "R$ 24.250": a lista do celular arredonda ao real; o detalhe mostra os centavos. */
+const reaisInteiros = (c: number) => fmtReais(Math.round(c / 100) * 100).replace(/,00$/, "");
+
 const fmtPct = (p: number) => (p === Infinity ? "sem orçado" : `${(p * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`);
 
 export function csvAndamento(orc: Orcamento): string {
@@ -222,6 +225,29 @@ export function AndamentoEtapas({ obra, orc }: { obra: Obra; orc: Orcamento }) {
           </tfoot>
         </table>
       </div>
+      {/* celular: lista com rótulo em vez da tabela de seis colunas que virava números soltos */}
+      <ul className="and-lista">
+        {linhas.map((l) => (
+          <li key={l.semEtapa ? "_sem" : l.etapa}>
+            <button type="button" className={`and-item${l.comprometido ? "" : " sem-compra"}${l.comprometido > l.atual ? " estouro" : ""}`} onClick={() => setAberta(l)}>
+              <span className="and-item-n">
+                {l.etapa ? <span className="eap-num">{l.etapa}</span> : null}
+                {l.descricao}
+              </span>
+              {l.comprometido ? (
+                <>
+                  <Barra l={l} />
+                  <span className="and-item-v">
+                    {reaisInteiros(l.comprometido)} comprometido de {reaisInteiros(l.atual)} · {fmtPct(l.pct)}
+                  </span>
+                </>
+              ) : (
+                <span className="and-item-v">{reaisInteiros(l.atual)} orçado</span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
       <p className="and-legenda mut sm">
         <span>
           <i className="and-comp" /> comprometido
@@ -247,10 +273,32 @@ function PedidosDaEtapa({ obra, linha, etapas, fechar }: { obra: Obra; linha: Li
   const pedidos = (dado ?? []).filter((p) => p.status !== "cancelado" && p.linhas.some((l) => daEtapa(l.etapa)));
   return (
     <Drawer titulo={linha.semEtapa ? "Gasto sem etapa" : `${linha.etapa} · ${linha.descricao}`} fechar={fechar}>
-      <p className="mut sm" style={{ margin: 0 }}>
-        Orçado {fmtReais(linha.atual)} · comprometido {fmtReais(linha.comprometido)} · realizado {fmtReais(linha.realizado)}
-        {linha.cotando ? ` · em cotação ${fmtReais(linha.cotando)}` : ""}
-      </p>
+      <dl className="and-det">
+        <div>
+          <dt>Orçado atual</dt>
+          <dd>{fmtReais(linha.atual)}</dd>
+        </div>
+        <div>
+          <dt>Em cotação</dt>
+          <dd>{linha.cotando ? fmtReais(linha.cotando) : "—"}</dd>
+        </div>
+        <div>
+          <dt>Comprometido</dt>
+          <dd>
+            {fmtReais(linha.comprometido)}
+            {linha.comprometido ? <small> · {fmtPct(linha.pct)}</small> : null}
+          </dd>
+        </div>
+        <div>
+          <dt>Realizado (compras)</dt>
+          <dd>{fmtReais(linha.realizado)}</dd>
+        </div>
+        <div>
+          <dt>Saldo a comprometer</dt>
+          <dd className={linha.saldo < 0 ? "t-neg" : ""}>{fmtReais(linha.saldo)}</dd>
+        </div>
+      </dl>
+      <h3 className="sectit">Pedidos da etapa</h3>
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />

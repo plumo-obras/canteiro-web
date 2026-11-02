@@ -63,7 +63,7 @@ export function Suprimentos({ obra, secaoInicial = "itens" }: { obra: Obra; seca
 
   const acoes = (
     <>
-      <div className="seg" role="tablist" aria-label="Seções de Suprimentos">
+      <div className="seg" role="tablist" aria-label="Seções de Compras">
         {SECOES.map((s) => (
           <button key={s.k} type="button" role="tab" aria-selected={secao === s.k} className={secao === s.k ? "on" : ""} onClick={() => setSecao(s.k)}>
             {s.rotulo}
@@ -101,7 +101,7 @@ export function Suprimentos({ obra, secaoInicial = "itens" }: { obra: Obra; seca
 
   return (
     <div className="page">
-      <CabecalhoPagina titulo="Suprimentos" kpis={kpis} acoes={acoes} />
+      <CabecalhoPagina titulo="Compras" kpis={kpis} acoes={acoes} />
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />

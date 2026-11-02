@@ -78,6 +78,27 @@ export function Gantt({ crono }: { crono: Cronograma }) {
     });
   };
 
+  const cartao = (l: LinhaGantt) => (
+          <li key={l.etapa}>
+      <button type="button" className={`g-cartao g-${l.situacao}`} onClick={() => setAberta(l)}>
+        <span className="g-c-cab">
+          <span className="g-n">
+            <span className="eap-num">{l.etapa}</span> {l.descricao}
+          </span>
+          {l.situacao === "atrasada" || l.situacao === "concluida" ? <span className={`g-chip c-${l.situacao}`}>{ROTULO[l.situacao]}</span> : null}
+        </span>
+        <span className="g-prog" aria-hidden="true">
+          <span className="g-prog-prev" style={{ width: `${l.previstoRef / 100}%` }} />
+          <span className="g-prog-med" style={{ width: `${l.medido_acumulado / 100}%` }} />
+        </span>
+        <span className="g-c-pe">
+          <span>{contaDaEtapa(l)}</span>
+          <span className="mut">{l.intervalo ? `${fmtMes(meses[l.intervalo.de]!)} → ${fmtMes(meses[l.intervalo.ate]!)}` : "fora do cronograma"}</span>
+        </span>
+      </button>
+    </li>
+  );
+
   return (
     <section aria-labelledby="gantt-titulo">
       <div className="gantt-cab">
@@ -106,18 +127,24 @@ export function Gantt({ crono }: { crono: Cronograma }) {
           <span className="g-meses">
             {meses.map((m, i) => (
               <span key={m} className={`g-mes${i === refNaGrade ? " hoje" : ""}`} title={fmtMesLongo(m)}>
+                {/* "hoje" não disputa espaço com os meses vizinhos: o mês fica em destaque e a marca é um traço acima */}
                 {i === refNaGrade ? (
-                  <>
-                    <small>hoje</small>
-                    <b>{rotuloMes(m)}</b>
-                  </>
+                  <b aria-label={`hoje, ${fmtMesLongo(m)}`}>{rotuloMes(m)}</b>
                 ) : (
                   rotuloMes(m)
                 )}
               </span>
             ))}
           </span>
-          <span className="g-sit">Situação em {crono.prazo.mes_referencia ? fmtMes(crono.prazo.mes_referencia) : "—"}</span>
+          <span className="g-sit">
+            {crono.prazo.mes_referencia ? (
+              <>
+                <i className="g-hoje-leg" aria-hidden="true" /> hoje = {fmtMes(crono.prazo.mes_referencia)}
+              </>
+            ) : (
+              "Situação"
+            )}
+          </span>
         </div>
         {linhas.map((l) => (
           <div key={l.etapa} className={`g-l g-${l.situacao}`}>
@@ -178,32 +205,39 @@ export function Gantt({ crono }: { crono: Cronograma }) {
 
       {/* celular: cartões */}
       {!linhas.length ? <p className="mut sm gantt-cartoes-vazio">{VAZIO[filtro]}</p> : null}
-      <ul className="gantt-cartoes">
-        {linhas.map((l) => (
-          <li key={l.etapa}>
-            <button type="button" className={`g-cartao g-${l.situacao}`} onClick={() => setAberta(l)}>
-              <span className="g-c-cab">
-                <span className="g-n">
-                  <span className="eap-num">{l.etapa}</span> {l.descricao}
-                </span>
-                {l.situacao === "atrasada" || l.situacao === "concluida" ? <span className={`g-chip c-${l.situacao}`}>{ROTULO[l.situacao]}</span> : null}
-              </span>
-              <span className="g-prog" aria-hidden="true">
-                <span className="g-prog-prev" style={{ width: `${l.previstoRef / 100}%` }} />
-                <span className="g-prog-med" style={{ width: `${l.medido_acumulado / 100}%` }} />
-              </span>
-              <span className="g-c-pe">
-                <span>{contaDaEtapa(l)}</span>
-                <span className="mut">{l.intervalo ? `${fmtMes(meses[l.intervalo.de]!)} → ${fmtMes(meses[l.intervalo.ate]!)}` : "fora do cronograma"}</span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {/* celular: em cima o que pede atenção (atrasadas e em andamento); concluídas e próximas recolhidas */}
+      <div className="gantt-cartoes">
+        {(filtro === "todas" ? gruposCelular(linhas) : [{ k: "todas", rotulo: "", itens: linhas, aberto: true }]).map((g) =>
+          g.aberto ? (
+            <ul key={g.k} className="g-grupo">
+              {g.itens.map(cartao)}
+            </ul>
+          ) : (
+            <details key={g.k} className="g-grupo-rec">
+              <summary>
+                {g.rotulo} ({g.itens.length})
+              </summary>
+              <ul className="g-grupo">{g.itens.map(cartao)}</ul>
+            </details>
+          ),
+        )}
+      </div>
 
       {aberta ? <GavetaEtapa crono={crono} linha={aberta} meses={meses} fechar={() => setAberta(null)} /> : null}
     </section>
   );
+}
+
+/** Grupos do celular: o que pede atenção aberto em cima; concluídas e próximas recolhidas (só aparecem se houver). */
+export function gruposCelular<T extends { situacao: Situacao; medido_acumulado: number; previstoRef: number }>(ls: T[]) {
+  const atencao = ls.filter((l) => l.situacao === "atrasada" || l.situacao === "em_dia");
+  const concluidas = ls.filter((l) => l.situacao === "concluida");
+  const proximas = ls.filter((l) => l.situacao === "nao_comecou");
+  return [
+    { k: "atencao", rotulo: "", itens: atencao, aberto: true },
+    { k: "concluidas", rotulo: "Concluídas", itens: concluidas, aberto: false },
+    { k: "proximas", rotulo: "Próximas", itens: proximas, aberto: false },
+  ].filter((g) => g.itens.length);
 }
 
 /** "30% de 70% previsto" · "100% medido"; etapa que não começou não diz nada (a barra já mostra quando começa). */

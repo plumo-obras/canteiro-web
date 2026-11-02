@@ -46,11 +46,16 @@ function Linha({ r, autor }: { r: EntradaRegistro; autor: boolean }) {
   const [confirmando, setConfirmando] = useState(false);
   // Desfazer pelo Histórico pede confirmação com o texto da entrada, como no Orçamento: um clique desfazia um
   // cronograma refeito ou um prazo sem a pessoa ver o quê.
+  // A entrada "Desfeito: …" de medição, cronograma e edição vem com desfazer.refazer: o mesmo POST a refaz.
+  const refazer = !!r.desfazer && (r.desfazer as { refazer?: boolean }).refazer === true;
+  // A receita de refazer traz o texto da ação original ("Atualizou a obra X: cliente"); sem ele, o da própria entrada.
+  const textoOriginal = (r.desfazer as { texto?: unknown } | null)?.texto;
+  const oQue = typeof textoOriginal === "string" && textoOriginal ? legivel(textoOriginal) : legivel(r.texto).replace(/^Desfeito:\s*/, "");
   const desfazer = async () => {
     const d = await api.desfazerRegistro(r.id);
     setConfirmando(false);
     mudou();
-    avisar(d?.texto ? legivel(d.texto) : `Desfeito: ${legivel(r.texto)}`);
+    avisar(d?.texto ? legivel(d.texto) : refazer ? `Refeito: ${oQue}` : `Desfeito: ${legivel(r.texto)}`);
   };
   return (
     <li className={`hist-l${r.desfeito ? " desfeito" : ""}`}>
@@ -65,15 +70,22 @@ function Linha({ r, autor }: { r: EntradaRegistro; autor: boolean }) {
         ) : null}
       </div>
       {podeOperar && r.desfazer && !r.desfeito ? (
-        <button type="button" className="link hist-desf" onClick={() => setConfirmando(true)} aria-label={`Desfazer: ${r.texto}`}>
-          <Icone nome="undo" tam={13} />
-          Desfazer
+        <button type="button" className="link hist-desf" onClick={() => setConfirmando(true)} aria-label={`${refazer ? "Refazer" : "Desfazer"}: ${r.texto}`}>
+          <Icone nome={refazer ? "redo" : "undo"} tam={13} />
+          {refazer ? "Refazer" : "Desfazer"}
         </button>
       ) : null}
       {confirmando ? (
-        <Confirmar titulo={`Desfazer: ${legivel(r.texto)}?`} confirmar="Desfazer" fechar={() => setConfirmando(false)} aoConfirmar={desfazer}>
+        <Confirmar
+          titulo={refazer ? `Refazer: ${oQue}?` : `Desfazer: ${legivel(r.texto)}?`}
+          confirmar={refazer ? "Refazer" : "Desfazer"}
+          fechar={() => setConfirmando(false)}
+          aoConfirmar={desfazer}
+        >
           <p style={{ margin: "4px 0 0" }}>
-            Volta ao que era antes desta entrada ({fmtHora(r.criado_em)}, {r.quem_nome ?? r.quem}). Se algo mudou depois dela, o Plumo recusa e diz o quê.
+            {refazer
+              ? "Aplica de novo o que foi desfeito. Se algo mudou depois, o Plumo recusa e diz o quê."
+              : `Volta ao que era antes desta entrada (${fmtHora(r.criado_em)}, ${r.quem_nome ?? r.quem}). Se algo mudou depois dela, o Plumo recusa e diz o quê.`}
           </p>
         </Confirmar>
       ) : null}

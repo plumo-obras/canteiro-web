@@ -518,6 +518,8 @@ export interface ResumoObra {
   /** Pedidos recebidos esperando a conferência da NF. */
   nf_para_conferir: number;
   ultima_atividade: DataISO | null;
+  /** O prazo do cronograma (o mesmo do GET /obras/{id}/cronograma); null sem cronograma. */
+  prazo?: PrazoCronograma | null;
 }
 
 /** Valores de IA em microdólares (1 US$ = 1.000.000), inteiros como o resto do dinheiro. */

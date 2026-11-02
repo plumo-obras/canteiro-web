@@ -177,3 +177,40 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 }
 @keyframes mvGaveta{from{transform:translateX(-100%)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){ .app>.painel{animation:none} }
+
+/* ---------- celular (≤ 760 px): barra fixa embaixo no lugar das pílulas que rolavam ---------- */
+.barra-inf,.folha-fundo{display:none}
+@media (max-width:760px){
+  .topo-nav{display:none}
+  .topo{flex-wrap:nowrap}
+  .app,.app.com-painel{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+  .barra-inf{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:40;
+    padding:4px 4px env(safe-area-inset-bottom);background:var(--barra);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+    border-top:1px solid var(--edge);box-shadow:0 -10px 30px -18px rgba(0,0,0,.5)}
+  .bi-item{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;padding:4px 2px;border:0;
+    background:none;color:var(--muted);font:500 11px/1.2 var(--sans);border-radius:12px;-webkit-tap-highlight-color:transparent}
+  .bi-item span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bi-item.on{color:var(--ink)}
+  .bi-item.on svg{color:var(--accent)}
+  .bi-item:active{background:var(--sunk)}
+  .bi-n{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;padding:0 5px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);
+    font:700 11px/18px var(--sans);text-align:center}
+  .folha-fundo{display:block;position:fixed;inset:0;z-index:60;background:var(--veu);animation:mvAparece var(--mv-base) var(--ease)}
+  .folha{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:2px;padding:8px 10px calc(14px + env(safe-area-inset-bottom));
+    border-radius:22px 22px 0 0;background:var(--cardSolido);border-top:1px solid var(--edge);box-shadow:0 -16px 40px -20px rgba(0,0,0,.6);animation:mvFolha 240ms var(--ease)}
+  .folha-alca{align-self:center;width:40px;height:4px;border-radius:99px;background:var(--line);margin:2px 0 8px}
+  .folha-item{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border:0;border-radius:14px;background:none;color:var(--ink);font:500 var(--t-body) var(--sans);text-decoration:none;text-align:left}
+  .folha-item:active{background:var(--sunk)}
+  .folha-item svg{color:var(--ink2)}
+  .folha-item .n{margin-left:auto;min-width:22px;padding:0 7px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);font:700 12px/22px var(--sans);text-align:center}
+}
+@keyframes mvFolha{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){ .folha,.folha-fundo{animation:none} }
+@media (max-width:760px){ html:has(.barra-inf) .toast{bottom:calc(76px + env(safe-area-inset-bottom))} }
+/* barra inferior: rótulos inteiros em 390 px no WebKit; abaixo de modais e gavetas (some quando um deles abre) */
+@media (max-width:760px){
+  .barra-inf{z-index:15}
+  .bi-item{font-size:10.5px;letter-spacing:-.01em;padding:4px 0}
+  .bi-item span:last-child{overflow:visible;text-overflow:clip}
+  html:has(.modal) .barra-inf,html:has(.drawer) .barra-inf,html:has(.folha-fundo) .barra-inf{display:none}
+}

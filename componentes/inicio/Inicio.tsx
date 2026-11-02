@@ -6,7 +6,9 @@
  */
 import Link from "next/link";
 import { useState } from "react";
-import type { ResumoObra, StatusObra, Usuario } from "@/lib/contrato";
+import { situacaoPrazo } from "../cronograma/Cronograma";
+import { fmtMesLongo } from "@/lib/cronograma";
+import type { PrazoCronograma, ResumoObra, StatusObra, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import type { SessaoApi } from "@/lib/historico";
 import { fmtReais } from "@/lib/formato";
@@ -173,10 +175,33 @@ export function pendenciasDe(r: ResumoObra): { texto: string; tom: "pede" | "fal
   return ps;
 }
 
+/** "Termina set/2027 · em dia" ou "Termina out/2027 · 0,8 mês de atraso": a mesma frase do topo do cronograma. */
+export function frasePrazo(p: PrazoCronograma): { termina: string; sit: { texto: string; tom: string } | null } {
+  const sit = situacaoPrazo(p);
+  const projetado = sit && p.termino_projetado && p.termino_projetado !== p.termino_contratual;
+  return { termina: fmtMesLongo(projetado ? p.termino_projetado : p.termino_contratual), sit };
+}
+
+function FrasePrazo({ p }: { p: PrazoCronograma }) {
+  const f = frasePrazo(p);
+  return (
+    <span className={s.prazo}>
+      Termina {f.termina}
+      {f.sit ? (
+        <>
+          {" · "}
+          <span data-tom={f.sit.tom}>{f.sit.texto}</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
+
 /** O cartão inteiro é o link para a obra: um alvo grande, sem botão disputando a atenção. */
 function CartaoObra({ r, href }: { r: ResumoObra; href: string }) {
   const { obra } = r;
   const ps = pendenciasDe(r);
+  const atrasada = (r.prazo?.atraso_decimos ?? (r.prazo?.atraso_meses ?? 0) * 10) > 0;
   return (
     <li className={s.item}>
       <Link href={href} className={s.cartao}>
@@ -197,8 +222,10 @@ function CartaoObra({ r, href }: { r: ResumoObra; href: string }) {
             ))}
           </ul>
         ) : (
-          <span className={s.emdia}>Tudo em dia</span>
+          // "Tudo em dia" ao lado de "0,9 mês de atraso" se contradiz: com atraso, só "Sem pendências".
+          <span className={atrasada ? s.sempend : s.emdia}>{atrasada ? "Sem pendências" : "Tudo em dia"}</span>
         )}
+        {r.prazo?.termino_contratual ? <FrasePrazo p={r.prazo} /> : null}
         <span className={s.rodape}>
           <span className={s.quando}>{r.ultima_atividade ? `Última atividade ${haQuanto(r.ultima_atividade)}` : "Sem atividade ainda"}</span>
           <Icone nome="chevRight" tam={16} />
