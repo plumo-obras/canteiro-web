@@ -17,6 +17,7 @@ import { ImportarOrcamento } from "./obra/ImportarOrcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { MARGEM_CENTAVOS, tagVerba } from "./obra/verba";
 import { CabecalhoPagina, type Kpi } from "./CabecalhoPagina";
+import { AndamentoEtapas, BlocoAditivos, NotaAndamento } from "./orcamento/Andamento";
 import { PADROES, REGIMES, TIPOLOGIAS, pctParaCampo } from "./obra/CamposObra";
 
 type ItemComCurva = DadosOrcamento["itens"][number];
@@ -162,16 +163,16 @@ export function Orcamento({ obra }: { obra: Obra }) {
               Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
             </p>
           ) : null}
+          <NotaAndamento />
+          <AndamentoEtapas obra={obra} orc={dado} />
+          <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
           <Versoes versoes={dado.versoes} atual={dado.totais.atual} />
           <Arvore orc={dado} />
-          <p className="orc-fase mut sm">
-            <Icone nome="info" tam={14} />
-            <span>
-              <b>Comprometido</b> (pedidos e contratos com fornecedores) e <b>Realizado</b> (notas e medições) entram aqui por etapa quando a obra estiver
-              andando.
-              {materiais.length ? ` A lista de materiais (${plural(materiais.length, "insumo", "insumos")}, ${fmtReais(totalMateriais)}) fica em Suprimentos.` : ""}
-            </span>
-          </p>
+          {materiais.length ? (
+            <p className="mut sm">
+              A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Suprimentos.
+            </p>
+          ) : null}
         </>
       ) : null}
 
@@ -199,29 +200,31 @@ export function Orcamento({ obra }: { obra: Obra }) {
 }
 
 function kpisDoOrcamento(t: DadosOrcamento["totais"], obra: Obra): Kpi[] {
-  const pct = t.contratado ? (t.aditivos / t.contratado) * 100 : 0;
+  const pctDo = (v: number) => (t.atual ? `${((v / t.atual) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "");
   const verba = tagVerba(t.atual, obra.verba);
-  const ks: Kpi[] = [
-    { icone: "calc", n: fmtReais(t.contratado), r: "contratado" },
-    t.aditivos
-      ? {
-          icone: "plus",
-          n: comSinal(t.aditivos),
-          r: "em aditivos",
-          tag: `${pct < 0 ? "−" : "+"}${Math.abs(pct).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`,
-          tom: Math.abs(pct) > 25 ? "acima" : "info",
-        }
-      : { icone: "plus", n: "—", r: "nenhum aditivo" },
-    { icone: "planilha", n: fmtReais(t.atual), r: `orçado atual · ${plural(t.n_itens, "item", "itens")}`, tag: verba?.texto, tom: verba?.tom },
-  ];
-  // O valor do contrato ganha número próprio quando o orçado atual não bate com ele, e a frase parte do orçado (é o que
-  // mexe): "orçado atual R$ Y (Z%) acima do valor do contrato". Centavos de arredondamento ficam só no texto.
+  // Contra o valor do contrato a frase parte do orçado (é o que mexe): "R$ Y (Z%) acima do valor do contrato".
   const dif = t.atual - obra.verba;
-  if (obra.verba && Math.abs(dif) >= MARGEM_CENTAVOS) {
-    const p = ((Math.abs(dif) / obra.verba) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-    ks.push({ icone: "predio", n: fmtReais(obra.verba), r: `valor do contrato · orçado atual ${fmtReais(Math.abs(dif))} (${p}%) ${dif > 0 ? "acima" : "abaixo"}` });
-  } else if (obra.verba && dif) ks[2]!.r = `orçado atual · diferença de ${fmtReais(Math.abs(dif))} do valor do contrato`;
-  return ks;
+  const contraContrato =
+    obra.verba && Math.abs(dif) >= MARGEM_CENTAVOS
+      ? ` · ${fmtReais(Math.abs(dif))} (${((Math.abs(dif) / obra.verba) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%) ${dif > 0 ? "acima" : "abaixo"} do valor do contrato`
+      : "";
+  const saldo = t.atual - t.comprometido;
+  return [
+    {
+      icone: "planilha",
+      n: fmtReais(t.atual),
+      r: `orçado atual${t.aditivos ? ` · contrato ${fmtReais(t.contratado)} ${comSinal(t.aditivos)} em aditivos` : ""}${contraContrato}`,
+      tag: verba?.texto,
+      tom: verba?.tom,
+    },
+    {
+      icone: "cart",
+      n: fmtReais(t.comprometido),
+      r: `comprometido${t.comprometido ? ` · ${pctDo(t.comprometido)}` : ""}${t.cotando ? ` · ${fmtReais(t.cotando)} em cotação` : ""}`,
+    },
+    { icone: "checkCircle", n: fmtReais(t.realizado), r: "realizado · entregue ou medido" },
+    { icone: "calc", n: fmtReais(saldo), r: "saldo a comprometer", ...(saldo < 0 ? { tag: "estourou", tom: "acima" as const } : {}) },
+  ];
 }
 
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */
@@ -355,8 +358,8 @@ function Arvore({ orc }: { orc: DadosOrcamento }) {
   const todasAbertas = grupos.length > 0 && grupos.every((g) => abertas.has(g.etapa));
 
   return (
-    <section aria-label="Orçamento por etapa">
-      <h3 className="sectit">Por etapa</h3>
+    <section aria-label="Itens do orçamento por etapa">
+      <h3 className="sectit">Itens por etapa</h3>
       <div className="barra-acoes">
         <label className="busca">
           <Icone nome="busca" tam={16} />

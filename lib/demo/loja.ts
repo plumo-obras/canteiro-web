@@ -136,7 +136,9 @@ function dadosObra(c: Record<string, unknown>): DadosObra {
  */
 function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   const ins = [...e.insumos.values()].filter((i) => i.obra_id === o.id && i.precisa_ate_o_fim > 0);
-  if (!ins.length) return { versoes: [], itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, n_itens: 0, n_etapas: 0 } };
+  const zero = { cotando: 0, comprometido: 0, realizado: 0 };
+  if (!ins.length)
+    return { versoes: [], itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
   const versao_id = `demo-contrato-${o.id}`;
   const base = { obra_id: o.id, versao_id, etapa: "1", codigo: "", fonte: "" };
   const itens: Orcamento["itens"] = ins.map((i, n) => ({
@@ -161,8 +163,9 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
       { id: versao_id, obra_id: o.id, tipo: "contrato", numero: 0, descricao: "", data: null, arquivo: "", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: o.criado_em },
     ],
     itens: [etapa, ...itens],
-    etapas: [{ etapa: "1", descricao: "Orçamento", contratado: total, aditivos: 0, atual: total }],
-    totais: { contratado: total, aditivos: 0, atual: total, n_itens: itens.length, n_etapas: 1 },
+    // Previsto × realizado chega à demo no fim da fase: zerado, para a tela não quebrar.
+    etapas: [{ etapa: "1", descricao: "Orçamento", contratado: total, aditivos: 0, atual: total, ...zero }],
+    totais: { contratado: total, aditivos: 0, atual: total, n_itens: itens.length, n_etapas: 1, ...zero, sem_etapa: zero },
   };
 }
 

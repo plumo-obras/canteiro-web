@@ -821,3 +821,56 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .pergunta-versao .portas{margin-top:8px;clear:both}
 .prev-subst .btn{flex:none;margin-left:auto;align-self:center;white-space:nowrap}
 @media (max-width:760px){ .prev-subst{flex-wrap:wrap} .prev-subst .btn{margin-left:25px} }
+
+/* ---------------- previsto × realizado (Fase 3) ---------------- */
+.and-cab{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:24px 0 10px}
+.and-cab .sectit{margin:0 auto 0 0}
+.and-cab .seg{margin-top:0}
+.and-nota{display:flex;gap:9px;align-items:flex-start;margin:16px 0 0;padding:10px 14px;border-radius:var(--ri);background:var(--blueSoft);color:var(--ink2);font-size:var(--t-meta);line-height:1.5}
+.and-nota svg{flex:none;margin-top:2px;color:var(--blueInk)}
+.and-nota .link{margin-left:auto;flex:none}
+.and-rola{overflow-x:auto}
+.tbl-and{font-size:var(--t-meta);min-width:820px}
+.tbl-and th{white-space:nowrap}
+.tbl-and td{padding:9px 12px}
+.and-l{cursor:pointer}
+@media (hover:hover){ .and-l:hover td{background:var(--sunk)} }
+.and-l.estouro td{background:color-mix(in srgb,var(--redSoft) 70%,transparent)}
+.and-l.estouro td:first-child{box-shadow:inset 3px 0 0 var(--redInk)}
+.and-nome{display:flex;gap:8px;align-items:baseline;border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
+.and-nome .eap-num{min-width:1.6em}
+.tbl-and td.t-neg{color:var(--redInk);font-weight:600}
+.and-tag{margin-left:8px}
+.tbl-and tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
+.and-barra{position:relative;display:block;height:5px;margin-top:6px;max-width:320px;border-radius:99px;background:var(--line2);overflow:visible}
+.and-barra>span{position:absolute;top:0;left:0;height:100%;border-radius:99px}
+.and-comp,.and-legenda i.and-comp{background:color-mix(in srgb,var(--blue) 45%,transparent)}
+.and-real,.and-legenda i.and-real{background:var(--blue)}
+.and-barra .and-orc{width:2px;height:11px;top:-3px;margin-left:-1px;border-radius:1px;background:var(--ink2)}
+.estouro .and-comp{background:color-mix(in srgb,var(--redInk) 55%,transparent)}
+.and-legenda{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:8px 0 0}
+.and-legenda i{display:inline-block;width:14px;height:5px;border-radius:99px;vertical-align:middle;margin-right:4px}
+.and-legenda i.and-orc{width:2px;height:11px;background:var(--ink2);border-radius:1px}
+.and-legenda span:last-child{margin-left:auto}
+.and-peds{margin:var(--s4,16px) 0 0;padding:0;list-style:none}
+.and-peds li{padding:12px 20px;border-bottom:1px solid var(--line2)}
+.and-peds li:last-child{border-bottom:0}
+.and-ped-t .pill{margin-left:6px}
+.and-ped-l{display:flex;justify-content:space-between;gap:12px;margin-top:4px;font-size:var(--t-meta)}
+.adt{margin-top:24px;padding:16px 20px}
+.adt-cab{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 14px;margin-bottom:10px}
+.adt-cab h3{margin:0;font:600 var(--t-sec) var(--serif)}
+.adt-n{font:600 var(--t-bloco) var(--serif);font-variant-numeric:tabular-nums}
+.adt-lista{list-style:none;margin:0;padding:0}
+.adt-lista li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line2);font-size:var(--t-meta)}
+.adt-lista li .num{font-weight:600}
+.adt-etapas{margin-top:8px;font-size:var(--t-meta)}
+.adt-etapas summary{cursor:pointer;color:var(--ink2);padding:4px 0}
+/* Quatro números (Orçamento): uma linha inteira embaixo do título, em grade de 4 a partir de 1180 px e 2×2 abaixo,
+   para nenhum cair sozinho na linha de baixo. A pílula desce para baixo do valor quando não cabe ao lado. */
+.kpis.k4{flex:1 1 100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 24px}
+.kpis.k4 .kpi-n{flex-wrap:wrap;gap:4px 8px}
+.kpis.k4 .kpi-r{max-width:none}
+@media (max-width:1179px){ .kpis.k4{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.kpis.k4 .kpi-n{white-space:nowrap}
+@media (max-width:1439px) and (min-width:1180px){ .kpis.k4 .kpi-n{font-size:24px} .kpis.k4 .kpi-ic{width:42px;height:42px} .kpis.k4 .kpi{gap:12px} }

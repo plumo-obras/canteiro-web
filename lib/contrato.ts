@@ -184,7 +184,17 @@ export interface PreviaVersao {
   registro_id: string | null;
 }
 
-export interface EtapaOrcamento {
+/** Previsto × realizado (Fase 3), somado das linhas dos pedidos pela etapa. Cancelado não conta. */
+export interface Gasto {
+  /** Pedidos em cotação. */
+  cotando: Centavos;
+  /** De aprovado em diante, pelo maior entre o pedido e o entregue. */
+  comprometido: Centavos;
+  /** Entregue ou medido, pelo preço do pedido. */
+  realizado: Centavos;
+}
+
+export interface EtapaOrcamento extends Gasto {
   etapa: string;
   descricao: string;
   contratado: Centavos;
@@ -197,7 +207,8 @@ export interface Orcamento {
   versoes: VersaoOrcamento[];
   itens: (ItemOrcamento & { curva: CurvaABC | null })[];
   etapas: EtapaOrcamento[];
-  totais: { contratado: Centavos; aditivos: Centavos; atual: Centavos; n_itens: number; n_etapas: number };
+  /** Os gastos já incluem `sem_etapa` (gasto sem etapa ou em etapa fora das versões vigentes). */
+  totais: Gasto & { contratado: Centavos; aditivos: Centavos; atual: Centavos; n_itens: number; n_etapas: number; sem_etapa: Gasto };
 }
 
 /** O que acompanha a planilha no `POST …/orcamento/versoes`. */

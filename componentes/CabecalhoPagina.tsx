@@ -25,7 +25,7 @@ export function CabecalhoPagina({ titulo, sub, kpis = [], acoes }: { titulo: str
           {sub ? <div className="cab-pagina-sub">{sub}</div> : null}
         </div>
         {kpis.length ? (
-          <div className="kpis">
+          <div className={`kpis${kpis.length >= 4 ? " k4" : ""}`}>
             {kpis.map((k, i) => (
               <div className="kpi" key={i}>
                 <span className="kpi-ic" aria-hidden="true">
