@@ -222,7 +222,7 @@ function kpisDoOrcamento(t: DadosOrcamento["totais"], obra: Obra): Kpi[] {
       n: fmtReais(t.comprometido),
       r: `comprometido${t.comprometido ? ` · ${pctDo(t.comprometido)}` : ""}${t.cotando ? ` · ${fmtReais(t.cotando)} em cotação` : ""}`,
     },
-    { icone: "checkCircle", n: fmtReais(t.realizado), r: "realizado · entregue ou medido" },
+    { icone: "checkCircle", n: fmtReais(t.realizado), r: "realizado (compras e serviços recebidos)" },
     { icone: "calc", n: fmtReais(saldo), r: "saldo a comprometer", ...(saldo < 0 ? { tag: "estourou", tom: "acima" as const } : {}) },
   ];
 }

@@ -9,7 +9,7 @@ const L = 720;
 const A = 240;
 const M = { e: 44, d: 16, t: 14, b: 30 };
 
-export function CurvaS({ mensal }: { mensal: MesCronograma[] }) {
+export function CurvaS({ mensal, comBase = false }: { mensal: MesCronograma[]; comBase?: boolean }) {
   if (!mensal.length) return null;
   const n = mensal.length;
   const x = (i: number) => M.e + (n === 1 ? (L - M.e - M.d) / 2 : (i * (L - M.e - M.d)) / (n - 1));
@@ -20,6 +20,8 @@ export function CurvaS({ mensal }: { mensal: MesCronograma[] }) {
       .filter(Boolean)
       .join(" ");
   const previsto = mensal.map((m) => m.pct_previsto_acumulado);
+  // A base (cronograma original) só aparece depois de reprogramar: antes ela é igual ao previsto.
+  const base = comBase ? mensal.map((m) => m.pct_base_acumulado ?? null) : [];
   const medido = mensal.map((m) => m.pct_medido_acumulado);
   const ultimo = medido.reduce<number>((u, v, i) => (v === null ? u : i), -1);
   // Rótulo de mês a cada k meses, para não encavalar em cronograma longo.
@@ -46,17 +48,23 @@ export function CurvaS({ mensal }: { mensal: MesCronograma[] }) {
             </text>
           ) : null,
         )}
+        {base.some((v) => v !== null) ? <polyline className="cs-base" points={pts(base)} /> : null}
         <polyline className="cs-prev" points={pts(previsto)} />
         {ultimo >= 0 ? <polyline className="cs-med" points={pts(medido)} /> : null}
         {medido.map((v, i) => (v === null ? null : <circle key={i} className="cs-ponto" cx={x(i)} cy={y(v)} r={3.5} />))}
       </svg>
       <figcaption className="cs-leg">
         <span>
-          <i className="cs-prev" /> previsto acumulado
+          <i className="cs-prev" /> previsto acumulado{comBase ? " (atual)" : ""}
         </span>
         <span>
           <i className="cs-med" /> medido acumulado
         </span>
+        {base.some((v) => v !== null) ? (
+          <span>
+            <i className="cs-base" /> cronograma original
+          </span>
+        ) : null}
         <span className="mut">{desc}</span>
       </figcaption>
     </figure>

@@ -256,6 +256,11 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
   const v = nfValor.trim() ? lerReais(nfValor) : null;
   const dif = v !== null ? v - valorLinhas : 0;
   const soServico = p.linhas.every((l) => l.tipo === "servico");
+  const [confirmaExcesso, setConfirmaExcesso] = useState(false);
+  const excessos = p.linhas.flatMap((l, i) => {
+    const q = lidas[i] ?? 0;
+    return q > falta(l) ? [{ l, total: l.recebida + q }] : [];
+  });
 
   const { erros, erroApi, ocupado, enviar } = useEnvio(
     () => ({
@@ -268,6 +273,12 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
       nfValor: nfValor.trim() && v === null ? "Valor da NF em reais, ex.: 4.680,50." : null,
     }),
     async () => {
+      // Entrega acima do que falta é aceita, mas não por engano: pede o "sim" com os números antes de gravar.
+      if (excessos.length) return setConfirmaExcesso(true);
+      await gravar();
+    },
+  );
+  const gravar = async () => {
       const r = await api
         .registrarRecebimento(p.id, {
           // Campo vazio vai ausente, não null: a API aceita o campo opcional faltando, não nulo.
@@ -289,8 +300,7 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
         r.pedido.status === "conferido" ? `${p.numero} recebido por completo.` : `Entrega do ${p.numero} registrada; o resto continua a caminho.`,
         r.registro_id,
       );
-    },
-  );
+  };
 
   return (
     <Modal
@@ -414,6 +424,30 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
         ) : null}
         <ErroApi texto={erroApi} />
       </form>
+      {confirmaExcesso ? (
+        <Confirmar
+          titulo={
+            excessos.length === 1
+              ? `Gravar ${fmtQtd(excessos[0]!.total)} de ${fmtQtdUn(excessos[0]!.l.quantidade, excessos[0]!.l.unidade)} mesmo assim?`
+              : "Gravar a entrega acima do pedido mesmo assim?"
+          }
+          confirmar="Gravar mesmo assim"
+          fechar={() => setConfirmaExcesso(false)}
+          aoConfirmar={async () => {
+            setConfirmaExcesso(false);
+            await gravar();
+          }}
+        >
+          <ul className="sm" style={{ margin: "4px 0 0" }}>
+            {excessos.map(({ l, total }, i) => (
+              <li key={i}>
+                {l.nome}: com esta entrega chegam {fmtQtd(total)} de {fmtQtdUn(l.quantidade, l.unidade)} pedidos ({fmtQtdUn(total - l.quantidade, l.unidade)} a mais).
+              </li>
+            ))}
+          </ul>
+          <p className="mut sm">O que vier a mais entra no estoque e no comprometido pelo preço do pedido.</p>
+        </Confirmar>
+      ) : null}
     </Modal>
   );
 }

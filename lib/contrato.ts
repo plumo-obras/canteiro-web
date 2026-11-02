@@ -154,6 +154,10 @@ export interface ItemPrevia {
   valor_unitario: Centavos;
   total: Centavos;
   linha: number;
+  /** No aditivo: de onde veio a etapa do item. "codigo" = a do contrato com o mesmo fonte|código. */
+  etapa_origem?: "planilha" | "codigo" | "escolhida" | null;
+  /** A etapa que estava na planilha do aditivo. */
+  etapa_planilha?: string | null;
 }
 
 export interface ItemOrcamento extends ItemPrevia {
@@ -219,6 +223,8 @@ export interface CorpoVersao {
   data?: string | null;
   aplicar: boolean;
   chave_idempotencia?: string;
+  /** No aditivo: `{ordem: etapa}` dos itens que a pessoa mudou de etapa na prévia. */
+  etapas_itens?: Record<string, string>;
 }
 
 export interface Insumo extends Documento {
@@ -578,6 +584,8 @@ export interface MesCronograma {
   medido: Centavos | null;
   medido_acumulado: Centavos | null;
   pct_medido_acumulado: Centesimos | null;
+  /** Previsto acumulado pela linha de base (o cronograma original), para a 3ª linha da curva S. */
+  pct_base_acumulado?: Centesimos | null;
 }
 
 export interface PrazoCronograma {
@@ -587,6 +595,10 @@ export interface PrazoCronograma {
   atraso_meses: number | null;
   /** Décimos de mês, interpolado dentro do mês (1,4 mês = 14); negativo = adiantada. */
   atraso_decimos?: number | null;
+  /** O mesmo contra a linha de base: o atraso que reprogramar não apaga. */
+  termino_base?: string | null;
+  atraso_base_decimos?: number | null;
+  atraso_base_meses?: number | null;
   pct_previsto_na_medicao: Centesimos | null;
   pct_medido: Centesimos | null;
   mes_referencia: string | null;
@@ -610,6 +622,10 @@ export interface Medicao {
 export interface Cronograma {
   inicio: string | null;
   meses: number;
+  /** O primeiro cronograma (ou o último marcado como nova linha de base). */
+  base?: { inicio: string; meses: number } | null;
+  /** Quantas reprogramações depois da base. */
+  revisoes?: number;
   etapas: EtapaCronograma[];
   mensal: MesCronograma[];
   medicoes: Medicao[];
@@ -621,6 +637,10 @@ export interface CorpoCronograma {
   inicio: string;
   meses: number;
   etapas: { etapa: string; percentuais: Centesimos[] }[];
+  /** Este cronograma passa a ser a base (o atraso volta a ser medido contra ele). */
+  nova_linha_base?: boolean;
+  /** Aditivo de prazo: grava `meses` no prazo da obra na mesma operação (o Desfazer volta os dois). */
+  atualizar_prazo_da_obra?: boolean;
 }
 
 export interface CorpoMedicao {

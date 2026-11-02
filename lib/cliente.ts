@@ -143,6 +143,7 @@ export const api = {
     if (corpo.data) f.set("data", corpo.data);
     f.set("aplicar", String(corpo.aplicar));
     if (corpo.chave_idempotencia) f.set("chave_idempotencia", corpo.chave_idempotencia);
+    if (corpo.etapas_itens && Object.keys(corpo.etapas_itens).length) f.set("etapas_itens", JSON.stringify(corpo.etapas_itens));
     return chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/versoes`, f);
   },
   cronograma: (obraId: string) => chamar<Cronograma>("GET", `/obras/${seg(obraId)}/cronograma`),

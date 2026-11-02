@@ -9,7 +9,7 @@
  *   (`POST …/orcamento/importar`).
  */
 import { useRef, useState } from "react";
-import type { ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao } from "@/lib/contrato";
+import type { EtapaObra, ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
@@ -104,6 +104,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
   const ler = (arq: File, planilha?: string) =>
     rodar(async () => {
       const leitura = await api.lerPlanilha(obra.id, arq, planilha);
+      setEscolhas({}); // outra planilha, outras ordens: as escolhas de etapa da anterior não valem
       setArquivo(arq);
       setMapa(leitura.sugestao);
       setPasso({ k: "colunas", leitura });
@@ -116,7 +117,11 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     return m;
   };
 
-  const importar = (aplicar: boolean, chave: string, tv: TipoVersao = versao ?? "contrato"): Promise<Previa> =>
+  // No aditivo, a etapa de destino que a pessoa trocou item a item (ordem → etapa). Vai na prévia e no importar.
+  const [escolhas, setEscolhas] = useState<Record<string, string>>({});
+  const etapasContrato = useCarregar(() => api.etapas(obra.id).catch(() => []), [obra.id]);
+
+  const importar = (aplicar: boolean, chave: string, tv: TipoVersao = versao ?? "contrato", esc: Record<string, string> = escolhas): Promise<Previa> =>
     tipo === "eap"
       ? api
           .versaoOrcamento(obra.id, arquivo!, {
@@ -126,6 +131,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             data: tv === "aditivo" && data ? data : undefined,
             aplicar,
             chave_idempotencia: aplicar ? chave : undefined,
+            ...(tv === "aditivo" && Object.keys(esc).length ? { etapas_itens: esc } : {}),
           })
           .then((p) => ({ k: "eap", p }))
       : api.importarOrcamento(obra.id, arquivo!, mapaDoTipo(), aplicar).then((p) => ({ k: "materiais", p }));
@@ -144,6 +150,15 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       setVersao("aditivo");
       const chave = uuid7();
       setPasso({ ...passoAtual, previa: await importar(false, chave, "aditivo"), chave });
+    });
+
+  /** Trocar a etapa de um item do aditivo refaz a prévia (os totais por etapa mudam) com uma chave nova. */
+  const mudarEtapaItem = (passoAtual: Extract<Passo, { k: "previa" }>, ordem: number, etapa: string) =>
+    rodar(async () => {
+      const novas = { ...escolhas, [String(ordem)]: etapa };
+      setEscolhas(novas);
+      const chave = uuid7();
+      setPasso({ ...passoAtual, previa: await importar(false, chave, "aditivo", novas), chave });
     });
 
   const aplicar = (passoAtual: Extract<Passo, { k: "previa" }>) =>
@@ -372,7 +387,14 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       ) : passo.k === "previa" ? (
         passo.previa.k === "eap" ? (
           <>
-            <PreviaEap previa={passo.previa.p} obra={obra} virarAditivo={() => virarAditivo(passo)} ocupado={ocupado} />
+            <PreviaEap
+              previa={passo.previa.p}
+              obra={obra}
+              virarAditivo={() => virarAditivo(passo)}
+              ocupado={ocupado}
+              etapasContrato={etapasContrato.dado ?? []}
+              mudarEtapa={(ordem, etapa) => mudarEtapaItem(passo, ordem, etapa)}
+            />
             {passo.previa.p.tipo === "aditivo" ? (
               <div className="campos2">
                 <Campo rotulo="Do que é o aditivo" erro={errosTipo.descricao}>
@@ -529,7 +551,21 @@ function Ignoradas({ ignoradas }: { ignoradas: { linha: number; texto: string; m
   );
 }
 
-function PreviaEap({ previa, obra, virarAditivo, ocupado }: { previa: PreviaVersao; obra: Obra; virarAditivo: () => void; ocupado: boolean }) {
+const ORIGEM_ETAPA: Record<string, (i: ItemPrevia) => string> = {
+  codigo: () => "pelo código, igual ao contrato",
+  planilha: (i) => `da planilha do aditivo${i.etapa_planilha ? ` (etapa ${i.etapa_planilha})` : ""}`,
+  escolhida: (i) => `escolhida por você${i.etapa_planilha ? ` (na planilha: ${i.etapa_planilha})` : ""}`,
+};
+
+function PreviaEap(props: {
+  previa: PreviaVersao;
+  obra: Obra;
+  virarAditivo: () => void;
+  ocupado: boolean;
+  etapasContrato: EtapaObra[];
+  mudarEtapa: (ordem: number, etapa: string) => void;
+}) {
+  const { previa, obra, virarAditivo, ocupado } = props;
   // Um contrato novo de verdade raramente custa menos da metade do vigente; uma planilha de aditivo, quase sempre.
   const fracao = previa.substitui?.total ? previa.total / previa.substitui.total : 1;
   const aditivo = previa.tipo === "aditivo";
@@ -593,6 +629,8 @@ function PreviaEap({ previa, obra, virarAditivo, ocupado }: { previa: PreviaVers
         </details>
       ) : null}
       <Ignoradas ignoradas={previa.ignoradas} />
+      {aditivo ? <ItensDoAditivo previa={previa} etapasContrato={props.etapasContrato} mudarEtapa={props.mudarEtapa} ocupado={ocupado} /> : null}
+      {aditivo && previa.etapas.length ? <h3 className="sectit">Por etapa</h3> : null}
       {previa.etapas.length ? (
         <div className="tbl-rola prev-etapas">
           {previa.etapas.map((e) => {
@@ -636,6 +674,69 @@ function PreviaEap({ previa, obra, virarAditivo, ocupado }: { previa: PreviaVers
           })}
         </div>
       ) : null}
+    </>
+  );
+}
+
+/**
+ * Itens do aditivo com a etapa de destino. A API já põe cada item na etapa do contrato que tem o mesmo fonte|código;
+ * aqui a pessoa confere e troca o que precisar (vai em `etapas_itens`). As opções são as etapas do contrato mais as
+ * que só existem no próprio aditivo (os títulos de etapa da planilha dele).
+ */
+function ItensDoAditivo(props: { previa: PreviaVersao; etapasContrato: EtapaObra[]; mudarEtapa: (ordem: number, etapa: string) => void; ocupado: boolean }) {
+  const { previa, etapasContrato } = props;
+  const doContrato = new Set(etapasContrato.map((e) => e.etapa));
+  const proprias = previa.itens.filter((i) => i.tipo === "etapa" && i.nivel <= 1 && !doContrato.has(i.etapa)).map((i) => ({ etapa: i.etapa, descricao: i.descricao }));
+  const opcoes = [...etapasContrato, ...proprias];
+  const itens = previa.itens.filter((i) => i.tipo === "item");
+  return (
+    <>
+      <h3 className="sectit">Itens e etapa de destino</h3>
+      <div className="tbl-rola">
+        <table className="tbl-eap tbl-adt-itens">
+          <thead>
+            <tr>
+              <th scope="col">Nº</th>
+              <th scope="col">Item</th>
+              <th scope="col" className="num">
+                Total
+              </th>
+              <th scope="col">Etapa de destino</th>
+            </tr>
+          </thead>
+          <tbody>
+            {itens.slice(0, 200).map((i) => (
+              <tr key={i.ordem}>
+                <td className="eap-n">{i.numero}</td>
+                <td className="eap-d">
+                  {i.descricao}
+                  {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
+                </td>
+                <td className="num">{comSinal(i.total)}</td>
+                <td>
+                  <select
+                    className="f"
+                    aria-label={`Etapa de destino de ${i.descricao}`}
+                    value={i.etapa}
+                    disabled={props.ocupado}
+                    onChange={(e) => props.mudarEtapa(i.ordem, e.target.value)}
+                  >
+                    {opcoes.some((o) => o.etapa === i.etapa) ? null : <option value={i.etapa}>{i.etapa}</option>}
+                    {opcoes.map((o) => (
+                      <option key={o.etapa} value={o.etapa}>
+                        {o.etapa} · {o.descricao}
+                        {doContrato.has(o.etapa) ? "" : " (do aditivo)"}
+                      </option>
+                    ))}
+                  </select>
+                  {i.etapa_origem ? <small className={`adt-origem o-${i.etapa_origem}`}>{ORIGEM_ETAPA[i.etapa_origem]?.(i)}</small> : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {itens.length > 200 ? <p className="mut sm prev-mais">e mais {itens.length - 200} itens.</p> : null}
+      </div>
     </>
   );
 }

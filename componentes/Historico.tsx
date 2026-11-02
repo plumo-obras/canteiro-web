@@ -8,7 +8,8 @@ import { useEffect, useState } from "react";
 import type { EntradaRegistro, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtHora } from "@/lib/formato";
-import { mensagemDe, useCasca } from "./contexto";
+import { useCasca } from "./contexto";
+import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
 import { CabecalhoPagina } from "./CabecalhoPagina";
 import { Paginacao, useMaisAntigos, usePaginas } from "./Paginacao";
@@ -38,17 +39,14 @@ function rotuloDia(iso: string) {
 
 function Linha({ r }: { r: EntradaRegistro }) {
   const { podeOperar, mudou, avisar } = useCasca();
-  const [ocupado, setOcupado] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  // Desfazer pelo Histórico pede confirmação com o texto da entrada, como no Orçamento: um clique desfazia um
+  // cronograma refeito ou um prazo sem a pessoa ver o quê.
   const desfazer = async () => {
-    setOcupado(true);
-    try {
-      await api.desfazerRegistro(r.id);
-      mudou();
-      avisar("Desfeito.");
-    } catch (e) {
-      avisar(mensagemDe(e), true);
-      setOcupado(false);
-    }
+    const d = await api.desfazerRegistro(r.id);
+    setConfirmando(false);
+    mudou();
+    avisar(d?.texto ? legivel(d.texto) : `Desfeito: ${legivel(r.texto)}`);
   };
   return (
     <li className={`hist-l${r.desfeito ? " desfeito" : ""}`}>
@@ -62,10 +60,17 @@ function Linha({ r }: { r: EntradaRegistro }) {
         </div>
       </div>
       {podeOperar && r.desfazer && !r.desfeito ? (
-        <button type="button" className="btn hist-b" disabled={ocupado} aria-busy={ocupado} onClick={desfazer} aria-label={`Desfazer: ${r.texto}`}>
-          {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="undo" tam={14} />}
+        <button type="button" className="btn hist-b" onClick={() => setConfirmando(true)} aria-label={`Desfazer: ${r.texto}`}>
+          <Icone nome="undo" tam={14} />
           Desfazer
         </button>
+      ) : null}
+      {confirmando ? (
+        <Confirmar titulo={`Desfazer: ${legivel(r.texto)}?`} confirmar="Desfazer" fechar={() => setConfirmando(false)} aoConfirmar={desfazer}>
+          <p style={{ margin: "4px 0 0" }}>
+            Volta ao que era antes desta entrada ({fmtHora(r.criado_em)}, {r.quem_nome ?? r.quem}). Se algo mudou depois dela, o Plumo recusa e diz o quê.
+          </p>
+        </Confirmar>
       ) : null}
     </li>
   );

@@ -923,3 +923,9 @@ polyline.cs-med{fill:none;stroke:var(--accent);stroke-width:2.5}
 .med-lista li:last-child{border-bottom:0}
 .med-t{flex:1;min-width:0}
 .med-lista .num{font-weight:600}
+polyline.cs-base{fill:none;stroke:var(--faint);stroke-width:1.25;opacity:.8}
+.cs-leg i.cs-base{border-top:1.25px solid var(--faint)}
+.tbl-adt-itens select{min-width:220px;max-width:320px;min-height:34px;padding:4px 8px;font-size:var(--t-meta)}
+.adt-origem{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+.adt-origem.o-codigo{color:var(--greenInk)}
+.adt-origem.o-escolhida{color:var(--accentInk)}

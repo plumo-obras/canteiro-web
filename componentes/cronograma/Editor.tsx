@@ -21,7 +21,7 @@ const celula = (c: number) => (c ? pctParaCampo(c) : "");
 /** O mesmo que `redimensionar`, para o texto das células (mês novo = campo vazio). */
 const redimTexto = (cs: string[], m: number) => Array.from({ length: m }, (_, i) => cs[i] ?? "");
 
-export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?: number; fechar: () => void }) {
+export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?: number; aditivoPrazo?: boolean; fechar: () => void }) {
   const { obra, crono } = props;
   const { avisarFeito, mudou } = useCasca();
   const inicioPadrao = crono.inicio ?? (obra.inicio ? obra.inicio.slice(0, 7) : mesAtual());
@@ -33,6 +33,8 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
   );
   const [distribuindo, setDistribuindo] = useState<{ etapa: string; de: number; ate: number } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [novaBase, setNovaBase] = useState(false);
+  const reprogramando = !!crono.inicio;
   const [ocupado, setOcupado] = useState(false);
 
   const ini = lerMesAno(inicio);
@@ -78,10 +80,19 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
     if (nenhuma) return setErro("Distribua pelo menos uma etapa.");
     setOcupado(true);
     try {
-      const r = await api.salvarCronograma(obra.id, { inicio: ini, meses: n, etapas: linhas.filter((l) => l.total).map((l) => ({ etapa: l.etapa, percentuais: l.lidas })) });
+      const r = await api.salvarCronograma(obra.id, {
+        inicio: ini,
+        meses: n,
+        etapas: linhas.filter((l) => l.total).map((l) => ({ etapa: l.etapa, percentuais: l.lidas })),
+        ...(novaBase ? { nova_linha_base: true } : {}),
+        ...(props.aditivoPrazo ? { atualizar_prazo_da_obra: true } : {}),
+      });
       mudou();
       props.fechar();
-      avisarFeito(`Cronograma salvo: ${n} meses, de ${fmtMes(ini)} a ${fmtMes(listaMeses(ini, n).at(-1)!)}.`, r.registro_id);
+      avisarFeito(
+        `${props.aditivoPrazo ? `Aditivo de prazo: obra e cronograma com ${n} meses` : `Cronograma salvo: ${n} meses`}, de ${fmtMes(ini)} a ${fmtMes(listaMeses(ini, n).at(-1)!)}.`,
+        r.registro_id,
+      );
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Algo deu errado. Tente de novo.");
     } finally {
@@ -91,6 +102,15 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
 
   return (
     <section className="crono-editor" aria-label="Editor do cronograma">
+      {props.aditivoPrazo ? (
+        <p className="prev-subst" role="status">
+          <Icone nome="calendario" tam={16} />
+          <span>
+            <b>Aditivo de prazo: {meses} meses.</b> Redistribua as etapas nos meses novos. Ao salvar, o prazo da obra passa a {meses} meses junto com o cronograma, e
+            o Desfazer volta os dois.
+          </span>
+        </p>
+      ) : null}
       <div className="crono-ed-cab">
         <div className="campo">
           <label className="l" htmlFor="crono-ini">
@@ -219,6 +239,19 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
         </p>
       ) : null}
       <ErroApi texto={erro} />
+      {reprogramando ? (
+        <label className="check">
+          <input type="checkbox" checked={novaBase} onChange={(e) => setNovaBase(e.target.checked)} />
+          <span>
+            Usar como nova linha de base
+            <small>
+              {crono.base
+                ? `Hoje o atraso também é medido contra o cronograma original (${fmtMes(crono.base.inicio)}, ${crono.base.meses} meses). Marcado, este passa a ser o original e esse atraso zera: use só quando o contrato for reprogramado formalmente.`
+                : "Marcado, este cronograma passa a ser a referência do atraso contra o original."}
+            </small>
+          </span>
+        </label>
+      ) : null}
       <div className="form-acoes">
         <button type="button" className="btn" onClick={props.fechar}>
           Cancelar

@@ -76,7 +76,8 @@ function Barra({ l }: { l: LinhaAndamento }) {
   );
 }
 
-const CHAVE_NOTA = "plumo.nota-andamento";
+// A versão na chave faz a nota reaparecer quando o texto muda (quem já tinha dito "Entendi" lê a nova).
+const CHAVE_NOTA = "plumo.nota-andamento.2";
 
 /** A nota aparece até a pessoa dizer que entendeu; depois não ocupa mais a tela. */
 export function NotaAndamento() {
@@ -89,8 +90,8 @@ export function NotaAndamento() {
     <p className="and-nota" role="note">
       <Icone nome="info" tam={15} />
       <span>
-        O orçado é preço de contrato (com BDI e mão de obra); comprometido e realizado são o que a obra comprou. Por isso o realizado de uma etapa não é o %
-        executado dela.
+        O orçado é preço de contrato (com BDI e mão de obra); comprometido e realizado são o que a obra comprou (compras e serviços recebidos). Por isso o
+        realizado de uma etapa não é o % executado dela: a medição física, etapa por etapa, fica no Cronograma.
       </span>
       <button
         type="button"
@@ -166,7 +167,7 @@ export function AndamentoEtapas({ obra, orc }: { obra: Obra; orc: Orcamento }) {
                 Comprometido
               </th>
               <th scope="col" className="num">
-                Realizado
+                Realizado (compras)
               </th>
               <th scope="col" className="num">
                 Saldo
