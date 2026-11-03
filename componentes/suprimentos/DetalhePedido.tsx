@@ -248,6 +248,16 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
   const [nf, setNf] = useState("");
   const [nfData, setNfData] = useState(hojeISO());
   const [nfValor, setNfValor] = useState("");
+  // Conferido ao sair do campo: valor válido vira o formato do Real ("3600" → "3.600,00"); inválido ("3.600,000", um
+  // zero a mais) mostra o erro na hora, em vez de só ao gravar. O campo nunca reformata enquanto a pessoa digita.
+  const [nfValorErro, setNfValorErro] = useState<string | null>(null);
+  const sairNfValor = () => {
+    if (!nfValor.trim()) return setNfValorErro(null);
+    const c = lerReais(nfValor);
+    if (c === null) return setNfValorErro("Valor da NF em reais, ex.: 4.680,50.");
+    setNfValorErro(null);
+    setNfValor(fmtReais(c).replace("R$ ", ""));
+  };
   const chave = useRef(uuid7());
   const primeiro = useRef<HTMLInputElement>(null);
   const travada = (i: number) => !falta(p.linhas[i]!) && !aMais[i];
@@ -330,9 +340,12 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
           <Campo rotulo="Data da NF">
             {(a) => <input {...a} type="date" className="f" value={nfData} onChange={(e) => setNfData(e.target.value)} />}
           </Campo>
-          <Campo rotulo="Valor da NF (R$)" erro={erros.nfValor}>
+          <Campo rotulo="Valor da NF (R$)" erro={erros.nfValor ?? nfValorErro}>
             {(a) => (
-              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder={reaisParaCampo(valorLinhas)} value={nfValor} onChange={(e) => setNfValor(e.target.value)} />
+              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder={reaisParaCampo(valorLinhas)} value={nfValor} onChange={(e) => {
+                  setNfValor(e.target.value);
+                  if (nfValorErro && lerReais(e.target.value) !== null) setNfValorErro(null);
+                }} onBlur={sairNfValor} />
             )}
           </Campo>
         </div>

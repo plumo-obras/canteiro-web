@@ -12,6 +12,7 @@ import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "./contexto";
 import { Confirmar, Drawer } from "./Dialogo";
 import { CabecalhoPagina } from "./CabecalhoPagina";
+import { useCelular } from "./midia";
 import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
 import { ImportarOrcamento } from "./obra/ImportarOrcamento";
@@ -166,14 +167,24 @@ export function reaisCurtos(c: number): string {
 }
 
 /**
- * Valor que no celular aparece curto; tocar alterna para o cheio. Um só nó de texto (o valor cheio): o curto vem do
- * data-curto via CSS, então copiar, ler em voz alta ou extrair o texto nunca dá "R$ 24.250,00R$ 24,3 mil".
+ * Valor que no celular aparece curto ("R$ 2,07 mi"); tocar alterna para o cheio. Um só nó de texto, escolhido por JS:
+ * o truque anterior (texto cheio com font-size 0 e o curto num ::after) quebrava no portal, que impõe tamanho mínimo de
+ * fonte: o texto "escondido" voltava a ocupar espaço e empurrava o curto para fora ("R$ 2,0"). O cheio fica no
+ * aria-label e no title.
  */
 function Valor({ c, classe = "" }: { c: number; classe?: string }) {
   const [cheio, setCheio] = useState(false);
+  const celular = useCelular();
+  const curto = celular && !cheio;
   return (
-    <button type="button" className={`of-valor ${classe}${cheio ? " cheio" : ""}`} data-curto={reaisCurtos(c)} onClick={() => setCheio((x) => !x)}>
-      {fmtReais(c)}
+    <button
+      type="button"
+      className={`of-valor ${classe}${cheio ? " cheio" : ""}`}
+      aria-label={fmtReais(c)}
+      title={fmtReais(c)}
+      onClick={() => setCheio((x) => !x)}
+    >
+      {curto ? reaisCurtos(c) : fmtReais(c)}
     </button>
   );
 }

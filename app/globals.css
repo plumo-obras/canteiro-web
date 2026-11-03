@@ -384,7 +384,7 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .hist-l{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line2)}
 .hist-l:first-child{border-top:0}
 .hist-h{font-family:var(--mono);font-size:12px;color:var(--muted)}
-.hist-t{min-width:0;overflow-wrap:anywhere}
+.hist-t{min-width:0;overflow-wrap:break-word}
 .hist-l.desfeito .hist-t>div:first-child{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 45%,transparent)}
 .btn.hist-b{padding:4px 10px;font-size:var(--t-meta);min-height:32px}
 @media (max-width:640px){
@@ -1329,9 +1329,6 @@ button.g-nome{cursor:pointer}
 .of-valor .v-curto,.of-valor .v-cheio{display:inline}
 @media (max-width:760px){
   /* o curto vem do data-curto; o texto do botão (o cheio) some sem sair do DOM */
-  .of-valor:not(.cheio){font-size:0}
-  .of-valor:not(.cheio)::after{content:attr(data-curto);font-size:15px}
-  .of-valor.cheio{font-size:12px;white-space:normal}
   .of-contrato{margin-top:10px}
   .of-grande{white-space:nowrap}
 }
@@ -1426,9 +1423,6 @@ button.g-nome{cursor:pointer}
 .cab-t{flex:none;white-space:nowrap}
 .cab-l1{flex-wrap:wrap;row-gap:8px}
 @media (max-width:760px){
-  .fx-valor .of-valor:not(.cheio){font-size:0}
-  .fx-valor .of-valor:not(.cheio)::after{content:attr(data-curto);font-size:15px}
-  .fx-valor .of-valor.cheio{font-size:12px;white-space:normal}
   .modal .box.tff-modal{width:100%;max-width:100%}
 }
 @media (max-width:760px){ .barra-acoes .seg{max-width:100%;overflow-x:auto;scrollbar-width:none} .barra-acoes .seg button{flex:none} }
@@ -1526,4 +1520,22 @@ button.g-nome{cursor:pointer}
   /* rodapé do editor preso à janela (não ao contêiner que rola): Salvar sempre visível, no lugar da barra inferior */
   .pl-rodape{position:fixed;left:0;right:0;bottom:0;z-index:45;margin:0;border-radius:18px 18px 0 0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px -18px rgba(0,0,0,.5)}
   .crono-editor{padding-bottom:140px}
+}
+
+/* ================= Produção, 03/11: celular com o tamanho mínimo de fonte do portal ================= */
+@media (max-width:760px){
+  /* 1. valor da faixa: nunca cortado; se o curto não couber, quebra no espaço ("R$ 2,07 / mi") */
+  .fx-valor,.fx-valor .of-valor{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:normal;word-break:normal}
+  .of-valor{font-size:15px;text-align:left}
+  .of-valor.cheio{font-size:12px}
+  /* 2. editor em lista: a soma desce para a linha de baixo quando não cabe ao lado do nome (antes era cortada) */
+  .pl-m-etapa{flex-wrap:wrap;row-gap:4px}
+  .pl-m-etapa .pl-et-n{flex:1 1 9em}
+  .pl-m-soma{margin-left:auto;white-space:nowrap}
+  .pl-m-mes{flex-wrap:wrap;row-gap:4px}
+  /* 3. histórico: hora e Desfazer na 1ª linha, o texto embaixo na largura toda (sem coluna estreita que parte palavras) */
+  .hist-l{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"hora acao" "texto texto";row-gap:4px;column-gap:10px}
+  .hist-h{grid-area:hora;align-self:center}
+  .hist-t{grid-area:texto;overflow-wrap:break-word;word-break:normal}
+  .hist-l>.hist-desf,.hist-l>.link{grid-area:acao;justify-self:end}
 }
