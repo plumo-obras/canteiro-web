@@ -67,3 +67,12 @@ describe("Onda 3: faixa do Orçamento no celular", () => {
     expect(reaisCurtos(-150_000_000)).toBe("−R$ 1,5 mi");
   });
 });
+
+import { rotuloMesGantt } from "./cronograma/Gantt";
+describe("Gantt: rótulos dos meses", () => {
+  it("ano no 1º mês e em janeiro; alternando quando não cabe", () => {
+    const ms = ["2026-11", "2026-12", "2027-01", "2027-02", "2027-03"];
+    expect(ms.map((m, i) => rotuloMesGantt(m, i, false))).toEqual(["nov/26", "dez", "jan/27", "fev", "mar"]);
+    expect(ms.map((m, i) => rotuloMesGantt(m, i, true))).toEqual(["nov/26", "", "jan/27", "", "mar"]);
+  });
+});

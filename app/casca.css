@@ -225,3 +225,9 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .barra-inf.compacta .bi-item.on{overflow:visible;z-index:1}
   .barra-inf.compacta .bi-item.on .bi-rot{overflow:visible;max-width:none;text-overflow:clip}
 }
+@media (max-width:760px){ .bi-rot{font-size:11px} .bi-item span:last-child{font-size:11px} }
+@media (max-width:760px){
+  /* sem as abas, o seletor da obra ocupa o espaço entre o logo e o avatar */
+  .topo .seletor{flex:1 1 auto;min-width:0}
+  html:has(.crono-editor) .app,html:has(.crono-editor) .app.com-painel{padding-bottom:env(safe-area-inset-bottom)}
+}

@@ -18,6 +18,7 @@ import { ErroApi } from "../formularios/Campos";
 import { Ajuda } from "../Ajuda";
 import { Modal } from "../Dialogo";
 import { MenuMais } from "../MenuMais";
+import { useCelular } from "../midia";
 
 const mesAtual = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date());
 const paraCampoMes = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
@@ -77,6 +78,7 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
   const limparEtapa = (etapa: string) => setGrade((g) => ({ ...g, [etapa]: Array.from({ length: nVal }, () => "") }));
   const [aberta, setAberta] = useState<string | null>(null);
   const tabela = useRef<HTMLTableElement>(null);
+  const celular = useCelular();
 
   /** Foco numa célula (r = linha da etapa, c = mês); fora da grade não faz nada. */
   const focar = (r: number, c: number) => {
@@ -117,8 +119,7 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
   const irPrimeiroProblema = () => {
     const i = linhas.findIndex((l) => l.invalida || (l.total !== 0 && l.total !== CEM));
     if (i < 0) return;
-    const desk = getComputedStyle(tabela.current?.closest(".pl-rola") ?? document.body).display !== "none";
-    if (desk && tabela.current) focar(i, Math.max(0, linhas[i]!.lidas.findIndex((x) => x) ));
+    if (!celular && tabela.current) focar(i, Math.max(0, linhas[i]!.lidas.findIndex((x) => x) ));
     else {
       setAberta(linhas[i]!.etapa);
       requestAnimationFrame(() => document.getElementById(`pl-m-${linhas[i]!.etapa}`)?.scrollIntoView({ block: "start" }));
@@ -209,7 +210,8 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
         </p>
       </div>
 
-      {/* desktop: planilha */}
+      {/* desktop: planilha; celular: lista (uma coisa ou outra, decidido por JS) */}
+      {celular ? null : (
       <div className="pl-rola">
         <table className="pl" ref={tabela}>
           <thead>
@@ -292,7 +294,9 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
         </table>
       </div>
 
+      )}
       {/* celular: lista de etapas; o toque abre os meses, um campo cada */}
+      {celular ? (
       <ul className="pl-m">
         {linhas.map((l) => {
           const soma = l.invalida ? { texto: "valor inválido", ok: false } : textoSoma(l.total);
@@ -337,6 +341,7 @@ export function EditorCronograma(props: { obra: Obra; crono: Cronograma; meses?:
           );
         })}
       </ul>
+      ) : null}
 
       {reprogramando ? (
         <label className="check">

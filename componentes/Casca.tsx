@@ -22,6 +22,7 @@ import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { trocarTema, useTema } from "./tema";
+import { useCelular, useMidia } from "./midia";
 import { telaDe, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
 const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
@@ -85,16 +86,7 @@ const MOVEL = "(max-width: 899px)";
 const CHAVE_PAINEL = "plumo.painel";
 const LIMITE_CONVERSAS = 30;
 function useMovel() {
-  return useSyncExternalStore(
-    (avisar) => {
-      if (typeof matchMedia !== "function") return () => undefined;
-      const m = matchMedia(MOVEL);
-      m.addEventListener("change", avisar);
-      return () => m.removeEventListener("change", avisar);
-    },
-    () => typeof matchMedia === "function" && matchMedia(MOVEL).matches,
-    () => false,
-  );
+  return useMidia(MOVEL);
 }
 function lerPainel() {
   try {
@@ -140,6 +132,7 @@ function App({ usuario }: { usuario: Usuario }) {
   const [atual, setAtual] = useState<string | null>(null);
   const [tela, setTela] = useState<AbaAtiva>("conversa");
   const movel = useMovel();
+  const barraCelular = useCelular();
   const [painelDesk, setPainelDesk] = useState(lerPainel);
   const [gaveta, setGaveta] = useState(false);
   const painel = useRef<HTMLElement>(null);
@@ -324,6 +317,7 @@ function App({ usuario }: { usuario: Usuario }) {
   return (
     <div className={`app${painelAberto ? " com-painel" : ""}`}>
       <Topo
+        semAbas={barraCelular}
         obras={obras ?? []}
         obra={obra}
         tela={tela}
@@ -468,7 +462,7 @@ function App({ usuario }: { usuario: Usuario }) {
             </>
           ) : null)}
       </main>
-      {obra && !conteudo ? <BarraInferior tela={tela} setTela={setTela} pendentes={pendentes(obra.id)} inerte={movel && gaveta} /> : null}
+      {obra && !conteudo && barraCelular ? <BarraInferior tela={tela} setTela={setTela} pendentes={pendentes(obra.id)} inerte={movel && gaveta} /> : null}
     </div>
   );
 }
@@ -483,6 +477,8 @@ const BARRA: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
 
 function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pendentes: number; inerte: boolean }) {
   const [mais, setMais] = useState(false);
+  // Trocou de tela (pela folha ou por fora dela): a folha fecha, nunca fica cobrindo a tela nova.
+  useEffect(() => setMais(false), [p.tela]);
   // Com o texto maior (o portal impõe tamanho mínimo de fonte), os rótulos não cabem: aí só os ícones (o nome fica no
   // aria-label) e o rótulo apenas no item ativo.
   const barra = useRef<HTMLElement>(null);
@@ -540,8 +536,8 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pend
           fechar={() => setMais(false)}
           pendentes={p.pendentes}
           ir={(t) => {
-            p.setTela(t);
             setMais(false);
+            p.setTela(t);
           }}
         />
       ) : null}
@@ -599,6 +595,7 @@ function ItemTema() {
 }
 
 function Topo(p: {
+  semAbas?: boolean;
   obras: Obra[];
   obra: Obra | undefined;
   tela: AbaAtiva;
@@ -626,7 +623,7 @@ function Topo(p: {
         {p.demo ? <span className="tag">demo</span> : null}
       </Link>
       {obra ? <SeletorObra obras={p.obras} obra={obra} trocar={p.trocarObra} /> : null}
-      {obra ? (
+      {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
           {NAV.map((n) => (
             <button
@@ -645,7 +642,7 @@ function Topo(p: {
             </button>
           ))}
         </nav>
-      ) : (
+      ) : obra ? null : (
         <span className="sp" />
       )}
       <div className="topo-dir">

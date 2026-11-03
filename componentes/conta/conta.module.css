@@ -25,7 +25,7 @@
 .quemT b{font-size:var(--t-sec)}
 .quemT span{color:var(--ink2);overflow-wrap:anywhere}
 .dados{margin:0;border-top:1px solid var(--line2)}
-.dados>div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:12px 0;border-bottom:1px solid var(--line2)}
+.dados>div{display:grid;grid-template-columns:minmax(6em,max-content) minmax(0,1fr);gap:12px;padding:12px 0;border-bottom:1px solid var(--line2)}
 .dados dt{color:var(--muted);font-size:var(--t-meta);padding-top:2px}
 .dados dd{margin:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;min-width:0;overflow-wrap:anywhere}
 .papel{font-weight:600}
@@ -91,7 +91,7 @@
   .bloco{padding:18px 16px}
   .saldo{grid-template-columns:minmax(0,1fr)}
   .linha :global(.btn){flex:1 1 100%}
-  .dados>div{grid-template-columns:80px minmax(0,1fr)}
+  .dados>div{grid-template-columns:minmax(5em,max-content) minmax(0,1fr)}
   .grafico{grid-template-rows:120px auto}
 }
 .acoesChave{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 4px}

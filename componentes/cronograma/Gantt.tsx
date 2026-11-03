@@ -7,6 +7,7 @@
  * Os números vêm da API (percentuais, medido, mensal); a tela só soma o previsto da etapa até o mês de referência.
  */
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Cronograma, EtapaCronograma } from "@/lib/contrato";
 import {
   fmtMes,
@@ -25,7 +26,18 @@ import { Drawer } from "../Dialogo";
 import { BarraFiltros } from "../CabecalhoPagina";
 
 const ROTULO: Record<Situacao, string> = { concluida: "concluída", em_dia: "em dia", atrasada: "atrasada", nao_comecou: "não começou" };
-const NOMES_CURTOS = ["j", "f", "m", "a", "m", "j", "j", "a", "s", "o", "n", "d"];
+const NOMES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/**
+ * Rótulo do mês no cabeçalho do Gantt: "nov", "dez", "jan/27" (o ano só no primeiro mês e em janeiro, para não
+ * repetir). Se não couber, um mês sim, outro não (o primeiro e janeiro sempre aparecem, porque carregam o ano).
+ */
+export function rotuloMesGantt(m: string, i: number, alternar: boolean): string {
+  const mes = Number(m.slice(5, 7));
+  const comAno = i === 0 || mes === 1;
+  if (alternar && !comAno && i % 2 === 1) return "";
+  return comAno ? `${NOMES[mes - 1]}/${m.slice(2, 4)}` : NOMES[mes - 1]!;
+}
 
 interface LinhaGantt extends EtapaCronograma {
   situacao: Situacao;
@@ -87,18 +99,32 @@ export function Gantt({ crono }: { crono: Cronograma }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [encolher, meses.length]);
-  const curto = encolher || meses.length > 14;
-  const rotuloMes = (m: string) => (curto ? NOMES_CURTOS[Number(m.slice(5, 7)) - 1]! : fmtMes(m));
+  const alternar = encolher || meses.length > 14;
+  const rotuloMes = (m: string, i: number) => rotuloMesGantt(m, i, alternar);
   const grade = { "--n": meses.length } as React.CSSProperties;
+  // O balão é fixo na janela: rolar ou tocar fora dele o apaga (senão fica parado no lugar errado).
+  useLayoutEffect(() => {
+    if (!dica) return;
+    const sumir = () => setDica(null);
+    const fora = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest?.(".g-alvo")) setDica(null);
+    };
+    addEventListener("scroll", sumir, true);
+    document.addEventListener("pointerdown", fora, true);
+    return () => {
+      removeEventListener("scroll", sumir, true);
+      document.removeEventListener("pointerdown", fora, true);
+    };
+  }, [dica]);
 
-  const mostrarDica = (e: React.MouseEvent | React.FocusEvent, l: LinhaGantt, i: number) => {
+  const mostrarDica = (e: React.MouseEvent | React.FocusEvent | React.PointerEvent, l: LinhaGantt, i: number) => {
     const alvo = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const caixa = (e.currentTarget as HTMLElement).closest(".gantt")!.getBoundingClientRect();
     const p = l.percentuais[i] ?? 0;
     setDica({
       texto: `${l.descricao} · ${fmtMes(meses[i]!)}: ${p ? `${fmtPct(p)} previsto (${fmtReais(valoresMes(l.atual, l.percentuais)[i]!)})` : "sem previsão"}${l.medido_acumulado ? ` · medido ${fmtPct(l.medido_acumulado)} da etapa` : ""}`,
-      x: alvo.left - caixa.left + alvo.width / 2,
-      y: alvo.top - caixa.top,
+      // coordenadas da janela: o balão vai num portal fixo e é empurrado para dentro da tela (antes cortava à esquerda)
+      x: alvo.left + alvo.width / 2,
+      y: alvo.top,
     });
   };
 
@@ -152,7 +178,7 @@ export function Gantt({ crono }: { crono: Cronograma }) {
           <span className="g-meses" ref={cab}>
             {meses.map((m, i) => (
               <span key={m} className={`g-mes${i === refNaGrade ? " ref" : ""}${i === hojeNaGrade ? " hoje" : ""}`} aria-label={fmtMesLongo(m)}>
-                {rotuloMes(m)}
+                {rotuloMes(m, i)}
               </span>
             ))}
           </span>
@@ -202,6 +228,7 @@ export function Gantt({ crono }: { crono: Cronograma }) {
                         role="button"
                         tabIndex={-1}
                         aria-label={`${l.descricao}, ${fmtMesLongo(m)}: ${p ? `${fmtPct(p)} previsto` : "sem previsão"}`}
+                        onPointerEnter={(e) => mostrarDica(e, l, i)}
                         onMouseEnter={(e) => mostrarDica(e, l, i)}
                         onClick={(e) => mostrarDica(e, l, i)}
                       />
@@ -217,11 +244,7 @@ export function Gantt({ crono }: { crono: Cronograma }) {
         ))}
         {!linhas.length ? <p className="mut sm g-vazio">{VAZIO[filtro]}</p> : null}
         <TotalGantt crono={crono} refNaGrade={refNaGrade} />
-        {dica ? (
-          <span className="g-dica" role="tooltip" style={{ left: dica.x, top: dica.y }}>
-            {dica.texto}
-          </span>
-        ) : null}
+        {dica ? <Dica {...dica} /> : null}
       </div>
 
       {/* celular: cartões */}
@@ -390,5 +413,26 @@ function GavetaEtapa({ crono, linha: l, meses, fechar }: { crono: Cronograma; li
         <p className="mut sm">Nenhuma medição avançou esta etapa ainda.</p>
       )}
     </Drawer>
+  );
+}
+
+/** O balão do Gantt: num portal com position:fixed, acima do ponto, empurrado para caber na janela. */
+function Dica({ texto, x, y }: { texto: string; x: number; y: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const left = Math.max(8, Math.min(innerWidth - w - 8, x - w / 2));
+    const top = y - h - 8 < 8 ? y + 28 : y - h - 8;
+    setPos({ left, top });
+  }, [texto, x, y]);
+  return createPortal(
+    <span ref={ref} className="g-dica" role="tooltip" style={{ position: "fixed", left: pos?.left ?? -9999, top: pos?.top ?? -9999, transform: "none" }}>
+      {texto}
+    </span>,
+    document.body,
   );
 }

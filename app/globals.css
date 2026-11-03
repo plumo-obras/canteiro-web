@@ -1498,3 +1498,32 @@ button.g-nome{cursor:pointer}
 .fx-rt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fx-nw{white-space:nowrap}
 @media (max-width:760px){ .fx-itens{column-gap:12px} }
+
+/* ================= Validação final (371 px, texto maior do portal): nada de largura fixa em px que o texto estoure ================= */
+/* Histórico: a coluna da hora acompanha o texto (antes 52/40 px fixos: com texto maior a hora invadia a frase) */
+.hist-l{grid-template-columns:max-content minmax(0,1fr) auto;column-gap:12px}
+@media (max-width:760px){ .hist-l{grid-template-columns:max-content minmax(0,1fr) auto;column-gap:10px} }
+/* faixa de números: colunas em em (crescem com o texto), 3 → 2 → 1 conforme couber; valor com reticências, nunca encavala */
+@media (max-width:760px){
+  .fx-itens{grid-template-columns:repeat(auto-fit,minmax(min(100%,6.5em),1fr))}
+  .fx-itens div,.fx-itens dd{min-width:0;max-width:100%}
+  .fx-valor{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .fx-valor .of-valor{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .fx-principal,.fx-linha{min-width:0;max-width:100%}
+  .fx-grande{font-size:clamp(18px,7vw,24px);max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .faixa{max-width:100%;overflow:hidden}
+  /* linha do contrato: quebra entre as peças, nunca dentro do valor; peça longa demais ganha reticências */
+  .fx-rodape{overflow-wrap:normal}
+  .fx-nw{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+  /* rede de segurança: o palco nunca fica mais largo que a tela (menu ⋯ não "empurra" a página) */
+  .page{max-width:100%;min-width:0}
+  .palco,.palco-tela{overflow-x:clip}
+}
+/* editor aberto no celular: a barra inferior sai (o rodapé com Salvar fica por cima de tudo) */
+@media (max-width:760px){ html:has(.crono-editor) .barra-inf{display:none} .pl-rodape{bottom:env(safe-area-inset-bottom)} }
+.g-dica{z-index:70;white-space:normal;max-width:min(360px,calc(100vw - 16px))}
+@media (max-width:760px){
+  /* rodapé do editor preso à janela (não ao contêiner que rola): Salvar sempre visível, no lugar da barra inferior */
+  .pl-rodape{position:fixed;left:0;right:0;bottom:0;z-index:45;margin:0;border-radius:18px 18px 0 0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px -18px rgba(0,0,0,.5)}
+  .crono-editor{padding-bottom:140px}
+}
