@@ -90,6 +90,8 @@ export function Casca({ demo }: { demo: boolean }) {
 /** Abaixo disto o trilho some e o painel das conversas vira gaveta. */
 const MOVEL = "(max-width: 899px)";
 const CHAVE_PAINEL = "plumo.painel";
+// Última obra aberta neste navegador: uma aba nova em "/" volta nela, não na 1ª em andamento da lista.
+const CHAVE_OBRA = "plumo.obra";
 const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
@@ -156,12 +158,18 @@ function App({ usuario }: { usuario: Usuario }) {
     if (iniciou.current) return;
     iniciou.current = true;
     // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto
-    // (a obra recém-criada cai direto no Orçamento). A URL volta limpa.
+    // (a obra recém-criada cai direto no Orçamento). A obra e a tela ficam na URL (o efeito abaixo as reescreve), para
+    // o recarregar voltar na mesma obra: abrir outra obra em silêncio leva a lançar na obra errada.
     const qs = new URLSearchParams(window.location.search);
-    const querObra = qs.get("obra");
+    let ultima: string | null = null;
+    try {
+      ultima = localStorage.getItem(CHAVE_OBRA);
+    } catch {
+      // navegador sem armazenamento: vale a URL
+    }
+    const querObra = qs.get("obra") ?? ultima;
     const querSessao = qs.get("sessao");
     const querTela = telaDe(qs.get("tela"));
-    if (querObra || querSessao || querTela) window.history.replaceState(null, "", window.location.pathname);
     if (querTela) setTela(querTela);
     api
       .listarObras()
@@ -257,6 +265,19 @@ function App({ usuario }: { usuario: Usuario }) {
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, [gaveta, movel]);
+
+  const obraAberta = obras?.find((o) => o.id === sessoes.find((s) => s.id === atual)?.obraId)?.id;
+  useEffect(() => {
+    if (!obraAberta) return;
+    const qs = new URLSearchParams({ obra: obraAberta });
+    if (tela !== "conversa") qs.set("tela", tela);
+    window.history.replaceState(null, "", `${window.location.pathname}?${qs}`);
+    try {
+      localStorage.setItem(CHAVE_OBRA, obraAberta);
+    } catch {
+      // navegador sem armazenamento: vale a URL
+    }
+  }, [obraAberta, tela]);
 
   const pendentes = (obraId: string) => Object.values(cartoes).filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente").length;
   const sessao = sessoes.find((s) => s.id === atual);
