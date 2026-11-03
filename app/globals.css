@@ -1546,7 +1546,9 @@ button.g-nome{cursor:pointer}
      nome à esquerda, campo à direita, campo encolhe antes de sair do cartão */
   .pl-m{grid-template-columns:minmax(0,1fr)}
   .pl-m li{min-width:0}
-  .pl-m-meses{overflow:hidden}
+  /* sem overflow:hidden: o que estourava eram os botões de ação lado a lado; com a fonte mínima do Safari eles quebram de linha */
+  .pl-m-acoes{flex-wrap:wrap}
+  .pl-m-acoes .btn{flex:1 1 auto;min-width:0;white-space:normal}
   .pl-m-mes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,max-content);align-items:center;gap:8px;flex-wrap:nowrap}
   .pl-m-mes>span:first-child{min-width:0;overflow-wrap:anywhere}
   .pl-m-mes .ent-q{min-width:0;max-width:100%}
