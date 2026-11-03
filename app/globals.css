@@ -1539,3 +1539,29 @@ button.g-nome{cursor:pointer}
   .hist-t{grid-area:texto;overflow-wrap:break-word;word-break:normal}
   .hist-l>.hist-desf,.hist-l>.link{grid-area:acao;justify-self:end}
 }
+
+/* ================= Produção, rodada 2 (03/11) ================= */
+@media (max-width:760px){
+  /* 1. editor: os cartões não crescem além da tela (o grid "auto" seguia o conteúdo); cada mês inteiro na linha:
+     nome à esquerda, campo à direita, campo encolhe antes de sair do cartão */
+  .pl-m{grid-template-columns:minmax(0,1fr)}
+  .pl-m li{min-width:0}
+  .pl-m-meses{overflow:hidden}
+  .pl-m-mes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,max-content);align-items:center;gap:8px;flex-wrap:nowrap}
+  .pl-m-mes>span:first-child{min-width:0;overflow-wrap:anywhere}
+  .pl-m-mes .ent-q{min-width:0;max-width:100%}
+  .pl-m-mes .ent-q input{width:min(90px,30vw);min-width:0}
+  /* 2. registrar entrega: linhas viram cartões (nome em cima; pedido, falta e o campo embaixo), sem rolagem lateral */
+  .modal .tbl-rola:has(.tbl-ent){overflow:visible;border:0}
+  .tbl-ent thead{display:none}
+  .tbl-ent,.tbl-ent tbody{display:block;width:100%;min-width:0}
+  .tbl-ent tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;padding:10px 0;border-bottom:1px solid var(--line2)}
+  .tbl-ent td{display:block;padding:0;border:0;min-width:0;text-align:left}
+  .tbl-ent td:first-child{grid-column:1/-1;font-weight:600}
+  .tbl-ent td[data-rot]::before{content:attr(data-rot);display:block;font-size:12px;font-weight:400;color:var(--muted)}
+  .tbl-ent td.ent-agora{grid-column:1/-1}
+  .tbl-ent .ent-q{display:flex;align-items:center;gap:6px;max-width:100%}
+  .tbl-ent .ent-q input{width:min(140px,60%);min-width:0}
+  /* botões do rodapé do modal: o texto quebra em vez de sair cortado ("…gistrar entrega") */
+  .modal .rodape .btn{white-space:normal;min-width:0;max-width:100%;flex:1 1 auto;text-align:center}
+}

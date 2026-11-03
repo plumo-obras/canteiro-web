@@ -251,6 +251,8 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
   // Conferido ao sair do campo: valor válido vira o formato do Real ("3600" → "3.600,00"); inválido ("3.600,000", um
   // zero a mais) mostra o erro na hora, em vez de só ao gravar. O campo nunca reformata enquanto a pessoa digita.
   const [nfValorErro, setNfValorErro] = useState<string | null>(null);
+  // Enquanto o valor da NF não é número, Registrar fica desabilitado (e o envio também recusa, por garantia).
+  const nfValorInvalido = !!nfValor.trim() && lerReais(nfValor) === null;
   const sairNfValor = () => {
     if (!nfValor.trim()) return setNfValorErro(null);
     const c = lerReais(nfValor);
@@ -283,6 +285,7 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
       nfValor: nfValor.trim() && v === null ? "Valor da NF em reais, ex.: 4.680,50." : null,
     }),
     async () => {
+      if (nfValorInvalido) return setNfValorErro("Valor da NF em reais, ex.: 4.680,50.");
       // Entrega acima do que falta é aceita, mas não por engano: pede o "sim" com os números antes de gravar.
       if (excessos.length) return setConfirmaExcesso(true);
       await gravar();
@@ -323,7 +326,7 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
           <button type="button" className="btn" onClick={fechar}>
             Voltar
           </button>
-          <button type="submit" form="form-entrega" className="btn amb" disabled={ocupado} aria-busy={ocupado}>
+          <button type="submit" form="form-entrega" className="btn amb" disabled={ocupado || nfValorInvalido} aria-busy={ocupado}>
             {soServico ? "Registrar medição" : "Registrar entrega"} · {fmtReais(valorLinhas)}
           </button>
         </>
@@ -388,9 +391,9 @@ export function ModalRecebimento({ pedido: p, fechar, atualizar }: { pedido: Ped
                         </label>
                       ) : null}
                     </td>
-                    <td className="num">{fmtQtdUn(l.quantidade, l.unidade)}</td>
-                    <td className="num">{falta(l) ? fmtQtdUn(falta(l), l.unidade) : "—"}</td>
-                    <td className="num">
+                    <td className="num ent-ped" data-rot="Pedido">{fmtQtdUn(l.quantidade, l.unidade)}</td>
+                    <td className="num ent-falta" data-rot="Falta">{falta(l) ? fmtQtdUn(falta(l), l.unidade) : "—"}</td>
+                    <td className="num ent-agora" data-rot="Chegou agora">
                       <label className="sr-only" htmlFor={`ent-${i}`}>
                         Quanto chegou de {l.nome} ({l.unidade})
                       </label>

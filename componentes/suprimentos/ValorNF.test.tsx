@@ -48,4 +48,16 @@ describe("Registrar entrega: Valor da NF", () => {
     await userEvent.tab();
     expect(campo.value).toBe("3.600,00");
   });
+
+  it("com o Valor da NF inválido, Registrar fica desabilitado; corrigido, volta a ficar ativo", async () => {
+    montar();
+    const campo = screen.getByLabelText("Valor da NF (R$)") as HTMLInputElement;
+    const registrar = () => screen.getByRole("button", { name: /Registrar entrega ·/ }) as HTMLButtonElement;
+    expect(registrar().disabled).toBe(false);
+    await userEvent.type(campo, "3.600,000");
+    expect(registrar().disabled).toBe(true);
+    await userEvent.type(campo, "{backspace}");
+    expect(campo.value).toBe("3.600,00");
+    expect(registrar().disabled).toBe(false);
+  });
 });
