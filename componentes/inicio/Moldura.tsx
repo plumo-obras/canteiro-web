@@ -8,7 +8,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Usuario } from "@/lib/contrato";
-import { assinarSessao, renovar, usuarioAtual } from "@/lib/sessao";
+import { assinarSessao, renovarSessao, usuarioAtual } from "@/lib/sessao";
 import { ProvedorCasca } from "../contexto";
 import { Icone, Logo } from "../Icone";
 import { BotaoTema } from "../tema";
@@ -23,13 +23,19 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
 
   useEffect(() => {
     let vivo = true;
-    (usuarioAtual() ? Promise.resolve(true) : renovar()).then((ok) => {
-      if (!vivo) return;
-      if (ok) setPronto(true);
-      else router.replace("/entrar");
-    });
+    let espera: ReturnType<typeof setTimeout> | undefined;
+    // Falha de rede ou da API (acordando no plano gratuito) não é sessão acabada: tenta de novo em vez de ir ao login.
+    const tentar = () =>
+      (usuarioAtual() ? Promise.resolve("ok" as const) : renovarSessao()).then((r) => {
+        if (!vivo) return;
+        if (r === "ok") setPronto(true);
+        else if (r === "negado") router.replace("/entrar");
+        else espera = setTimeout(tentar, 3000);
+      });
+    void tentar();
     return () => {
       vivo = false;
+      clearTimeout(espera);
     };
   }, [router]);
 

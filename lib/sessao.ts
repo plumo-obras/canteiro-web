@@ -17,7 +17,7 @@ interface Estado {
 }
 
 let estado: Estado | null = null;
-let renovando: Promise<boolean> | null = null;
+let renovando: Promise<ResultadoRenovacao> | null = null;
 let relogio: ReturnType<typeof setTimeout> | null = null;
 const ouvintes = new Set<() => void>();
 
@@ -77,25 +77,42 @@ export async function entrar(email: string, senha: string): Promise<{ ok: true }
   return { ok: true };
 }
 
-/** Troca o par pelo cookie. Uma renovação por vez: várias chamadas com 401 ao mesmo tempo esperam a mesma. */
-export function renovar(): Promise<boolean> {
+/** "negado": a API recusou a renovação, a sessão acabou. "falha": rede ou servidor fora; a sessão pode estar viva. */
+export type ResultadoRenovacao = "ok" | "negado" | "falha";
+
+async function trocar(): Promise<ResultadoRenovacao> {
+  try {
+    const r = await fetch("/srv/auth/renovar", { method: "POST", headers: CABECALHO_CSRF });
+    if (r.status === 401 || r.status === 403) {
+      limparSessao();
+      return "negado";
+    }
+    if (!r.ok) return "falha"; // API acordando ou fora: não derruba a sessão, a próxima tentativa resolve
+    guardar((await r.json()) as RespostaSessao);
+    return "ok";
+  } catch {
+    return "falha"; // rede caiu: mantém o estado; a próxima chamada tenta de novo
+  }
+}
+
+/**
+ * Troca o par pelo cookie. Uma renovação por vez nesta aba (várias chamadas com 401 esperam a mesma) e entre abas:
+ * o cookie é um só, e duas abas renovando com ele ao mesmo tempo fazem a API ver o token reusado e derrubar a sessão.
+ * Quem espera o lock renova depois, já com o cookie que a outra aba acabou de gravar.
+ */
+export function renovarSessao(): Promise<ResultadoRenovacao> {
   renovando ??= (async () => {
     try {
-      const r = await fetch("/srv/auth/renovar", { method: "POST", headers: CABECALHO_CSRF });
-      if (!r.ok) {
-        limparSessao();
-        return false;
-      }
-      guardar((await r.json()) as RespostaSessao);
-      return true;
-    } catch {
-      return false; // rede caiu: mantém o estado; a próxima chamada tenta de novo
+      const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+      return locks ? await locks.request("canteiro-renovacao", trocar) : await trocar();
     } finally {
       renovando = null;
     }
   })();
   return renovando;
 }
+
+export const renovar = async (): Promise<boolean> => (await renovarSessao()) === "ok";
 
 export async function sair() {
   const acesso = acessoAtual();

@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { comAcesso, limparSessao, usuarioAtual } from "./sessao";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { comAcesso, limparSessao, renovarSessao, usuarioAtual } from "./sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
 
-afterEach(() => limparSessao());
+afterEach(() => {
+  limparSessao();
+  vi.unstubAllGlobals();
+});
 
 describe("sessão em memória com renovação automática", () => {
   it("sem acesso, renova pelo cookie antes da 1ª chamada e manda o Bearer", async () => {
@@ -37,5 +40,28 @@ describe("sessão em memória com renovação automática", () => {
     const r = await comAcesso("/srv/api/obras");
     expect(r.status).toBe(401);
     expect(usuarioAtual()).toBeNull();
+  });
+
+  it("erro do servidor na renovação não derruba a sessão: só a recusa (401/403) derruba", async () => {
+    let status = 200;
+    criarRede({ "POST /srv/auth/renovar": () => (status === 200 ? renovarOk() : json({ detail: "fora" }, status)) });
+    expect(await renovarSessao()).toBe("ok");
+    status = 503;
+    expect(await renovarSessao()).toBe("falha");
+    expect(usuarioAtual()?.nome).toBe("Rizzi");
+    status = 401;
+    expect(await renovarSessao()).toBe("negado");
+    expect(usuarioAtual()).toBeNull();
+  });
+
+  it("renova dentro do lock entre abas, quando o navegador tem Web Locks", async () => {
+    const nomes: string[] = [];
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      locks: { request: (nome: string, f: () => Promise<unknown>) => (nomes.push(nome), f()) },
+    });
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    expect(await renovarSessao()).toBe("ok");
+    expect(nomes).toEqual(["canteiro-renovacao"]);
   });
 });

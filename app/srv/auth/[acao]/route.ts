@@ -62,8 +62,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ acao: string }
       const r = renovarDemo(renovacao);
       if (r) return guardar(r);
     } else {
-      const r = await api(req, "renovar", { renovacao });
-      if (r.ok) return guardar((await r.json()) as RespostaEntrar);
+      const r = await api(req, "renovar", { renovacao }).catch(() => null);
+      if (r?.ok) return guardar((await r.json()) as RespostaEntrar);
+      // Só a recusa da API encerra a sessão. Erro de servidor ou de rede (a API acordando no Render, por exemplo)
+      // deixa o cookie onde está, para a próxima tentativa.
+      if (!r || (r.status !== 401 && r.status !== 403)) return json({ detail: "Não foi possível falar com o servidor." }, 503);
     }
     await limpar();
     return json({ detail: "Sua sessão acabou. Entre de novo." }, 401);
