@@ -1,6 +1,6 @@
 /* Ícones de traço (estilo Lucide), os mesmos de js/icons.js do protótipo, inline para não depender de CDN. */
 const CAMINHOS = {
-  // a marca do Plumo: o fio de prumo com o peso, a mesma da landing (apps/site/build.py)
+  // a marca do Plumo: o fio de prumo com o peso, a mesma da landing (site/build.py)
   spark:
     '<path d="M12 1.6v8" stroke-width="1.5"/><rect x="9.5" y="9" width="5" height="2.3" rx=".5" fill="currentColor" stroke="none"/><path d="M8.6 12.1h6.8L12 23z" fill="currentColor" stroke="none"/>',
   message: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',

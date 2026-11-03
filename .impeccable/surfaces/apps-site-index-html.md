@@ -1,7 +1,7 @@
 ---
 version: 1
 slug: "apps-site-index-html"
-primary_target: "apps/site/index.html"
+primary_target: "site/index.html"
 related_targets: []
 ---
 

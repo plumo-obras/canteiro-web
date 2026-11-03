@@ -1,5 +1,5 @@
 /**
- * Tipos do contrato do MVP-0 (docs/contrato.md), espelhando packages/dominio/src/canteiro_dominio/modelos.py.
+ * Tipos do contrato do MVP-0 (docs/contrato.md no canteiro-api), espelhando dominio/src/canteiro_dominio/modelos.py de lá.
  * Quantidade em milésimos e dinheiro em centavos, sempre inteiros: quem formata é o front (lib/formato.ts).
  * Datas chegam como texto ISO 8601 com fuso.
  */

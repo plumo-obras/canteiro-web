@@ -68,4 +68,4 @@ if __name__ == "__main__":
             alvo.write_text(html)
             print("gerado", alvo.relative_to(AQUI))
     if desatualizados:
-        sys.exit("Desatualizado(s): " + ", ".join(desatualizados) + ". Rode python3 apps/site/build.py")
+        sys.exit("Desatualizado(s): " + ", ".join(desatualizados) + ". Rode python3 site/build.py")

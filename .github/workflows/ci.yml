@@ -1,0 +1,47 @@
+# CI da web. A Vercel publica pela integração com o Git; o `next build` lá falha em erro de tipo, e este CI roda os
+# testes antes do merge.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tipos
+      - run: pnpm test
+      - name: build
+        env:
+          CANTEIRO_DEMO: "1"
+        run: pnpm build
+
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # os três idiomas da landing são gerados de template.html + i18n/*.json; HTML editado à mão se perde
+      - name: landing gerada em dia
+        run: python3 site/build.py --conferir
+
+  imagem:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t canteiro-web .
