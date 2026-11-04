@@ -492,6 +492,8 @@ export interface UsoConversa {
 
 export type EventoConversa =
   | { tipo: "texto"; delta: string }
+  // O agente refaz a resposta (o modelo mandou JSON ilegível): tira do balão o texto desta tentativa, que termina nele.
+  | { tipo: "descartar"; texto: string }
   | { tipo: "ferramenta"; nome: string; nivel: NivelFerramenta; resumo: string }
   | { tipo: "proposta"; proposta: Proposta }
   | { tipo: "fim"; sessao_id: string; uso: UsoConversa }

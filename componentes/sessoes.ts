@@ -87,6 +87,8 @@ function aplicar(s: Sessao, a: AcaoSessoes): Sessao {
       if (e.tipo === "fim") return naMsg({ ...s, servidorId: e.sessao_id || s.servidorId }, a.msgId, (m) => ({ ...m, terminou: true }));
       return naMsg(s, a.msgId, (m) => {
         if (e.tipo === "texto") return { ...m, texto: m.texto + e.delta };
+        // Só tira se o balão termina mesmo nesse texto; se não (algo já mudou), deixa como está a cortar errado.
+        if (e.tipo === "descartar") return e.texto && m.texto.endsWith(e.texto) ? { ...m, texto: m.texto.slice(0, -e.texto.length) } : m;
         if (e.tipo === "ferramenta") return { ...m, ferramentas: [...m.ferramentas, { nome: e.nome, nivel: e.nivel, resumo: e.resumo }] };
         if (e.tipo === "proposta") return m.propostas.includes(e.proposta.id) ? m : { ...m, propostas: [...m.propostas, e.proposta.id] };
         return { ...m, erro: e.mensagem, terminou: true };

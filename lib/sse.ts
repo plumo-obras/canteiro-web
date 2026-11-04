@@ -82,6 +82,8 @@ export function interpretarEvento(e: EventoSSE): EventoConversa | null {
   switch (e.evento) {
     case "texto":
       return { tipo: "texto", delta: String(d.delta ?? "") };
+    case "descartar":
+      return { tipo: "descartar", texto: String(d.texto ?? "") };
     case "ferramenta":
       return {
         tipo: "ferramenta",
