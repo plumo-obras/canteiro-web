@@ -322,7 +322,9 @@ tr.click{cursor:pointer}
 
 /* ---------------- Linha de decisão (propostas e aprovações) e linha de conta ---------------- */
 /* linha de decisão: prazo | título · conta | valor | ação ⋯ */
-.ld-lista{background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--hl),var(--shadow);overflow:hidden}
+/* a lista é o próprio contêiner: o @container abaixo (linha em duas colunas) valia só dentro do balão da conversa,
+   e nas Aprovações do celular as 4 colunas fixas espremiam o texto a uma palavra por linha */
+.ld-lista{container-type:inline-size;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--hl),var(--shadow);overflow:hidden}
 .ca-cartao .ld-lista{box-shadow:var(--hl),var(--shadow)}
 .ld{display:grid;grid-template-columns:88px minmax(0,1fr) auto auto;gap:var(--s4);align-items:center;padding:12px 20px;border-top:1px solid var(--line2);position:relative}
 .ld:first-child{border-top:0}
