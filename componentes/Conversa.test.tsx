@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import type { Obra } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, sse, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "./contexto";
 import { Conversa } from "./Conversa";
-import { novaSessao, redutorSessoes } from "./sessoes";
+import { novaSessao, redutorSessoes, type Sessao } from "./sessoes";
 
 const OBRA: Obra = {
   id: "o1",
@@ -132,5 +132,53 @@ describe("conversa por SSE", () => {
     expect(await screen.findByText("Sem créditos de IA neste mês.")).toHaveAttribute("role", "alert");
     await userEvent.type(campo, "de novo{Enter}");
     expect(await screen.findByText("Créditos esgotados.")).toBeInTheDocument();
+  });
+});
+
+/** Duas conversas e a troca entre elas, com a mesma key={sessao.id} da Casca: trocar desmonta a Conversa. */
+function HarnessDuas() {
+  const [ss, despachar] = useReducer(redutorSessoes, undefined, (): Sessao[] => [novaSessao("o1"), novaSessao("o1")]);
+  const [i, setI] = useState(0);
+  const sessao = ss[i]!;
+  return (
+    <ProvedorCasca usuario={USUARIO} demo={false}>
+      <button type="button" onClick={() => setI(i === 0 ? 1 : 0)}>
+        trocar
+      </button>
+      <Conversa key={sessao.id} sessao={sessao} obra={OBRA} despachar={despachar} />
+    </ProvedorCasca>
+  );
+}
+
+describe("Parar entre conversas", () => {
+  it("voltar para uma conversa ainda respondendo mostra um Parar que funciona", async () => {
+    // fluxo que entrega um pedaço e fica aberto até o pedido ser abortado, como um agente ainda pensando
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "POST /srv/agente/conversa": ({ init }) =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(c) {
+              c.enqueue(new TextEncoder().encode(ev("texto", { delta: "calculando" })));
+              init.signal?.addEventListener("abort", () => c.error(new DOMException("abortado", "AbortError")));
+            },
+          }),
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+    });
+    render(<HarnessDuas />);
+    await userEvent.type(screen.getByLabelText("Pergunte ao agente"), "quanto falta?{Enter}");
+    expect(await screen.findByText("calculando")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Parar" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "trocar" }));
+    expect(screen.queryByText("calculando")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Parar" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "trocar" }));
+    expect(screen.getByText("calculando")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Parar" }));
+    expect(await screen.findByText("Você parou a resposta.")).toHaveAttribute("role", "alert");
+    expect(screen.queryByRole("button", { name: "Parar" })).not.toBeInTheDocument();
   });
 });

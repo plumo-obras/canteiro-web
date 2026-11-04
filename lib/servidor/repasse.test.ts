@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { caminhoPermitido, headersDeRepasse, origemConfiavel, segundosAteVencer } from "./repasse";
 
 describe("repasse para a API", () => {
@@ -52,31 +52,56 @@ describe("repasse para a API", () => {
 });
 
 describe("headers para a API", () => {
+  // Cada teste diz em que ambiente está: VERCEL e CONFIAR_XFF decidem se o X-Forwarded-For de entrada é confiável.
+  beforeEach(() => {
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("CONFIAR_XFF", "");
+    vi.stubEnv("PROXY_SEGREDO", "");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  const pedido = (h: Record<string, string>) => new Request("http://localhost/srv/auth/entrar", { method: "POST", headers: h });
+
   it("leva Authorization e X-Forwarded-For (limite por IP no login), nunca o cookie", () => {
-    const req = new Request("http://localhost/srv/auth/entrar", {
-      headers: { authorization: "Bearer a", cookie: "canteiro_renovacao=segredo", "x-forwarded-for": "200.1.2.3", "content-type": "application/json" },
-    });
-    const h = headersDeRepasse(req);
+    vi.stubEnv("CONFIAR_XFF", "1");
+    const h = headersDeRepasse(
+      pedido({ authorization: "Bearer a", cookie: "canteiro_renovacao=segredo", "x-forwarded-for": "200.1.2.3", "content-type": "application/json" }),
+    );
     expect(h.get("authorization")).toBe("Bearer a");
     expect(h.get("x-forwarded-for")).toBe("200.1.2.3");
     expect(h.get("cookie")).toBeNull();
   });
 
-  it("com PROXY_SEGREDO, manda o segredo e o IP do visitante (Vercel)", () => {
-    const antes = process.env.PROXY_SEGREDO;
-    process.env.PROXY_SEGREDO = "s3gredo";
-    try {
-      const req = new Request("http://x/srv/api/obras", { headers: { "x-real-ip": "200.1.2.3", "x-forwarded-for": "200.1.2.3, 76.76.21.9" } });
-      const h = headersDeRepasse(req);
-      expect(h.get("x-canteiro-proxy")).toBe("s3gredo");
-      expect(h.get("x-canteiro-ip-cliente")).toBe("200.1.2.3");
-    } finally {
-      if (antes === undefined) delete process.env.PROXY_SEGREDO; else process.env.PROXY_SEGREDO = antes;
-    }
+  it("fora da Vercel e sem CONFIAR_XFF, ignora o X-Forwarded-For do visitante (seria forjável)", () => {
+    vi.stubEnv("PROXY_SEGREDO", "s3gredo");
+    const h = headersDeRepasse(pedido({ "x-forwarded-for": "1.2.3.4", "x-real-ip": "1.2.3.4" }));
+    expect(h.get("x-forwarded-for")).toBeNull();
+    expect(h.get("x-canteiro-ip-cliente")).toBeNull();
+    // o segredo continua indo: ele identifica o Next, não o visitante
+    expect(h.get("x-canteiro-proxy")).toBe("s3gredo");
+  });
+
+  it("com CONFIAR_XFF=1 (proxy de confiança na frente), repassa o IP", () => {
+    vi.stubEnv("CONFIAR_XFF", "1");
+    vi.stubEnv("PROXY_SEGREDO", "s3gredo");
+    const h = headersDeRepasse(pedido({ "x-forwarded-for": "200.1.2.3, 10.0.0.1" }));
+    expect(h.get("x-forwarded-for")).toBe("200.1.2.3, 10.0.0.1");
+    expect(h.get("x-canteiro-ip-cliente")).toBe("200.1.2.3");
+  });
+
+  it("na Vercel, manda o segredo e o IP do visitante sem precisar de CONFIAR_XFF", () => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("PROXY_SEGREDO", "s3gredo");
+    const h = headersDeRepasse(pedido({ "x-real-ip": "200.1.2.3", "x-forwarded-for": "200.1.2.3, 76.76.21.9" }));
+    expect(h.get("x-canteiro-proxy")).toBe("s3gredo");
+    expect(h.get("x-canteiro-ip-cliente")).toBe("200.1.2.3");
+    expect(h.get("x-forwarded-for")).toBe("200.1.2.3, 76.76.21.9");
   });
 
   it("sem PROXY_SEGREDO, não manda cabeçalho de proxy", () => {
-    const h = headersDeRepasse(new Request("http://x/", { headers: { "x-real-ip": "200.1.2.3" } }));
+    vi.stubEnv("VERCEL", "1");
+    const h = headersDeRepasse(pedido({ "x-real-ip": "200.1.2.3" }));
     expect(h.get("x-canteiro-proxy")).toBeNull();
+    expect(h.get("x-canteiro-ip-cliente")).toBeNull();
   });
 });

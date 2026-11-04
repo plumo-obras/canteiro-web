@@ -16,6 +16,9 @@ sobe pelo `docker-compose.completo.yml` do canteiro-api.
 
 Com os serviços de verdade: `CANTEIRO_DEMO=` (vazio), `API_URL=http://localhost:8000`, `AGENTE_URL=http://localhost:8100`.
 A API precisa ter o IP deste Next em `TRUSTED_PROXIES` (local: 127.0.0.1) para o limite por IP do login.
+O IP do visitante só segue para a API na Vercel (que sobrescreve o `X-Forwarded-For`) ou com `CONFIAR_XFF=1`, que se
+liga apenas quando há um proxy de confiança na frente que sobrescreve o cabeçalho; sem isso (a imagem Docker exposta
+direto), o visitante poderia forjá-lo para fugir do limite, então nenhum IP vai e a API usa o endereço da conexão.
 No modo de demonstração, a pergunta `/sem-creditos` simula o erro de créditos do agente.
 
 - `lib/contrato.ts` tipos do docs/contrato.md (no canteiro-api) · `lib/cliente.ts` cliente tipado · `lib/sse.ts` leitor SSE

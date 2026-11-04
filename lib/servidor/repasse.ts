@@ -54,9 +54,21 @@ export function segundosAteVencer(acesso: string, padrao = 15 * 60): number {
 }
 
 /**
+ * De onde vem o IP do visitante. Na Vercel, a plataforma sobrescreve x-real-ip/x-forwarded-for, então o que chega aqui
+ * é dela, não do visitante. Fora dela (a imagem Docker exposta direto), o visitante manda o X-Forwarded-For que quiser
+ * e, repassado como veio, escaparia do limite de tentativas por IP do login. Por isso só se confia no cabeçalho com
+ * CONFIAR_XFF=1, que afirma haver na frente um proxy de confiança que o sobrescreve; sem isso, nenhum IP vai, e a API
+ * usa o endereço da conexão (este Next) — limite mais grosso, mas não contornável.
+ */
+function confiaNoXff(): boolean {
+  if (process.env.VERCEL) return true;
+  return ["1", "true", "sim"].includes((process.env.CONFIAR_XFF ?? "").toLowerCase());
+}
+
+/**
  * Headers que seguem para a API: só o necessário (nada de cookie do Next). O X-Forwarded-For vai junto para o limite de
- * tentativas por IP; a API só confia nele porque o IP deste Next está em TRUSTED_PROXIES do lado dela (local) ou pelo
- * segredo PROXY_SEGREDO (Vercel).
+ * tentativas por IP, quando há fonte confiável dele (veja confiaNoXff); a API só o aceita porque o IP deste Next está em
+ * TRUSTED_PROXIES do lado dela (local) ou pelo segredo PROXY_SEGREDO (Vercel).
  */
 export function headersDeRepasse(req: Request): Headers {
   const h = new Headers();
@@ -64,14 +76,15 @@ export function headersDeRepasse(req: Request): Headers {
     const v = req.headers.get(k);
     if (v) h.set(k, v);
   }
-  const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip");
+  const confia = confiaNoXff();
+  const ip = confia ? (req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip")) : null;
   if (ip) h.set("x-forwarded-for", ip);
   // Na Vercel não há IP fixo para a API listar em TRUSTED_PROXIES: o Next se identifica pelo segredo compartilhado e
-  // informa o IP do visitante. A Vercel sobrescreve x-real-ip/x-forwarded-for, então o visitante não consegue forjá-los.
+  // informa o IP do visitante — o mesmo IP de confiança acima, nunca um cabeçalho que o visitante possa ter escrito.
   const segredo = process.env.PROXY_SEGREDO;
   if (segredo) {
-    const visitante = (req.headers.get("x-real-ip") ?? ip?.split(",")[0] ?? "").trim();
     h.set("x-canteiro-proxy", segredo);
+    const visitante = confia ? (req.headers.get("x-real-ip") ?? ip?.split(",")[0] ?? "").trim() : "";
     if (visitante) h.set("x-canteiro-ip-cliente", visitante);
   }
   return h;

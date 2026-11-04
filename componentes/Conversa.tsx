@@ -12,6 +12,13 @@ import { Icone } from "./Icone";
 import { MensagemMarkdown } from "./MensagemMarkdown";
 import { novaPergunta, type AcaoSessoes, type MsgAgente, type Sessao } from "./sessoes";
 
+/**
+ * O fluxo em andamento de cada sessão, fora do componente: a Conversa remonta (key={sessao.id}) quando a pessoa troca
+ * de conversa, e um ref por instância se perderia, levando o "Parar" junto, enquanto o fluxo da sessão anterior segue
+ * rodando. Pela chave da sessão, quem volta para ela ainda acha como pará-la.
+ */
+const fluxos = new Map<string, AbortController>();
+
 const SUGESTOES = ["Quanto falta de cimento?", "Precisa comprar bloco?", "O aço chega a tempo?"];
 
 function BalaoAgente({ m }: { m: MsgAgente }) {
@@ -75,7 +82,6 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
   const ultima = sessao.mensagens[sessao.mensagens.length - 1];
   const falando = enviando || (ultima?.papel === "agente" && !ultima.terminou);
   const [anuncio, setAnuncio] = useState("");
-  const parar = useRef<AbortController | null>(null);
   const lista = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLTextAreaElement>(null);
   const colado = useRef(true);
@@ -96,7 +102,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
     setAnuncio("O agente está respondendo.");
     colado.current = true;
     const ctl = new AbortController();
-    parar.current = ctl;
+    fluxos.set(sessao.id, ctl);
     try {
       for await (const e of conversar({ sessao_id: sessao.servidorId, obra_id: sessao.obraId, texto: pergunta }, ctl.signal)) {
         if (e.tipo === "proposta") receberPropostas([e.proposta]);
@@ -109,11 +115,14 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id, erro: abortou ? "Você parou a resposta." : mensagemDe(x) });
       setAnuncio(abortou ? "Resposta interrompida." : "A conversa falhou.");
     } finally {
-      parar.current = null;
+      // só apaga se ainda for este fluxo: nada de levar embora o controle de uma pergunta mais nova
+      if (fluxos.get(sessao.id) === ctl) fluxos.delete(sessao.id);
       setEnviando(false);
       campo.current?.focus({ preventScroll: true });
     }
   }
+
+  const parar = fluxos.get(sessao.id);
 
   const tecla = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -214,8 +223,8 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
               <kbd>Enter</kbd> envia <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha
             </span>
             <span className="sp" />
-            {falando && parar.current ? (
-              <button type="button" className="btn sm" onClick={() => parar.current?.abort()}>
+            {falando && parar ? (
+              <button type="button" className="btn sm" onClick={() => parar.abort()}>
                 <Icone nome="square" tam={14} />
                 Parar
               </button>
