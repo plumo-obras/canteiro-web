@@ -204,6 +204,10 @@ export interface EtapaOrcamento extends Gasto {
   contratado: Centavos;
   aditivos: Centavos;
   atual: Centavos;
+  /** atual − comprometido, calculado pela API (a tela não refaz a conta). */
+  saldo: Centavos;
+  /** Comprometido acima do orçado atual. */
+  estourou: boolean;
 }
 
 /** `GET /obras/{id}/orcamento`. */
@@ -212,7 +216,18 @@ export interface Orcamento {
   itens: (ItemOrcamento & { curva: CurvaABC | null })[];
   etapas: EtapaOrcamento[];
   /** Os gastos já incluem `sem_etapa` (gasto sem etapa ou em etapa fora das versões vigentes). */
-  totais: Gasto & { contratado: Centavos; aditivos: Centavos; atual: Centavos; n_itens: number; n_etapas: number; sem_etapa: Gasto };
+  totais: Gasto & {
+    contratado: Centavos;
+    aditivos: Centavos;
+    atual: Centavos;
+    /** atual − comprometido. */
+    saldo: Centavos;
+    /** aditivos ÷ contratado em centésimos de % (294 = 2,94%); null sem contrato. */
+    aditivos_pct: number | null;
+    n_itens: number;
+    n_etapas: number;
+    sem_etapa: Gasto;
+  };
 }
 
 /** O que acompanha a planilha no `POST …/orcamento/versoes`. */
@@ -327,6 +342,8 @@ export interface LinhaPedido {
   /** quantidade × unitário, arredondado ao centavo. */
   total: Centavos;
   recebida: Milesimos;
+  /** quantidade − recebida pela regra do domínio; 0 em pedido conferido ou cancelado. */
+  falta_entregar: Milesimos;
 }
 
 export interface Pedido {

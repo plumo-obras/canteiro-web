@@ -10,8 +10,8 @@ const pedido = {
   id: "p", numero: "PED-0169", obra_id: "o", fornecedor: "Vale do Taquari", fornecedor_id: null, previsao: null, observacao: "", status: "parcial",
   valor: 810_000, recebimentos: 1, criado_em: "",
   linhas: [
-    { insumo_id: "c", nome: "Cimento CP-II", unidade: "sc", tipo: "material", etapa: "3", quantidade: 120_000, valor_unitario: 3_750, total: 450_000, recebida: 120_000 },
-    { insumo_id: "a", nome: "Areia média", unidade: "m³", tipo: "material", etapa: "3", quantidade: 30_000, valor_unitario: 12_000, total: 360_000, recebida: 0 },
+    { insumo_id: "c", nome: "Cimento CP-II", unidade: "sc", tipo: "material", etapa: "3", quantidade: 120_000, valor_unitario: 3_750, total: 450_000, recebida: 120_000, falta_entregar: 0 },
+    { insumo_id: "a", nome: "Areia média", unidade: "m³", tipo: "material", etapa: "3", quantidade: 30_000, valor_unitario: 12_000, total: 360_000, recebida: 0, falta_entregar: 30_000 },
   ],
 } as Pedido;
 const eu: Usuario = { id: "u", nome: "Eng", tenant_id: "t", papel: "admin" };

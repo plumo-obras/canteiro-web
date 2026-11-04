@@ -139,7 +139,7 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   const ins = [...e.insumos.values()].filter((i) => i.obra_id === o.id && i.precisa_ate_o_fim > 0);
   const zero = { cotando: 0, comprometido: 0, realizado: 0 };
   if (!ins.length)
-    return { versoes: [], itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
+    return { versoes: [], itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
   const versao_id = `demo-contrato-${o.id}`;
   const base = { obra_id: o.id, versao_id, etapa: "1", codigo: "", fonte: "" };
   const itens: Orcamento["itens"] = ins.map((i, n) => ({
@@ -165,8 +165,8 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
     ],
     itens: [etapa, ...itens],
     // Previsto × realizado chega à demo no fim da fase: zerado, para a tela não quebrar.
-    etapas: [{ etapa: "1", descricao: "Orçamento", contratado: total, aditivos: 0, atual: total, ...zero }],
-    totais: { contratado: total, aditivos: 0, atual: total, n_itens: itens.length, n_etapas: 1, ...zero, sem_etapa: zero },
+    etapas: [{ etapa: "1", descricao: "Orçamento", contratado: total, aditivos: 0, atual: total, saldo: total, estourou: false, ...zero }],
+    totais: { contratado: total, aditivos: 0, atual: total, saldo: total, aditivos_pct: total ? 0 : null, n_itens: itens.length, n_etapas: 1, ...zero, sem_etapa: zero },
   };
 }
 
@@ -217,6 +217,7 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
         valor_unitario: p.quantidade ? Math.round((p.valor * 1000) / p.quantidade) : 0,
         total: p.valor,
         recebida,
+        falta_entregar: p.status === "conferido" || p.status === "cancelado" ? 0 : Math.max(0, p.quantidade - recebida),
       },
     ],
   };

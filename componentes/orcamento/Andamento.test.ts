@@ -3,12 +3,16 @@ import type { Orcamento } from "@/lib/contrato";
 import { csvAndamento, linhasAndamento, porDesvio } from "./Andamento";
 
 const z = { cotando: 0, comprometido: 0, realizado: 0 };
-const et = (etapa: string, descricao: string, atual: number, g: Partial<typeof z> = {}) => ({ etapa, descricao, contratado: atual, aditivos: 0, atual, ...z, ...g });
+const et = (etapa: string, descricao: string, atual: number, g: Partial<typeof z> = {}) => ({
+  etapa, descricao, contratado: atual, aditivos: 0, atual, ...z, ...g,
+  // saldo e estouro vêm prontos da API; aqui o dublê os preenche como ela faria
+  saldo: atual - (g.comprometido ?? 0), estourou: (g.comprometido ?? 0) > atual,
+});
 const orc = (sem = z): Orcamento => ({
   versoes: [],
   itens: [],
   etapas: [et("1", "SERVIÇOS PRELIMINARES", 4_543_363), et("3", "FUNDAÇÕES", 9_550_346, { comprometido: 10_000_000, realizado: 6_000_000, cotando: 50_000 }), et("4", "SUPERESTRUTURA", 11_295_680, { comprometido: 1_000_000 })],
-  totais: { contratado: 25_389_389, aditivos: 0, atual: 25_389_389, n_itens: 3, n_etapas: 3, cotando: 50_000 + sem.cotando, comprometido: 11_000_000 + sem.comprometido, realizado: 6_000_000 + sem.realizado, sem_etapa: sem },
+  totais: { contratado: 25_389_389, aditivos: 0, atual: 25_389_389, saldo: 25_389_389 - 11_000_000 - sem.comprometido, aditivos_pct: 0, n_itens: 3, n_etapas: 3, cotando: 50_000 + sem.cotando, comprometido: 11_000_000 + sem.comprometido, realizado: 6_000_000 + sem.realizado, sem_etapa: sem },
 });
 
 describe("andamento por etapa", () => {

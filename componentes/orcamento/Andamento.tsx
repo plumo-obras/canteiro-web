@@ -1,8 +1,8 @@
 "use client";
 /**
  * Previsto × realizado por etapa (Fase 3): as contas e a barra que a lista única de etapas (ListaEtapas) usa, o CSV e o
- * bloco de aditivos. Os números vêm somados da API (GET /obras/{id}/orcamento); aqui só se ordena, se calcula o saldo
- * (atual − comprometido) e o %, e se desenha a barra. Nenhuma soma de pedido é refeita.
+ * bloco de aditivos. Os números vêm somados da API (GET /obras/{id}/orcamento); o saldo e o % de aditivo também vêm prontos;
+ * aqui só se ordena, se calcula o % comprometido da barra e se desenha. Nenhuma soma de pedido é refeita.
  */
 import type { EtapaOrcamento, Gasto, Orcamento, VersaoOrcamento } from "@/lib/contrato";
 import { centavosCsv, gerarCsv } from "@/lib/csv";
@@ -32,7 +32,7 @@ export function linhasAndamento(orc: Orcamento): LinhaAndamento[] {
     cotando: e.cotando,
     comprometido: e.comprometido,
     realizado: e.realizado,
-    saldo: e.atual - e.comprometido,
+    saldo: e.saldo,
     pct: pctDe(e.comprometido, e.atual),
   }));
   const s = orc.totais.sem_etapa;
@@ -56,7 +56,7 @@ export function csvAndamento(orc: Orcamento): string {
   return gerarCsv([
     ["Etapa", "Descrição", "Orçado atual", "Em cotação", "Comprometido", "Realizado", "Saldo a comprometer", "% comprometido"],
     ...ls.map((l) => [l.etapa, l.descricao, centavosCsv(l.atual), centavosCsv(l.cotando), centavosCsv(l.comprometido), centavosCsv(l.realizado), centavosCsv(l.saldo), pct(l.pct)]),
-    ["", "Total", centavosCsv(t.atual), centavosCsv(t.cotando), centavosCsv(t.comprometido), centavosCsv(t.realizado), centavosCsv(t.atual - t.comprometido), pct(pctDe(t.comprometido, t.atual))],
+    ["", "Total", centavosCsv(t.atual), centavosCsv(t.cotando), centavosCsv(t.comprometido), centavosCsv(t.realizado), centavosCsv(t.saldo), pct(pctDe(t.comprometido, t.atual))],
   ]);
 }
 
@@ -79,7 +79,7 @@ export function BlocoAditivos({ orc, nomeVersao, fmtData }: { orc: Orcamento; no
   const aditivos = orc.versoes.filter((v) => v.tipo === "aditivo" && v.ativa).sort((a, b) => a.numero - b.numero);
   if (!aditivos.length) return null;
   const t = orc.totais;
-  const pct = t.contratado ? t.aditivos / t.contratado : 0;
+  const pct = (t.aditivos_pct ?? 0) / 10000;
   const porEtapa = orc.etapas.filter((e) => e.aditivos);
   const sinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
   return (

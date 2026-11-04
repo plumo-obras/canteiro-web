@@ -194,9 +194,9 @@ function Valor({ c, classe = "" }: { c: number; classe?: string }) {
  * e comprometido · realizado · saldo embaixo. A linha do contrato fecha a faixa.
  */
 function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros" | "rodapeNumeros"> {
-  const saldo = t.atual - t.comprometido;
+  const saldo = t.saldo;
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
-  const pctAdt = t.contratado ? (t.aditivos / t.contratado) * 100 : 0;
+  const pctAdt = (t.aditivos_pct ?? 0) / 100;
   const verba = tagVerba(t.atual, obra.verba);
   const pilula = t.aditivos
     ? `${pctAdt < 0 ? "−" : "+"}${Math.abs(pctAdt).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% aditivo`

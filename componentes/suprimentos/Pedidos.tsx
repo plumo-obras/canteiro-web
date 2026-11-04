@@ -71,9 +71,7 @@ export function progressoParcial(p: Pedido): string {
 
 /** O que ainda falta entregar, em reais: falta × unitário de cada linha (o já recebido não está mais "em aberto"). */
 export const valorAReceber = (p: Pedido) =>
-  p.status === "conferido" || p.status === "cancelado"
-    ? 0
-    : p.linhas.reduce((t, l) => t + Math.round((Math.max(0, l.quantidade - l.recebida) * l.valor_unitario) / 1000), 0);
+  p.linhas.reduce((t, l) => t + Math.round((l.falta_entregar * l.valor_unitario) / 1000), 0);
 
 interface Contexto {
   obra: Obra;

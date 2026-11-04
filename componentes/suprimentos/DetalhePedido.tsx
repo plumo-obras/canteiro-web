@@ -26,7 +26,8 @@ export const TOLERANCIA_NF = 100;
 const fmtData = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
 const hojeISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 const fDataLonga = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" });
-const falta = (l: Pedido["linhas"][number]) => Math.max(0, l.quantidade - l.recebida);
+// O que falta vem da API (regra do domínio, 0 em pedido conferido ou cancelado): a tela não refaz a conta.
+const falta = (l: Pedido["linhas"][number]) => l.falta_entregar;
 const nomeEtapa = (etapas: EtapaObra[], k: string | null) => {
   if (!k) return "";
   const e = etapas.find((x) => x.etapa === k);
