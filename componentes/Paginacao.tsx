@@ -14,7 +14,7 @@ import { Icone } from "./Icone";
 export function usePaginas<T>(itens: T[], porPagina: number, reiniciarCom: unknown[] = []) {
   const [pagina, setPagina] = useState(1);
   const total = Math.max(1, Math.ceil(itens.length / porPagina));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- as dependências são as do chamador (como no próprio useEffect): volta à 1ª página quando elas mudam
   useEffect(() => setPagina(1), reiniciarCom);
   const atual = Math.min(pagina, total);
   return { pagina: atual, setPagina, total, visiveis: itens.slice((atual - 1) * porPagina, atual * porPagina) };
@@ -104,7 +104,7 @@ export function useMaisAntigos<T extends { id: string }>(
       })
       .catch((e) => g === geracao.current && setErro(mensagemDe(e)))
       .finally(() => g === geracao.current && setBuscando(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps vem do chamador; buscar é uma closure nova a cada render e rebuscaria sem parar
   }, deps);
 
   const carregarMais = async () => {

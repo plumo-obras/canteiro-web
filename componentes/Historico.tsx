@@ -104,7 +104,7 @@ export function Historico({ obra }: { obra: Obra }) {
   const { acabou, buscando, carregarMais } = mais;
   useEffect(() => {
     if (naUltima && dado?.length && !acabou && !buscando) void carregarMais();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carregarMais é nova a cada render: com ela nas dependências o efeito rodaria em todo render, e só importa quando a página ou o estado da busca muda
   }, [naUltima, dado?.length, acabou, buscando]);
   const dias: [string, EntradaRegistro[]][] = [];
   for (const r of pag.visiveis) {

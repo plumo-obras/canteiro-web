@@ -4,6 +4,7 @@
  * formatos), inclusive "o agente só propõe": a escrita da conversa vira Proposta e só o aprovar executa, com registro
  * e desfazer. Os dados somem quando o servidor reinicia.
  */
+import "server-only";
 import type {
   Conta,
   DadosAjusteEstoque,

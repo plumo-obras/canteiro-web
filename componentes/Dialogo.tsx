@@ -37,7 +37,7 @@ function useFocoPreso(caixa: React.RefObject<HTMLElement | null>, fechar: () => 
       document.removeEventListener("keydown", tecla);
       if (antes && document.contains(antes)) antes.focus({ preventScroll: true });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na abertura: rodar de novo (o fechar do chamador muda a cada render) roubaria o foco do campo em que se digita e perderia quem abriu o diálogo
   }, []);
 }
 

@@ -5,13 +5,13 @@
  * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
  * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
  */
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Obra, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { formatarHistorico } from "@/lib/historico";
-import { assinarSessao, renovarSessao, sair, usuarioAtual } from "@/lib/sessao";
+import { sair } from "@/lib/sessao";
 import { Aprovacoes } from "./Aprovacoes";
 import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
 import { Conversa } from "./Conversa";
@@ -23,6 +23,7 @@ import { Orcamento } from "./Orcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { trocarTema, useTema } from "./tema";
 import { useCelular, useMidia } from "./midia";
+import { useSessaoGarantida } from "./useSessaoGarantida";
 import { telaDe, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
 const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
@@ -46,34 +47,9 @@ const iniciais = (n: string) =>
 
 /** Entrada da casca: garante a sessão de login (renovando pelo cookie depois de recarregar) antes de montar o app. */
 export function Casca({ demo }: { demo: boolean }) {
-  const router = useRouter();
-  const usuario = useSyncExternalStore(assinarSessao, usuarioAtual, () => null);
-  const [pronto, setPronto] = useState(false);
+  const usuario = useSessaoGarantida();
 
-  useEffect(() => {
-    let vivo = true;
-    let espera: ReturnType<typeof setTimeout> | undefined;
-    // Falha de rede ou da API (acordando no plano gratuito) não é sessão acabada: tenta de novo em vez de ir ao login.
-    const tentar = () =>
-      (usuarioAtual() ? Promise.resolve("ok" as const) : renovarSessao()).then((r) => {
-        if (!vivo) return;
-        if (r === "ok") setPronto(true);
-        else if (r === "negado") router.replace("/entrar");
-        else espera = setTimeout(tentar, 3000);
-      });
-    void tentar();
-    return () => {
-      vivo = false;
-      clearTimeout(espera);
-    };
-  }, [router]);
-
-  // Sessão caiu no meio do uso (renovação recusada): volta ao login.
-  useEffect(() => {
-    if (pronto && !usuario) router.replace("/entrar");
-  }, [pronto, usuario, router]);
-
-  if (!pronto || !usuario) {
+  if (!usuario) {
     return (
       <div className="abrindo" role="status">
         Abrindo o Plumo…

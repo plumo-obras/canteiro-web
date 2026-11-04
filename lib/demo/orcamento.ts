@@ -3,6 +3,7 @@
  * pelos sinônimos, títulos e subtotais pulados, repetidos juntados e curva ABC pelo valor. Só CSV: o .xlsx precisa
  * da API (openpyxl), e a demonstração não fala com ela.
  */
+import "server-only";
 import type { CurvaABC, LeituraPlanilha, LinhaOrcamento, Mapeamento, PreviaOrcamento } from "../contrato";
 import { lerQtd, lerReais } from "../formato";
 

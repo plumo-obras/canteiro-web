@@ -2,6 +2,7 @@
  * Espelho de canteiro_dominio.regras usado SÓ pelo modo de demonstração, para o Next se passar pela API enquanto ela
  * não existe. Fora do modo de demonstração quem faz a conta é a API; a tela nunca chama estas funções.
  */
+import "server-only";
 import type { Conta, Movimento, StatusPedido } from "../contrato";
 
 export class RegraViolada extends Error {}

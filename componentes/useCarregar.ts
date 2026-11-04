@@ -24,7 +24,7 @@ export function useCarregar<T>(buscar: () => Promise<T>, deps: unknown[]) {
     return () => {
       vivo = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps vem do chamador; buscar é uma closure nova a cada render e rebuscaria sem parar
   }, deps);
   return { dado, erro, carregando };
 }

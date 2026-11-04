@@ -2,6 +2,7 @@
  * Utilidades das rotas /srv/*: o Next é a única origem que o navegador conhece; daqui o pedido segue para a API ou o
  * agente (ou para a demonstração). Mantém a API sem CORS e o cookie de renovação fora do alcance do JavaScript.
  */
+import "server-only";
 
 /**
  * Rotas de dados do contrato que a web pode repassar, por método. /auth fica nas rotas próprias. A conta e o consumo só

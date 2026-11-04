@@ -3,6 +3,7 @@
  * contrato (ferramenta → texto → proposta → fim). Como o agente de verdade, não faz conta: cita a Conta da "API"
  * (a loja de demonstração) e, quando falta material, só PROPÕE a compra.
  */
+import "server-only";
 import type { Usuario } from "../contrato";
 import { fmtQtdUn } from "../formato";
 import { contaDoInsumo, estado, gravarNaSessao, linhaDeConta, propostaDeCompra, uuid7 } from "./loja";
