@@ -161,7 +161,7 @@ export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco
   return (
     <div
       ref={linha}
-      className={`ld${p.status !== "pendente" ? " feito" : ""}${c.anim ? ` mv-${c.anim}` : ""}`}
+      className={`ld${p.status !== "pendente" ? " feito" : ""}${p.status === "pendente" && v !== null ? " valor-no-botao" : ""}${c.anim ? ` mv-${c.anim}` : ""}`}
       role="group"
       aria-label={`Proposta: ${p.titulo}`}
     >

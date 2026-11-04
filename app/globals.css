@@ -347,6 +347,10 @@ tr.click{cursor:pointer}
   .ld-prazo,.ld-txt{grid-column:1/-1}
   .ld-valor{grid-column:1;text-align:left}
   .ld-acts{grid-column:2;flex-wrap:wrap}
+  /* Estreito (conversa no celular): o botão já diz o valor ("Aprovar R$ 1.360,00"); repetir ao lado não cabia e
+     ficava cortado embaixo do botão. A linha de ações fica inteira para ele. */
+  .ld.valor-no-botao .ld-valor{display:none}
+  .ld.valor-no-botao .ld-acts{grid-column:1/-1;justify-content:flex-end}
 }
 /* linha de conta (recibo) */
 .lc{font-size:var(--t-body);line-height:1.6}
