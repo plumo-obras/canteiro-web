@@ -16,6 +16,11 @@ updates:
     groups:
       docker:
         update-types: [minor, patch]
+    ignore:
+      # a imagem acompanha a versão maior do Node em que a Vercel roda o app em produção (24); trocar só aqui
+      # testaria outra coisa
+      - dependency-name: node
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /
