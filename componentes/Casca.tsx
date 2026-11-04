@@ -472,7 +472,9 @@ function App({ usuario }: { usuario: Usuario }) {
                 <Conversa key={sessao.id} sessao={sessao} obra={obra} despachar={despachar} />
               </section>
               {tela !== "conversa" ? (
-                <section className="palco-tela" aria-label={NAV.find((n) => n.k === tela)!.rotulo}>
+                // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do
+                // cronograma, por exemplo) ficava montado com a obra B, e "Salvar" gravava o de A em B.
+                <section key={obra.id} className="palco-tela" aria-label={NAV.find((n) => n.k === tela)!.rotulo}>
                   {tela === "orcamento" ? (
                     <Orcamento obra={obra} />
                   ) : tela === "cronograma" ? (
