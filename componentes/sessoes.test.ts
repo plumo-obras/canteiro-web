@@ -69,3 +69,13 @@ describe("sessões da lateral", () => {
     });
   });
 });
+
+describe("telas por modo", () => {
+  it("Gastos só existe com a API de verdade; o resto vale nos dois modos", async () => {
+    const { telaNoModo } = await import("./sessoes");
+    expect(telaNoModo("gastos", false)).toBe(true);
+    expect(telaNoModo("gastos", true)).toBe(false);
+    expect(telaNoModo("cronograma", true)).toBe(true);
+    expect(telaNoModo("conversa", true)).toBe(true);
+  });
+});

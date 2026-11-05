@@ -1,0 +1,80 @@
+/* Gastos: fila, listas, árvore e a revisão do comprovante. Usa os tokens da casca (globals.css). */
+
+.lista { margin-top: var(--s4); }
+.linha { padding: 14px 20px; border-top: 1px solid var(--line2); }
+.linha:first-child { border-top: 0; }
+.linhaTopo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.valor { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sublista { margin: 8px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line2); }
+.sublista li { display: flex; justify-content: space-between; gap: 12px; font-size: var(--t-meta); padding: 3px 0; }
+.link { border: 0; background: none; padding: 0; color: var(--blueInk); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* árvore */
+.arvoreTopo { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: var(--s4); }
+.arvoreTopo p { margin: 0; max-width: 620px; }
+.arvore { margin-top: var(--s3); }
+.arvoreEtapa { padding: 12px 20px; border-top: 1px solid var(--line2); }
+.arvoreEtapa:first-child { border-top: 0; }
+.arvoreLinha { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.arvoreAcoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; min-width: 0; }
+.topicos { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
+.topico { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--rp); background: var(--sunk); }
+.topicoNome { border: 0; background: none; padding: 3px 4px 3px 12px; font: inherit; font-size: var(--t-meta); color: var(--ink2); cursor: pointer; }
+span.topicoNome { cursor: default; padding-right: 12px; }
+.topicoX { border: 0; background: none; padding: 4px 8px 4px 4px; color: var(--muted); cursor: pointer; display: inline-flex; }
+.topicoX:hover { color: var(--redInk); }
+
+/* enviar */
+.soltar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 150px; margin-top: 14px;
+  border: 1.5px dashed var(--pineLine); border-radius: var(--ri); background: var(--sunk); color: var(--ink2); font: inherit; cursor: pointer; padding: 16px; }
+.soltar:hover { border-color: var(--accent); }
+.previa { max-height: 220px; max-width: 100%; border-radius: 10px; object-fit: contain; }
+.lendo { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 28px 8px; }
+
+/* revisão */
+.modalRev { max-width: 1040px; }
+.rev { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; margin-top: 12px; }
+.arquivo { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  min-height: 240px; justify-content: center; border-radius: var(--ri); background: var(--sunk); padding: 10px; }
+.foto { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px; }
+.pdf { width: 100%; height: 70vh; border: 0; border-radius: 8px; background: #fff; }
+.abrir { align-self: center; }
+.revCampos { min-width: 0; }
+.revTopo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.obs { flex-basis: 100%; margin: 4px 0 0; font-size: var(--t-meta); color: var(--ink2); }
+.aviso { list-style: none; margin: 12px 0 0; padding: 10px 14px; border-radius: 14px; background: var(--amberSoft); color: var(--amberInk);
+  font-size: var(--t-meta); line-height: 1.5; display: grid; gap: 4px; }
+.aviso li { display: flex; gap: 8px; align-items: flex-start; }
+.aviso li :global(.ic) { flex: none; margin-top: 2px; }
+.avisoInfo { background: var(--blueSoft); color: var(--blueInk); }
+.campos { border: 0; margin: 0; padding: 0; min-width: 0; }
+.grupo { margin-top: 16px; }
+.grupoTopo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.grupoRotulo { font-size: var(--t-meta); font-weight: 600; color: var(--ink2); }
+.grupo[data-estado="conferir"] .grupoRotulo { color: var(--amberInk); }
+.opcs { display: grid; gap: 6px; }
+
+/* opção da IA e resposta própria: o mesmo cartão, o mesmo peso */
+.opc { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--rc);
+  background: var(--campo); cursor: pointer; transition: border-color var(--mv-rapido) var(--ease), box-shadow var(--mv-rapido) var(--ease); }
+.opc:hover { border-color: var(--pineLine); }
+.opc.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accentSoft); }
+.opc > input[type="radio"] { width: 18px; height: 18px; margin: 2px 0 0; flex: none; accent-color: var(--accentInk); }
+.opcTexto { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.opcValor { font-weight: 600; font-variant-numeric: tabular-nums; display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.opcMotivo { font-size: var(--t-meta); color: var(--muted); }
+.propria { cursor: default; }
+.propria :global(input.f), .propria :global(select.f) { min-height: 36px; }
+.duasCols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.falta { margin: 14px 0 0; font-size: var(--t-meta); color: var(--amberInk); }
+
+@media (max-width: 760px) {
+  .rev { grid-template-columns: 1fr; }
+  .arquivo { position: static; min-height: 160px; }
+  .foto { max-height: 40vh; }
+  .pdf { height: 50vh; }
+  .duasCols { grid-template-columns: 1fr; }
+  .arvoreTopo { flex-direction: column; }
+  .arvoreLinha { flex-direction: column; }
+  .arvoreAcoes { justify-content: flex-start; }
+}
