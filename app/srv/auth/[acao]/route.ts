@@ -64,6 +64,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ acao: string }
     } else {
       const r = await api(req, "renovar", { renovacao }).catch(() => null);
       if (r?.ok) return guardar((await r.json()) as RespostaEntrar);
+      // 409: este cookie já foi trocado segundos atrás por uma renovação que ainda não gravou o cookie novo (recarga de
+      // página com a renovação no ar). A sessão está viva; o navegador espera e tenta de novo com o cookie que chegar.
+      if (r?.status === 409) return json({ detail: "Renovação em andamento; tente de novo." }, 409);
       // Só a recusa da API encerra a sessão. Erro de servidor ou de rede (a API acordando no Render, por exemplo)
       // deixa o cookie onde está, para a próxima tentativa.
       if (!r || (r.status !== 401 && r.status !== 403)) return json({ detail: "Não foi possível falar com o servidor." }, 503);

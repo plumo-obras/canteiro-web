@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { comAcesso, limparSessao, renovarSessao, usuarioAtual } from "./sessao";
+import { ESPERA_RENOVACAO_EM_ANDAMENTO_MS, comAcesso, limparSessao, renovarSessao, usuarioAtual } from "./sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
 
 afterEach(() => {
   limparSessao();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
+  delete (document as { visibilityState?: unknown }).visibilityState; // volta ao getter do jsdom
 });
 
 describe("sessão em memória com renovação automática", () => {
@@ -63,5 +65,108 @@ describe("sessão em memória com renovação automática", () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk });
     expect(await renovarSessao()).toBe("ok");
     expect(nomes).toEqual(["canteiro-renovacao"]);
+  });
+
+  it("a renovação vai com keepalive: termina mesmo se a página recarregar no meio", async () => {
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk });
+    expect(await renovarSessao()).toBe("ok");
+    expect(rede.chamadas[0]!.init.keepalive).toBe(true);
+  });
+});
+
+describe("renovação em andamento (409: o cookie foi trocado por outra renovação ainda no ar)", () => {
+  it("espera e tenta de novo uma vez; com o cookie novo, renova", async () => {
+    vi.useFakeTimers();
+    const respostas = [json({ detail: "Renovação em andamento; tente de novo." }, 409), renovarOk()];
+    const rede = criarRede({ "POST /srv/auth/renovar": () => respostas.shift()! });
+    const resultado = renovarSessao();
+    await vi.advanceTimersByTimeAsync(ESPERA_RENOVACAO_EM_ANDAMENTO_MS - 1);
+    expect(rede.chamadas).toHaveLength(1); // ainda esperando o cookie novo
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await resultado).toBe("ok");
+    expect(rede.chamadas).toHaveLength(2);
+    expect(usuarioAtual()?.nome).toBe("Rizzi");
+  });
+
+  it("409 de novo: vira \"falha\" (tenta mais tarde) e não derruba a sessão", async () => {
+    vi.useFakeTimers();
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    expect(await renovarSessao()).toBe("ok");
+    const rede = criarRede({ "POST /srv/auth/renovar": () => json({ detail: "em andamento" }, 409) });
+    const resultado = renovarSessao();
+    await vi.advanceTimersByTimeAsync(ESPERA_RENOVACAO_EM_ANDAMENTO_MS);
+    expect(await resultado).toBe("falha");
+    expect(rede.chamadas).toHaveLength(2); // uma nova tentativa só
+    expect(usuarioAtual()?.nome).toBe("Rizzi");
+  });
+
+  it("409 e depois 401: a sessão acabou", async () => {
+    vi.useFakeTimers();
+    const respostas = [json({ detail: "em andamento" }, 409), json({ detail: "acabou" }, 401)];
+    criarRede({ "POST /srv/auth/renovar": () => respostas.shift()! });
+    const resultado = renovarSessao();
+    await vi.advanceTimersByTimeAsync(ESPERA_RENOVACAO_EM_ANDAMENTO_MS);
+    expect(await resultado).toBe("negado");
+    expect(usuarioAtual()).toBeNull();
+  });
+});
+
+describe("renovação pelo relógio só com a aba visível", () => {
+  let visibilidade: DocumentVisibilityState = "visible";
+  const mudarPara = (v: DocumentVisibilityState) => {
+    visibilidade = v;
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+  const simularVisibilidade = () => {
+    visibilidade = "visible";
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibilidade });
+  };
+
+  it("visível: renova um minuto antes de vencer", async () => {
+    vi.useFakeTimers();
+    simularVisibilidade();
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk }); // expira_em 900 s
+    expect(await renovarSessao()).toBe("ok");
+    await vi.advanceTimersByTimeAsync(840_000);
+    expect(rede.chamadas).toHaveLength(2);
+  });
+
+  it("oculta: o relógio não renova; ao voltar perto do vencimento, renova na hora", async () => {
+    vi.useFakeTimers();
+    simularVisibilidade();
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk });
+    expect(await renovarSessao()).toBe("ok");
+    mudarPara("hidden");
+    await vi.advanceTimersByTimeAsync(900_000); // passou da hora e até venceu
+    expect(rede.chamadas).toHaveLength(1);
+    mudarPara("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rede.chamadas).toHaveLength(2);
+    expect(usuarioAtual()?.nome).toBe("Rizzi");
+  });
+
+  it("voltar a ficar visível longe do vencimento não renova", async () => {
+    vi.useFakeTimers();
+    simularVisibilidade();
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk });
+    expect(await renovarSessao()).toBe("ok");
+    mudarPara("hidden");
+    await vi.advanceTimersByTimeAsync(60_000);
+    mudarPara("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rede.chamadas).toHaveLength(1);
+  });
+
+  it("sem sessão, voltar a ficar visível não renova", async () => {
+    vi.useFakeTimers();
+    simularVisibilidade();
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk });
+    expect(await renovarSessao()).toBe("ok");
+    mudarPara("hidden");
+    limparSessao();
+    await vi.advanceTimersByTimeAsync(900_000);
+    mudarPara("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rede.chamadas).toHaveLength(1);
   });
 });

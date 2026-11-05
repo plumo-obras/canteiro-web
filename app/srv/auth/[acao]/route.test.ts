@@ -153,6 +153,17 @@ describe("POST /srv/auth/* — repasse para a API", () => {
     expect(pote.valores.get(COOKIE)).toBe("r-1");
   });
 
+  it("renovar com 409 da API (renovação no ar): repassa 409 e o cookie FICA", async () => {
+    pote.valores.set(COOKIE, "r-1");
+    criarRede({ "POST /auth/renovar": () => json({ detail: "Renovação em andamento; tente de novo." }, 409) });
+    const r = await chamar("renovar");
+    expect(r.status).toBe(409);
+    expect(await r.json()).toEqual({ detail: "Renovação em andamento; tente de novo." });
+    expect(pote.delete).not.toHaveBeenCalled();
+    expect(pote.set).not.toHaveBeenCalled();
+    expect(pote.valores.get(COOKIE)).toBe("r-1");
+  });
+
   it("renovar com a rede caindo (fetch lança): 503 e o cookie FICA", async () => {
     pote.valores.set(COOKIE, "r-1");
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("fetch failed"))));

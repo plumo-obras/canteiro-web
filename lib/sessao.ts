@@ -19,6 +19,9 @@ interface Estado {
 let estado: Estado | null = null;
 let renovando: Promise<ResultadoRenovacao> | null = null;
 let relogio: ReturnType<typeof setTimeout> | null = null;
+// Quando o acesso atual vence (ms, relógio local): a aba que volta a ficar visível decide por ele se renova na hora.
+let venceEm = 0;
+let ouvindoVisibilidade = false;
 const ouvintes = new Set<() => void>();
 
 // Header próprio obriga o navegador a fazer preflight em pedido de outra origem: proteção extra contra CSRF nas
@@ -39,12 +42,37 @@ export function assinarSessao(f: () => void) {
 export const usuarioAtual = () => estado?.usuario ?? null;
 export const acessoAtual = () => estado?.acesso ?? null;
 
+// Antecedência da renovação proativa: um minuto antes de o acesso vencer.
+const ANTECEDENCIA_MS = 60_000;
+
+const abaOculta = () => typeof document !== "undefined" && document.visibilityState === "hidden";
+
+/**
+ * Aba em segundo plano não renova pelo relógio. O navegador segura o timer de aba oculta e o solta no instante em que
+ * ela volta — justamente quando a pessoa recarrega ou navega —, e a renovação que fica no ar nessa hora é a que o
+ * servidor troca sem o navegador guardar o cookie novo. Oculta, a aba deixa para renovar quando voltar a aparecer
+ * (e, enquanto isso, um 401 numa chamada renova como sempre).
+ */
+function aoMudarVisibilidade() {
+  if (!abaOculta() && estado && Date.now() >= venceEm - ANTECEDENCIA_MS) void renovar();
+}
+
+function vigiarVisibilidade() {
+  if (ouvindoVisibilidade || typeof document === "undefined") return;
+  ouvindoVisibilidade = true;
+  document.addEventListener("visibilitychange", aoMudarVisibilidade);
+}
+
 function guardar(r: RespostaSessao) {
   estado = { acesso: r.acesso, usuario: r.usuario ?? estado?.usuario ?? null };
+  venceEm = Date.now() + r.expira_em * 1000;
   if (relogio) clearTimeout(relogio);
   // Renova um minuto antes de vencer; se a aba dormir e perder a hora, o 401 da próxima chamada renova do mesmo jeito.
-  const ms = Math.max(5, r.expira_em - 60) * 1000;
-  relogio = setTimeout(() => void renovar(), ms);
+  const ms = Math.max(5_000, r.expira_em * 1000 - ANTECEDENCIA_MS);
+  relogio = setTimeout(() => {
+    if (!abaOculta()) void renovar();
+  }, ms);
+  vigiarVisibilidade();
   avisar();
 }
 
@@ -80,19 +108,39 @@ export async function entrar(email: string, senha: string): Promise<{ ok: true }
 /** "negado": a API recusou a renovação, a sessão acabou. "falha": rede ou servidor fora; a sessão pode estar viva. */
 export type ResultadoRenovacao = "ok" | "negado" | "falha";
 
-async function trocar(): Promise<ResultadoRenovacao> {
+/** Quanto esperar depois de um 409 da renovação: tempo para a renovação que está no ar gravar o cookie novo. */
+export const ESPERA_RENOVACAO_EM_ANDAMENTO_MS = 1500;
+
+const esperar = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+
+async function trocarUmaVez(): Promise<ResultadoRenovacao | "em_andamento"> {
   try {
-    const r = await fetch("/srv/auth/renovar", { method: "POST", headers: CABECALHO_CSRF });
+    // keepalive: a renovação que começou logo antes de uma recarga termina mesmo com a página indo embora, e o
+    // Set-Cookie dela chega ao navegador; sem isso o servidor trocaria o token e o cookie ficaria com o velho.
+    const r = await fetch("/srv/auth/renovar", { method: "POST", headers: CABECALHO_CSRF, keepalive: true });
     if (r.status === 401 || r.status === 403) {
       limparSessao();
       return "negado";
     }
+    // 409: o cookie que mandamos já foi trocado há instantes por outra renovação (a da página anterior) cujo
+    // cookie novo ainda está chegando. Não é sessão acabada.
+    if (r.status === 409) return "em_andamento";
     if (!r.ok) return "falha"; // API acordando ou fora: não derruba a sessão, a próxima tentativa resolve
     guardar((await r.json()) as RespostaSessao);
     return "ok";
   } catch {
     return "falha"; // rede caiu: mantém o estado; a próxima chamada tenta de novo
   }
+}
+
+async function trocar(): Promise<ResultadoRenovacao> {
+  const primeira = await trocarUmaVez();
+  if (primeira !== "em_andamento") return primeira;
+  // Uma nova tentativa só, já com o cookie gravado pela renovação que estava no ar. Se ainda vier 409, fica como
+  // "falha" (a sessão pode estar viva; quem chamou tenta de novo mais tarde) — 401 continua encerrando.
+  await esperar(ESPERA_RENOVACAO_EM_ANDAMENTO_MS);
+  const segunda = await trocarUmaVez();
+  return segunda === "em_andamento" ? "falha" : segunda;
 }
 
 /**
