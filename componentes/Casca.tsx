@@ -134,8 +134,8 @@ function App({ usuario }: { usuario: Usuario }) {
     if (iniciou.current) return;
     iniciou.current = true;
     // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto
-    // (a obra recém-criada cai direto no Orçamento). A obra e a tela ficam na URL (o efeito abaixo as reescreve), para
-    // o recarregar voltar na mesma obra: abrir outra obra em silêncio leva a lançar na obra errada.
+    // (a obra recém-criada cai direto no Orçamento). A obra, a conversa e a tela ficam na URL (o efeito abaixo as
+    // reescreve), para o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar na obra errada.
     const qs = new URLSearchParams(window.location.search);
     let ultima: string | null = null;
     try {
@@ -242,10 +242,15 @@ function App({ usuario }: { usuario: Usuario }) {
     return () => document.removeEventListener("keydown", esc);
   }, [gaveta, movel]);
 
-  const obraAberta = obras?.find((o) => o.id === sessoes.find((s) => s.id === atual)?.obraId)?.id;
+  const sessaoAberta = sessoes.find((s) => s.id === atual);
+  const obraAberta = obras?.find((o) => o.id === sessaoAberta?.obraId)?.id;
+  // A conversa também vai para a URL: recarregar (o portal recarrega a página ao trocar desktop ↔ celular) voltava em
+  // "Nova conversa". Só a que já tem mensagem: a vazia ainda não existe no servidor e não teria como ser reaberta.
+  const sessaoNaUrl = sessaoAberta && (sessaoAberta.mensagens.length || !sessaoAberta.carregada) ? sessaoAberta.servidorId : null;
   useEffect(() => {
     if (!obraAberta) return;
     const qs = new URLSearchParams({ obra: obraAberta });
+    if (sessaoNaUrl) qs.set("sessao", sessaoNaUrl);
     if (tela !== "conversa") qs.set("tela", tela);
     window.history.replaceState(null, "", `${window.location.pathname}?${qs}`);
     try {
@@ -253,7 +258,7 @@ function App({ usuario }: { usuario: Usuario }) {
     } catch {
       // navegador sem armazenamento: vale a URL
     }
-  }, [obraAberta, tela]);
+  }, [obraAberta, sessaoNaUrl, tela]);
 
   const pendentes = (obraId: string) => Object.values(cartoes).filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente").length;
   const sessao = sessoes.find((s) => s.id === atual);

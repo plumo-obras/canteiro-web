@@ -46,4 +46,31 @@ describe("a obra aberta sobrevive ao recarregar", () => {
     render(<Casca demo={false} />);
     await waitFor(() => expect(window.location.search).toBe("?obra=o-casa"));
   });
+
+  it("a conversa aberta também fica na URL: recarregar não volta em 'Nova conversa'", async () => {
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras": () => json(OBRAS),
+      "GET /srv/api/sessoes": () =>
+        json([{ id: "s-1", tenant_id: "t-1", dono: "u-1", obra_id: "o-emei", titulo: "como tá o aço?", abas: [], total_mensagens: 2, criado_em: "", atualizado_em: "" }]),
+      "GET /srv/api/sessoes/s-1/mensagens": () =>
+        json([
+          { id: "m1", sessao_id: "s-1", seq: 1, papel: "user", conteudo: "como tá o aço?", criado_em: "" },
+          { id: "m2", sessao_id: "s-1", seq: 2, papel: "assistant", conteudo: [{ type: "text", text: "Chegou todo." }], criado_em: "" },
+        ]),
+      "GET /srv/api/propostas": () => json([]),
+    });
+    window.history.replaceState(null, "", "/?obra=o-emei&sessao=s-1");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(document.body.textContent).toContain("Chegou todo."));
+    expect(document.querySelector(".conversa-t")?.textContent).toBe("como tá o aço?");
+    expect(window.location.search).toBe("?obra=o-emei&sessao=s-1");
+  });
+
+  it("conversa nova e vazia não vai para a URL (ainda não existe no servidor)", async () => {
+    window.history.replaceState(null, "", "/?obra=o-emei");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(document.querySelector(".conversa-t")?.textContent).toBe("Nova conversa"));
+    expect(window.location.search).toBe("?obra=o-emei");
+  });
 });

@@ -117,6 +117,14 @@ p{text-wrap:pretty}
   .mm-b{width:44px;height:44px}
   .mm-b.sm{width:36px;height:36px}
 }
+/* Toque: os botões pequenos da conversa e das Aprovações (o "⋯" de 28–36px, o enviar de 40px, o X do diálogo e os .sm
+   do cabeçalho e do campo) ganham área de acerto de 44px sem crescer o desenho. O inset negativo só cobre o que falta
+   em cada eixo: botão que já passa de 44px fica como está. */
+@media (pointer:coarse),(max-width:899px){
+  .mm-b,.vs-enviar,.conversa-cab .btn.sm,.composer .btn.sm{position:relative}
+  .mm-b::before,.vs-enviar::before,.dlg-x::before,.conversa-cab .btn.sm::before,.composer .btn.sm::before{
+    content:"";position:absolute;inset:min(0px,calc(50% - 22px))}
+}
 @media (hover:hover){
   .ca-menu-pop button:hover,.mm-pop button:hover{background:var(--hover)}
   .mm-b:hover{background:var(--sunk);color:var(--ink)}
@@ -195,6 +203,10 @@ p{text-wrap:pretty}
 .composer:focus-within{border-color:var(--accent);box-shadow:var(--hl),0 0 0 3px var(--accentSoft),var(--shadowUp)}
 .composer textarea{width:100%;border:0;outline:0;resize:none;font:15px/1.5 var(--sans);min-height:24px;max-height:180px;overflow-y:auto;background:none;color:var(--ink);padding:4px 2px}
 .composer textarea::placeholder{color:var(--muted)}
+/* O texto de exemplo numa linha só, com reticências: o textarea quebra palavra (overflow-wrap) e, com a fonte grande
+   do celular, o "Pergunte sobre a obra…" virava "Pergu/nte/sobre/a" e o campo crescia. O que se digita segue quebrando. */
+.composer textarea:placeholder-shown{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .ca-dica{font-size:var(--t-meta);color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .ca-dica kbd{font:500 12px var(--sans);color:var(--ink2);background:var(--sunk);border:1px solid var(--edge);border-radius:5px;padding:0 5px;line-height:18px}
 .vs-enviar{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:var(--rp);color:var(--onAccent);transition:background-color .12s var(--ease),transform .12s var(--ease);

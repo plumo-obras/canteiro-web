@@ -18,6 +18,8 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
   const [pos, setPos] = useState<{ left: number; top: number; cima: boolean } | null>(null);
   const botao = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
+  /** Onde o botão estava quando o menu foi posicionado: rolagem que não o tirou do lugar não fecha o menu. */
+  const ancora = useRef<{ left: number; top: number } | null>(null);
   const id = useId();
 
   const fechar = (devolver = false) => {
@@ -29,6 +31,7 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
   useLayoutEffect(() => {
     if (!aberto || !botao.current || !pop.current) return;
     const r = botao.current.getBoundingClientRect();
+    ancora.current = { left: r.left, top: r.top };
     const w = pop.current.offsetWidth;
     const h = pop.current.offsetHeight;
     const cima = r.bottom + 6 + h > innerHeight - 8 && r.top - 6 - h > 8;
@@ -44,8 +47,14 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
       const t = e.target as Node;
       if (!pop.current?.contains(t) && !botao.current?.contains(t)) fechar();
     };
+    // O evento de rolagem chega no quadro seguinte ao da rolagem. Quem rola até o botão e clica logo em seguida (o
+    // portal faz isso; um toque no fim de uma rolagem suave também) recebia o "scroll" já com o menu aberto, e o menu
+    // fechava na hora: parecia que o "⋯" não abria. Fecha só se a rolagem mexeu o botão de onde o menu foi posto.
     const rolou = (e: Event) => {
-      if (!pop.current?.contains(e.target as Node)) fechar();
+      if (pop.current?.contains(e.target as Node)) return;
+      const r = botao.current?.getBoundingClientRect();
+      const a = ancora.current;
+      if (!r || !a || Math.abs(r.left - a.left) > 1 || Math.abs(r.top - a.top) > 1) fechar();
     };
     const redim = () => fechar();
     document.addEventListener("pointerdown", fora, true);
@@ -61,7 +70,11 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
   if (!itens.length) return null;
 
   const teclaBotao = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    // Aberto pelo mouse, o foco fica no botão (não vai para o menu): o Esc também tem de fechar daqui.
+    if (e.key === "Escape" && aberto) {
+      e.preventDefault();
+      fechar();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       setAberto(e.key === "ArrowUp" ? "fim" : "inicio");
     }

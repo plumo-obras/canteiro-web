@@ -23,6 +23,12 @@ export interface MsgAgente {
   propostas: string[];
   erro: string | null;
   terminou: boolean;
+  /**
+   * Ao vivo: uma ferramenta começou depois de algum texto. O próximo delta abre parágrafo novo; sem isso "…dos
+   * aços." e "Todos os…" (falas de antes e de depois da ferramenta) grudavam em "aços.Todos". Ao reabrir, os blocos
+   * de texto já se juntam com linha em branco.
+   */
+  separar?: boolean;
 }
 export type Msg = MsgEu | MsgAgente;
 
