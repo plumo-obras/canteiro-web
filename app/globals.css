@@ -330,9 +330,12 @@ tr.click{cursor:pointer}
 
 /* ---------------- Linha de decisão (propostas e aprovações) e linha de conta ---------------- */
 /* linha de decisão: prazo | título · conta | valor | ação ⋯ */
-/* a lista é o próprio contêiner: o @container abaixo (linha em duas colunas) valia só dentro do balão da conversa,
-   e nas Aprovações do celular as 4 colunas fixas espremiam o texto a uma palavra por linha */
-.ld-lista{container-type:inline-size;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--hl),var(--shadow);overflow:hidden}
+/* Duas colunas quando estreito: na conversa pela largura do balão (@container no .corpo), nas Aprovações pela tela
+   (@media). A .ld-lista NÃO é contêiner: no Safari (WebKit) com zoom de página, o @container mede a lista
+   multiplicada pelo zoom (1162 px a 35% viraram ~400 px) e as Aprovações do desktop caíam no leiaute estreito; nele,
+   com a página oculta, a área de clique dentro da lista (camada do backdrop-filter) ficava ~35 px curta à direita,
+   justo onde mora o "⋯": elementFromPoint devolvia a .ld-lista e o clique não chegava. O @media não erra com zoom. */
+.ld-lista{background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--hl),var(--shadow);overflow:hidden}
 .ca-cartao .ld-lista{box-shadow:var(--hl),var(--shadow)}
 .ld{display:grid;grid-template-columns:88px minmax(0,1fr) auto auto;gap:var(--s4);align-items:center;padding:12px 20px;border-top:1px solid var(--line2);position:relative}
 .ld:first-child{border-top:0}
@@ -347,7 +350,11 @@ tr.click{cursor:pointer}
 .ld-conta{font-size:var(--t-meta);color:var(--muted);margin-top:2px}
 .ld-fonte{font-size:var(--t-meta);color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px}
 .ld-valor{font-weight:600;white-space:nowrap;text-align:right}
-.ld-acts{display:flex;align-items:center;gap:var(--s2);justify-content:flex-end}
+.ld-acts{display:flex;align-items:center;gap:var(--s2);justify-content:flex-end;min-width:0}
+/* O botão nunca passa da linha: com a fonte grande do celular, "Aprovar R$ 910,00" numa linha só era mais largo que
+   o cartão e, alinhado à direita, vazava pela borda esquerda. Ele encolhe até a linha e quebra o texto. */
+.ld-acts .btn{min-width:0;max-width:100%;white-space:normal;text-align:center;text-wrap:balance}
+.ld-acts .mm{flex:none}
 .ld-feito{display:flex;align-items:center;gap:var(--s2);font-size:var(--t-meta);color:var(--greenInk)}
 .ld-feito.recusado,.ld-feito.desfeito{color:var(--muted)}
 .ld-feito button{border:0;background:none;padding:0;color:var(--accentInk);font-weight:600;text-decoration:underline;text-underline-offset:3px}
@@ -361,6 +368,15 @@ tr.click{cursor:pointer}
   .ld-acts{grid-column:2;flex-wrap:wrap}
   /* Estreito (conversa no celular): o botão já diz o valor ("Aprovar R$ 1.360,00"); repetir ao lado não cabia e
      ficava cortado embaixo do botão. A linha de ações fica inteira para ele. */
+  .ld.valor-no-botao .ld-valor{display:none}
+  .ld.valor-no-botao .ld-acts{grid-column:1/-1;justify-content:flex-end}
+}
+/* o mesmo bloco, pela tela, para as Aprovações (que não estão dentro de contêiner) */
+@media (max-width:899px){
+  .ld{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 16px}
+  .ld-prazo,.ld-txt{grid-column:1/-1}
+  .ld-valor{grid-column:1;text-align:left}
+  .ld-acts{grid-column:2;flex-wrap:wrap}
   .ld.valor-no-botao .ld-valor{display:none}
   .ld.valor-no-botao .ld-acts{grid-column:1/-1;justify-content:flex-end}
 }

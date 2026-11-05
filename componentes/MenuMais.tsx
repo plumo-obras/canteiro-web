@@ -1,7 +1,8 @@
 "use client";
 /**
- * Menu "⋯": guarda as ações secundárias (uma ação à vista por linha; o resto aqui). Abre por clique ou teclado
- * (↓/Enter/Espaço focam o 1º item), ↑↓ Home End navegam, Esc fecha e devolve o foco, Tab ou clique fora fecham.
+ * Menu "⋯": guarda as ações secundárias (uma ação à vista por linha; o resto aqui). Abrir (clique, Enter, Espaço, ↓)
+ * leva o foco ao 1º item (↑ ao último), ↑↓ Home End navegam, Esc fecha e devolve o foco ao botão, Tab ou clique fora
+ * fecham.
  * Vai num portal com position:fixed para escapar do overflow das listas e do transform dos cartões.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
@@ -14,7 +15,7 @@ export interface ItemMenu {
 }
 
 export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]; rotulo?: string }) {
-  const [aberto, setAberto] = useState<false | "inicio" | "fim" | "sem-foco">(false);
+  const [aberto, setAberto] = useState<false | "inicio" | "fim">(false);
   const [pos, setPos] = useState<{ left: number; top: number; cima: boolean } | null>(null);
   const botao = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
@@ -57,11 +58,20 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
       if (!r || !a || Math.abs(r.left - a.left) > 1 || Math.abs(r.top - a.top) > 1) fechar();
     };
     const redim = () => fechar();
+    // Rede de segurança do Esc: se o foco saiu do menu sem fechá-lo (clique num texto da página, por exemplo), a tecla
+    // não passa pelo onKeyDown do menu nem do botão.
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      fechar(true);
+    };
     document.addEventListener("pointerdown", fora, true);
+    document.addEventListener("keydown", esc);
     addEventListener("scroll", rolou, true);
     addEventListener("resize", redim);
     return () => {
       document.removeEventListener("pointerdown", fora, true);
+      document.removeEventListener("keydown", esc);
       removeEventListener("scroll", rolou, true);
       removeEventListener("resize", redim);
     };
@@ -70,10 +80,9 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
   if (!itens.length) return null;
 
   const teclaBotao = (e: React.KeyboardEvent) => {
-    // Aberto pelo mouse, o foco fica no botão (não vai para o menu): o Esc também tem de fechar daqui.
     if (e.key === "Escape" && aberto) {
       e.preventDefault();
-      fechar();
+      fechar(true);
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       setAberto(e.key === "ArrowUp" ? "fim" : "inicio");
@@ -108,7 +117,9 @@ export function MenuMais({ itens, rotulo = "Mais ações" }: { itens: ItemMenu[]
         aria-controls={aberto ? id : undefined}
         aria-label={rotulo}
         title={rotulo}
-        onClick={(e) => (aberto ? fechar() : setAberto(e.detail === 0 ? "inicio" : "sem-foco"))}
+        // Também pelo mouse o foco vai para o 1º item: o Safari não foca o botão no clique, o foco ficava no <body> e o
+        // Esc não chegava a nenhum dos dois onKeyDown (o menu não fechava pelo teclado).
+        onClick={() => (aberto ? fechar() : setAberto("inicio"))}
         onKeyDown={teclaBotao}
       >
         <Icone nome="more" />

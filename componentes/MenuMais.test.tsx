@@ -22,10 +22,32 @@ describe("menu ⋯ e a rolagem", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("aberto pelo mouse (foco no botão), o Esc fecha", () => {
+  it("aberto pelo mouse, o foco vai para o 1º item; Esc fecha e devolve o foco ao botão", () => {
+    render(<MenuMais itens={[...itens, { rotulo: "Ajustar…", acao: vi.fn() }]} />);
+    const b = screen.getByRole("button", { name: "Mais ações" });
+    fireEvent.click(b, { detail: 1 });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Recusar…" }));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(b);
+  });
+
+  it("com o foco fora do menu e do botão (o Safari não foca o botão no clique), o Esc ainda fecha", () => {
     render(<MenuMais itens={itens} />);
     const b = screen.getByRole("button", { name: "Mais ações" });
     fireEvent.click(b, { detail: 1 });
+    act(() => (document.activeElement as HTMLElement).blur());
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(b);
+  });
+
+  it("Esc no botão com o menu aberto fecha", () => {
+    render(<MenuMais itens={itens} />);
+    const b = screen.getByRole("button", { name: "Mais ações" });
+    fireEvent.click(b, { detail: 1 });
+    act(() => b.focus());
     fireEvent.keyDown(b, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
   });
