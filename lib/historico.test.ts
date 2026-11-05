@@ -15,7 +15,11 @@ describe("formatador do histórico da sessão", () => {
   it("volta com ferramentas vira um balão: textos, chips 'usou …' e o cartão do propor_*; tool_result some", () => {
     seq = 0;
     const { mensagens, propostaIds } = formatarHistorico([
-      m("user", [{ type: "text", text: "(Obra em foco na tela: obra_id=o1)" }, { type: "text", text: "precisa comprar bloco?" }]),
+      m("user", [
+        { type: "text", text: "(Hoje é quinta-feira, 05/11/2026, 15:28 no horário de Brasília.)" },
+        { type: "text", text: "(Obra em foco na tela: obra_id=o1)" },
+        { type: "text", text: "precisa comprar bloco?" },
+      ]),
       m("assistant", [{ type: "text", text: "Vou olhar o almoxarifado." }, { type: "tool_use", id: "tu1", name: "consultar_estoque", input: {} }]),
       m("user", [{ type: "tool_result", tool_use_id: "tu1", content: '[{"insumo":"bloco","falta":"640"}]' }]),
       m("assistant", [{ type: "text", text: "Falta **640 un**." }, { type: "tool_use", id: "tu2", name: "propor_pedido", input: {} }]),

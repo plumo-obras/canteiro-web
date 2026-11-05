@@ -81,7 +81,11 @@ export const chipDaFerramenta = (nome: string) => ({
   resumo: RESUMO[nome] ?? `usou ${nome.replace(/_/g, " ")}`,
 });
 
+// Blocos de contexto que o agente põe antes da pergunta (obra em foco, data de hoje): vão para o modelo, não são fala
+// da pessoa, então não aparecem no balão ao reabrir a conversa.
 const CONTEXTO_OBRA = /^\(Obra em foco na tela: [^)]*\)$/;
+const CONTEXTO_HOJE = /^\(Hoje é [^)]*\)$/;
+const ehContexto = (t: string) => CONTEXTO_OBRA.test(t) || CONTEXTO_HOJE.test(t);
 
 const blocos = (c: string | Bloco[] | undefined): Bloco[] => (typeof c === "string" ? [{ type: "text", text: c }] : (c ?? []));
 
@@ -143,7 +147,7 @@ export function formatarHistorico(ms: MensagemSessao[]): { mensagens: Msg[]; pro
     const fala = bs
       .filter((b): b is { type: "text"; text: string } => b.type === "text" && typeof b.text === "string")
       .map((b) => b.text.trim())
-      .filter((t) => t && !CONTEXTO_OBRA.test(t))
+      .filter((t) => t && !ehContexto(t))
       .join("\n\n");
     if (fala) {
       fecharAgente();
