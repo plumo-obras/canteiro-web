@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ArquivoRecusado, LIMITE_FOTO, LIMITE_PDF, prepararArquivo } from "./imagem";
+import { ArquivoRecusado, LIMITE_FOTO, LIMITE_PDF, MSG, prepararArquivo, validarArquivo } from "./imagem";
 
 const arquivo = (tamanho: number, tipo: string, nome = "foto.jpg") => {
   const f = new File([new Uint8Array(1)], nome, { type: tipo });
@@ -67,5 +67,34 @@ describe("prepararArquivo", () => {
     simular(null);
     await expect(prepararArquivo(arquivo(2_000_000, "image/heic", "IMG_1.heic"))).rejects.toThrow("formato");
     await expect(prepararArquivo(arquivo(10, "text/plain", "a.txt"))).rejects.toThrow("foto ou um PDF");
+  });
+});
+
+const comBytes = (bytes: number[], nome: string, tipo: string) => new File([new Uint8Array(bytes)], nome, { type: tipo });
+const JPEG = [0xff, 0xd8, 0xff, 0xe0];
+const HEIC = [0, 0, 0, 24, ...[..."ftypheic"].map((c) => c.charCodeAt(0))];
+
+describe("validarArquivo (na escolha, antes do envio)", () => {
+  it("txt e PDF grande ou que não é PDF", async () => {
+    expect(await validarArquivo(comBytes([1], "a.txt", "text/plain"))).toBe(MSG.naoComprovante);
+    expect(await validarArquivo(arquivo(LIMITE_PDF + 1, "application/pdf", "nota.pdf"))).toBe(MSG.pdfGrande);
+    expect(await validarArquivo(comBytes([1, 2, 3, 4, 5], "nota.pdf", "application/pdf"))).toBe(MSG.pdfCorrompido);
+    expect(await validarArquivo(comBytes([..."%PDF-1.7"].map((c) => c.charCodeAt(0)), "nota.pdf", "application/pdf"))).toBeNull();
+  });
+
+  it("foto que abre passa; .jpg que não abre é corrompido; HEIC que o navegador não lê é formato", async () => {
+    simular({ width: 100, height: 100 });
+    expect(await validarArquivo(comBytes(JPEG, "foto.jpg", "image/jpeg"))).toBeNull();
+    simular(null);
+    expect(await validarArquivo(comBytes([1, 2, 3, 4], "foto.jpg", "image/jpeg"))).toBe(MSG.corrompida);
+    // JPEG de verdade, mas cortado no meio (download interrompido): também corrompido
+    expect(await validarArquivo(comBytes(JPEG, "foto.jpg", "image/jpeg"))).toBe(MSG.corrompida);
+    expect(await validarArquivo(comBytes(HEIC, "IMG_1.heic", "image/heic"))).toBe(MSG.formato);
+    expect(await validarArquivo(comBytes(HEIC, "IMG_1.jpg", "image/jpeg"))).toBe(MSG.formato);
+  });
+
+  it("no envio, o .jpg que não abre também é recusado como corrompido (não 'envie em JPG')", async () => {
+    simular(null);
+    await expect(prepararArquivo(comBytes([1, 2, 3], "foto.jpg", "image/jpeg"))).rejects.toThrow("corrompido");
   });
 });

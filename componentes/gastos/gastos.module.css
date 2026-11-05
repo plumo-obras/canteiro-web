@@ -78,3 +78,54 @@ span.topicoNome { cursor: default; padding-right: 12px; }
   .arvoreLinha { flex-direction: column; }
   .arvoreAcoes { justify-content: flex-start; }
 }
+
+/* enviar: escolhido o arquivo, o seletor vira uma linha (prévia pequena ao lado do nome) e a legenda continua à vista
+   no celular; o aviso do arquivo fica logo abaixo dele, não no pé do modal */
+.soltarTexto { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
+.soltarNome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.soltarCom { flex-direction: row; justify-content: flex-start; min-height: 0; text-align: left; padding: 10px 12px; gap: 12px; }
+.soltarCom .soltarTexto { align-items: flex-start; }
+.soltarCom .previa { max-height: 160px; max-width: 45%; flex: none; }
+.soltar[aria-invalid="true"] { border-color: var(--redInk); }
+.recusa { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+.recusa :global(.ic) { flex: none; margin-top: 2px; }
+
+@media (max-width: 760px) {
+  .soltar:not(.soltarCom) { min-height: 120px; }
+  .soltarCom .previa { max-height: 96px; max-width: 38%; }
+}
+
+/* abas internas: no celular, rótulos curtos (os quatro inteiros não cabem em 390 px); se ainda assim passarem, rolam */
+.rotuloCurto { display: none; }
+@media (max-width: 760px) {
+  .segGastos { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .segGastos::-webkit-scrollbar { display: none; }
+  .segGastos button { flex: 1 0 auto; padding: 0 12px; white-space: nowrap; }
+  .rotuloLongo { display: none; }
+  .rotuloCurto { display: inline; }
+}
+/* tela estreita (abaixo de 360): o esmaecido na borda diz que tem mais aba para o lado */
+@media (max-width: 359px) {
+  .segGastos { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+}
+
+/* fila: o que a IA leu identifica o comprovante sem abrir */
+.filaTitulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.filaLido { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 2px; font-size: var(--t-meta); }
+.filaLido > span:first-child { font-weight: 600; }
+
+/* lançados: o gasto fora das etapas do orçamento */
+.linhaMeta { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-top: 4px; }
+.linhaFora { background: color-mix(in srgb, var(--amberSoft) 55%, transparent); }
+.etapaVelha { text-decoration: line-through; }
+.avisoTopo { list-style: none; display: flex; gap: 8px; align-items: flex-start; margin-top: var(--s4); }
+.avisoTopo :global(.ic) { flex: none; margin-top: 2px; }
+
+/* árvore: código da etapa do orçamento, nota da origem e os arquivados */
+.codigo { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); margin-right: 8px; }
+.nota { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 6px; padding: 3px 10px; border-radius: var(--rp); background: var(--blueSoft);
+  color: var(--blueInk); font-size: var(--t-meta); }
+.arquivadosTopo { display: flex; justify-content: flex-end; margin-top: 10px; }
+.alternar { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t-meta); color: var(--ink2); cursor: pointer; min-height: 36px; }
+.alternar input { width: 16px; height: 16px; accent-color: var(--accentInk); }
+.arquivado strong { color: var(--muted); }
