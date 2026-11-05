@@ -359,6 +359,8 @@ export interface Pedido {
   valor: Centavos;
   /** Quantos recebimentos (entregas) o pedido já teve. */
   recebimentos: number;
+  /** Soma dos gastos confirmados como pagamento deste pedido (só informa: o custo conta pela entrega). */
+  pago?: Centavos;
   criado_em: DataISO;
   linhas: LinhaPedido[];
 }
@@ -693,4 +695,148 @@ export interface RespostaMedicao {
   medicao: Medicao;
   cronograma: Cronograma;
   registro_id?: string | null;
+}
+
+// --- Gastos da obra: árvore, comprovantes e revisão (docs/contrato.md, "Gastos da obra") ---
+
+export interface TopicoNaArvore {
+  id: string;
+  nome: string;
+}
+
+/** Etapa fixa (chave como "eletrica") ou extra da obra ("x-<id>"), com os tópicos dela. Arquivadas não vêm. */
+export interface EtapaNaArvore {
+  chave: string;
+  nome: string;
+  /** O que entra nela (vazio em etapa extra). */
+  inclui: string;
+  fixa: boolean;
+  topicos: TopicoNaArvore[];
+}
+
+export interface EtapaExtra {
+  id: string;
+  chave: string;
+  obra_id: string;
+  nome: string;
+  arquivado: boolean;
+}
+
+export interface Topico {
+  id: string;
+  obra_id: string;
+  etapa: string;
+  nome: string;
+  arquivado: boolean;
+}
+
+export type StatusComprovante = "a_revisar" | "confirmado" | "descartado";
+
+export interface Comprovante {
+  id: string;
+  obra_id: string;
+  tipo_conteudo: string;
+  tamanho: number;
+  legenda: string;
+  quem: string;
+  status: StatusComprovante;
+  /** A leitura da IA (crua); a tela usa a `revisao` do detalhe, já pronta. */
+  leitura: unknown | null;
+  erro_leitura: string | null;
+  lido_em: DataISO | null;
+  gasto_id: string | null;
+  motivo_descarte: string;
+  criado_em: DataISO;
+  ja_existia?: boolean;
+  registro_id?: string | null;
+}
+
+/** lido = a IA leu com certeza (opção já marcada) · conferir = dúvida, nenhuma marcada · vazio = não leu. */
+export type EstadoCampo = "lido" | "conferir" | "vazio";
+
+export interface OpcaoRevisao {
+  /** Centavos (valor), "AAAA-MM-DD" (data) ou texto. */
+  valor: number | string;
+  rotulo: string;
+  motivo: string;
+  fornecedor_id: string | null;
+}
+
+export interface CampoRevisao {
+  estado: EstadoCampo;
+  opcoes: OpcaoRevisao[];
+  escolhido: number | null;
+}
+
+export interface OpcaoClassificacao {
+  etapa: string;
+  topico_id: string | null;
+  rotulo: string;
+  motivo: string;
+}
+
+export interface Revisao {
+  valor: CampoRevisao;
+  data_pagamento: CampoRevisao;
+  favorecido: CampoRevisao;
+  descricao: CampoRevisao;
+  classificacao: { estado: EstadoCampo; opcoes: OpcaoClassificacao[]; escolhido: number | null };
+  tipo_documento: string | null;
+  situacao_pagamento: "pago" | "a_pagar" | "incerto" | null;
+  avisos: string[];
+  observacoes: string | null;
+}
+
+export interface ComprovanteDetalhe extends Comprovante {
+  revisao: Revisao;
+}
+
+export interface CorpoConfirmar {
+  valor: Centavos;
+  data_pagamento: string;
+  favorecido: string;
+  descricao: string;
+  etapa: string;
+  topico_id?: string | null;
+  fornecedor_id?: string | null;
+  pedido_id?: string | null;
+}
+
+/** Gasto confirmado (dinheiro que saiu). Não confundir com `Gasto` do orçamento (cotando/comprometido/realizado). */
+export interface GastoObra {
+  id: string;
+  obra_id: string;
+  comprovante_id: string | null;
+  valor: Centavos;
+  data_pagamento: string;
+  favorecido: string;
+  fornecedor_id: string | null;
+  descricao: string;
+  etapa: string;
+  topico_id: string | null;
+  pedido_id: string | null;
+  quem: string;
+  estornado: boolean;
+  criado_em: DataISO;
+}
+
+export interface Confirmacao {
+  gasto: GastoObra;
+  comprovante: Comprovante;
+  registro_id: string;
+}
+
+export interface ResumoGastos {
+  /** Gastos avulsos confirmados: é o que soma no realizado. */
+  total: Centavos;
+  /** Gastos ligados a pedido (o custo já conta pela entrega). */
+  pagamentos_de_pedidos: Centavos;
+  a_revisar: number;
+  etapas: { etapa: string; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
+}
+
+/** O que o agente responde em `POST /leituras/comprovante` (a leitura, ou o erro, já está gravada no comprovante). */
+export interface RespostaLeitura {
+  ok: boolean;
+  mensagem?: string;
 }

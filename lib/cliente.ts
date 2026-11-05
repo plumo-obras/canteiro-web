@@ -30,6 +30,17 @@ import type {
   Recebimento,
   RespostaRecebimento,
   CorpoConversa,
+  ComprovanteDetalhe,
+  Comprovante,
+  Confirmacao,
+  CorpoConfirmar,
+  EtapaExtra,
+  EtapaNaArvore,
+  GastoObra,
+  RespostaLeitura,
+  ResumoGastos,
+  StatusComprovante,
+  Topico,
   MinhaConta,
   RelatorioUso,
   ResumoObra,
@@ -196,6 +207,29 @@ export const api = {
     }
   },
 
+  /** Etapas fixas + extras da obra, com os tópicos: onde um gasto pode entrar. */
+  arvore: (obraId: string) => chamar<EtapaNaArvore[]>("GET", `/obras/${seg(obraId)}/arvore`),
+  criarEtapaExtra: (obraId: string, nome: string) => chamar<ComRegistro<EtapaExtra>>("POST", `/obras/${seg(obraId)}/etapas-extras`, { nome }),
+  editarEtapaExtra: (id: string, dados: { nome?: string; arquivado?: boolean }) =>
+    chamar<ComRegistro<EtapaExtra>>("PATCH", `/etapas-extras/${seg(id)}`, dados),
+  criarTopico: (obraId: string, etapa: string, nome: string) => chamar<ComRegistro<Topico>>("POST", `/obras/${seg(obraId)}/topicos`, { etapa, nome }),
+  editarTopico: (id: string, dados: { nome?: string; arquivado?: boolean }) => chamar<ComRegistro<Topico>>("PATCH", `/topicos/${seg(id)}`, dados),
+  /** Qualquer papel envia. O mesmo arquivo de novo devolve o comprovante que já existe (`ja_existia`). */
+  enviarComprovante: (obraId: string, arquivo: Blob, nome: string, legenda: string) => {
+    const f = new FormData();
+    f.set("arquivo", arquivo, nome);
+    if (legenda.trim()) f.set("legenda", legenda.trim());
+    return chamar<Comprovante>("POST", `/obras/${seg(obraId)}/comprovantes`, f);
+  },
+  listarComprovantes: (obraId: string, status?: StatusComprovante, limite = 100) =>
+    chamar<Comprovante[]>("GET", `/obras/${seg(obraId)}/comprovantes${q({ status, limite })}`),
+  comprovante: (id: string) => chamar<ComprovanteDetalhe>("GET", `/comprovantes/${seg(id)}`),
+  confirmarComprovante: (id: string, corpo: CorpoConfirmar) => chamar<Confirmacao>("POST", `/comprovantes/${seg(id)}/confirmar`, corpo),
+  descartarComprovante: (id: string, motivo: string) => chamar<Comprovante>("POST", `/comprovantes/${seg(id)}/descartar`, { motivo }),
+  listarGastos: (obraId: string, filtro: { etapa?: string; limite?: number; antes_de?: string } = {}) =>
+    chamar<GastoObra[]>("GET", `/obras/${seg(obraId)}/gastos${q({ ...filtro })}`),
+  resumoGastos: (obraId: string) => chamar<ResumoGastos>("GET", `/obras/${seg(obraId)}/gastos/resumo`),
+
   /** `{proposta, registro}`: o `registro.id` é o que o Desfazer usa. */
   aprovarProposta: (id: string, ajustes?: AjustesProposta) =>
     chamar<RespostaAprovar>("POST", `/propostas/${seg(id)}/aprovar`, ajustes && Object.keys(ajustes).length ? { ajustes } : undefined),
@@ -223,4 +257,25 @@ export async function* conversar(corpo: CorpoConversa, sinal?: AbortSignal): Asy
     const e = interpretarEvento(bruto);
     if (e) yield e;
   }
+}
+
+/** O arquivo do comprovante. Vai pelo repasse com o token (dado pessoal: nunca numa URL pública nem em cache). */
+export async function arquivoComprovante(id: string): Promise<Blob> {
+  const r = await comAcesso(`/srv/api/comprovantes/${encodeURIComponent(id)}/arquivo`);
+  if (!r.ok) throw await erroDe(r);
+  return await r.blob();
+}
+
+/**
+ * Pede ao agente a leitura com IA (dezenas de segundos). A leitura, ou o erro dela, fica gravada no comprovante: a
+ * revisão abre com o que tiver, mesmo que esta chamada falhe.
+ */
+export async function lerComprovante(id: string): Promise<RespostaLeitura> {
+  const r = await comAcesso("/srv/agente/leitura", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ comprovante_id: id }),
+  });
+  if (!r.ok) throw await erroDe(r);
+  return (await r.json()) as RespostaLeitura;
 }

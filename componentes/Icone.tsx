@@ -1,5 +1,8 @@
 /* Ícones de traço (estilo Lucide), os mesmos de js/icons.js do protótipo, inline para não depender de CDN. */
 const CAMINHOS = {
+  // comprovante de gasto (cupom com o cifrão)
+  recibo:
+    '<path d="M5 2.5v19l2-1.2 2 1.2 2-1.2 2 1.2 2-1.2 2 1.2 2-1.2v-19l-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2z"/><path d="M15 8.5h-4.2a1.8 1.8 0 0 0 0 3.6h2.4a1.8 1.8 0 0 1 0 3.6H9"/><path d="M12 6.8v10.4"/>',
   // a marca do Plumo: o fio de prumo com o peso, a mesma da landing (site/build.py)
   spark:
     '<path d="M12 1.6v8" stroke-width="1.5"/><rect x="9.5" y="9" width="5" height="2.3" rx=".5" fill="currentColor" stroke="none"/><path d="M8.6 12.1h6.8L12 23z" fill="currentColor" stroke="none"/>',

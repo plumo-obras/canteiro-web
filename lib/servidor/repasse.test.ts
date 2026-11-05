@@ -29,6 +29,13 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PUT")).toBe(false);
     expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1"], "PATCH")).toBe(true);
+    // gastos: comprovante (envio, arquivo, confirmar), etapas extras e tópicos; a leitura interna é só do agente
+    expect(caminhoPermitido(["comprovantes", "c1", "arquivo"], "GET")).toBe(true);
+    expect(caminhoPermitido(["comprovantes", "c1", "confirmar"], "POST")).toBe(true);
+    expect(caminhoPermitido(["topicos", "t1"], "PATCH")).toBe(true);
+    expect(caminhoPermitido(["etapas-extras", "e1"], "PATCH")).toBe(true);
+    expect(caminhoPermitido(["interno", "comprovantes", "c1", "leitura"], "PUT")).toBe(false);
+    expect(caminhoPermitido(["comprovantes", "c1"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(true); // previsão e observação (Fase 2)
     expect(caminhoPermitido(["fornecedores", "f1"], "PATCH")).toBe(true);

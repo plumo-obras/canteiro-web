@@ -18,6 +18,7 @@ import { Conversa } from "./Conversa";
 import { Icone, Logo, type NomeIcone } from "./Icone";
 import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
+import { Gastos } from "./Gastos";
 import { Historico } from "./Historico";
 import { Orcamento } from "./Orcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
@@ -31,6 +32,7 @@ const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
   { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
   { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
   { k: "suprimentos", rotulo: "Compras", icone: "package" },
+  { k: "gastos", rotulo: "Gastos", icone: "recibo" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
   { k: "historico", rotulo: "Histórico", icone: "history" },
 ];
@@ -462,6 +464,8 @@ function App({ usuario }: { usuario: Usuario }) {
                     <Cronograma obra={obra} />
                   ) : tela === "suprimentos" ? (
                     <Suprimentos obra={obra} />
+                  ) : tela === "gastos" ? (
+                    <Gastos obra={obra} />
                   ) : tela === "historico" ? (
                     <Historico obra={obra} />
                   ) : (
@@ -483,6 +487,8 @@ const BARRA: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
   { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
   { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
   { k: "suprimentos", rotulo: "Compras", icone: "package" },
+  // na obra o comprovante sai do celular: Gastos fica à mão na barra
+  { k: "gastos", rotulo: "Gastos", icone: "recibo" },
 ];
 
 function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pendentes: number; inerte: boolean }) {
