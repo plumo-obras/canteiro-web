@@ -5,12 +5,13 @@
  * etapa, os gastos lançados e as etapas e tópicos onde eles entram.
  */
 import { useMemo, useState } from "react";
-import type { Comprovante, Obra } from "@/lib/contrato";
+import type { Comprovante, EtapaNaArvore, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtDiaHora, fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
 import { Icone } from "./Icone";
+import { BotaoMais, useMaisAntigos } from "./Paginacao";
 import { useCarregar } from "./useCarregar";
 import { Arvore } from "./gastos/Arvore";
 import { EnviarComprovante } from "./gastos/EnviarComprovante";
@@ -33,10 +34,10 @@ export function Gastos({ obra }: { obra: Obra }) {
   const [revisando, setRevisando] = useState<string | null>(null);
   const { dado, erro, carregando } = useCarregar(
     () =>
-      Promise.all([api.listarComprovantes(obra.id, "a_revisar"), api.resumoGastos(obra.id), api.listarGastos(obra.id, { limite: 200 }), api.arvore(obra.id)]),
+      Promise.all([api.listarComprovantes(obra.id, "a_revisar"), api.resumoGastos(obra.id), api.arvore(obra.id)]),
     [obra.id, versao],
   );
-  const [fila, resumo, gastos, arvore] = dado ?? [[], null, [], []];
+  const [fila, resumo, arvore] = dado ?? [[], null, []];
   // nomes de etapa e tópico já arquivados: só o resumo ainda os tem
   const nomesResumo = useMemo(() => {
     const m = new Map<string, string>();
@@ -116,40 +117,7 @@ export function Gastos({ obra }: { obra: Obra }) {
               </ul>
             )
           ) : secao === "lancados" ? (
-            !gastos.length ? (
-              <Vazio texto="Nenhum gasto lançado ainda." />
-            ) : (
-              <ul className={`card lista ${s.lista}`} role="list">
-                {gastos.map((g) => (
-                  <li key={g.id} className={s.linha}>
-                    <div className={s.linhaTopo}>
-                      <span>
-                        <strong>{g.descricao}</strong> <span className="mut">· {g.favorecido}</span>
-                      </span>
-                      <span className={s.valor}>{fmtReais(g.valor)}</span>
-                    </div>
-                    <div className="mut sm">
-                      {fmtDia(g.data_pagamento)} · {rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo)}
-                      {g.pedido_id ? (
-                        <>
-                          {" "}
-                          · <span className="pill info">pagamento de pedido</span>
-                        </>
-                      ) : null}
-                      {g.comprovante_id ? (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <button type="button" className={s.link} onClick={() => setRevisando(g.comprovante_id)}>
-                            ver comprovante
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )
+            <Lancados obra={obra} arvore={arvore} nomes={nomesResumo} abrir={setRevisando} />
           ) : (
             <Arvore obra={obra} arvore={arvore} />
           )}
@@ -209,6 +177,70 @@ function Fila({ fila, abrir, enviar }: { fila: Comprovante[]; abrir: (id: string
         </li>
       ))}
     </ul>
+  );
+}
+
+const POR_PAGINA = 50;
+
+/**
+ * Os gastos confirmados, mais novos primeiro, em páginas de 50 pelo cursor da API: uma obra de prédio passa de
+ * centenas de comprovantes, e a lista não pode parar nos primeiros. O total e o "Por etapa" já somam tudo.
+ */
+function Lancados(p: { obra: Obra; arvore: EtapaNaArvore[]; nomes: Map<string, string>; abrir: (id: string) => void }) {
+  const { versao } = useCasca();
+  const { itens, erro, acabou, buscando, carregarMais } = useMaisAntigos(
+    (antes_de) => api.listarGastos(p.obra.id, { limite: POR_PAGINA, antes_de }),
+    POR_PAGINA,
+    [p.obra.id, versao],
+  );
+  if (erro && !itens)
+    return (
+      <div className="aviso-erro" role="alert">
+        <Icone nome="alert" tam={15} />
+        {erro}
+      </div>
+    );
+  if (!itens) return null;
+  if (!itens.length) return <Vazio texto="Nenhum gasto lançado ainda." />;
+  return (
+    <>
+      <ul className={`card lista ${s.lista}`} role="list" aria-label="Gastos lançados">
+        {itens.map((g) => (
+          <li key={g.id} className={s.linha}>
+            <div className={s.linhaTopo}>
+              <span>
+                <strong>{g.descricao}</strong> <span className="mut">· {g.favorecido}</span>
+              </span>
+              <span className={s.valor}>{fmtReais(g.valor)}</span>
+            </div>
+            <div className="mut sm">
+              {fmtDia(g.data_pagamento)} · {rotuloEtapa(p.arvore, g.etapa, g.topico_id, p.nomes)}
+              {g.pedido_id ? (
+                <>
+                  {" "}
+                  · <span className="pill info">pagamento de pedido</span>
+                </>
+              ) : null}
+              {g.comprovante_id ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <button type="button" className={s.link} onClick={() => p.abrir(g.comprovante_id!)}>
+                    ver comprovante
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {erro ? (
+        <div className="aviso-erro" role="alert">
+          {erro}
+        </div>
+      ) : null}
+      <BotaoMais acabou={acabou} buscando={buscando} carregarMais={carregarMais} rotulo="Carregar gastos mais antigos" />
+    </>
   );
 }
 
