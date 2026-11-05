@@ -70,6 +70,25 @@ export class ErroApi extends Error {
   }
 }
 
+/** A rota ainda não existe na API que está no ar (contrato novo chegando antes do deploy dela). */
+export class RotaAusente extends ErroApi {
+  constructor() {
+    super(404, "Mudar a etapa de um gasto ainda não está disponível. A atualização da API chega em breve.");
+    this.name = "RotaAusente";
+  }
+}
+
+/**
+ * A árvore de gasto sempre como lista. Hoje ela vem como lista; com a "opção 2" pode vir `{origem, etapas}`. A
+ * `origem` do topo desce para cada etapa, para a tela olhar um lugar só.
+ */
+export function normalizarArvore(r: unknown): EtapaNaArvore[] {
+  const topo = r && typeof r === "object" && !Array.isArray(r) ? (r as { origem?: unknown; etapas?: unknown }) : null;
+  const lista = Array.isArray(r) ? r : Array.isArray(topo?.etapas) ? topo.etapas : [];
+  const origem = topo?.origem === "orcamento" || topo?.origem === "padrao" ? topo.origem : undefined;
+  return (lista as EtapaNaArvore[]).map((e) => ({ ...e, topicos: Array.isArray(e.topicos) ? e.topicos : [], ...(e.origem || !origem ? {} : { origem }) }));
+}
+
 const MENSAGEM_PADRAO: Record<number, string> = {
   401: "Sua sessão acabou. Entre de novo.",
   403: "Seu papel não permite esta ação.",
@@ -208,7 +227,7 @@ export const api = {
   },
 
   /** Etapas fixas + extras da obra, com os tópicos: onde um gasto pode entrar. */
-  arvore: (obraId: string) => chamar<EtapaNaArvore[]>("GET", `/obras/${seg(obraId)}/arvore`),
+  arvore: async (obraId: string) => normalizarArvore(await chamar<unknown>("GET", `/obras/${seg(obraId)}/arvore`)),
   criarEtapaExtra: (obraId: string, nome: string) => chamar<ComRegistro<EtapaExtra>>("POST", `/obras/${seg(obraId)}/etapas-extras`, { nome }),
   editarEtapaExtra: (id: string, dados: { nome?: string; arquivado?: boolean }) =>
     chamar<ComRegistro<EtapaExtra>>("PATCH", `/etapas-extras/${seg(id)}`, dados),
@@ -226,6 +245,19 @@ export const api = {
   comprovante: (id: string) => chamar<ComprovanteDetalhe>("GET", `/comprovantes/${seg(id)}`),
   confirmarComprovante: (id: string, corpo: CorpoConfirmar) => chamar<Confirmacao>("POST", `/comprovantes/${seg(id)}/confirmar`, corpo),
   descartarComprovante: (id: string, motivo: string) => chamar<Comprovante>("POST", `/comprovantes/${seg(id)}/descartar`, { motivo }),
+  /**
+   * Muda a etapa de um gasto já lançado (admin; "opção 2", para o gasto que ficou fora das etapas do orçamento). Devolve
+   * o `registro_id` do Desfazer. A API de antes não tem a rota: 404/405 vira `RotaAusente`, para a tela explicar.
+   */
+  mudarEtapaGasto: async (gastoId: string, etapa: string) => {
+    try {
+      return await chamar<ComRegistro<GastoObra>>("PATCH", `/gastos/${seg(gastoId)}`, { etapa });
+    } catch (e) {
+      if (e instanceof ErroApi && (e.status === 405 || (e.status === 404 && ["Not Found", MENSAGEM_PADRAO[404]].includes(e.message))))
+        throw new RotaAusente();
+      throw e;
+    }
+  },
   listarGastos: (obraId: string, filtro: { etapa?: string; limite?: number; antes_de?: string } = {}) =>
     chamar<GastoObra[]>("GET", `/obras/${seg(obraId)}/gastos${q({ ...filtro })}`),
   resumoGastos: (obraId: string) => chamar<ResumoGastos>("GET", `/obras/${seg(obraId)}/gastos/resumo`),

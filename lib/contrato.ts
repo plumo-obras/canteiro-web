@@ -712,6 +712,14 @@ export interface EtapaNaArvore {
   inclui: string;
   fixa: boolean;
   topicos: TopicoNaArvore[];
+  /**
+   * Em mudança na API ("opção 2"): `orcamento` quando a obra tem orçamento e as etapas são as dele (chave = código,
+   * nome = descrição); `padrao` nas etapas fixas. Pode vir em cada etapa ou no topo da resposta (o cliente desce o do
+   * topo para cada etapa); ausente = `padrao`.
+   */
+  origem?: "orcamento" | "padrao";
+  /** Código da etapa do orçamento, se a API mandar separado da chave. */
+  codigo?: string;
 }
 
 export interface EtapaExtra {

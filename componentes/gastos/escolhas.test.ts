@@ -101,3 +101,67 @@ describe("formatos", () => {
     expect(rotuloEtapa(arvore, "x-1", null, new Map([["x-1", "Muro"]]))).toBe("Muro");
   });
 });
+
+import { arquivadosDoResumo, foraDoOrcamento, lidoNaFila, nomeComCodigo, origemDaArvore } from "./escolhas";
+import { normalizarArvore } from "@/lib/cliente";
+
+describe("o que a IA leu, na fila", () => {
+  it("valor em reais, quem recebeu, a data e se ficou dúvida", () => {
+    const l = lidoNaFila({
+      valor: { certeza: "alta", opcoes: [{ valor: "1.284,90" }] },
+      favorecido: { certeza: "alta", opcoes: [{ valor: "Loja Fictícia" }] },
+      data_pagamento: { certeza: "baixa", opcoes: [{ valor: "2026-11-05" }, { valor: "2026-11-04" }] },
+      descricao: { certeza: "alta", opcoes: [] },
+    });
+    expect(l).toEqual({ valor: "R$ 1.284,90", favorecido: "Loja Fictícia", data: "05/11/2026", descricao: null, duvida: true });
+  });
+  it("leitura em branco, ausente ou em formato estranho não quebra: fica sem resumo", () => {
+    expect(lidoNaFila(null)).toBeNull();
+    expect(lidoNaFila({ valor: { certeza: "alta", opcoes: [] } })).toBeNull();
+    expect(lidoNaFila({ valor: "350" })).toBeNull();
+    expect(lidoNaFila({ valor: { certeza: "alta", opcoes: [{ valor: "trezentos" }] } })!.valor).toBe("trezentos");
+  });
+});
+
+describe("árvore da opção 2 (etapas do orçamento)", () => {
+  const padrao = [{ chave: "eletrica", nome: "Instalações elétricas", inclui: "", fixa: true, topicos: [] }];
+  it("lista de hoje, sem origem: padrão; {origem, etapas} no topo desce para cada etapa", () => {
+    expect(origemDaArvore(normalizarArvore(padrao))).toBe("padrao");
+    const orc = normalizarArvore({ origem: "orcamento", etapas: [{ chave: "18", nome: "INSTALAÇÃO ELÉTRICA - 220V", inclui: "", fixa: true }] });
+    expect(orc[0]).toMatchObject({ origem: "orcamento", topicos: [] });
+    expect(origemDaArvore(orc)).toBe("orcamento");
+    expect(origemDaArvore(normalizarArvore([{ ...padrao[0], chave: "3", origem: "orcamento" }]))).toBe("orcamento");
+    expect(normalizarArvore({ algo: 1 })).toEqual([]);
+  });
+  it("código + descrição só na etapa do orçamento", () => {
+    expect(nomeComCodigo({ chave: "18", nome: "INSTALAÇÃO ELÉTRICA - 220V", origem: "orcamento" })).toBe("18 · INSTALAÇÃO ELÉTRICA - 220V");
+    expect(nomeComCodigo({ chave: "x", codigo: "3.1", nome: "Sapatas", origem: "orcamento" })).toBe("3.1 · Sapatas");
+    expect(nomeComCodigo({ chave: "eletrica", nome: "Instalações elétricas" })).toBe("Instalações elétricas");
+    expect(nomeComCodigo({ chave: "x-e1", nome: "Piscina", origem: "orcamento" })).toBe("Piscina");
+  });
+  it("gasto fora da árvore do orçamento é 'sem etapa do orçamento'; na árvore padrão, nunca", () => {
+    const orc = normalizarArvore({ origem: "orcamento", etapas: [{ chave: "3", nome: "FUNDAÇÕES", inclui: "", fixa: true, topicos: [] }] });
+    expect(foraDoOrcamento(orc, "fundacao")).toBe(true);
+    expect(foraDoOrcamento(orc, "3")).toBe(false);
+    expect(foraDoOrcamento(orc, "x-e1")).toBe(false);
+    expect(foraDoOrcamento(normalizarArvore(padrao), "fundacao")).toBe(false);
+  });
+});
+
+describe("arquivados (pelo resumo)", () => {
+  it("etapa extra fora da árvore e tópico fora da etapa ativa; etapa fixa nunca", () => {
+    const arvore = [{ chave: "eletrica", nome: "Elétrica", inclui: "", fixa: true, topicos: [{ id: "t1", nome: "Quadro" }] }];
+    const resumo = {
+      etapas: [
+        { etapa: "eletrica", nome: "Elétrica", topicos: [{ topico_id: "t1", nome: "Quadro" }, { topico_id: "t2", nome: "Sapatas" }, { topico_id: null, nome: "Sem tópico" }] },
+        { etapa: "x-e2", nome: "Aterro", topicos: [{ topico_id: "t3", nome: "Dentro do aterro" }] },
+        { etapa: "fundacao", nome: "Fundação", topicos: [] },
+      ],
+    };
+    expect(arquivadosDoResumo(arvore, resumo)).toEqual([
+      { tipo: "topico", id: "t2", nome: "Sapatas", etapaNome: "Elétrica" },
+      { tipo: "etapa", id: "e2", nome: "Aterro", etapaNome: "Aterro" },
+    ]);
+    expect(arquivadosDoResumo(arvore, null)).toEqual([]);
+  });
+});
