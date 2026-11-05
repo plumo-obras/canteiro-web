@@ -482,6 +482,26 @@ export function sairDemo(renovacao: string | undefined) {
   if (renovacao) estado().renovacoes.delete(renovacao);
 }
 
+/**
+ * Troca de senha na demonstração: como o login aceita qualquer senha, não há senha atual para conferir nem o que
+ * gravar. Confere só o acesso e as regras da senha nova (as mesmas da API, para a tela se comportar igual) e emite um
+ * par novo, sem mudar nada no estado.
+ */
+export function trocarSenhaDemo(
+  authorization: string | null,
+  atual: string,
+  nova: string,
+): RespostaEntrar | { detail: string; status: number; sessao_expirada?: true } {
+  const u = usuarioDoAcesso(authorization);
+  if (!u) return { detail: "Sua sessão acabou. Entre de novo.", status: 401, sessao_expirada: true };
+  const email = estado().emails.get(u.id) ?? "";
+  if (!atual) return { detail: "Informe a senha atual.", status: 422 };
+  if (nova.length < 8 || nova.length > 256) return { detail: "A nova senha precisa ter de 8 a 256 caracteres.", status: 422 };
+  if (nova === atual) return { detail: "A nova senha precisa ser diferente da atual.", status: 422 };
+  if (email && nova.trim().toLowerCase() === email) return { detail: "A nova senha não pode ser o seu e-mail.", status: 422 };
+  return emitir(estado(), u);
+}
+
 export function usuarioDoAcesso(authorization: string | null): Usuario | null {
   const t = authorization?.match(/^Bearer (.+)$/)?.[1];
   const a = t ? estado().acessos.get(t) : undefined;

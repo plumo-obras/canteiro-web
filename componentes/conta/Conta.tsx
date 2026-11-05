@@ -1,6 +1,6 @@
 "use client";
 /**
- * /conta: perfil, chave própria da Anthropic e créditos de IA. Tudo vem do servidor (GET /conta e GET /uso); o papel
+ * /conta: perfil, senha, chave própria da Anthropic e créditos de IA. Tudo vem do servidor (GET /conta e GET /uso); o papel
  * mostrado aqui só decide o que a tela oferece: quem barra de verdade a troca da chave é a API.
  */
 import { useState } from "react";
@@ -11,6 +11,7 @@ import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
 import { Chave } from "./Chave";
 import { Creditos } from "./Creditos";
+import { Senha } from "./Senha";
 import s from "./conta.module.css";
 import { ultimosDias } from "./formato";
 
@@ -40,7 +41,7 @@ export function Conta({ usuario }: { usuario: Usuario }) {
   const c = conta.dado;
   return (
     <>
-      <CabecalhoPagina titulo="Conta" sub="Seu perfil, a chave da Anthropic e os créditos de IA da empresa." />
+      <CabecalhoPagina titulo="Conta" sub="Seu perfil e sua senha, a chave da Anthropic e os créditos de IA da empresa." />
 
       {conta.erro && !c ? (
         <div className="aviso-erro" role="alert">
@@ -86,6 +87,9 @@ export function Conta({ usuario }: { usuario: Usuario }) {
               </div>
             </dl>
           </section>
+
+          {/* Logo abaixo do perfil, que é da pessoa; no desktop a chave (da empresa) ocupa a coluna ao lado das duas. */}
+          <Senha className={`${s.bloco} ${s.senha}`} email={c.usuario.email} />
 
           <Chave
             className={`${s.bloco} ${s.chave}`}

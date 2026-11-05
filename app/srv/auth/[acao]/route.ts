@@ -12,7 +12,7 @@ import {
   urlApi,
 } from "@/lib/servidor/config";
 import { headersDeRepasse, json, origemConfiavel, segundosAteVencer } from "@/lib/servidor/repasse";
-import { VIDA_ACESSO_DEMO_S, entrarDemo, renovarDemo, sairDemo } from "@/lib/demo/loja";
+import { VIDA_ACESSO_DEMO_S, entrarDemo, renovarDemo, sairDemo, trocarSenhaDemo } from "@/lib/demo/loja";
 
 const opcoesCookie = {
   httpOnly: true,
@@ -75,6 +75,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ acao: string }
     return json({ detail: "Sua sessão acabou. Entre de novo." }, 401);
   }
 
+  if (acao === "senha") return trocarSenha(req);
+
   if (acao === "sair") {
     const renovacao = jar.get(COOKIE_RENOVACAO)?.value;
     if (modoDemo()) sairDemo(renovacao);
@@ -84,4 +86,34 @@ export async function POST(req: Request, ctx: { params: Promise<{ acao: string }
   }
 
   return json({ detail: "Não encontrado." }, 404);
+}
+
+/** Respostas da troca de senha que a tela mostra como vieram (a mensagem da API já é para a pessoa). */
+const REPASSA_SENHA = new Set([401, 403, 409, 422, 429]);
+
+/**
+ * Troca de senha: autenticada pelo acesso (Authorization), não pelo cookie, mas devolve uma sessão nova e por isso
+ * grava o cookie como o entrar — a API derruba todas as famílias de renovação, inclusive a deste navegador.
+ *
+ * Nenhuma recusa apaga o cookie: senha atual errada (401), regra da senha nova (422) e limite (429) não podem
+ * desconectar ninguém. Quando o 401 é do acesso vencido (a API manda WWW-Authenticate; o da senha errada não), a
+ * resposta leva `sessao_expirada` para o navegador renovar e tentar de novo, sem confundir com a senha errada.
+ */
+async function trocarSenha(req: Request) {
+  const lido = ((await req.json().catch(() => ({}))) ?? {}) as { senha_atual?: unknown; senha_nova?: unknown };
+  const corpo = { senha_atual: String(lido.senha_atual ?? ""), senha_nova: String(lido.senha_nova ?? "") };
+  if (modoDemo()) {
+    const r = trocarSenhaDemo(req.headers.get("authorization"), corpo.senha_atual, corpo.senha_nova);
+    if (!("detail" in r)) return guardar(r);
+    const { status, ...recusa } = r;
+    return json(recusa, status);
+  }
+  if (!req.headers.get("authorization")) return json({ detail: "Entre para continuar.", sessao_expirada: true }, 401);
+  const r = await api(req, "senha", corpo).catch(() => null);
+  if (r?.ok) return guardar((await r.json()) as RespostaEntrar);
+  if (!r || !REPASSA_SENHA.has(r.status)) return json({ detail: "Não foi possível falar com o servidor." }, 503);
+  const recusa = (await r.json().catch(() => ({}))) as { detail?: unknown };
+  const detail = typeof recusa.detail === "string" ? recusa.detail : "Não foi possível trocar a senha.";
+  const expirada = r.status === 401 && r.headers.has("www-authenticate");
+  return json(expirada ? { detail, sessao_expirada: true } : { detail }, r.status);
 }

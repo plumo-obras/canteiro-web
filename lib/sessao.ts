@@ -83,7 +83,7 @@ export function limparSessao() {
   avisar();
 }
 
-async function lerErro(r: Response): Promise<string> {
+async function lerErro(r: Response, padrao = "Não foi possível entrar."): Promise<string> {
   try {
     const j = (await r.json()) as { detail?: unknown; mensagem?: unknown };
     if (typeof j.mensagem === "string") return j.mensagem;
@@ -91,7 +91,7 @@ async function lerErro(r: Response): Promise<string> {
   } catch {
     /* corpo vazio ou não-JSON */
   }
-  return r.status === 429 ? "Muitas tentativas. Espere um pouco e tente de novo." : "Não foi possível entrar.";
+  return r.status === 429 ? "Muitas tentativas. Espere um pouco e tente de novo." : padrao;
 }
 
 export async function entrar(email: string, senha: string): Promise<{ ok: true } | { ok: false; mensagem: string }> {
@@ -161,6 +161,48 @@ export function renovarSessao(): Promise<ResultadoRenovacao> {
 }
 
 export const renovar = async (): Promise<boolean> => (await renovarSessao()) === "ok";
+
+/** Mesmo lock da renovação: a troca de senha também substitui o cookie. */
+const LOCK_COOKIE = "canteiro-renovacao";
+
+/**
+ * Troca a própria senha. A API derruba todas as sessões, inclusive esta, e devolve uma nova: guardá-la aqui é o que
+ * mantém a pessoa logada neste aparelho.
+ *
+ * Não usa comAcesso: lá um 401 renova e REPETE, e repetir uma senha atual errada gastaria duas tentativas do limite.
+ * Aqui só se repete quando o Next marca o 401 como acesso vencido (`sessao_expirada`); senha errada volta como erro.
+ * Roda dentro do lock entre abas porque troca o cookie: uma renovação de outra aba no meio gravaria por cima o token
+ * de uma família que a troca acabou de derrubar.
+ */
+export async function trocarSenha(atual: string, nova: string): Promise<{ ok: true } | { ok: false; mensagem: string }> {
+  const umaVez = async () => {
+    const acesso = acessoAtual();
+    const enviar = () =>
+      fetch("/srv/auth/senha", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...CABECALHO_CSRF, ...(acesso ? { authorization: `Bearer ${acesso}` } : {}) },
+        body: JSON.stringify({ senha_atual: atual, senha_nova: nova }),
+      });
+    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+    const r = locks ? await locks.request(LOCK_COOKIE, enviar) : await enviar();
+    const corpo = r.ok ? null : ((await r.clone().json().catch(() => ({}))) as { sessao_expirada?: boolean });
+    return { r, expirada: r.status === 401 && !!corpo?.sessao_expirada };
+  };
+  try {
+    if (!acessoAtual() && !(await renovar())) return { ok: false, mensagem: "Sua sessão acabou. Entre de novo." };
+    const primeira = await umaVez();
+    let r = primeira.r;
+    if (primeira.expirada) {
+      if (!(await renovar())) return { ok: false, mensagem: "Sua sessão acabou. Entre de novo." };
+      r = (await umaVez()).r;
+    }
+    if (!r.ok) return { ok: false, mensagem: await lerErro(r, "Não foi possível trocar a senha. Tente de novo.") };
+    guardar((await r.json()) as RespostaSessao);
+    return { ok: true };
+  } catch {
+    return { ok: false, mensagem: "Não foi possível falar com o servidor. Tente de novo." };
+  }
+}
 
 export async function sair() {
   const acesso = acessoAtual();

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ESPERA_RENOVACAO_EM_ANDAMENTO_MS, comAcesso, limparSessao, renovarSessao, usuarioAtual } from "./sessao";
-import { criarRede, json, renovarOk } from "@/testes/rede";
+import { ESPERA_RENOVACAO_EM_ANDAMENTO_MS, acessoAtual, comAcesso, limparSessao, renovarSessao, trocarSenha, usuarioAtual } from "./sessao";
+import { USUARIO, criarRede, json, renovarOk } from "@/testes/rede";
 
 afterEach(() => {
   limparSessao();
@@ -168,5 +168,80 @@ describe("renovação pelo relógio só com a aba visível", () => {
     mudarPara("visible");
     await vi.advanceTimersByTimeAsync(0);
     expect(rede.chamadas).toHaveLength(1);
+  });
+});
+
+describe("trocar a própria senha", () => {
+  const sessaoNova = () => json({ acesso: "acesso-novo", usuario: { ...USUARIO, nome: "Rizzi" }, expira_em: 900 });
+
+  it("manda o acesso atual e guarda a sessão nova que a API devolve", async () => {
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk, "POST /srv/auth/senha": sessaoNova });
+    await renovarSessao();
+    expect(await trocarSenha("velha-123", "nova-senha-456")).toEqual({ ok: true });
+    const troca = rede.chamadas.find((c) => c.caminho === "/srv/auth/senha")!;
+    const h = new Headers(troca.init.headers);
+    expect(h.get("authorization")).toBe("Bearer acesso-1");
+    expect(h.get("x-canteiro")).toBe("1");
+    expect(troca.corpo).toEqual({ senha_atual: "velha-123", senha_nova: "nova-senha-456" });
+    expect(acessoAtual()).toBe("acesso-novo");
+  });
+
+  it("senha atual errada: mostra a mensagem, NÃO repete (gastaria outra tentativa) e não derruba a sessão", async () => {
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "POST /srv/auth/senha": () => json({ detail: "Senha atual incorreta." }, 401),
+    });
+    await renovarSessao();
+    expect(await trocarSenha("errada", "nova-senha-456")).toEqual({ ok: false, mensagem: "Senha atual incorreta." });
+    expect(rede.chamadas.filter((c) => c.caminho === "/srv/auth/senha")).toHaveLength(1);
+    expect(rede.chamadas.filter((c) => c.caminho === "/srv/auth/renovar")).toHaveLength(1);
+    expect(usuarioAtual()?.nome).toBe("Rizzi");
+    expect(acessoAtual()).toBe("acesso-1");
+  });
+
+  it("acesso vencido (sessao_expirada): renova uma vez e repete com o acesso novo", async () => {
+    let n = 0;
+    const rede = criarRede({
+      "POST /srv/auth/renovar": () => json({ acesso: `acesso-${++n}`, usuario: USUARIO, expira_em: 900 }),
+      "POST /srv/auth/senha": ({ init }) =>
+        new Headers(init.headers).get("authorization") === "Bearer acesso-2"
+          ? sessaoNova()
+          : json({ detail: "Sessão expirada.", sessao_expirada: true }, 401),
+    });
+    await renovarSessao();
+    expect(await trocarSenha("velha-123", "nova-senha-456")).toEqual({ ok: true });
+    expect(rede.chamadas.filter((c) => c.caminho === "/srv/auth/senha")).toHaveLength(2);
+    expect(acessoAtual()).toBe("acesso-novo");
+  });
+
+  it("422 e 429 voltam com a mensagem da API", async () => {
+    let resposta = json({ detail: "A nova senha não pode ser o seu e-mail." }, 422);
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "POST /srv/auth/senha": () => resposta });
+    await renovarSessao();
+    expect(await trocarSenha("a", "eu@obra.com")).toEqual({ ok: false, mensagem: "A nova senha não pode ser o seu e-mail." });
+    resposta = json({}, 429);
+    expect(await trocarSenha("a", "nova-senha-456")).toEqual({ ok: false, mensagem: "Muitas tentativas. Espere um pouco e tente de novo." });
+  });
+
+  it("roda dentro do lock do cookie, o mesmo da renovação", async () => {
+    const nomes: string[] = [];
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      locks: { request: (nome: string, f: () => Promise<unknown>) => (nomes.push(nome), f()) },
+    });
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "POST /srv/auth/senha": sessaoNova });
+    await renovarSessao();
+    nomes.length = 0;
+    await trocarSenha("velha-123", "nova-senha-456");
+    expect(nomes).toEqual(["canteiro-renovacao"]);
+  });
+
+  it("rede caindo: erro na tela, sessão intacta", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    await renovarSessao();
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("fetch failed"))));
+    const r = await trocarSenha("velha-123", "nova-senha-456");
+    expect(r.ok).toBe(false);
+    expect(acessoAtual()).toBe("acesso-1");
   });
 });
