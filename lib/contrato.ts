@@ -425,7 +425,12 @@ export interface RespostaRecebimento {
 export type ComRegistro<T> = T & { registro_id?: string | null };
 
 export type StatusProposta = "pendente" | "aprovada" | "recusada" | "desfeita";
-export type TipoProposta = "criar_pedido" | "avancar_pedido" | "ajuste_estoque";
+export type TipoProposta = "criar_pedido" | "avancar_pedido" | "ajuste_estoque" | "registrar_entrega";
+/**
+ * O que aprovar faz, decidido pela API ao criar a proposta: o botão diz a consequência por ele. "conferido" num pedido
+ * parcial ENCERRA o resto (nada entra); num pedido que chegou, dá entrada. Proposta antiga vem sem o campo.
+ */
+export type EfeitoProposta = "compra" | "entrada" | "encerramento" | "cancelamento" | "status" | "ajuste";
 
 export interface DadosCriarPedido {
   insumo_id: string;
@@ -444,6 +449,17 @@ export interface DadosAjusteEstoque {
   insumo_id: string;
   quantidade: Milesimos;
   motivo: string;
+}
+/** Entrega proposta: o mesmo corpo do "Registrar entrega" (POST /pedidos/{id}/recebimentos), sem a chave. */
+export interface DadosRegistrarEntrega {
+  pedido_id: string;
+  linhas: { indice: number; quantidade: Milesimos }[];
+  nf_numero?: string;
+  /** AAAA-MM-DD */
+  nf_data?: string | null;
+  nf_valor?: Centavos | null;
+  /** A pessoa confirmou que chegou mais do que faltava. */
+  confirmar_excesso?: boolean;
 }
 
 export interface Proposta extends Documento {
@@ -466,6 +482,7 @@ export interface Proposta extends Documento {
   decidido_por_nome: string | null;
   /** A EntradaRegistro da execução: o que o Desfazer usa, inclusive depois de recarregar a tela. */
   registro_id?: string | null;
+  efeito?: EfeitoProposta | null;
 }
 
 export interface EntradaRegistro extends Documento {
@@ -484,7 +501,8 @@ export interface EntradaRegistro extends Documento {
 export type AjustesProposta =
   | Partial<Pick<DadosCriarPedido, "quantidade" | "fornecedor" | "valor" | "previsao">>
   | Partial<Pick<DadosAvancarPedido, "quantidade_recebida" | "nf">>
-  | Partial<Pick<DadosAjusteEstoque, "quantidade" | "motivo">>;
+  | Partial<Pick<DadosAjusteEstoque, "quantidade" | "motivo">>
+  | Partial<Pick<DadosRegistrarEntrega, "linhas" | "nf_numero" | "nf_data" | "nf_valor" | "confirmar_excesso">>;
 
 /** Resposta de `POST /propostas/{id}/aprovar`. */
 export interface RespostaAprovar {

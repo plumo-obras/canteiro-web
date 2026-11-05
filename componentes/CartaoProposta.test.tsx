@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import type { Proposta, Usuario } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
-import { CartaoProposta } from "./CartaoProposta";
+import { CartaoProposta, efeitoDe, notaDaEntrega, rotuloAprovar } from "./CartaoProposta";
 import { ProvedorCasca, useCasca } from "./contexto";
 
 const PROPOSTA: Proposta = {
@@ -127,5 +127,69 @@ describe("cartão de proposta", () => {
     montar({ ...USUARIO, papel: "viewer" });
     expect(screen.queryByRole("button", { name: /Aprovar/ })).toBeNull();
     expect(screen.getByText("Espera um admin aprovar")).toBeInTheDocument();
+  });
+});
+
+describe("o botão diz o que aprovar faz", () => {
+  const ENTREGA: Proposta = {
+    ...PROPOSTA,
+    id: "p2",
+    tipo: "registrar_entrega",
+    titulo: "PED-0170: dar entrada de 7 m³ de Brita 1 (NF 4410, R$ 910,00)",
+    conta: "PED-0170 · Brita 1: recebido 18 m³ + esta entrega 7 m³ = 25 de 25 m³ · pedido completo",
+    dados: { pedido_id: "ped-170", linhas: [{ indice: 0, quantidade: 7000 }], nf_numero: "4410", nf_data: "2026-11-05", nf_valor: 91000 },
+    efeito: "entrada",
+  };
+  const avanco = (dados: Record<string, unknown>, efeito?: Proposta["efeito"]): Proposta => ({ ...PROPOSTA, tipo: "avancar_pedido", dados, efeito });
+
+  it("compra pelo valor; entrada só com entrega de verdade; encerramento pelo nome", () => {
+    expect(rotuloAprovar(PROPOSTA)).toBe("Aprovar R$ 1.326,00");
+    expect(rotuloAprovar(ENTREGA)).toBe("Aprovar entrada");
+    // o caso do teste com o agente: "conferido" num pedido parcial encerra, não dá entrada
+    expect(rotuloAprovar(avanco({ pedido_id: "x", para: "conferido" }, "encerramento"))).toBe("Aprovar encerramento");
+    expect(rotuloAprovar(avanco({ pedido_id: "x", para: "conferido" }, "entrada"))).toBe("Aprovar entrada");
+    expect(rotuloAprovar(avanco({ pedido_id: "x", para: "cancelado" }, "cancelamento"))).toBe("Aprovar cancelamento");
+    expect(rotuloAprovar(avanco({ pedido_id: "x", para: "enviado" }, "status"))).toBe("Aprovar");
+    expect(rotuloAprovar({ ...PROPOSTA, tipo: "ajuste_estoque", dados: { insumo_id: "i", quantidade: -2000, motivo: "x" } })).toBe("Aprovar ajuste");
+  });
+
+  it("proposta antiga sem `efeito`: entrada só se trouxer quantidade ou NF; senão não promete nada", () => {
+    expect(efeitoDe(avanco({ pedido_id: "x", para: "conferido", quantidade_recebida: 7000 }))).toBe("entrada");
+    expect(efeitoDe(avanco({ pedido_id: "x", para: "conferido", nf: "4410" }))).toBe("entrada");
+    expect(rotuloAprovar(avanco({ pedido_id: "x", para: "conferido" }))).toBe("Aprovar");
+  });
+
+  it("a nota da entrega aparece para conferir", () => {
+    expect(notaDaEntrega(ENTREGA)).toBe("NF 4410 · 05/11/2026 · R$ 910,00");
+    expect(notaDaEntrega({ ...ENTREGA, dados: { pedido_id: "x", linhas: [] } })).toBe("Sem nota fiscal informada");
+    expect(notaDaEntrega(PROPOSTA)).toBeNull();
+  });
+
+  it("cartão de entrega: conta da API, nota, 'Aprovar entrada' e sem 'Ajustar' (ainda sem formulário)", async () => {
+    criarRede({});
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Semente p={ENTREGA} />
+      </ProvedorCasca>,
+    );
+    const linha = screen.getByRole("group", { name: /dar entrada de 7 m³ de Brita 1/ });
+    expect(within(linha).getByText(/recebido 18 m³ \+ esta entrega 7 m³ = 25 de 25 m³/)).toBeInTheDocument();
+    expect(within(linha).getByText("NF 4410 · 05/11/2026 · R$ 910,00")).toBeInTheDocument();
+    expect(within(linha).getByRole("button", { name: "Aprovar entrada" })).toBeInTheDocument();
+    await userEvent.click(within(linha).getByRole("button", { name: "Mais ações" }));
+    expect(screen.queryByRole("menuitem", { name: "Ajustar e aprovar…" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Recusar…" })).toBeInTheDocument();
+  });
+
+  it("encerramento não oferece ajuste (não há quantidade nem NF para mudar)", async () => {
+    criarRede({});
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Semente p={{ ...avanco({ pedido_id: "x", para: "conferido" }, "encerramento"), titulo: "PED-0170: encerrar sem esperar o resto" }} />
+      </ProvedorCasca>,
+    );
+    expect(screen.getByRole("button", { name: "Aprovar encerramento" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    expect(screen.queryByRole("menuitem", { name: "Ajustar e aprovar…" })).toBeNull();
   });
 });

@@ -651,6 +651,7 @@ const AJUSTAVEIS: Record<Proposta["tipo"], string[]> = {
   criar_pedido: ["quantidade", "fornecedor", "valor", "previsao"],
   avancar_pedido: ["quantidade_recebida", "nf"],
   ajuste_estoque: ["quantidade", "motivo"],
+  registrar_entrega: ["linhas", "nf_numero", "nf_data", "nf_valor", "confirmar_excesso"],
 };
 
 function descreverAjuste(antes: Record<string, unknown>, depois: Record<string, unknown>, un: string) {

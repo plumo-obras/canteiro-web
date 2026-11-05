@@ -32,13 +32,18 @@ const NOME_CAMPO: Record<string, string> = {
   fornecedor: "fornecedor",
   previsao: "previsão",
   nf: "NF",
+  nf_numero: "NF",
+  nf_data: "data da NF",
+  nf_valor: "valor da NF",
   motivo: "motivo",
 };
+
+const DINHEIRO = new Set(["valor", "nf_valor"]);
 
 /** "quantidade 34 → 30 · valor R$ 1.326,00 → R$ 1.170,00": o que mudou entre o que o agente propôs e o que foi feito. */
 export function descreverAjuste(p: Proposta) {
   const antes = p.dados_originais ?? {};
-  const fmt = (k: string, v: unknown) => (v == null || v === "" ? "—" : typeof v === "number" ? (k === "valor" ? fmtReais(v) : fmtQtd(v)) : String(v));
+  const fmt = (k: string, v: unknown) => (v == null || v === "" ? "—" : typeof v === "number" ? (DINHEIRO.has(k) ? fmtReais(v) : fmtQtd(v)) : String(v));
   return Object.keys(NOME_CAMPO)
     .filter((k) => k in p.dados && antes[k] !== p.dados[k])
     .map((k) => `${NOME_CAMPO[k]} ${fmt(k, antes[k])} → ${fmt(k, p.dados[k])}`)
@@ -47,16 +52,57 @@ export function descreverAjuste(p: Proposta) {
 
 const valorDe = (p: Proposta) => (p.tipo === "criar_pedido" && typeof p.dados.valor === "number" ? p.dados.valor : null);
 
-/** A API só ajusta conferência (quanto chegou, NF); os outros avanços de pedido não têm o que mudar. */
-const podeAjustar = (p: Proposta) => p.tipo !== "avancar_pedido" || p.dados.para === "conferido";
+/**
+ * O que aprovar faz. A API manda `efeito` desde que "conferido" passou a ter dois sentidos à vista de quem aprova: num
+ * pedido parcial ele ENCERRA o resto sem entrada (o teste com o agente mostrou "Aprovar entrada" num encerramento).
+ * Proposta antiga, sem o campo: só é entrada se trouxer quantidade ou NF; sem eles não dá para saber, e o botão não
+ * promete o que não sabe.
+ */
+export function efeitoDe(p: Proposta): string | null {
+  if (p.efeito) return p.efeito;
+  if (p.tipo === "registrar_entrega") return "entrada";
+  if (p.tipo === "criar_pedido") return "compra";
+  if (p.tipo === "ajuste_estoque") return "ajuste";
+  if (p.tipo === "avancar_pedido" && p.dados.para === "conferido") return p.dados.quantidade_recebida != null || p.dados.nf ? "entrada" : null;
+  if (p.tipo === "avancar_pedido" && p.dados.para === "cancelado") return "cancelamento";
+  return null;
+}
+
+/**
+ * A API ajusta a conferência que dá entrada (quanto chegou, NF); encerramento e os outros avanços não têm o que mudar.
+ * A entrega proposta (linhas e NF) ainda não tem formulário de ajuste: aprova ou recusa.
+ */
+const podeAjustar = (p: Proposta) =>
+  p.tipo === "criar_pedido" || p.tipo === "ajuste_estoque" || (p.tipo === "avancar_pedido" && p.dados.para === "conferido" && efeitoDe(p) !== "encerramento");
 
 /** Botão nomeado pela consequência, como no protótipo ("Aprovar R$ 1.326,00"), nunca um "OK" genérico. */
-function rotuloAprovar(p: Proposta) {
+export function rotuloAprovar(p: Proposta) {
   const v = valorDe(p);
   if (v !== null) return `Aprovar ${fmtReais(v)}`;
-  if (p.tipo === "avancar_pedido" && p.dados.para === "conferido") return "Aprovar entrada";
-  if (p.tipo === "ajuste_estoque") return "Aprovar ajuste";
-  return "Aprovar";
+  switch (efeitoDe(p)) {
+    case "entrada":
+      return "Aprovar entrada";
+    case "encerramento":
+      return "Aprovar encerramento";
+    case "cancelamento":
+      return "Aprovar cancelamento";
+    case "ajuste":
+      return "Aprovar ajuste";
+    default:
+      return "Aprovar";
+  }
+}
+
+/** "NF 4410 · 05/11/2026 · R$ 910,00": a nota da entrega proposta, para conferir com o papel antes de aprovar. */
+export function notaDaEntrega(p: Proposta): string | null {
+  if (p.tipo !== "registrar_entrega") return null;
+  const d = p.dados;
+  const partes = [
+    typeof d.nf_numero === "string" && d.nf_numero ? `NF ${d.nf_numero}` : null,
+    typeof d.nf_data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.nf_data) ? d.nf_data.split("-").reverse().join("/") : null,
+    typeof d.nf_valor === "number" ? fmtReais(d.nf_valor) : null,
+  ].filter(Boolean);
+  return partes.length ? partes.join(" · ") : "Sem nota fiscal informada";
 }
 
 export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco?: boolean; obraNome?: string }) {
@@ -171,6 +217,7 @@ export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco
         <div className="ld-tit">{p.titulo}</div>
         {p.justificativa ? <div className="ld-just">{p.justificativa}</div> : null}
         {p.conta ? <div className="ld-conta">{p.conta}</div> : null}
+        {notaDaEntrega(p) ? <div className="ld-just">{notaDaEntrega(p)}</div> : null}
         {p.ajustada && p.dados_originais ? <div className="ld-ajuste">Ajustado na aprovação: {descreverAjuste(p)}</div> : null}
         {p.fonte ? (
           <div className="ld-fonte">
