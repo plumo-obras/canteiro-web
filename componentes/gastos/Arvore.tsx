@@ -3,7 +3,7 @@
  * Etapas e tópicos onde os gastos da obra entram. As etapas fixas são iguais em toda obra (não se renomeiam nem se
  * apagam); a obra cria as extras e os tópicos dentro de qualquer etapa. Apagar é arquivar: o gasto antigo continua lá.
  */
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { EtapaNaArvore, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { mensagemDe, useCasca } from "../contexto";
@@ -106,6 +106,7 @@ function ModalNome({ obra, editando, fechar }: { obra: Obra; editando: Editando;
   const [nome, setNome] = useState(inicial);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const idNome = useId();
   const titulo =
     editando.k === "etapa"
       ? "Nova etapa desta obra"
@@ -155,10 +156,10 @@ function ModalNome({ obra, editando, fechar }: { obra: Obra; editando: Editando;
       }
     >
       <form onSubmit={salvar}>
-        <label className="l" htmlFor="nome-arvore">
+        <label className="l" htmlFor={idNome}>
           Nome
         </label>
-        <input id="nome-arvore" className="f" maxLength={60} autoFocus value={nome} onChange={(e) => setNome(e.target.value)} aria-invalid={!!erro} />
+        <input id={idNome} className="f" maxLength={60} autoFocus value={nome} onChange={(e) => setNome(e.target.value)} aria-invalid={!!erro} />
         {erro ? (
           <div className="campo-erro" role="alert">
             {erro}

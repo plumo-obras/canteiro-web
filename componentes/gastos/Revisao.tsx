@@ -16,6 +16,15 @@ import s from "./gastos.module.css";
 
 const PAGOS = ["aprovado", "enviado", "em_transito", "recebido", "parcial", "conferido"] as const;
 
+const CAMPO_DA_PROPRIA = {
+  valor: "valor",
+  data: "data",
+  favorecido: "favorecido",
+  descricao: "descricao",
+  etapa: "etapa",
+  topico: "etapa",
+} as const satisfies Record<keyof Escolhas["propria"], keyof Escolhas>;
+
 const SELO: Record<EstadoCampo, { texto: string; classe: string; icone?: "check" | "alert" }> = {
   lido: { texto: "Lido", classe: "ok", icone: "check" },
   conferir: { texto: "Confira", classe: "warn", icone: "alert" },
@@ -42,6 +51,8 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
   const [ocupado, setOcupado] = useState<"confirmar" | "ler" | "descartar" | null>(null);
   const [erroApi, setErroApi] = useState<string | null>(null);
   const [descartando, setDescartando] = useState(false);
+  const [confirmarLer, setConfirmarLer] = useState(false);
+  const idMotivo = useId();
   const [motivo, setMotivo] = useState("");
   const hoje = hojeNaObra();
 
@@ -67,7 +78,13 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
   const revisavel = !!c && c.status === "a_revisar";
 
   const mudar = (patch: Partial<Escolhas>) => setEsc((e) => (e ? { ...e, ...patch } : e));
-  const proprio = (k: keyof Escolhas["propria"], v: string) => setEsc((e) => (e ? { ...e, propria: { ...e.propria, [k]: v } } : e));
+  // digitar (ou escolher na lista) a resposta própria já a marca: ninguém digita e esquece de marcar
+  const proprio = (k: keyof Escolhas["propria"], v: string) =>
+    setEsc((e) => {
+      if (!e) return e;
+      const campo = CAMPO_DA_PROPRIA[k];
+      return { ...e, propria: { ...e.propria, [k]: v }, ...(v ? { [campo]: "propria" as const } : {}) };
+    });
 
   const confirmar = async () => {
     if (!corpo) return;
@@ -84,7 +101,12 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
     }
   };
 
+  // ler de novo troca as opções: o que a pessoa já escolheu ou digitou se perderia sem aviso
+  const mexeu = !!c && !!esc && JSON.stringify(esc) !== JSON.stringify(escolhasIniciais(c.revisao));
+  const pedirLerDeNovo = () => (mexeu ? setConfirmarLer(true) : lerDeNovo());
+
   const lerDeNovo = async () => {
+    setConfirmarLer(false);
     setOcupado("ler");
     setErroApi(null);
     try {
@@ -134,12 +156,23 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
         Descartar comprovante
       </button>
     </>
+  ) : confirmarLer ? (
+    <>
+      <span className="mut sm">Ler de novo troca o que você já escolheu ou digitou.</span>
+      <button type="button" className="btn" onClick={() => setConfirmarLer(false)}>
+        Cancelar
+      </button>
+      <button type="button" className="btn" onClick={lerDeNovo}>
+        <Icone nome="spark" tam={14} />
+        Ler mesmo assim
+      </button>
+    </>
   ) : (
     <>
       <button type="button" className="btn" disabled={!!ocupado} onClick={() => setDescartando(true)}>
         Não é gasto
       </button>
-      <button type="button" className="btn" disabled={!!ocupado} aria-busy={ocupado === "ler"} onClick={lerDeNovo}>
+      <button type="button" className="btn" disabled={!!ocupado} aria-busy={ocupado === "ler"} onClick={pedirLerDeNovo}>
         {ocupado === "ler" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="spark" tam={14} />}
         {ocupado === "ler" ? "Lendo…" : "Ler de novo"}
       </button>
@@ -258,11 +291,11 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
             ) : null}
             {descartando ? (
               <div className="campo">
-                <label className="l" htmlFor="motivo-descarte">
+                <label className="l" htmlFor={idMotivo}>
                   Por que não é gasto da obra? (opcional)
                 </label>
                 <input
-                  id="motivo-descarte"
+                  id={idMotivo}
                   className="f"
                   maxLength={200}
                   placeholder="Ex.: foto repetida, gasto pessoal"
@@ -328,17 +361,12 @@ function CampoOpcoes(p: {
 }
 
 /**
- * A resposta própria: um cartão igual aos das opções, com o campo dentro. Focar ou digitar já a escolhe, para ninguém
- * digitar e esquecer de marcar.
+ * A resposta própria: um cartão igual aos das opções, com o campo dentro. Clicar no cartão (ou digitar no campo, ver
+ * `proprio`) a escolhe. Só passar pelo campo com Tab não troca nada: navegar pelo teclado não desmarca a opção da IA.
  */
 function Propria(p: { nome: string; escolhida: boolean; escolher: () => void; sozinha: boolean; children: ReactNode }) {
   return (
-    <div
-      className={`${s.opc} ${s.propria}${p.escolhida ? ` ${s.on}` : ""}`}
-      onFocusCapture={(e) => {
-        if ((e.target as HTMLElement).tagName !== "INPUT" || (e.target as HTMLInputElement).type !== "radio") p.escolher();
-      }}
-    >
+    <div className={`${s.opc} ${s.propria}${p.escolhida ? ` ${s.on}` : ""}`} onClick={p.escolher}>
       {p.sozinha ? null : <input type="radio" name={p.nome} checked={p.escolhida} onChange={p.escolher} aria-label="Outra resposta" />}
       <span className={s.opcTexto}>
         {p.sozinha ? null : <span className={s.opcValor}>Outro</span>}

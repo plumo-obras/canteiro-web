@@ -14,6 +14,10 @@ export const telaDe = (t: string | null): Tela | undefined =>
   t === "almoxarifado" || t === "pedidos" ? "suprimentos" : TELAS_VALIDAS.find((x) => x === t);
 export type AbaAtiva = "conversa" | Tela;
 
+/** Telas que só existem com a API de verdade: a demonstração (dados em memória) não tem as rotas delas. */
+const SO_COM_API: ReadonlySet<Tela> = new Set(["gastos"]);
+export const telaNoModo = <T extends AbaAtiva>(t: T, demo: boolean): boolean => !demo || !SO_COM_API.has(t as Tela);
+
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";
 
 export interface Sessao {

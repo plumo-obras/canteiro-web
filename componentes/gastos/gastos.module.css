@@ -16,7 +16,7 @@
 .arvoreEtapa { padding: 12px 20px; border-top: 1px solid var(--line2); }
 .arvoreEtapa:first-child { border-top: 0; }
 .arvoreLinha { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.arvoreAcoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: none; }
+.arvoreAcoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; min-width: 0; }
 .topicos { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
 .topico { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--rp); background: var(--sunk); }
 .topicoNome { border: 0; background: none; padding: 3px 4px 3px 12px; font: inherit; font-size: var(--t-meta); color: var(--ink2); cursor: pointer; }
@@ -75,4 +75,6 @@ span.topicoNome { cursor: default; padding-right: 12px; }
   .pdf { height: 50vh; }
   .duasCols { grid-template-columns: 1fr; }
   .arvoreTopo { flex-direction: column; }
+  .arvoreLinha { flex-direction: column; }
+  .arvoreAcoes { justify-content: flex-start; }
 }
