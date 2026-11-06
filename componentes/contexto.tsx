@@ -189,7 +189,7 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) soltarAviso();
             }}
           >
-            <span>{aviso.texto}</span>
+            <span className="toast-texto">{aviso.texto}</span>
             {aviso.acao ? <BotaoAviso acao={aviso.acao} fechar={() => setAviso(null)} /> : null}
           </div>
         )}

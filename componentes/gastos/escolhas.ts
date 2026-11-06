@@ -174,6 +174,18 @@ export function codigoDaEtapa(e: Pick<EtapaNaArvore, "chave" | "codigo" | "orige
 }
 
 /** "18 · INSTALAÇÃO ELÉTRICA - 220V" na etapa do orçamento; o nome sozinho na padrão. */
+/**
+ * O nome sem o código na frente: a descrição da planilha às vezes já começa pelo número ("3 FUNDAÇÕES"), e a árvore,
+ * que mostra o código à parte, o repetiria ("3 3 FUNDAÇÕES").
+ */
+export function nomeSemCodigo(e: Pick<EtapaNaArvore, "chave" | "codigo" | "origem" | "nome">): string {
+  const c = codigoDaEtapa(e);
+  if (!c || !e.nome.startsWith(c)) return e.nome;
+  const resto = e.nome.slice(c.length);
+  // só tira se o código for uma palavra inteira: "1 SERVIÇOS" sim, "10 X" com código "1" não
+  return /^[\s.·–-]/.test(resto) ? resto.replace(/^[\s.·–-]+/, "") || e.nome : e.nome;
+}
+
 export function nomeComCodigo(e: Pick<EtapaNaArvore, "chave" | "codigo" | "origem" | "nome">): string {
   const c = codigoDaEtapa(e);
   return c && !e.nome.startsWith(c) ? `${c} · ${e.nome}` : e.nome;

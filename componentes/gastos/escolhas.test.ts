@@ -102,7 +102,7 @@ describe("formatos", () => {
   });
 });
 
-import { arquivadosDoResumo, foraDoOrcamento, lidoNaFila, nomeComCodigo, origemDaArvore } from "./escolhas";
+import { arquivadosDoResumo, foraDoOrcamento, lidoNaFila, nomeComCodigo, nomeSemCodigo, origemDaArvore } from "./escolhas";
 import { normalizarArvore } from "@/lib/cliente";
 
 describe("o que a IA leu, na fila", () => {
@@ -136,6 +136,12 @@ describe("árvore da opção 2 (etapas do orçamento)", () => {
   it("código + descrição só na etapa do orçamento", () => {
     expect(nomeComCodigo({ chave: "18", nome: "INSTALAÇÃO ELÉTRICA - 220V", origem: "orcamento" })).toBe("18 · INSTALAÇÃO ELÉTRICA - 220V");
     expect(nomeComCodigo({ chave: "x", codigo: "3.1", nome: "Sapatas", origem: "orcamento" })).toBe("3.1 · Sapatas");
+    // a árvore mostra o código à parte: a descrição que já começa por ele não o repete ("3 3 FUNDAÇÕES")
+    expect(nomeSemCodigo({ chave: "3", nome: "3 FUNDAÇÕES", origem: "orcamento" })).toBe("FUNDAÇÕES");
+    expect(nomeSemCodigo({ chave: "18.2", nome: "18.2 - Quadro", origem: "orcamento" })).toBe("Quadro");
+    expect(nomeSemCodigo({ chave: "1", nome: "10 PINTURA", origem: "orcamento" })).toBe("10 PINTURA");
+    expect(nomeSemCodigo({ chave: "3", nome: "FUNDAÇÕES", origem: "orcamento" })).toBe("FUNDAÇÕES");
+    expect(nomeSemCodigo({ chave: "eletrica", nome: "Instalações elétricas" })).toBe("Instalações elétricas");
     expect(nomeComCodigo({ chave: "eletrica", nome: "Instalações elétricas" })).toBe("Instalações elétricas");
     expect(nomeComCodigo({ chave: "x-e1", nome: "Piscina", origem: "orcamento" })).toBe("Piscina");
   });

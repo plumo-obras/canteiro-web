@@ -10,7 +10,7 @@ import { api } from "@/lib/cliente";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { arquivadosDoResumo, codigoDaEtapa, origemDaArvore, type Arquivado } from "./escolhas";
+import { arquivadosDoResumo, codigoDaEtapa, nomeSemCodigo, origemDaArvore, type Arquivado } from "./escolhas";
 import s from "./gastos.module.css";
 
 type Editando =
@@ -77,7 +77,7 @@ export function Arvore({ obra, arvore, resumo }: { obra: Obra; arvore: EtapaNaAr
             <div className={s.arvoreLinha}>
               <div>
                 {codigoDaEtapa(e) ? <span className={s.codigo}>{codigoDaEtapa(e)}</span> : null}
-                <strong>{e.nome}</strong> {e.fixa ? null : <span className="pill info">desta obra</span>}
+                <strong>{nomeSemCodigo(e)}</strong> {e.fixa ? null : <span className="pill info">desta obra</span>}
                 {e.inclui ? <div className="mut sm">{e.inclui}</div> : null}
               </div>
               {podeOperar ? (
