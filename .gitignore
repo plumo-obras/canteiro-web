@@ -6,7 +6,9 @@ next-env.d.ts
 .vercel
 .env*
 .DS_Store
-.claude/
+# .claude/ é local (settings, worktrees), menos as skills, que são do repositório
+.claude/*
+!.claude/skills/
 pesquisa/
 # Impeccable: página de decisão local
 .impeccable/questions/
