@@ -29,8 +29,8 @@ export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore
       const r = await api.mudarEtapaGasto(gasto.id, etapa);
       const no = arvore.find((e) => e.chave === etapa);
       mudou();
-      // a etapa logo no começo: no celular o aviso corta em 2 linhas, e o que importa é para onde o gasto foi
-      avisarFeito(`${fmtReais(gasto.valor)} agora em ${no ? nomeComCodigo(no) : etapa}.`, r.registro_id);
+      // a etapa na 2ª linha: no celular o aviso tem 2 linhas e cortava o nome dela (rodada 7 do teste)
+      avisarFeito(`${fmtReais(gasto.valor)} agora em\n${no ? nomeComCodigo(no) : etapa}.`, r.registro_id);
       fechar();
     } catch (e) {
       setErro(mensagemDe(e));
