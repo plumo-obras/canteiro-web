@@ -2,39 +2,62 @@
 /**
  * Modal × drawer, como no protótipo: o modal GRAVA (clicar fora não fecha, para não perder o que foi digitado) e o
  * drawer CONSULTA (clicar fora fecha). Os dois: role=dialog, X, Esc, foco preso enquanto abertos e devolvido ao fechar.
+ * A ordem do Tab é a de `foco.ts` (todo navegador para nos mesmos lugares, inclusive o Safari).
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icone } from "./Icone";
+import { paradasDoTab, proximaParada, setaNoRadio, temParadasInternas } from "./foco";
 
-const FOCAVEIS = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+// Diálogos abertos, o mais novo por último: só ele responde ao teclado (um Confirmar aberto sobre um Modal não pode
+// ver o Tab e o Esc tratados duas vezes).
+const pilha: HTMLElement[] = [];
 
 function useFocoPreso(caixa: React.RefObject<HTMLElement | null>, fechar: () => void, focoInicial?: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const antes = document.activeElement as HTMLElement | null;
-    (focoInicial?.current ?? caixa.current)?.focus({ preventScroll: true });
+    const eu = caixa.current;
+    if (eu) pilha.push(eu);
+    (focoInicial?.current ?? eu)?.focus({ preventScroll: true });
+    let conferir: ReturnType<typeof setTimeout> | undefined;
+    let teclas = 0;
     const tecla = (e: KeyboardEvent) => {
+      if (!eu || pilha[pilha.length - 1] !== eu) return;
+      const estaTecla = ++teclas;
       if (e.key === "Escape") {
         e.preventDefault();
         fechar();
         return;
       }
-      if (e.key !== "Tab" || !caixa.current) return;
-      const fs = [...caixa.current.querySelectorAll<HTMLElement>(FOCAVEIS)];
-      if (!fs.length) return;
-      const primeiro = fs[0]!;
-      const ultimo = fs[fs.length - 1]!;
-      if (e.shiftKey && (document.activeElement === primeiro || document.activeElement === caixa.current)) {
-        e.preventDefault();
-        ultimo.focus();
-      } else if (!e.shiftKey && document.activeElement === ultimo) {
-        e.preventDefault();
-        primeiro.focus();
+      if (e.key.startsWith("Arrow") && eu.contains(e.target as Node)) {
+        setaNoRadio(e);
+        return;
       }
+      if (e.key !== "Tab") return;
+      const ativo = document.activeElement;
+      const esperado = proximaParada(paradasDoTab(eu), ativo === eu ? null : ativo, e.shiftKey);
+      if (!esperado) return;
+      if (temParadasInternas(ativo) && eu.contains(ativo)) {
+        // dia → mês → ano é do navegador; quando o foco sai do campo, confere se caiu onde devia (o Safari pularia os
+        // botões e os rádios que vêm depois)
+        clearTimeout(conferir);
+        conferir = setTimeout(() => {
+          // outra tecla veio antes desta conferência (página ocupada): a decisão já é dela
+          if (teclas !== estaTecla) return;
+          const agora = document.activeElement;
+          if (agora !== ativo && agora !== esperado) esperado.focus();
+        }, 0);
+        return;
+      }
+      e.preventDefault();
+      esperado.focus();
     };
     document.addEventListener("keydown", tecla);
     return () => {
+      clearTimeout(conferir);
       document.removeEventListener("keydown", tecla);
+      const i = eu ? pilha.lastIndexOf(eu) : -1;
+      if (i >= 0) pilha.splice(i, 1);
       if (antes && document.contains(antes)) antes.focus({ preventScroll: true });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só na abertura: rodar de novo (o fechar do chamador muda a cada render) roubaria o foco do campo em que se digita e perderia quem abriu o diálogo

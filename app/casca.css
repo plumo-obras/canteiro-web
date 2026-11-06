@@ -75,6 +75,14 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .pilula:focus-visible{outline-offset:-2px}
 .topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
 .topo-nav + .topo-dir{margin-left:0}
+/* não coube: menos espaço entre as pílulas e seletor mais estreito (medido em Casca.tsx, classe "aperto") */
+.topo.aperto{gap:6px}
+.topo.aperto .pilula{padding:0 9px}
+.topo.aperto .seletor-bt{max-width:180px}
+/* nem assim: esmaece a borda do lado que tem mais, para ficar claro que a barra rola (data-rola, também medido lá) */
+.topo-nav[data-rola=dir]{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent)}
+.topo-nav[data-rola=esq]{-webkit-mask-image:linear-gradient(90deg,transparent,#000 32px);mask-image:linear-gradient(90deg,transparent,#000 32px)}
+.topo-nav[data-rola=ambos]{-webkit-mask-image:linear-gradient(90deg,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
 .av-bt{width:44px;height:44px;padding:0;border:0;border-radius:50%;background:none;display:grid;place-items:center}
 .av-bt .av{width:36px;height:36px;font-size:13px}
 .perfil{position:relative}
@@ -154,8 +162,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .topo{flex-wrap:wrap;gap:6px;padding:6px}
   .topo-marca .logo{width:32px;height:32px}
   .topo-marca{min-height:42px;min-width:42px;justify-content:center}
-  /* as pílulas rolam: o esmaecido na borda diz que tem mais tela para o lado */
-  .topo-nav{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  /* as pílulas rolam: o esmaecido na borda (data-rola, regras acima) diz que tem mais tela para o lado */
   .topo-marca-t,.topo-marca .tag{display:none}
   .seletor{flex:1;position:static}
   /* no celular o menu da obra ocupa a largura da barra (ancorado nela, não no botão), senão sai pela direita */

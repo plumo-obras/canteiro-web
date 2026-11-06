@@ -8,6 +8,8 @@
 @media (min-width:960px){
   .grade{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
   .creditos{grid-column:1/-1}
+  .perfil,.senha{grid-column:1}
+  .chave{grid-column:2;grid-row:1/span 2;align-self:start}
 }
 .bloco{min-width:0;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);padding:22px 24px;box-shadow:var(--hl),var(--shadow)}
 .h2{font-size:var(--t-sec);margin:0 0 14px}
@@ -98,3 +100,18 @@
 .como{margin-top:14px;font-size:var(--t-meta)}
 .como summary{cursor:pointer;color:var(--ink2);font-weight:500;min-height:32px;display:flex;align-items:center}
 .como p{margin:6px 0 0}
+
+/* senha */
+.formSenha{display:flex;flex-direction:column;gap:6px;max-width:420px}
+.campoSenha{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.entrada{min-height:44px;font-size:16px;width:100%}
+.verSenhas{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:2px;padding:0;border:0;background:none;
+  color:var(--ink2);font:500 var(--t-meta) var(--sans);cursor:pointer}
+.verSenhas:hover{color:var(--ink)}
+.verSenhas:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.acoesSenha{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.acoesSenha :global(.btn){min-height:44px}
+@media (max-width:640px){
+  .formSenha{max-width:none}
+  .acoesSenha :global(.btn){flex:1 1 100%}
+}

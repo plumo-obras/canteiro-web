@@ -190,6 +190,96 @@ describe("POST /srv/auth/* — repasse para a API", () => {
   });
 });
 
+describe("POST /srv/auth/senha — troca de senha", () => {
+  const TROCA = { senha_atual: "velha-123", senha_nova: "nova-senha-456" };
+  const comAcesso = { "x-canteiro": "1", authorization: "Bearer acesso-1" };
+
+  it("sem o header x-canteiro: 403 sem chamar a API", async () => {
+    const rede = criarRede({});
+    const r = await chamar("senha", TROCA, { authorization: "Bearer acesso-1" });
+    expect(r.status).toBe(403);
+    expect(rede.fetch).not.toHaveBeenCalled();
+  });
+
+  it("origem de outro site: 403", async () => {
+    const rede = criarRede({});
+    const r = await chamar("senha", TROCA, { ...comAcesso, host: "localhost:3000", origin: "https://mal.example" });
+    expect(r.status).toBe(403);
+    expect(rede.fetch).not.toHaveBeenCalled();
+  });
+
+  it("repassa o Bearer e o corpo; no 200 grava a renovação nova com as flags do entrar e devolve só o acesso", async () => {
+    pote.valores.set(COOKIE, "r-velha");
+    const rede = criarRede({ "POST /auth/senha": () => json({ ...RESPOSTA_ENTRAR, renovacao: "r-nova" }) });
+    const r = await chamar("senha", TROCA, comAcesso);
+    expect(r.status).toBe(200);
+    const h = new Headers(rede.chamadas[0]!.init.headers);
+    expect(h.get("authorization")).toBe("Bearer acesso-1");
+    expect(rede.chamadas[0]!.corpo).toEqual(TROCA);
+    const corpo = (await r.json()) as Record<string, unknown>;
+    expect(corpo).toMatchObject({ acesso: "acesso-1", usuario: USUARIO });
+    expect(corpo).toHaveProperty("expira_em");
+    expect(JSON.stringify(corpo)).not.toContain("r-nova");
+    expect(pote.valores.get(COOKIE)).toBe("r-nova");
+    expect(pote.set.mock.calls[0]![2]).toMatchObject({ httpOnly: true, sameSite: "strict", path: "/srv/auth" });
+  });
+
+  it.each([
+    [401, "Senha atual incorreta."],
+    [422, "A nova senha precisa ser diferente da atual."],
+    [429, "Muitas tentativas com a senha errada. Espere alguns minutos e tente de novo."],
+  ])("recusa da API (%i): repassa a mensagem e o cookie FICA", async (status, detail) => {
+    pote.valores.set(COOKIE, "r-1");
+    criarRede({ "POST /auth/senha": () => json({ detail }, status) });
+    const r = await chamar("senha", TROCA, comAcesso);
+    expect(r.status).toBe(status);
+    expect(await r.json()).toEqual({ detail });
+    expect(pote.delete).not.toHaveBeenCalled();
+    expect(pote.set).not.toHaveBeenCalled();
+    expect(pote.valores.get(COOKIE)).toBe("r-1");
+  });
+
+  it("401 do acesso vencido (com WWW-Authenticate) vem marcado como sessão expirada, e o cookie fica", async () => {
+    pote.valores.set(COOKIE, "r-1");
+    criarRede({
+      "POST /auth/senha": () =>
+        new Response(JSON.stringify({ detail: "Sessão expirada ou inválida. Entre de novo." }), {
+          status: 401,
+          headers: { "content-type": "application/json", "www-authenticate": "Bearer" },
+        }),
+    });
+    const r = await chamar("senha", TROCA, comAcesso);
+    expect(r.status).toBe(401);
+    expect(await r.json()).toEqual({ detail: "Sessão expirada ou inválida. Entre de novo.", sessao_expirada: true });
+    expect(pote.valores.get(COOKIE)).toBe("r-1");
+  });
+
+  it("sem Authorization: 401 de sessão expirada sem chamar a API", async () => {
+    const rede = criarRede({});
+    const r = await chamar("senha", TROCA);
+    expect(r.status).toBe(401);
+    expect(await r.json()).toMatchObject({ sessao_expirada: true });
+    expect(rede.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([500, 502])("API em erro (%i): 503 e o cookie FICA", async (status) => {
+    pote.valores.set(COOKIE, "r-1");
+    criarRede({ "POST /auth/senha": () => json({ detail: "Internal Server Error" }, status) });
+    const r = await chamar("senha", TROCA, comAcesso);
+    expect(r.status).toBe(503);
+    expect(pote.delete).not.toHaveBeenCalled();
+    expect(pote.valores.get(COOKIE)).toBe("r-1");
+  });
+
+  it("rede caindo: 503 e o cookie FICA", async () => {
+    pote.valores.set(COOKIE, "r-1");
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("fetch failed"))));
+    const r = await chamar("senha", TROCA, comAcesso);
+    expect(r.status).toBe(503);
+    expect(pote.valores.get(COOKIE)).toBe("r-1");
+  });
+});
+
 describe("POST /srv/auth/* — modo de demonstração", () => {
   beforeEach(() => vi.stubEnv("CANTEIRO_DEMO", "1"));
 
@@ -213,6 +303,21 @@ describe("POST /srv/auth/* — modo de demonstração", () => {
     criarRede({});
     expect((await chamar("entrar", { email: "eu@obra.com", senha: "" })).status).toBe(401);
     expect(pote.set).not.toHaveBeenCalled();
+  });
+
+  it("trocar senha: responde sucesso com par novo, sem tocar a rede; regras iguais às da API", async () => {
+    const rede = criarRede({});
+    const entrou = (await (await chamar("entrar", { email: "eu@obra.com", senha: "x" })).json()) as { acesso: string };
+    const h = { "x-canteiro": "1", authorization: `Bearer ${entrou.acesso}` };
+    const curta = await chamar("senha", { senha_atual: "x", senha_nova: "curta" }, h);
+    expect(curta.status).toBe(422);
+    expect(await curta.json()).toEqual({ detail: "A nova senha precisa ter de 8 a 256 caracteres." });
+    const antes = pote.valores.get(COOKIE);
+    const r = await chamar("senha", { senha_atual: "x", senha_nova: "uma-senha-nova" }, h);
+    expect(r.status).toBe(200);
+    expect(pote.valores.get(COOKIE)).not.toBe(antes);
+    expect((await chamar("senha", { senha_atual: "x", senha_nova: "uma-senha-nova" }, { "x-canteiro": "1" })).status).toBe(401);
+    expect(rede.fetch).not.toHaveBeenCalled();
   });
 
   it("renovação desconhecida: apaga o cookie e responde 401", async () => {

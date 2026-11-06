@@ -11,7 +11,7 @@ import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { corpoConfirmar, escolhasIniciais, hojeNaObra, pendencias, type Escolha, type Escolhas } from "./escolhas";
+import { corpoConfirmar, escolhasIniciais, hojeNaObra, nomeComCodigo, pendencias, type Escolha, type Escolhas } from "./escolhas";
 import s from "./gastos.module.css";
 
 const PAGOS = ["aprovado", "enviado", "em_transito", "recebido", "parcial", "conferido"] as const;
@@ -427,7 +427,7 @@ function CampoEtapa(p: {
             <option value="">Escolha a etapa…</option>
             {p.arvore.map((e) => (
               <option key={e.chave} value={e.chave}>
-                {e.nome}
+                {nomeComCodigo(e)}
               </option>
             ))}
           </select>

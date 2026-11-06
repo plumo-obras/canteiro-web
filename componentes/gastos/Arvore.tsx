@@ -1,14 +1,16 @@
 "use client";
 /**
- * Etapas e tópicos onde os gastos da obra entram. As etapas fixas são iguais em toda obra (não se renomeiam nem se
- * apagam); a obra cria as extras e os tópicos dentro de qualquer etapa. Apagar é arquivar: o gasto antigo continua lá.
+ * Etapas e tópicos onde os gastos da obra entram. Com orçamento, as etapas são as dele (código e descrição); sem, as
+ * etapas padrão, iguais em toda obra. Nenhuma das duas se renomeia nem se apaga; a obra cria as extras e os tópicos
+ * dentro de qualquer etapa. Apagar é arquivar: o gasto antigo continua lá, e "Mostrar arquivados" traz de volta.
  */
 import { useId, useState } from "react";
-import type { EtapaNaArvore, Obra } from "@/lib/contrato";
+import type { EtapaNaArvore, Obra, ResumoGastos } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
+import { arquivadosDoResumo, codigoDaEtapa, origemDaArvore, type Arquivado } from "./escolhas";
 import s from "./gastos.module.css";
 
 type Editando =
@@ -17,9 +19,26 @@ type Editando =
   | { k: "renomearEtapa"; etapa: EtapaNaArvore }
   | { k: "renomearTopico"; id: string; nome: string };
 
-export function Arvore({ obra, arvore }: { obra: Obra; arvore: EtapaNaArvore[] }) {
+export function Arvore({ obra, arvore, resumo }: { obra: Obra; arvore: EtapaNaArvore[]; resumo: ResumoGastos | null }) {
   const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
   const [editando, setEditando] = useState<Editando | null>(null);
+  const [verArquivados, setVerArquivados] = useState(false);
+  const [reativando, setReativando] = useState<string | null>(null);
+  const origem = origemDaArvore(arvore);
+  const arquivados = arquivadosDoResumo(arvore, resumo);
+
+  const reativar = async (a: Arquivado) => {
+    setReativando(a.id);
+    try {
+      const r = a.tipo === "etapa" ? await api.editarEtapaExtra(a.id, { arquivado: false }) : await api.editarTopico(a.id, { arquivado: false });
+      mudou();
+      avisarFeito(`${a.nome} reativado.`, r.registro_id);
+    } catch (e) {
+      avisar(mensagemDe(e), true);
+    } finally {
+      setReativando(null);
+    }
+  };
 
   const arquivar = async (tipo: "etapa" | "topico", id: string, nome: string) => {
     try {
@@ -34,10 +53,17 @@ export function Arvore({ obra, arvore }: { obra: Obra; arvore: EtapaNaArvore[] }
   return (
     <>
       <div className={s.arvoreTopo}>
-        <p className="mut sm">
-          As etapas fixas são iguais em toda obra. Crie tópicos dentro delas (ex.: “Bloco B”, “Mão de obra”) e etapas extras para o que for
-          só desta obra.
-        </p>
+        <div>
+          {origem === "padrao" ? (
+            <p className={s.nota}>
+              <Icone nome="alert" tam={13} /> Obra sem orçamento: etapas padrão.
+            </p>
+          ) : null}
+          <p className="mut sm">
+            {origem === "orcamento" ? "As etapas são as do orçamento da obra." : "As etapas padrão são iguais em toda obra."} Crie tópicos
+            dentro delas (ex.: “Bloco B”, “Mão de obra”) e etapas extras para o que for só desta obra.
+          </p>
+        </div>
         {podeOperar ? (
           <button type="button" className="btn sm" onClick={() => setEditando({ k: "etapa" })}>
             <Icone nome="plus" tam={14} />
@@ -50,6 +76,7 @@ export function Arvore({ obra, arvore }: { obra: Obra; arvore: EtapaNaArvore[] }
           <li key={e.chave} className={s.arvoreEtapa}>
             <div className={s.arvoreLinha}>
               <div>
+                {codigoDaEtapa(e) ? <span className={s.codigo}>{codigoDaEtapa(e)}</span> : null}
                 <strong>{e.nome}</strong> {e.fixa ? null : <span className="pill info">desta obra</span>}
                 {e.inclui ? <div className="mut sm">{e.inclui}</div> : null}
               </div>
@@ -95,6 +122,39 @@ export function Arvore({ obra, arvore }: { obra: Obra; arvore: EtapaNaArvore[] }
           </li>
         ))}
       </ul>
+      <div className={s.arquivadosTopo}>
+        <label className={s.alternar}>
+          <input type="checkbox" checked={verArquivados} onChange={(e) => setVerArquivados(e.target.checked)} />
+          Mostrar arquivados{arquivados.length ? ` (${arquivados.length})` : ""}
+        </label>
+      </div>
+      {verArquivados ? (
+        arquivados.length ? (
+          <ul className={`card lista ${s.arvore}`} role="list" aria-label="Arquivados">
+            {arquivados.map((a) => (
+              <li key={`${a.tipo}-${a.id}`} className={`${s.arvoreEtapa} ${s.arquivado}`}>
+                <div className={s.arvoreLinha}>
+                  <div>
+                    <strong>{a.nome}</strong> <span className="pill">{a.tipo === "etapa" ? "etapa arquivada" : "tópico arquivado"}</span>
+                    {a.tipo === "topico" ? <div className="mut sm">em {a.etapaNome}</div> : null}
+                  </div>
+                  {podeOperar ? (
+                    <button type="button" className="btn sm" disabled={reativando === a.id} aria-busy={reativando === a.id} onClick={() => reativar(a)}>
+                      {reativando === a.id ? <Icone nome="loader" className="spin" tam={13} /> : null}
+                      Reativar
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null
+      ) : null}
+      {verArquivados ? (
+        <p className="mut sm">
+          Aqui aparecem os arquivados que já têm gasto. Um arquivado sem nenhum gasto volta pelo Desfazer no Histórico.
+        </p>
+      ) : null}
       {editando ? <ModalNome obra={obra} editando={editando} fechar={() => setEditando(null)} /> : null}
     </>
   );

@@ -36,6 +36,13 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["etapas-extras", "e1"], "PATCH")).toBe(true);
     expect(caminhoPermitido(["interno", "comprovantes", "c1", "leitura"], "PUT")).toBe(false);
     expect(caminhoPermitido(["comprovantes", "c1"], "PATCH")).toBe(false);
+    // mudar a etapa de um gasto: só o PATCH no próprio gasto; o resto de /gastos não passa
+    expect(caminhoPermitido(["gastos", "g1"], "PATCH")).toBe(true);
+    expect(caminhoPermitido(["gastos", "g1"], "GET")).toBe(false);
+    expect(caminhoPermitido(["gastos", "g1"], "POST")).toBe(false);
+    expect(caminhoPermitido(["gastos", "g1"], "DELETE")).toBe(false);
+    expect(caminhoPermitido(["gastos", "g1", "estornar"], "PATCH")).toBe(false);
+    expect(caminhoPermitido(["gastos"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(true); // previsão e observação (Fase 2)
     expect(caminhoPermitido(["fornecedores", "f1"], "PATCH")).toBe(true);

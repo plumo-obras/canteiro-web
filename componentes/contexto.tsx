@@ -82,6 +82,10 @@ export function useCasca() {
 
 export const mensagemDe = (e: unknown) => (e instanceof ErroApi || e instanceof Error ? e.message : "Algo deu errado. Tente de novo.");
 
+/** Quanto o aviso com Desfazer fica na tela sem ninguém mexer nele, e quanto ainda fica depois que o ponteiro sai. */
+export const DURA_COM_ACAO = 12000;
+const DEPOIS_DE_SOLTAR = 4000;
+
 export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | null; demo: boolean; children: ReactNode }) {
   const [cartoes, despachar] = useReducer(redutorPropostas, {});
   const [versao, setVersao] = useState(0);
@@ -95,7 +99,14 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
     clearTimeout(relogio.current);
     setAviso({ id: ++seq.current, texto, erro, acao });
     // Com botão, o aviso fica mais tempo: 4 s não dá para ler, entender que errou e alcançar o Desfazer.
-    relogio.current = setTimeout(() => setAviso(null), erro ? 6000 : acao ? 9000 : 4000);
+    relogio.current = setTimeout(() => setAviso(null), erro ? 6000 : acao ? DURA_COM_ACAO : 4000);
+  }, []);
+  // Com o ponteiro ou o foco no aviso, ele não some: o Desfazer do "Gasto lançado" sumia no meio do caminho até ele
+  // (9 s corridos, sem pausa), e o clique caía no vazio. Saiu de cima, ele ainda fica uns segundos.
+  const segurarAviso = useCallback(() => clearTimeout(relogio.current), []);
+  const soltarAviso = useCallback(() => {
+    clearTimeout(relogio.current);
+    relogio.current = setTimeout(() => setAviso(null), DEPOIS_DE_SOLTAR);
   }, []);
   const mudou = useCallback(() => setVersao((v) => v + 1), []);
   const avisarFeito = useCallback(
@@ -168,7 +179,16 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       {children}
       <div aria-live="polite" role="status">
         {aviso && (
-          <div key={aviso.id} className={`toast${aviso.erro ? " erro" : ""}`}>
+          <div
+            key={aviso.id}
+            className={`toast${aviso.erro ? " erro" : ""}`}
+            onPointerEnter={segurarAviso}
+            onPointerLeave={soltarAviso}
+            onFocus={segurarAviso}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) soltarAviso();
+            }}
+          >
             <span>{aviso.texto}</span>
             {aviso.acao ? <BotaoAviso acao={aviso.acao} fechar={() => setAviso(null)} /> : null}
           </div>

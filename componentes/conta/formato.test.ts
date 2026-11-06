@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaCurto, fmtDolares, fmtTokens, ultimosDias } from "./formato";
+import { diaCurto, fmtDolares, fmtTokens, rotuloRota, ultimosDias } from "./formato";
 
 describe("formato da conta", () => {
   it("microdólares em dólares, sem float", () => {
@@ -19,5 +19,16 @@ describe("formato da conta", () => {
     expect(d.at(-1)).toBe("2026-10-29");
     expect(d[0]).toBe("2026-09-30");
     expect(diaCurto("2026-10-03")).toBe("03/10");
+  });
+});
+
+describe("rótulo da rota de uso", () => {
+  it("rota conhecida tem nome; a leitura de comprovante não aparece em minúscula crua", () => {
+    expect(rotuloRota("conversa")).toBe("Conversas");
+    expect(rotuloRota("comprovante")).toBe("Leitura de comprovantes");
+  });
+  it("rota nova, ainda sem rótulo, vem ao menos com maiúscula", () => {
+    expect(rotuloRota("orcamento_ia")).toBe("Orcamento ia");
+    expect(rotuloRota("")).toBe("Outros");
   });
 });

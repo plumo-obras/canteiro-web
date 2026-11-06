@@ -9,7 +9,7 @@ import { api, lerComprovante } from "@/lib/cliente";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { ArquivoRecusado, prepararArquivo } from "./imagem";
+import { ArquivoRecusado, prepararArquivo, validarArquivo } from "./imagem";
 import s from "./gastos.module.css";
 
 type Passo = "escolher" | "enviando" | "lendo";
@@ -21,8 +21,13 @@ export function EnviarComprovante({ obra, fechar, revisar }: { obra: Obra; fecha
   const [legenda, setLegenda] = useState("");
   const [passo, setPasso] = useState<Passo>("escolher");
   const [erro, setErro] = useState<string | null>(null);
+  // o problema do arquivo escolhido (tipo, tamanho, corrompido), conferido na escolha e mostrado junto do seletor
+  const [recusa, setRecusa] = useState<string | null>(null);
+  const [conferindo, setConferindo] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
   const idLegenda = useId();
+  const idRecusa = useId();
+  const escolhido = useRef<File | null>(null);
   const aberto = useRef(true);
 
   useEffect(
@@ -41,8 +46,21 @@ export function EnviarComprovante({ obra, fechar, revisar }: { obra: Obra; fecha
     return () => URL.revokeObjectURL(u);
   }, [arquivo]);
 
+  const escolher = async (f: File) => {
+    escolhido.current = f;
+    setErro(null);
+    setRecusa(null);
+    setArquivo(f);
+    setConferindo(true);
+    const motivo = await validarArquivo(f).catch(() => null);
+    // trocou de arquivo enquanto este era conferido: o resultado antigo não vale
+    if (escolhido.current !== f || !aberto.current) return;
+    setRecusa(motivo);
+    setConferindo(false);
+  };
+
   const enviar = async () => {
-    if (!arquivo) return;
+    if (!arquivo || recusa || conferindo) return;
     setErro(null);
     setPasso("enviando");
     try {
@@ -66,7 +84,8 @@ export function EnviarComprovante({ obra, fechar, revisar }: { obra: Obra; fecha
       mudou();
       if (aberto.current) revisar(c.id);
     } catch (e) {
-      setErro(e instanceof ArquivoRecusado ? e.message : mensagemDe(e));
+      if (e instanceof ArquivoRecusado) setRecusa(e.message);
+      else setErro(mensagemDe(e));
       setPasso("escolher");
     }
   };
@@ -81,7 +100,7 @@ export function EnviarComprovante({ obra, fechar, revisar }: { obra: Obra; fecha
         <button type="button" className="btn" onClick={fechar}>
           Cancelar
         </button>
-        <button type="button" className="btn amb" disabled={!arquivo || passo !== "escolher"} aria-busy={passo === "enviando"} onClick={enviar}>
+        <button type="button" className="btn amb" disabled={!arquivo || !!recusa || conferindo || passo !== "escolher"} aria-busy={passo === "enviando"} onClick={enviar}>
           {passo === "enviando" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="spark" tam={14} />}
           {passo === "enviando" ? "Enviando…" : "Enviar e ler"}
         </button>
@@ -104,20 +123,38 @@ export function EnviarComprovante({ obra, fechar, revisar }: { obra: Obra; fecha
             type="file"
             accept="image/*,application/pdf"
             className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
             onChange={(e) => {
-              setErro(null);
-              setArquivo(e.target.files?.[0] ?? null);
+              const f = e.target.files?.[0];
+              // limpa para o mesmo arquivo, escolhido de novo depois de um aviso, disparar a troca outra vez
+              e.target.value = "";
+              if (f) void escolher(f);
             }}
           />
-          <button type="button" className={s.soltar} onClick={() => entrada.current?.click()}>
-            {previa ? (
+          <button
+            type="button"
+            className={`${s.soltar}${arquivo ? ` ${s.soltarCom}` : ""}`}
+            aria-invalid={!!recusa}
+            aria-describedby={recusa ? idRecusa : undefined}
+            onClick={() => entrada.current?.click()}
+          >
+            {previa && !recusa ? (
               <img src={previa} alt="Prévia do comprovante" className={s.previa} />
             ) : (
-              <Icone nome={arquivo ? "planilha" : "recibo"} tam={28} />
+              <Icone nome={recusa ? "alert" : arquivo ? "planilha" : "recibo"} tam={28} />
             )}
-            <span>{arquivo ? arquivo.name : "Tirar foto ou escolher arquivo"}</span>
-            {arquivo ? <span className="mut sm">Toque para trocar</span> : null}
+            <span className={s.soltarTexto}>
+              <span className={s.soltarNome}>{arquivo ? arquivo.name : "Tirar foto ou escolher arquivo"}</span>
+              {arquivo ? <span className="mut sm">{conferindo ? "Conferindo o arquivo…" : "Toque para trocar"}</span> : null}
+            </span>
           </button>
+          {recusa ? (
+            <div id={idRecusa} className={`aviso-erro form-erro ${s.recusa}`} role="alert">
+              <Icone nome="alert" tam={15} />
+              {recusa}
+            </div>
+          ) : null}
           <div className="campo">
             <label className="l" htmlFor={idLegenda}>
               Do que é? (opcional, ajuda muito)

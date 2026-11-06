@@ -1,0 +1,149 @@
+"use client";
+/**
+ * Troca da própria senha. Qualquer papel troca a sua; a API confere a atual, derruba as outras sessões e devolve uma
+ * nova para este aparelho (lib/sessao.trocarSenha guarda). As senhas digitadas saem do estado assim que a troca dá
+ * certo ou o formulário é fechado.
+ */
+import { useState } from "react";
+import { trocarSenha } from "@/lib/sessao";
+import { useCasca } from "../contexto";
+import { Icone } from "../Icone";
+import s from "./conta.module.css";
+
+export const SENHA_MIN = 8;
+const SENHA_MAX = 256;
+
+/**
+ * O que a tela já sabe recusar sem perguntar à API (o resto — senha atual errada, igual à atual, igual ao e-mail —
+ * vem da API com a mensagem pronta). Devolve null quando dá para enviar.
+ */
+export function problemaNaSenha(atual: string, nova: string, confirmar: string): string | null {
+  if (!atual) return "Informe a senha atual.";
+  if (nova.length < SENHA_MIN) return `A nova senha precisa ter pelo menos ${SENHA_MIN} caracteres.`;
+  if (nova.length > SENHA_MAX) return `A nova senha pode ter no máximo ${SENHA_MAX} caracteres.`;
+  if (nova !== confirmar) return "A confirmação não confere com a nova senha.";
+  return null;
+}
+
+export function Senha(props: { className: string; email: string }) {
+  const { avisar } = useCasca();
+  const [aberto, setAberto] = useState(false);
+  const [atual, setAtual] = useState("");
+  const [nova, setNova] = useState("");
+  const [confirmar, setConfirmar] = useState("");
+  const [ver, setVer] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const problema = problemaNaSenha(atual, nova, confirmar);
+  // Só aponta o que a pessoa já terminou de digitar: avisar "curta" no primeiro caractere é ruído.
+  const curta = nova.length > 0 && nova.length < SENHA_MIN;
+  const naoConfere = confirmar.length > 0 && confirmar !== nova;
+
+  const fechar = () => {
+    setAberto(false);
+    setAtual("");
+    setNova("");
+    setConfirmar("");
+    setVer(false);
+    setErro(null);
+  };
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (problema || ocupado) return;
+    setOcupado(true);
+    setErro(null);
+    const r = await trocarSenha(atual, nova);
+    setOcupado(false);
+    if (!r.ok) {
+      setErro(r.mensagem);
+      return;
+    }
+    fechar();
+    avisar("Senha trocada. Os outros aparelhos foram desconectados.");
+  };
+
+  const campo = (id: string, rotulo: string, valor: string, mudar: (v: string) => void, auto: string, descrito?: string) => (
+    <div className={s.campoSenha}>
+      <label className={s.rotulo} htmlFor={id}>
+        {rotulo}
+      </label>
+      <input
+        id={id}
+        className={`f ${s.entrada}`}
+        type={ver ? "text" : "password"}
+        autoComplete={auto}
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        value={valor}
+        onChange={(ev) => {
+          mudar(ev.target.value);
+          if (erro) setErro(null);
+        }}
+        aria-describedby={descrito}
+        aria-invalid={descrito?.startsWith("erro-") || undefined}
+      />
+    </div>
+  );
+
+  return (
+    <section className={props.className} aria-labelledby="t-senha">
+      <h2 id="t-senha" className={s.h2}>
+        Senha
+      </h2>
+      {!aberto ? (
+        <>
+          <p className={s.texto}>Ao trocar a senha, os outros aparelhos onde você entrou são desconectados. Este continua conectado.</p>
+          <button type="button" className="btn" onClick={() => setAberto(true)}>
+            Trocar senha
+          </button>
+        </>
+      ) : (
+        <form className={s.formSenha} onSubmit={enviar} noValidate>
+          {/* Para o gerenciador de senhas saber de qual conta é a senha nova. */}
+          <input type="text" name="username" autoComplete="username" value={props.email} readOnly hidden />
+          {campo("senha-atual", "Senha atual", atual, setAtual, "current-password")}
+          {campo("senha-nova", "Nova senha", nova, setNova, "new-password", curta ? "erro-senha-curta" : "dica-senha")}
+          {curta ? (
+            <div id="erro-senha-curta" className="campo-erro">
+              Pelo menos {SENHA_MIN} caracteres.
+            </div>
+          ) : (
+            <div id="dica-senha" className={s.dica}>
+              Pelo menos {SENHA_MIN} caracteres, diferente da atual e do seu e-mail.
+            </div>
+          )}
+          {campo("senha-confirmar", "Confirmar a nova senha", confirmar, setConfirmar, "new-password", naoConfere ? "erro-senha-confere" : undefined)}
+          {naoConfere ? (
+            <div id="erro-senha-confere" className="campo-erro">
+              A confirmação não confere com a nova senha.
+            </div>
+          ) : null}
+
+          <button type="button" className={s.verSenhas} aria-pressed={ver} onClick={() => setVer((v) => !v)}>
+            <Icone nome={ver ? "olhoFechado" : "olho"} tam={16} />
+            {ver ? "Esconder as senhas" : "Mostrar as senhas"}
+          </button>
+
+          {erro ? (
+            <div className="campo-erro" role="alert">
+              {erro}
+            </div>
+          ) : null}
+
+          <div className={s.acoesSenha}>
+            <button type="submit" className="btn pri" disabled={!!problema || ocupado} aria-busy={ocupado}>
+              {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
+              Trocar senha
+            </button>
+            <button type="button" className="btn" onClick={fechar} disabled={ocupado}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}

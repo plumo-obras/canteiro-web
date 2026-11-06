@@ -7,13 +7,15 @@ import "server-only";
 /**
  * Rotas de dados do contrato que a web pode repassar, por método. /auth fica nas rotas próprias. A conta e o consumo só
  * se leem daqui; fora de GET/POST, só a chave própria da Anthropic (o papel master quem confere é a API) e o PATCH dos
- * dados de uma obra, de um pedido (previsão, observação), de um fornecedor, de uma etapa extra e de um tópico; o PUT do
+ * dados de uma obra, de um pedido (previsão, observação), de um fornecedor, de uma etapa extra, de um tópico e a etapa
+ * de um gasto; o PUT do
  * cronograma da obra. A leitura de comprovante pela IA (`/interno/...`) é do agente, nunca do navegador.
  */
 const PREFIXOS = new Set([
   "obras", "pedidos", "fornecedores", "propostas", "registro", "creditos", "sessoes", "comprovantes", "etapas-extras", "topicos",
 ]);
-const EDITAVEIS = new Set(["obras", "pedidos", "fornecedores", "etapas-extras", "topicos"]);
+// gastos: só o PATCH /gastos/{id} (mudar a etapa); a leitura dos gastos é por /obras/{id}/gastos
+const EDITAVEIS = new Set(["obras", "pedidos", "fornecedores", "etapas-extras", "topicos", "gastos"]);
 const SO_LEITURA = new Set(["conta", "conta/chave-anthropic", "uso"]);
 const CHAVE = "conta/chave-anthropic";
 

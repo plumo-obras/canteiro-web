@@ -638,12 +638,39 @@ function Topo(p: {
 }) {
   const { obra, tela } = p;
   const nav = useRef<HTMLDivElement>(null);
-  // No celular as pílulas rolam: a escolhida não pode ficar fora da tela.
+  const topo = useRef<HTMLElement>(null);
+  // As pílulas rolam quando não cabem (celular; no computador, com a fonte mínima que o portal impõe ou nome de obra
+  // longo): a escolhida não pode ficar fora da vista. Rola só a barra, nunca a página.
+  useEffect(() => mostrarEscolhida(nav.current), [tela]);
+  // No computador, sobrando pílula, o topo aperta (menos espaço entre elas, seletor mais estreito); se nem assim
+  // couber, a borda esmaecida do lado que tem mais mostra que a barra rola. Antes, a 1ª aba ("Agente") ficava cortada
+  // à esquerda sem nenhum sinal de que havia algo ali.
   useEffect(() => {
-    nav.current?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [tela]);
+    const n = nav.current;
+    const t = topo.current;
+    if (!n || !t) return;
+    const bordas = () => {
+      const fim = n.scrollWidth - n.clientWidth - n.scrollLeft;
+      n.dataset.rola = n.scrollWidth <= n.clientWidth + 1 ? "" : n.scrollLeft > 1 && fim > 1 ? "ambos" : n.scrollLeft > 1 ? "esq" : "dir";
+    };
+    const medir = () => {
+      t.classList.remove("aperto");
+      if (n.scrollWidth > n.clientWidth + 1) t.classList.add("aperto");
+      mostrarEscolhida(n);
+      bordas();
+    };
+    medir();
+    // sem ResizeObserver (jsdom, navegador antigo) fica a medida da abertura
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(medir);
+    ro?.observe(t);
+    n.addEventListener("scroll", bordas, { passive: true });
+    return () => {
+      ro?.disconnect();
+      n.removeEventListener("scroll", bordas);
+    };
+  }, [obra?.id, p.semAbas]);
   return (
-    <header className="topo" inert={p.inerte}>
+    <header className="topo" ref={topo} inert={p.inerte}>
       <Link href="/inicio" className="topo-marca" aria-label="Plumo, início">
         <Logo />
         <span className="topo-marca-t">Plumo</span>
@@ -677,6 +704,17 @@ function Topo(p: {
       </div>
     </header>
   );
+}
+
+/** Rola a barra de pílulas (só ela) até a escolhida aparecer inteira. */
+function mostrarEscolhida(n: HTMLElement | null) {
+  const a = n?.querySelector<HTMLElement>("[aria-current=page]");
+  if (!n || !a) return;
+  const r = a.getBoundingClientRect();
+  const rn = n.getBoundingClientRect();
+  // a folga cobre a borda esmaecida, para a escolhida não ficar embaixo dela
+  if (r.left < rn.left) n.scrollLeft -= rn.left - r.left + 28;
+  else if (r.right > rn.right) n.scrollLeft += r.right - rn.right + 28;
 }
 
 function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; trocar: (id: string) => void }) {

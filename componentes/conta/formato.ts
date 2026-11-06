@@ -31,4 +31,8 @@ export const ROTULO_ROTA: Record<string, string> = {
   briefing: "Resumo diário",
   whatsapp: "WhatsApp",
   nf: "Leitura de NF",
+  comprovante: "Leitura de comprovantes",
 };
+
+/** Rota de uso sem rótulo conhecido (rota nova na API antes da tela): ao menos com a primeira letra maiúscula. */
+export const rotuloRota = (rota: string) => ROTULO_ROTA[rota] ?? (rota ? rota[0]!.toUpperCase() + rota.slice(1).replace(/_/g, " ") : "Outros");

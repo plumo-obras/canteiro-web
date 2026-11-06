@@ -9,7 +9,7 @@
  * Em todos, a resposta própria fica ao lado das opções, com o mesmo peso.
  */
 import type { CampoRevisao, CorpoConfirmar, EtapaNaArvore, Revisao } from "@/lib/contrato";
-import { lerReais } from "@/lib/formato";
+import { fmtReais, lerReais } from "@/lib/formato";
 
 /** Opção da IA (índice) ou a resposta própria; null = ainda não escolheu. */
 export type Escolha = number | "propria" | null;
@@ -105,8 +105,102 @@ export function hojeNaObra(agora = new Date()): string {
 /** Nome legível de uma etapa e tópico, pela árvore da obra (arquivados não estão nela: cai para a chave). */
 export function rotuloEtapa(arvore: EtapaNaArvore[], etapa: string, topicoId: string | null, extra?: Map<string, string>): string {
   const no = arvore.find((x) => x.chave === etapa);
-  const nome = no?.nome ?? extra?.get(etapa) ?? etapa;
+  const nome = no ? nomeComCodigo(no) : (extra?.get(etapa) ?? etapa);
   if (!topicoId) return nome;
   const t = no?.topicos.find((x) => x.id === topicoId)?.nome ?? extra?.get(topicoId);
   return t ? `${nome} › ${t}` : nome;
+}
+
+/**
+ * O que a IA leu, em uma linha da fila: valor, quem recebeu e a data do pagamento (a 1ª opção de cada campo). A
+ * leitura crua vem como `unknown` no contrato (é o esquema do modelo); daqui só se tira o que tem o formato esperado,
+ * e o resto fica de fora em vez de quebrar a fila.
+ */
+export interface LidoNaFila {
+  valor: string | null;
+  favorecido: string | null;
+  data: string | null;
+  descricao: string | null;
+  duvida: boolean;
+}
+
+function primeira(campo: unknown): { valor: string; duvida: boolean } | null {
+  if (!campo || typeof campo !== "object") return null;
+  const c = campo as { certeza?: unknown; opcoes?: unknown };
+  const op = Array.isArray(c.opcoes) ? (c.opcoes[0] as { valor?: unknown } | undefined) : undefined;
+  if (!op || typeof op.valor !== "string" || !op.valor.trim()) return null;
+  return { valor: op.valor.trim(), duvida: c.certeza !== "alta" || (c.opcoes as unknown[]).length > 1 };
+}
+
+export function lidoNaFila(leitura: unknown): LidoNaFila | null {
+  if (!leitura || typeof leitura !== "object") return null;
+  const l = leitura as Record<string, unknown>;
+  const valor = primeira(l.valor);
+  const favorecido = primeira(l.favorecido);
+  const data = primeira(l.data_pagamento);
+  const descricao = primeira(l.descricao);
+  if (!valor && !favorecido && !data && !descricao) return null;
+  const centavos = valor ? lerReais(valor.valor) : null;
+  return {
+    valor: valor ? (centavos !== null ? fmtReais(centavos) : valor.valor) : null,
+    favorecido: favorecido?.valor ?? null,
+    data: data ? fmtDia(data.valor) : null,
+    descricao: descricao?.valor ?? null,
+    duvida: !!(valor?.duvida || favorecido?.duvida || data?.duvida),
+  };
+}
+
+/**
+ * De onde vêm as etapas da árvore ("opção 2"): `orcamento` quando a obra tem orçamento (as etapas são as dele, com
+ * código e descrição); `padrao` quando não tem. Sem o campo (a API de hoje), vale `padrao`. O cliente já desce a
+ * `origem` do topo da resposta para cada etapa (`normalizarArvore`).
+ */
+export type OrigemArvore = "orcamento" | "padrao";
+
+export const origemDaArvore = (arvore: EtapaNaArvore[]): OrigemArvore => (arvore.some((e) => e.origem === "orcamento") ? "orcamento" : "padrao");
+
+/** Gasto cuja etapa não está mais na árvore do orçamento (a obra ganhou orçamento depois do lançamento). Extra arquivada não conta. */
+export const foraDoOrcamento = (arvore: EtapaNaArvore[], etapa: string) =>
+  origemDaArvore(arvore) === "orcamento" && !etapa.startsWith("x-") && !arvore.some((e) => e.chave === etapa);
+
+/**
+ * Código e nome de uma etapa do orçamento: o código é a chave ("3", "18.2") e o nome, a descrição da planilha. Etapa
+ * padrão (chave como "eletrica") fica só com o nome.
+ */
+export function codigoDaEtapa(e: Pick<EtapaNaArvore, "chave" | "codigo" | "origem">): string | null {
+  if (e.codigo) return e.codigo;
+  // a etapa extra ("x-<id>") convive com as do orçamento, mas não tem código: a chave dela é só um id
+  return e.origem === "orcamento" && !e.chave.startsWith("x-") ? e.chave : null;
+}
+
+/** "18 · INSTALAÇÃO ELÉTRICA - 220V" na etapa do orçamento; o nome sozinho na padrão. */
+export function nomeComCodigo(e: Pick<EtapaNaArvore, "chave" | "codigo" | "origem" | "nome">): string {
+  const c = codigoDaEtapa(e);
+  return c && !e.nome.startsWith(c) ? `${c} · ${e.nome}` : e.nome;
+}
+
+/** Arquivados que o resumo ainda conhece (a árvore não traz arquivados): só os que têm gasto aparecem aqui. */
+export interface Arquivado {
+  tipo: "etapa" | "topico";
+  /** id para o PATCH (etapa extra sem o "x-"; tópico, o próprio id). */
+  id: string;
+  nome: string;
+  etapaNome: string;
+}
+
+export function arquivadosDoResumo(
+  arvore: EtapaNaArvore[],
+  resumo: { etapas: { etapa: string; nome: string; topicos: { topico_id: string | null; nome: string }[] }[] } | null,
+): Arquivado[] {
+  const fora: Arquivado[] = [];
+  for (const e of resumo?.etapas ?? []) {
+    const no = arvore.find((x) => x.chave === e.etapa);
+    // etapa fixa ou do orçamento não se arquiva: só a extra ("x-<id>") some da árvore por arquivamento
+    if (!no && e.etapa.startsWith("x-")) fora.push({ tipo: "etapa", id: e.etapa.slice(2), nome: e.nome, etapaNome: e.nome });
+    // tópico de etapa que nem está na árvore volta junto com ela; só o tópico arquivado de etapa ativa entra aqui
+    if (no)
+      for (const t of e.topicos)
+        if (t.topico_id && !no.topicos.some((x) => x.id === t.topico_id)) fora.push({ tipo: "topico", id: t.topico_id, nome: t.nome, etapaNome: e.nome });
+  }
+  return fora;
 }

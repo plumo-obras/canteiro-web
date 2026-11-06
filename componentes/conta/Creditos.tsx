@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import type { Creditos as TCreditos, Obra, RelatorioUso } from "@/lib/contrato";
 import { Icone } from "../Icone";
 import s from "./conta.module.css";
-import { ROTULO_ROTA, diaCurto, fmtDolares, fmtTokens } from "./formato";
+import { diaCurto, rotuloRota, fmtDolares, fmtTokens } from "./formato";
 
 interface Props {
   className: string;
@@ -120,7 +120,7 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
               <Lista
                 titulo="Por rota"
                 total={r.total.custo}
-                itens={r.por_rota.map((x) => ({ k: x.rota, nome: ROTULO_ROTA[x.rota] ?? x.rota, custo: x.custo }))}
+                itens={r.por_rota.map((x) => ({ k: x.rota, nome: rotuloRota(x.rota), custo: x.custo }))}
               />
             </div>
           </>

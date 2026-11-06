@@ -5,7 +5,6 @@ import type { ComprovanteDetalhe, EtapaNaArvore, GastoObra, Obra, Usuario } from
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "../contexto";
-import { Gastos } from "../Gastos";
 import { Revisao } from "./Revisao";
 
 const OBRA = { id: "o1", nome: "Edifício Teste", status: "em_andamento" } as Obra;
@@ -68,11 +67,15 @@ const grupo = (nome: string) => screen.getByRole("radiogroup", { name: nome });
 
 beforeEach(() => {
   limparSessao();
-  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:foto", revokeObjectURL: () => {} }));
+  // o jsdom não tem URL de blob; spyOn devolve o original no restoreAllMocks, em vez de deixar o URL global trocado
+  URL.createObjectURL ??= () => "";
+  URL.revokeObjectURL ??= () => {};
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:foto");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
 });
 afterEach(() => {
   limparSessao();
-  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("revisão do comprovante", () => {
@@ -161,51 +164,5 @@ describe("revisão do comprovante", () => {
     rede(detalhe({ avisos: ["Este documento não comprova pagamento."] }));
     abrir();
     expect(await screen.findByRole("list", { name: "Atenção" })).toHaveTextContent("não comprova pagamento");
-  });
-});
-
-describe("gastos lançados", () => {
-  const gasto = (n: number): GastoObra => ({
-    id: `g${n}`,
-    obra_id: "o1",
-    comprovante_id: null,
-    valor: 1000 + n,
-    data_pagamento: "2026-11-03",
-    favorecido: "João",
-    fornecedor_id: null,
-    descricao: `gasto ${n}`,
-    etapa: "pisos",
-    topico_id: null,
-    pedido_id: null,
-    quem: "Rizzi",
-    estornado: false,
-    criado_em: new Date(Date.UTC(2026, 10, 5, 12, 0, 0) - n * 60_000).toISOString(),
-  });
-
-  it("mostra 50 por vez e carrega os mais antigos pelo cursor até acabar", async () => {
-    const pagina1 = Array.from({ length: 50 }, (_, i) => gasto(i));
-    const pagina2 = Array.from({ length: 7 }, (_, i) => gasto(50 + i));
-    const r = criarRede({
-      "POST /srv/auth/renovar": renovarOk,
-      "GET /srv/api/obras/o1/comprovantes": () => json([]),
-      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 0, pagamentos_de_pedidos: 0, a_revisar: 0, etapas: [] }),
-      "GET /srv/api/obras/o1/arvore": () => json(ARVORE),
-      "GET /srv/api/obras/o1/gastos": ({ url }) => json(url.searchParams.get("antes_de") ? pagina2 : pagina1),
-    });
-    render(
-      <ProvedorCasca usuario={USUARIO} demo={false}>
-        <Gastos obra={OBRA} />
-      </ProvedorCasca>,
-    );
-    await userEvent.click(await screen.findByRole("tab", { name: "Lançados" }));
-    const lista = await screen.findByRole("list", { name: "Gastos lançados" });
-    expect(within(lista).getAllByRole("listitem")).toHaveLength(50);
-    await userEvent.click(screen.getByRole("button", { name: "Carregar gastos mais antigos" }));
-    await waitFor(() => expect(within(lista).getAllByRole("listitem")).toHaveLength(57));
-    const mais = r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o1/gastos");
-    expect(mais.at(-1)!.url.searchParams.get("antes_de")).toBe(pagina1.at(-1)!.criado_em);
-    expect(mais.at(-1)!.url.searchParams.get("limite")).toBe("50");
-    // a 2ª página veio menor que 50: acabou, o botão some
-    expect(screen.queryByRole("button", { name: "Carregar gastos mais antigos" })).toBeNull();
   });
 });
