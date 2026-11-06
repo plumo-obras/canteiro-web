@@ -11,6 +11,7 @@ import { fmtDiaHora, fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
 import { Icone } from "./Icone";
+import { BotaoMais, useMaisAntigos } from "./Paginacao";
 import { useCarregar } from "./useCarregar";
 import { Arvore } from "./gastos/Arvore";
 import { EnviarComprovante } from "./gastos/EnviarComprovante";
@@ -39,10 +40,10 @@ export function Gastos({ obra }: { obra: Obra }) {
   const [revisando, setRevisando] = useState<string | null>(null);
   const { dado, erro, carregando } = useCarregar(
     () =>
-      Promise.all([api.listarComprovantes(obra.id, "a_revisar"), api.resumoGastos(obra.id), api.listarGastos(obra.id, { limite: 200 }), api.arvore(obra.id)]),
+      Promise.all([api.listarComprovantes(obra.id, "a_revisar"), api.resumoGastos(obra.id), api.arvore(obra.id)]),
     [obra.id, versao],
   );
-  const [fila, resumo, gastos, arvore] = dado ?? [[], null, [], []];
+  const [fila, resumo, arvore] = dado ?? [[], null, []];
   // nomes de etapa e tópico já arquivados: só o resumo ainda os tem
   const nomesResumo = useMemo(() => {
     const m = new Map<string, string>();
@@ -133,7 +134,8 @@ export function Gastos({ obra }: { obra: Obra }) {
             )
           ) : secao === "lancados" ? (
             <Lancados
-              gastos={gastos}
+              obra={obra}
+              semEtapa={(resumo?.etapas ?? []).filter((e) => foraDoOrcamento(arvore, e.etapa)).reduce((t, e) => t + e.total, 0)}
               etapaDe={(g) => rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo)}
               fora={(g) => foraDoOrcamento(arvore, g.etapa)}
               podeMudar={podeOperar}
@@ -227,33 +229,55 @@ function Fila({ fila, abrir, enviar }: { fila: Comprovante[]; abrir: (id: string
   );
 }
 
+const POR_PAGINA = 50;
+// o teto de `limite` na API: rebuscar o que já estava carregado (depois de mudar uma etapa) vem em uma chamada só
+const MAX_API = 500;
+
 /**
- * Os gastos lançados. Cada um pode mudar de etapa (admin): é o caminho do gasto que ficou "sem etapa do orçamento"
- * quando a obra passou a usar as etapas do orçamento, e esses vêm destacados no topo do aviso e na linha.
+ * Os gastos lançados, mais novos primeiro, em páginas de 50 pelo cursor da API: uma obra de prédio passa de centenas de
+ * comprovantes, e a lista não pode parar nos primeiros. Cada um pode mudar de etapa (admin): é o caminho do gasto que
+ * ficou "sem etapa do orçamento" quando a obra passou a usar as etapas do orçamento. Mudar não volta à 1ª página: a
+ * lista rebusca o que já estava carregado e a pessoa continua onde estava.
  */
 function Lancados(p: {
-  gastos: GastoObra[];
+  obra: Obra;
+  /** Soma, do resumo, dos gastos sem etapa do orçamento: a lista só tem as páginas carregadas e contaria errado. */
+  semEtapa: number;
   etapaDe: (g: GastoObra) => string;
   fora: (g: GastoObra) => boolean;
   podeMudar: boolean;
   mudar: (g: GastoObra) => void;
   verComprovante: (id: string) => void;
 }) {
-  if (!p.gastos.length) return <Vazio texto="Nenhum gasto lançado ainda." />;
-  const nFora = p.gastos.filter(p.fora).length;
+  const { versao } = useCasca();
+  const { itens, erro, acabou, buscando, carregarMais } = useMaisAntigos(
+    (antes_de, limite = POR_PAGINA) => api.listarGastos(p.obra.id, { limite: Math.min(limite, MAX_API), antes_de }),
+    POR_PAGINA,
+    [p.obra.id],
+    undefined,
+    [versao],
+  );
+  const aviso = erro ? (
+    <div className="aviso-erro" role="alert">
+      <Icone nome="alert" tam={15} />
+      {erro}
+    </div>
+  ) : null;
+  if (!itens) return aviso;
+  if (!itens.length) return <Vazio texto="Nenhum gasto lançado ainda." />;
   return (
     <>
-      {nFora ? (
+      {p.semEtapa ? (
         <div className={`${s.aviso} ${s.avisoTopo}`} role="status">
           <Icone nome="alert" tam={14} />
           <span>
-            {nFora === 1 ? "1 gasto ficou" : `${nFora} gastos ficaram`} sem etapa do orçamento.{" "}
+            {fmtReais(p.semEtapa)} em gastos sem etapa do orçamento.{" "}
             {p.podeMudar ? "Use “Mudar etapa” para pôr cada um na etapa certa." : "Quem opera a obra escolhe a etapa certa."}
           </span>
         </div>
       ) : null}
-      <ul className={`card lista ${s.lista}`} role="list">
-        {p.gastos.map((g) => {
+      <ul className={`card lista ${s.lista}`} role="list" aria-label="Gastos lançados">
+        {itens.map((g) => {
           const fora = p.fora(g);
           return (
             <li key={g.id} className={`${s.linha}${fora ? ` ${s.linhaFora}` : ""}`}>
@@ -299,6 +323,8 @@ function Lancados(p: {
           );
         })}
       </ul>
+      {aviso}
+      <BotaoMais acabou={acabou} buscando={buscando} carregarMais={carregarMais} rotulo="Carregar gastos mais antigos" />
     </>
   );
 }

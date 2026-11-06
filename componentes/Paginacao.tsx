@@ -79,18 +79,25 @@ export function Paginacao(props: {
 /**
  * A 1ª página e as seguintes pelo cursor. `deps` recarrega do zero (a "versão" da casca sobe a cada escrita: o que
  * mudou aparece em cima). `dataDe` diz qual campo é o cursor (criado_em na maioria, atualizado_em nas conversas).
+ *
+ * `atualizar` é a alternativa a pôr a versão em `deps` quando a escrita acontece DENTRO da lista (mudar a etapa de um
+ * gasto na página 4): rebusca de uma vez tudo o que já estava carregado (`buscar` recebe o tamanho) em vez de voltar à
+ * 1ª página e tirar a pessoa do lugar.
  */
 export function useMaisAntigos<T extends { id: string }>(
-  buscar: (antes_de?: string) => Promise<T[]>,
+  buscar: (antes_de?: string, limite?: number) => Promise<T[]>,
   limite: number,
   deps: unknown[],
   dataDe: (x: T) => string = (x) => (x as unknown as { criado_em: string }).criado_em,
+  atualizar: unknown[] = [],
 ) {
   const [itens, setItens] = useState<T[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [acabou, setAcabou] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const geracao = useRef(0);
+  const carregados = useRef(0);
+  const primeiraVez = useRef(true);
 
   useEffect(() => {
     const g = ++geracao.current;
@@ -98,6 +105,7 @@ export function useMaisAntigos<T extends { id: string }>(
     buscar()
       .then((r) => {
         if (g !== geracao.current) return;
+        carregados.current = r.length;
         setItens(r);
         setAcabou(r.length < limite);
         setErro(null);
@@ -106,6 +114,27 @@ export function useMaisAntigos<T extends { id: string }>(
       .finally(() => g === geracao.current && setBuscando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps vem do chamador; buscar é uma closure nova a cada render e rebuscaria sem parar
   }, deps);
+
+  useEffect(() => {
+    if (primeiraVez.current) {
+      primeiraVez.current = false;
+      return;
+    }
+    const n = Math.max(limite, carregados.current);
+    const g = ++geracao.current;
+    setBuscando(true);
+    buscar(undefined, n)
+      .then((r) => {
+        if (g !== geracao.current) return;
+        carregados.current = r.length;
+        setItens(r);
+        setAcabou(r.length < n);
+        setErro(null);
+      })
+      .catch((e) => g === geracao.current && setErro(mensagemDe(e)))
+      .finally(() => g === geracao.current && setBuscando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmo motivo do efeito acima
+  }, atualizar);
 
   const carregarMais = async () => {
     const ult = itens?.at(-1);
@@ -117,6 +146,7 @@ export function useMaisAntigos<T extends { id: string }>(
       if (g !== geracao.current) return;
       const vistos = new Set(itens!.map((x) => x.id));
       const novos = r.filter((x) => !vistos.has(x.id));
+      carregados.current = itens!.length + novos.length;
       setItens([...itens!, ...novos]);
       // menos que o limite = fim (a página pode vir maior que o limite quando completa um empate, nunca menor sem ser o fim)
       setAcabou(r.length < limite || novos.length === 0);

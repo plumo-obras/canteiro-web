@@ -301,12 +301,14 @@ describe("aba Gastos", () => {
             { chave: "18", nome: "INSTALAÇÃO ELÉTRICA - 220V", inclui: "", fixa: true, topicos: [] },
           ],
         }),
+      "GET /srv/api/obras/o1/gastos/resumo": () =>
+        json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, etapas: [{ etapa: "eletrica", nome: "Instalações elétricas", total: 35000, topicos: [] }] }),
       "PATCH /srv/api/gastos/g1": ({ corpo }) => json({ ...GASTO, ...(corpo as object), registro_id: "reg-5" }),
       "POST /srv/api/registro/reg-5/desfazer": () => json({ id: "reg-6", texto: "Desfeito", criado_em: "2026-11-05T10:00:00Z" }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
     await userEvent.click(await screen.findByRole("tab", { name: /Lançados/ }));
-    expect(await screen.findByText(/1 gasto ficou sem etapa do orçamento/)).toBeInTheDocument();
+    expect(await screen.findByText(/R\$ 350,00 em gastos sem etapa do orçamento/)).toBeInTheDocument();
     expect(screen.getAllByText("sem etapa do orçamento").length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "Mudar etapa de mão de obra do quadro" }));
     expect(screen.getByRole("option", { name: "18 · INSTALAÇÃO ELÉTRICA - 220V" })).toBeInTheDocument();
@@ -345,5 +347,54 @@ describe("aba Gastos", () => {
     await waitFor(() => expect(r.chamadas.some((c) => c.metodo === "PATCH" && c.caminho === "/srv/api/etapas-extras/e2")).toBe(true));
     expect(r.chamadas.find((c) => c.metodo === "PATCH")!.corpo).toEqual({ arquivado: false });
     expect(await screen.findByText("Aterro (Aditivo 01) reativado.")).toBeInTheDocument();
+  });
+});
+
+describe("gastos lançados em páginas", () => {
+  const gasto = (n: number) => ({
+    ...GASTO,
+    id: `g${n}`,
+    descricao: `gasto ${n}`,
+    valor: 1000 + n,
+    criado_em: new Date(Date.UTC(2026, 10, 5, 12, 0, 0) - n * 60_000).toISOString(),
+  });
+  const pagina1 = Array.from({ length: 50 }, (_, i) => gasto(i));
+  const pagina2 = Array.from({ length: 7 }, (_, i) => gasto(50 + i));
+  const paginado: Rota = ({ url }) => {
+    const limite = Number(url.searchParams.get("limite"));
+    if (url.searchParams.get("antes_de")) return json(pagina2);
+    return json([...pagina1, ...pagina2].slice(0, limite));
+  };
+
+  it("mostra 50 por vez e carrega os mais antigos pelo cursor até acabar", async () => {
+    const r = rede({ "GET /srv/api/obras/o1/gastos": paginado });
+    render(comCasca(<Gastos obra={OBRA} />));
+    await userEvent.click(await screen.findByRole("tab", { name: "Lançados" }));
+    const lista = await screen.findByRole("list", { name: "Gastos lançados" });
+    expect(within(lista).getAllByRole("listitem")).toHaveLength(50);
+    await userEvent.click(screen.getByRole("button", { name: "Carregar gastos mais antigos" }));
+    await waitFor(() => expect(within(lista).getAllByRole("listitem")).toHaveLength(57));
+    const pedidos = r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o1/gastos");
+    expect(pedidos.at(-1)!.url.searchParams.get("antes_de")).toBe(pagina1.at(-1)!.criado_em);
+    expect(pedidos.at(-1)!.url.searchParams.get("limite")).toBe("50");
+    // a 2ª página veio menor que 50: acabou, o botão some
+    expect(screen.queryByRole("button", { name: "Carregar gastos mais antigos" })).toBeNull();
+  });
+
+  it("mudar a etapa de um gasto da 2ª página não volta à 1ª: rebusca o que já estava carregado", async () => {
+    const r = rede({
+      "GET /srv/api/obras/o1/gastos": paginado,
+      "PATCH /srv/api/gastos/g55": ({ corpo }) => json({ ...gasto(55), ...(corpo as object), registro_id: "reg-9" }),
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    await userEvent.click(await screen.findByRole("tab", { name: "Lançados" }));
+    const lista = await screen.findByRole("list", { name: "Gastos lançados" });
+    await userEvent.click(screen.getByRole("button", { name: "Carregar gastos mais antigos" }));
+    await waitFor(() => expect(within(lista).getAllByRole("listitem")).toHaveLength(57));
+    await userEvent.click(screen.getByRole("button", { name: "Mudar etapa de gasto 55" }));
+    await userEvent.selectOptions(screen.getByLabelText("Etapa"), "fundacao");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mudar etapa" }));
+    await waitFor(() => expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o1/gastos").at(-1)!.url.searchParams.get("limite")).toBe("57"));
+    expect(within(await screen.findByRole("list", { name: "Gastos lançados" })).getAllByRole("listitem")).toHaveLength(57);
   });
 });
