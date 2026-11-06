@@ -102,7 +102,7 @@ describe("formatos", () => {
   });
 });
 
-import { arquivadosDoResumo, foraDoOrcamento, lidoNaFila, nomeComCodigo, nomeSemCodigo, origemDaArvore } from "./escolhas";
+import { arquivadosDoResumo, foraDoOrcamento, lidoNaFila, nomeComCodigo, nomeCurto, nomeSemCodigo, origemDaArvore } from "./escolhas";
 import { normalizarArvore } from "@/lib/cliente";
 
 describe("o que a IA leu, na fila", () => {
@@ -144,6 +144,13 @@ describe("árvore da opção 2 (etapas do orçamento)", () => {
     expect(nomeSemCodigo({ chave: "eletrica", nome: "Instalações elétricas" })).toBe("Instalações elétricas");
     expect(nomeComCodigo({ chave: "eletrica", nome: "Instalações elétricas" })).toBe("Instalações elétricas");
     expect(nomeComCodigo({ chave: "x-e1", nome: "Piscina", origem: "orcamento" })).toBe("Piscina");
+  });
+  it("nome curto para o aviso: código · sigla, sem repetir o código", () => {
+    const spda = { chave: "22", nome: "22 SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS (SPDA)", origem: "orcamento" as const };
+    expect(nomeCurto(spda)).toBe("22 · SPDA");
+    expect(nomeCurto({ chave: "3", nome: "3 FUNDAÇÕES", origem: "orcamento" })).toBe("3 · FUNDAÇÕES");
+    expect(nomeCurto({ chave: "18", nome: "INSTALAÇÃO ELÉTRICA - 220V", origem: "orcamento" })).toBe("18 · INSTALAÇÃO ELÉTRICA - 220V");
+    expect(nomeCurto({ chave: "eletrica", nome: "Instalações elétricas" })).toBe("Instalações elétricas");
   });
   it("gasto fora da árvore do orçamento é 'sem etapa do orçamento'; na árvore padrão, nunca", () => {
     const orc = normalizarArvore({ origem: "orcamento", etapas: [{ chave: "3", nome: "FUNDAÇÕES", inclui: "", fixa: true, topicos: [] }] });

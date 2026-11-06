@@ -10,7 +10,7 @@ import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { nomeComCodigo } from "./escolhas";
+import { nomeComCodigo, nomeCurto } from "./escolhas";
 
 export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore: EtapaNaArvore[]; fechar: () => void }) {
   const { mudou, avisarFeito } = useCasca();
@@ -29,8 +29,9 @@ export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore
       const r = await api.mudarEtapaGasto(gasto.id, etapa);
       const no = arvore.find((e) => e.chave === etapa);
       mudou();
-      // a etapa na 2ª linha: no celular o aviso tem 2 linhas e cortava o nome dela (rodada 7 do teste)
-      avisarFeito(`${fmtReais(gasto.valor)} agora em\n${no ? nomeComCodigo(no) : etapa}.`, r.registro_id);
+      // o destino primeiro e curto: no celular, com fonte grande, o aviso corta em 2 linhas de poucas letras, e o
+      // valor na frente empurrava a etapa para fora (rodadas 7 e 8 do teste)
+      avisarFeito(`Movido para ${no ? nomeCurto(no) : etapa} (${fmtReais(gasto.valor)}).`, r.registro_id);
       fechar();
     } catch (e) {
       setErro(mensagemDe(e));

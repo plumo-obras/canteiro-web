@@ -191,6 +191,18 @@ export function nomeComCodigo(e: Pick<EtapaNaArvore, "chave" | "codigo" | "orige
   return c && !e.nome.startsWith(c) ? `${c} · ${e.nome}` : e.nome;
 }
 
+/**
+ * A etapa em poucas letras, para o aviso do celular (2 linhas): "22 · SPDA" para "22 SISTEMA DE PROTEÇÃO CONTRA
+ * DESCARGAS ATMOSFÉRICAS (SPDA)". Sigla entre parênteses no fim, quando há; senão a descrição sem o código repetido.
+ */
+export function nomeCurto(e: Pick<EtapaNaArvore, "chave" | "codigo" | "origem" | "nome">): string {
+  const c = codigoDaEtapa(e);
+  const nome = nomeSemCodigo(e);
+  const sigla = /\(([^()]{2,12})\)\s*$/.exec(nome)?.[1]?.trim();
+  const curto = sigla || nome;
+  return c && !curto.startsWith(c) ? `${c} · ${curto}` : curto;
+}
+
 /** Arquivados que o resumo ainda conhece (a árvore não traz arquivados): só os que têm gasto aparecem aqui. */
 export interface Arquivado {
   tipo: "etapa" | "topico";

@@ -314,7 +314,7 @@ describe("aba Gastos", () => {
     expect(screen.getByRole("option", { name: "18 · INSTALAÇÃO ELÉTRICA - 220V" })).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Etapa"), "18");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mudar etapa" }));
-    expect(await screen.findByText("R$ 350,00 agora em 18 · INSTALAÇÃO ELÉTRICA - 220V.")).toBeInTheDocument();
+    expect(await screen.findByText("Movido para 18 · INSTALAÇÃO ELÉTRICA - 220V (R$ 350,00).")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /Etapas e tópicos/ }));
     expect(await screen.findByText("As etapas são as do orçamento da obra.", { exact: false })).toBeInTheDocument();
