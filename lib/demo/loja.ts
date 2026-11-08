@@ -1047,6 +1047,54 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           [...e.insumos.values()]
             .filter((i) => i.obra_id === id)
             .map((i) => ({ nome: i.nome, unidade: i.unidade, precisa: i.precisa_ate_o_fim, valor: i.valor_unitario }));
+        if (id2 === "materiais") {
+          // os materiais das pranchas: a mesma prévia e gravação da lista de materiais, sem planilha
+          const corpo = c as { origem?: string; itens?: { nome: string; unidade: string; quantidade: number; valor_unitario?: number }[]; aplicar?: boolean };
+          const itens = corpo.itens ?? [];
+          if (!itens.length || itens.some((x) => !x.nome?.trim() || !(x.quantidade > 0))) return erro(422, "Envie os materiais com nome e quantidade.");
+          const unidade = (u2: string) => ({ m3: "m³", m2: "m²" })[u2.trim().toLowerCase()] ?? u2.trim();
+          const ex = existentes();
+          const total = (q: number, v: number) => Math.round((q * v) / 1000);
+          const soma = itens.reduce((s, x) => s + total(x.quantidade, x.valor_unitario ?? 0), 0);
+          let acumulado = 0;
+          const linhas = [...itens]
+            .map((x, i) => ({ x, i }))
+            .sort((a, b) => total(b.x.quantidade, b.x.valor_unitario ?? 0) - total(a.x.quantidade, a.x.valor_unitario ?? 0))
+            .map(({ x, i }) => {
+              const t2 = total(x.quantidade, x.valor_unitario ?? 0);
+              const antes = acumulado;
+              acumulado += t2;
+              const curva: "A" | "B" | "C" = !soma ? "B" : antes < soma * 0.8 ? "A" : antes < soma * 0.95 ? "B" : "C";
+              const atual = ex.find((y) => nomeChave(y.nome) === nomeChave(x.nome));
+              return {
+                linhas: [i + 1], nome: x.nome.trim(), unidade: unidade(x.unidade), quantidade: x.quantidade, valor_unitario: x.valor_unitario ?? 0,
+                total: t2, curva, saldo: 0, situacao: atual ? ("atualiza" as const) : ("novo" as const),
+                precisa_antes: atual ? atual.precisa : null, valor_antes: atual ? atual.valor : null,
+              };
+            })
+            .sort((a, b) => a.linhas[0]! - b.linhas[0]!);
+          const erros = linhas
+            .filter((l) => { const a = ex.find((y) => nomeChave(y.nome) === nomeChave(l.nome)); return a && a.unidade.toLowerCase() !== l.unidade.toLowerCase(); })
+            .map((l) => ({ linha: l.linhas[0]!, campo: "unidade", mensagem: `'${l.nome}' já está cadastrado em outra unidade nesta obra.` }));
+          const previa = { aplicado: false, linhas, ignoradas: [], erros, total: linhas.reduce((s, l) => s + l.total, 0), novos: linhas.filter((l) => l.situacao === "novo").length, atualizados: linhas.filter((l) => l.situacao === "atualiza").length, juntadas: 0 };
+          if (!corpo.aplicar || erros.length) return ok(previa);
+          for (const l of linhas) {
+            const atual = [...e.insumos.values()].find((i) => i.obra_id === id && nomeChave(i.nome) === nomeChave(l.nome));
+            if (atual) Object.assign(atual, { precisa_ate_o_fim: l.quantidade, valor_unitario: l.valor_unitario, curva: l.curva });
+            else {
+              const ins: ItemDemo = { id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), obra_id: id, nome: l.nome, unidade: l.unidade, precisa_ate_o_fim: l.quantidade, curva: l.curva, valor_unitario: l.valor_unitario };
+              e.insumos.set(`orc-${ins.id}`, ins);
+            }
+          }
+          const reg = registrar(e, u, {
+            obra_id: id,
+            texto: `Importou os materiais do ${String(corpo.origem ?? "projeto")}: ${previa.novos} novos, ${previa.atualizados} atualizados (${fmtReais(previa.total)})`,
+            proposta_id: null,
+            desfazer: null,
+            origem: "tela",
+          });
+          return ok({ ...previa, aplicado: true, registro_ids: [reg.id] });
+        }
         const arq = c.arquivo as { nome: string; texto: string } | undefined;
         if ((id2 === "ler" || id2 === "importar") && !arq) return erro(422, "Envie o arquivo da planilha.");
         if (id2 === "ler") return ok(lerPlanilhaDemo(arq!.texto, arq!.nome));

@@ -338,6 +338,26 @@ describe("demonstração: cadastro de obra e orçamento por planilha", () => {
     expect(chamar("POST", `obras/${o.id}/orcamento/ler`, { arquivo: { nome: "orc.xlsx", texto: "" } }).status).toBe(422);
   });
 
+  it("materiais do projeto: prévia, m3 vira m³, aplicar grava e reenviar atualiza", () => {
+    const o = criar().corpo as { id: string };
+    const corpo = {
+      origem: "projeto estrutural",
+      itens: [
+        { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220_300, valor_unitario: 669 },
+        { nome: "Concreto usinado C30 (SINAPI 34494)", unidade: "m3", quantidade: 21_650, valor_unitario: 51_263 },
+      ],
+    };
+    const p = chamar("POST", `obras/${o.id}/orcamento/materiais`, { ...corpo, aplicar: false }).corpo as import("../contrato").PreviaOrcamento;
+    expect(p).toMatchObject({ aplicado: false, novos: 2, atualizados: 0, erros: [] });
+    expect(p.linhas.find((l) => l.nome.startsWith("Concreto"))).toMatchObject({ unidade: "m³", curva: "A" });
+    const a = chamar("POST", `obras/${o.id}/orcamento/materiais`, { ...corpo, aplicar: true }).corpo as import("../contrato").PreviaOrcamento;
+    expect(a.aplicado).toBe(true);
+    expect(a.registro_ids).toHaveLength(1);
+    const p2 = chamar("POST", `obras/${o.id}/orcamento/materiais`, { ...corpo, aplicar: false }).corpo as import("../contrato").PreviaOrcamento;
+    expect([p2.novos, p2.atualizados]).toEqual([0, 2]);
+    expect(chamar("POST", `obras/${o.id}/orcamento/materiais`, { origem: "x", itens: [] }).status).toBe(422);
+  });
+
   it("prévia pula títulos, junta repetidos, calcula o unitário pelo total e a curva pelo valor; aplicar grava", () => {
     const o = criar().corpo as { id: string };
     const arquivo = { nome: "orc.csv", texto: PLANILHA };

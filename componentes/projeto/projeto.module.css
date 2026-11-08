@@ -3,8 +3,8 @@
    para chegar ao modelo. No celular, a vista vem primeiro e o painel desce. */
 .tela{display:flex;flex-direction:column;gap:0;--mesaAlt:clamp(520px,calc(100dvh - 210px),980px)}
 .mesaCheia{grid-template-columns:minmax(0,1fr)!important}
-.mesa{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--s4);margin-top:var(--s4);align-items:stretch}
-@media (min-width:1481px){.mesa{grid-template-columns:minmax(0,1fr) 400px}}
+.mesa{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:var(--s4);margin-top:var(--s4);align-items:stretch}
+@media (min-width:1481px){.mesa{grid-template-columns:minmax(0,1fr) 420px}}
 
 /* ---- a vista ---- */
 .visor{display:flex;flex-direction:column;gap:10px;min-width:0;height:var(--mesaAlt)}
@@ -50,7 +50,9 @@
 /* ---- o painel do pacote ---- */
 .painel{display:flex;flex-direction:column;min-width:0;height:var(--mesaAlt);padding:0;overflow:hidden}
 .abas{margin:var(--s3) var(--s3) 0;align-self:stretch;display:flex}
-.abas button{flex:1;justify-content:center;padding:0 8px}
+/* quatro abas no painel estreito: cada uma encolhe até o rótulo, e o número vai junto sem empurrar a vizinha */
+.abas button{flex:1 1 auto;min-width:0;justify-content:center;padding:0 7px;font-size:var(--t-meta);white-space:nowrap}
+.abas :global(.seg-n){margin-left:4px;padding:0 5px}
 .painelCorpo{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:var(--s3) var(--s4) var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
 .lendo{display:flex;gap:10px;align-items:flex-start;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);background:var(--blueSoft);color:var(--blueInk);font-size:var(--t-meta)}
 .lendo span{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -90,6 +92,15 @@
 .seloOk{background:var(--greenSoft);color:var(--greenInk)}
 .seloAtencao{background:var(--amberSoft);color:var(--amberInk)}
 
+.matCab{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:var(--t-meta);color:var(--ink2)}
+.matTotal{font:600 var(--t-sec) var(--mono);color:var(--ink);white-space:nowrap}
+.materiais{list-style:none;margin:0;padding:0}
+.materiais li{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid var(--line2);font-size:var(--t-body)}
+.materiais li:last-child{border-bottom:0}
+.matLinha{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.matLinha b{font-weight:600;min-width:0}
+.matLinha .num{font-family:var(--mono);white-space:nowrap;color:var(--ink)}
+.levar{align-self:stretch;justify-content:center}
 .folhas{list-style:none;margin:0;padding:0}
 .folhas li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line2);font-size:var(--t-meta)}
 .folhas li:last-child{border-bottom:0}
@@ -109,7 +120,7 @@
 .soltar[disabled]{opacity:.6;cursor:progress}
 
 /* notebook: o painel estreita um pouco */
-@media (min-width:900px) and (max-width:1180px){.mesa{grid-template-columns:minmax(0,1fr) 320px}}
+@media (min-width:900px) and (max-width:1180px){.mesa{grid-template-columns:minmax(0,1fr) 340px}}
 /* abaixo de 900: uma coluna, a vista primeiro com boa altura, o painel na altura do conteúdo */
 @media (max-width:899px){
   .mesa{grid-template-columns:minmax(0,1fr)}
@@ -122,3 +133,5 @@
 }
 @media (max-width:760px){.vistas{margin-left:0}.ficha{left:12px;right:12px;max-width:none}.parte{grid-template-columns:1fr;gap:4px}}
 @media (max-width:899px){.dicaVista{display:none}}
+/* notebook: o painel é estreito para quatro abas com contador; o número continua no nome acessível da aba */
+@media (min-width:900px) and (max-width:1180px){.abas :global(.seg-n){display:none}}

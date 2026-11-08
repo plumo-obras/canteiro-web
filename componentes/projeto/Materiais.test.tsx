@@ -1,0 +1,119 @@
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Obra, Usuario } from "@/lib/contrato";
+import { limparSessao } from "@/lib/sessao";
+import type { MateriaisProjeto } from "@/lib/tradutor";
+import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
+import { ProvedorCasca } from "../contexto";
+import { Materiais } from "./Materiais";
+
+const OBRA = { id: "o-1", nome: "Casa Inventada", uf: "MG" } as Obra;
+
+const MATERIAIS: MateriaisProjeto = {
+  referencia: { fonte: "SINAPI", mes: "2026-09", encargos: "sem desoneração", uf: "MG" },
+  itens: [
+    { chave: "aco:CA50:10.0", categoria: "aco", especificacao: "Aço CA-50 Ø 10,0 mm", unidade: "kg", quantidade: 220.3, origem: ["Folha 02"],
+      ajuste: "Ø 9,8 não é bitola fabricada (NBR 7480): considerado Ø 10,0", nota: null,
+      referencia: { codigo: "34", descricao: "ACO CA-50, 10,0 MM, VERGALHAO", unidade: "KG", preco_centavos: 669, total_centavos: 147381 } },
+    { chave: "enchimento:B8", categoria: "enchimento", especificacao: "EPS B8/30/125", unidade: "un", quantidade: 382, origem: ["Folha 01"],
+      ajuste: null, nota: null, referencia: null },
+    { chave: "vigota:planta", categoria: "vigota", especificacao: "Vigotas pré-moldadas (2 tipos)", unidade: "un", quantidade: 0, origem: ["Folha 03"],
+      ajuste: null, nota: "Quantidade a confirmar com o fornecedor da laje", referencia: null },
+  ],
+  total_referencia_centavos: 147381,
+  avisos: [],
+  em_andamento: [],
+  nao_encontradas: [],
+};
+
+const PREVIA = {
+  aplicado: false,
+  linhas: [
+    { linhas: [1], nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220300, valor_unitario: 669, total: 147381, curva: "A", saldo: 0,
+      situacao: "atualiza", precisa_antes: 100000, valor_antes: 650 },
+    { linhas: [2], nome: "EPS B8/30/125", unidade: "un", quantidade: 382000, valor_unitario: 0, total: 0, curva: "C", saldo: 0,
+      situacao: "novo", precisa_antes: null, valor_antes: null },
+  ],
+  ignoradas: [],
+  erros: [],
+  total: 147381,
+  novos: 1,
+  atualizados: 1,
+  juntadas: 0,
+};
+
+const montar = (usuario: Usuario = USUARIO) =>
+  render(
+    <ProvedorCasca usuario={usuario} demo={false}>
+      <Materiais obra={OBRA} ids={["f1", "f2"]} />
+    </ProvedorCasca>,
+  );
+
+beforeEach(() => limparSessao());
+afterEach(() => {
+  limparSessao();
+  vi.unstubAllGlobals();
+});
+
+describe("Materiais do projeto", () => {
+  it("mostra cada material com o insumo do SINAPI, o ajuste da bitola e o que fica para o fornecedor", async () => {
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS) });
+    montar();
+    const lista = await screen.findByRole("list", { name: "Materiais do projeto" });
+    expect(rede.chamadas.find((c) => c.caminho.endsWith("/materiais"))!.url.searchParams.get("uf")).toBe("MG");
+    expect(screen.getByText(/SINAPI 09\/2026/)).toBeInTheDocument();
+    const aco = within(lista).getByText("Aço CA-50 Ø 10,0 mm").closest("li")!;
+    expect(aco).toHaveTextContent("SINAPI 34");
+    expect(aco).toHaveTextContent("NBR 7480");
+    expect(within(lista).getByText("EPS B8/30/125").closest("li")).toHaveTextContent("Sem item avulso no SINAPI");
+    expect(within(lista).getByText("Vigotas pré-moldadas (2 tipos)").closest("li")).toHaveTextContent("a confirmar");
+  });
+
+  it("leva para Compras pela prévia: manda o nome com o código, em milésimos, sem a vigota sem quantidade", async () => {
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS),
+      "POST /srv/api/obras/o-1/orcamento/materiais": ({ corpo }) =>
+        json((corpo as { aplicar: boolean }).aplicar ? { ...PREVIA, aplicado: true, registro_ids: ["r1"] } : PREVIA),
+    });
+    const u = userEvent.setup();
+    montar();
+    await u.click(await screen.findByRole("button", { name: "Levar 2 materiais para Compras" }));
+
+    const dialogo = await screen.findByRole("dialog", { name: "Lançar os materiais do projeto na obra?" });
+    const previa = rede.chamadas.find((c) => c.caminho.endsWith("/orcamento/materiais"))!;
+    expect(previa.corpo).toEqual({
+      origem: "projeto estrutural",
+      aplicar: false,
+      itens: [
+        { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220300, valor_unitario: 669 },
+        { nome: "EPS B8/30/125", unidade: "un", quantidade: 382000, valor_unitario: 0 },
+      ],
+    });
+    expect(within(dialogo).getByText("atualiza")).toBeInTheDocument();
+    expect(dialogo).toHaveTextContent("antes 100");
+
+    await u.click(within(dialogo).getByRole("button", { name: "Lançar 2 materiais na obra" }));
+    expect(await screen.findByText("2 materiais do projeto lançados na obra. O que falta comprar está em Compras.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    expect(rede.chamadas.filter((c) => c.caminho.endsWith("/orcamento/materiais")).at(-1)!.corpo).toMatchObject({ aplicar: true });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("viewer vê os materiais, mas não leva para Compras", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS) });
+    montar({ ...USUARIO, papel: "viewer" });
+    await screen.findByRole("list", { name: "Materiais do projeto" });
+    expect(screen.queryByRole("button", { name: /para Compras/ })).not.toBeInTheDocument();
+  });
+
+  it("erro do tradutor aparece em linguagem de gente", async () => {
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/tradutor/projetos/materiais": () => json({ detail: "O tradutor de pranchas não respondeu." }, 502),
+    });
+    montar();
+    expect(await screen.findByRole("alert")).toHaveTextContent("O tradutor de pranchas não respondeu.");
+  });
+});
