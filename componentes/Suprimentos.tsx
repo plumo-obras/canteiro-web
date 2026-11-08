@@ -138,7 +138,7 @@ export function Suprimentos({ obra, secaoInicial = "itens" }: { obra: Obra; seca
           fechar={() => setLancando(null)}
         />
       ) : null}
-      {modal?.k === "item" ? <ModalNovoItem obraId={obra.id} fechar={() => setModal(null)} /> : null}
+      {modal?.k === "item" ? <ModalNovoItem obraId={obra.id} uf={obra.uf || "SP"} fechar={() => setModal(null)} /> : null}
       {modal?.k === "fornecedor" ? <ModalFornecedor fornecedor={modal.f} fechar={() => setModal(null)} /> : null}
     </div>
   );
