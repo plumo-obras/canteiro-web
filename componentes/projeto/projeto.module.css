@@ -135,3 +135,7 @@
 @media (max-width:899px){.dicaVista{display:none}}
 /* notebook: o painel é estreito para quatro abas com contador; o número continua no nome acessível da aba */
 @media (min-width:900px) and (max-width:1180px){.abas :global(.seg-n){display:none}}
+
+.jaNaObra{display:inline-flex;align-items:center;gap:4px;font-size:var(--t-meta);color:var(--greenInk)}
+.incluir{display:flex;align-items:flex-start;gap:8px;margin:8px 0 4px;font-size:var(--t-meta);color:var(--ink2);line-height:1.4;cursor:pointer}
+.incluir input{margin-top:2px;flex:none}

@@ -116,4 +116,25 @@ describe("Materiais do projeto", () => {
     montar();
     expect(await screen.findByRole("alert")).toHaveTextContent("O tradutor de pranchas não respondeu.");
   });
+
+  it("avisa o que já existe na obra e, por padrão, não duplica (só manda os novos)", async () => {
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS),
+      // a obra já tem o mesmo aço, com nome humano
+      "GET /srv/api/obras/o-1/insumos": () => json([{ insumo: { id: "x1", nome: "Aço CA-50 10 mm", unidade: "kg" }, conta: {} }]),
+      "POST /srv/api/obras/o-1/orcamento/materiais": () => json(PREVIA),
+    });
+    const u = userEvent.setup();
+    montar();
+
+    const aco = (await screen.findByText("Aço CA-50 Ø 10,0 mm")).closest("li")!;
+    expect(aco).toHaveTextContent("Já na obra como «Aço CA-50 10 mm»");
+    // o EPS (que não existe na obra) continua enviável; o aço fica de fora
+    await u.click(await screen.findByRole("button", { name: "Levar 1 material para Compras" }));
+    const corpo = rede.chamadas.find((c) => c.caminho.endsWith("/orcamento/materiais"))!.corpo as { itens: { nome: string }[] };
+    expect(corpo.itens.map((i) => i.nome)).toEqual(["EPS B8/30/125"]);
+    expect(corpo.itens.some((i) => i.nome.startsWith("Aço"))).toBe(false);
+  });
+
 });

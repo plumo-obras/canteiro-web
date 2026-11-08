@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/cliente";
-import type { MaterialDoProjeto, Obra, PreviaOrcamento } from "@/lib/contrato";
+import type { ItemInsumo, MaterialDoProjeto, Obra, PreviaOrcamento } from "@/lib/contrato";
 import { fmtQtdUn, fmtReais } from "@/lib/formato";
 import { tradutor, type MateriaisProjeto, type MaterialProjeto } from "@/lib/tradutor";
 import { mensagemDe, useCasca } from "../contexto";
@@ -34,6 +34,30 @@ export function paraAObra(itens: MaterialProjeto[]): MaterialDoProjeto[] {
     }));
 }
 
+/** Tokens significativos do nome, para achar o mesmo produto já cadastrado na obra ("Aço CA-50 10 mm" ~ "Aço CA-50 Ø 10,0 mm"). */
+function tokens(nome: string): Set<string> {
+  return new Set(
+    nome
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((x) => x.length > 0 && !["de", "da", "do", "mm", "cm"].includes(x)),
+  );
+}
+const contido = (a: Set<string>, b: Set<string>) => [...a].every((x) => b.has(x));
+
+/** O insumo da obra que é, com boa chance, o mesmo material do projeto (ou null). */
+function jaNaObra(especificacao: string, existentes: ItemInsumo[]): string | null {
+  const tm = tokens(especificacao);
+  for (const e of existentes) {
+    const te = tokens(e.insumo.nome);
+    const [menor, maior] = te.size <= tm.size ? [te, tm] : [tm, te];
+    if (menor.size >= 2 && contido(menor, maior)) return e.insumo.nome;
+  }
+  return null;
+}
+
 const unidade = (u: string) => ({ m3: "m³", m2: "m²" })[u] ?? u;
 
 export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
@@ -43,6 +67,8 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
   const [previa, setPrevia] = useState<PreviaOrcamento | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
+  const [existentes, setExistentes] = useState<ItemInsumo[]>([]);
+  const [incluirExistentes, setIncluirExistentes] = useState(false);
   const lancar = useRef<HTMLButtonElement>(null);
   const chaveIds = ids.join(",");
 
@@ -59,7 +85,32 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
     };
   }, [chaveIds, obra.uf]);
 
-  const enviaveis = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
+  useEffect(() => {
+    let vivo = true;
+    api
+      .listarInsumos(obra.id)
+      .then((is) => vivo && setExistentes(is))
+      .catch(() => {}); // sem a lista, a tela só não avisa sobre duplicados
+    return () => {
+      vivo = false;
+    };
+  }, [obra.id]);
+
+  // de cada material do projeto, o insumo da obra que parece ser o mesmo (para avisar e não duplicar)
+  const duplicadoDe = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const x of dados?.itens ?? []) {
+      const achado = jaNaObra(x.especificacao, existentes);
+      if (achado) m.set(x.chave, achado);
+    }
+    return m;
+  }, [dados, existentes]);
+
+  // por padrão não manda o que já existe na obra (evita o mesmo aço virar dois itens); a pessoa pode incluir
+  const enviaveis = useMemo(
+    () => (dados ? paraAObra(dados.itens.filter((m) => incluirExistentes || !duplicadoDe.has(m.chave))) : []),
+    [dados, duplicadoDe, incluirExistentes],
+  );
 
   const verPrevia = useCallback(async () => {
     setOcupado(true);
@@ -140,6 +191,11 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
             ) : (
               <span className={s.resp}>Sem item avulso no SINAPI: cotar com o fornecedor</span>
             )}
+            {duplicadoDe.has(m.chave) ? (
+              <span className={s.jaNaObra}>
+                <Icone nome="check" tam={12} /> Já na obra como «{duplicadoDe.get(m.chave)}» — não será duplicado
+              </span>
+            ) : null}
             {m.ajuste ? <span className={s.falta}>{m.ajuste}</span> : null}
             {m.nota ? <span className={s.resp}>{m.nota}</span> : null}
           </li>
@@ -150,10 +206,18 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
           {a}
         </p>
       ))}
-      {podeOperar && enviaveis.length ? (
-        <button type="button" className={`btn amb ${s.levar}`} disabled={ocupado} aria-busy={ocupado} onClick={() => void verPrevia()}>
+      {podeOperar && duplicadoDe.size ? (
+        <label className={s.incluir}>
+          <input type="checkbox" checked={incluirExistentes} onChange={(e) => setIncluirExistentes(e.target.checked)} />
+          {duplicadoDe.size === 1
+            ? `1 material já existe na obra e ficou de fora. Marque para lançar mesmo assim (vira item separado).`
+            : `${duplicadoDe.size} materiais já existem na obra e ficaram de fora. Marque para lançar mesmo assim (viram itens separados).`}
+        </label>
+      ) : null}
+      {podeOperar ? (
+        <button type="button" className={`btn amb ${s.levar}`} disabled={ocupado || !enviaveis.length} aria-busy={ocupado} onClick={() => void verPrevia()}>
           <Icone nome={ocupado ? "loader" : "package"} tam={15} className={ocupado ? "spin" : undefined} />
-          Levar {enviaveis.length} {enviaveis.length === 1 ? "material" : "materiais"} para Compras
+          {enviaveis.length ? `Levar ${enviaveis.length} ${enviaveis.length === 1 ? "material" : "materiais"} para Compras` : "Todos já estão na obra"}
         </button>
       ) : null}
       {erroEnvio && !previa ? (
