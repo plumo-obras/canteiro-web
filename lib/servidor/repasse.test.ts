@@ -26,6 +26,10 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["propostas", "p1"], "PUT")).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "cronograma"], "PUT")).toBe(true); // Fase 4
     expect(caminhoPermitido(["obras", "o1", "cronograma"], "DELETE")).toBe(false);
+    // desembolso: só leitura (um POST passa pelo prefixo de obras e a API responde 405)
+    expect(caminhoPermitido(["obras", "o1", "desembolso"], "GET")).toBe(true);
+    for (const m of ["PUT", "PATCH", "DELETE"]) expect(caminhoPermitido(["obras", "o1", "desembolso"], m)).toBe(false);
+    expect(caminhoPermitido(["obras", "o1", "desembolso", "x"], "PUT")).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PUT")).toBe(false);
     expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1"], "PATCH")).toBe(true);

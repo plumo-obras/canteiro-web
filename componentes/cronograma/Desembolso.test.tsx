@@ -5,7 +5,7 @@ import type { Desembolso as DadosDesembolso, Obra } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "../contexto";
-import { avisos, csvDesembolso, curto, Desembolso, textoTermino } from "./Desembolso";
+import { avisos, csvDesembolso, curto, Desembolso, temDoisCenarios, textoTermino } from "./Desembolso";
 
 const OBRA = { id: "o1", tenant_id: "t-1", nome: "EMEI Santa Clara do Sul", status: "em_andamento" } as Obra;
 
@@ -48,7 +48,7 @@ describe("desembolso: textos", () => {
 
   it("as ressalvas só aparecem quando valem", () => {
     expect(avisos(D)).toEqual([
-      "R$ 200,00 já foram medidos e ainda não pagos: entram como devidos neste mês.",
+      "R$ 200,00 já medidos ainda sem gasto lançado: entram como devidos neste mês.",
       "O resto do cronograma foi empurrado 1 mês, o atraso medido em jan/2026.",
     ]);
     const sem = { ...D, base: "gastos" as const, atraso_meses: 0, etapas: [], totais: { ...D.totais, entregue_sem_pagamento: 5_000, sem_mes: 9_000 } };
@@ -70,6 +70,14 @@ describe("desembolso: textos", () => {
 
   it("rótulo curto do eixo", () => {
     expect([curto(0), curto(25_000_000), curto(120_000_000), curto(9_900)]).toEqual(["0", "250 mil", "1,2 mi", "99"]);
+    expect(curto(99_960_000)).toBe("1 mi");                       // não "1.000 mil"
+  });
+
+  it("dois cenários pelas séries, mesmo com o mesmo mês de término", () => {
+    const mesmoFim = { ...D, termino_no_ritmo: "2026-04", meses: [mes("2026-03", 0, 0, 150_000, 120_000), mes("2026-04", 0, 0, 100_000, 130_000)] };
+    expect(temDoisCenarios(mesmoFim)).toBe(true);
+    expect(textoTermino(mesmoFim)).toBe("Último pagamento previsto em abr/2026.");
+    expect(temDoisCenarios({ ...D, meses: D.meses.map((m) => ({ ...m, projetado_no_ritmo: m.projetado })) })).toBe(false);
   });
 });
 
@@ -91,8 +99,20 @@ describe("desembolso: a seção", () => {
     expect(within(linhaMar()).getByText("R$ 1.500,00")).toBeTruthy();
   });
 
+  it("erro da API aparece como alerta", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/desembolso": () => json({ detail: "A data de referência tem de estar a até 10 anos de hoje." }, 422) });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Desembolso obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    expect(screen.getByText("Carregando o desembolso…")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toContain("até 10 anos");
+  });
+
   it("sem os dois cenários, não oferece a troca", async () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/desembolso": () => json({ ...D, base: "gastos", termino_no_ritmo: "2026-04" }) });
+    // (sem medição a API manda as duas séries iguais; aqui elas diferem, mas sem medição a troca não aparece)
     render(
       <ProvedorCasca usuario={USUARIO} demo={false}>
         <Desembolso obra={OBRA} />

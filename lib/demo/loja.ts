@@ -1022,6 +1022,23 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         });
       }
       if ((metodo === "PUT" && b === "cronograma") || (metodo === "POST" && b === "medicoes")) return erro(422, INDISPONIVEL);
+      // a seção nem monta enquanto a demo não tem cronograma; quando ganhar, o desembolso vem vazio em vez de 404
+      if (metodo === "GET" && b === "desembolso" && !id2) {
+        const orc = orcamentoDemo(e, obraPorId(e, id));
+        const realizado = orc.totais.realizado;
+        return ok({
+          mes_atual: new Date().toISOString().slice(0, 7),
+          base: "sem_cronograma",
+          mes_referencia: null,
+          atraso_meses: 0,
+          ritmo_pct: 10000,
+          termino_projetado: null,
+          termino_no_ritmo: null,
+          meses: [],
+          etapas: [],
+          totais: { orcado: orc.totais.atual, realizado, pago: 0, falta: 0, custo_final: realizado, desvio: 0, entregue_sem_pagamento: 0, sem_mes: 0 },
+        });
+      }
       if (metodo === "GET" && b === "orcamento" && !id2) return ok(orcamentoDemo(e, obraPorId(e, id)));
       if (metodo === "POST" && b === "orcamento") {
         exigirAdmin(u);

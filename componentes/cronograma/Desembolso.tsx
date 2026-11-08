@@ -5,7 +5,7 @@
  * resto empurrado pelo atraso) e no ritmo de hoje (o resto esticado pelo ritmo medido). Nenhum acerta sozinho; a tela
  * mostra a faixa entre os dois e deixa escolher qual desenhar.
  */
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { Desembolso as DadosDesembolso, MesDesembolso, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { centavosCsv, gerarCsv, baixarCsv } from "@/lib/csv";
@@ -18,15 +18,17 @@ import { useCarregar } from "../useCarregar";
 
 export type Cenario = "ritmo" | "cronograma";
 
-/** Os dois cenários só diferem com medição e a obra abaixo do ritmo do plano. */
-export const temDoisCenarios = (d: DadosDesembolso) => d.base === "medicao" && d.termino_no_ritmo !== d.termino_projetado;
+/** Os dois cenários só diferem com medição e a obra abaixo do ritmo do plano. Compara as séries, não o mês do fim:
+ * no ritmo, o mesmo último mês pode vir com outra distribuição. */
+export const temDoisCenarios = (d: DadosDesembolso) =>
+  d.base === "medicao" && d.meses.some((m) => m.projetado !== m.projetado_no_ritmo);
 
 export const vaiSair = (m: MesDesembolso, c: Cenario) => (c === "ritmo" ? m.projetado_no_ritmo : m.projetado);
 
 /** A frase do término: a faixa entre os dois cenários, ou um mês só. */
 export function textoTermino(d: DadosDesembolso): string | null {
   if (!d.termino_projetado) return null;
-  if (!temDoisCenarios(d)) return `Último pagamento previsto em ${fmtMesLongo(d.termino_projetado)}.`;
+  if (!temDoisCenarios(d) || d.termino_no_ritmo === d.termino_projetado) return `Último pagamento previsto em ${fmtMesLongo(d.termino_projetado)}.`;
   return (
     `Último pagamento entre ${fmtMesLongo(d.termino_projetado)}, se a obra voltar ao ritmo do cronograma, e ` +
     `${fmtMesLongo(d.termino_no_ritmo)}, no ritmo de hoje (${fmtPct(d.ritmo_pct)} do planejado).`
@@ -42,7 +44,8 @@ export function avisos(d: DadosDesembolso): string[] {
   if (t.entregue_sem_pagamento > 0)
     a.push(`${fmtReais(t.entregue_sem_pagamento)} de pedidos entregues sem pagamento registrado entram como devidos neste mês.`);
   const devido = d.etapas.reduce((s, e) => s + e.devido_agora, 0);
-  if (devido > 0) a.push(`${fmtReais(devido)} já foram medidos e ainda não pagos: entram como devidos neste mês.`);
+  // devido_agora = executado na medição e ainda sem gasto lançado (o entregue e não pago é o aviso de cima)
+  if (devido > 0) a.push(`${fmtReais(devido)} já medidos ainda sem gasto lançado: entram como devidos neste mês.`);
   if (t.sem_mes > 0) a.push(`${fmtReais(t.sem_mes)} de etapas fora do cronograma estão no "falta sair", mas sem mês.`);
   if (d.base === "medicao" && d.atraso_meses > 0)
     a.push(`O resto do cronograma foi empurrado ${d.atraso_meses} ${d.atraso_meses === 1 ? "mês" : "meses"}, o atraso medido em ${fmtMesLongo(d.mes_referencia)}.`);
@@ -75,6 +78,8 @@ export function Desembolso({ obra }: { obra: Obra }) {
   const { dado, erro } = useCarregar(() => api.desembolso(obra.id), [obra.id, versao]);
   const [cenario, setCenario] = useState<Cenario>("ritmo");
   const [tabela, setTabela] = useState(false);
+  const titulo = useId();
+  const idTabela = useId();
   if (erro)
     return (
       <div className="aviso-erro" role="alert">
@@ -82,7 +87,13 @@ export function Desembolso({ obra }: { obra: Obra }) {
         Não foi possível montar o desembolso: {erro}
       </div>
     );
-  if (!dado) return null;
+  if (!dado)
+    return (
+      <div className="carregando" role="status">
+        <Icone nome="loader" className="spin" tam={15} />
+        Carregando o desembolso…
+      </div>
+    );
   const t = dado.totais;
   const dois = temDoisCenarios(dado);
   const c: Cenario = dois ? cenario : "cronograma";
@@ -91,8 +102,8 @@ export function Desembolso({ obra }: { obra: Obra }) {
   const nome = obra.nome.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 
   return (
-    <section className="desemb" aria-labelledby="desemb-tit">
-      <h3 className="sectit" id="desemb-tit">
+    <section className="desemb" aria-labelledby={titulo}>
+      <h3 className="sectit" id={titulo}>
         Desembolso
       </h3>
       <p className="mut desemb-sub">Quanto já saiu e quanto ainda vai sair até o fim da obra.</p>
@@ -112,7 +123,7 @@ export function Desembolso({ obra }: { obra: Obra }) {
         rodape={termino}
       />
       {dois ? (
-        <div className="seg seg-pq desemb-cen" role="radiogroup" aria-label="Cenário do gráfico">
+        <div className="seg seg-pq desemb-cen" role="radiogroup" aria-label="Cenário da projeção">
           {(
             [
               ["ritmo", "No ritmo de hoje"],
@@ -134,7 +145,7 @@ export function Desembolso({ obra }: { obra: Obra }) {
         </ul>
       ) : null}
       <div className="desemb-acoes">
-        <button type="button" className="btn" aria-expanded={tabela} onClick={() => setTabela((v) => !v)}>
+        <button type="button" className="btn" aria-expanded={tabela} aria-controls={idTabela} onClick={() => setTabela((v) => !v)}>
           {tabela ? "Esconder mês a mês" : "Ver mês a mês"}
         </button>
         <button type="button" className="btn" onClick={() => baixarCsv(`desembolso-${nome}-${dado.mes_atual}.csv`, csvDesembolso(dado))}>
@@ -142,7 +153,7 @@ export function Desembolso({ obra }: { obra: Obra }) {
           Baixar planilha
         </button>
       </div>
-      {tabela ? <TabelaDesembolso d={dado} cenario={c} /> : null}
+      <div id={idTabela}>{tabela ? <TabelaDesembolso d={dado} cenario={c} /> : null}</div>
     </section>
   );
 }
@@ -161,7 +172,7 @@ function TabelaDesembolso({ d, cenario }: { d: DadosDesembolso; cenario: Cenario
               Pago
             </th>
             <th scope="col" className="num">
-              Vai sair
+              Vai sair{cenarioTexto(d, cenario)}
             </th>
           </tr>
         </thead>
@@ -223,7 +234,8 @@ function GraficoDesembolso({ d, cenario }: { d: DadosDesembolso; cenario: Cenari
             <g key={m.mes}>
               {m.pago ? <rect className="db-pago" x={cx} width={bw} y={y(m.pago)} height={y(0) - y(m.pago)} rx={1.5} /> : null}
               {s ? <rect className="db-falta" x={cx} width={bw} y={y(m.pago + s)} height={y(m.pago) - y(m.pago + s)} rx={1.5} /> : null}
-              {i % k === 0 || i === n - 1 ? (
+              {/* o último mês sempre tem rótulo; o da grade some se ficar colado nele */}
+              {(i % k === 0 && n - 1 - i >= Math.ceil(k / 2)) || i === n - 1 ? (
                 <text className={`cs-rot${i % (k * 3) && i !== n - 1 ? " cs-sec" : ""}`} x={x(i) + larg / 2} y={A - 10} textAnchor="middle">
                   {fmtMes(m.mes)}
                 </text>
@@ -255,7 +267,7 @@ const cenarioTexto = (d: DadosDesembolso, c: Cenario) => (!temDoisCenarios(d) ? 
 /** Rótulo do eixo, sem "R$" (no celular a fonte cresce e o prefixo não cabia na margem): "250 mil", "1,2 mi". */
 export function curto(c: number): string {
   const r = c / 100;
-  if (r >= 1e6) return `${(r / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (r >= 999_500) return `${(r / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
   if (r >= 1e3) return `${Math.round(r / 1e3).toLocaleString("pt-BR")} mil`;
   return String(Math.round(r));
 }
