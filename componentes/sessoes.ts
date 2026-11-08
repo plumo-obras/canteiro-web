@@ -7,15 +7,15 @@ import type { EventoConversa } from "@/lib/contrato";
 import type { Msg, MsgAgente, MsgEu, SessaoApi } from "@/lib/historico";
 import { uuid7 } from "@/lib/ids";
 
-export type Tela = "orcamento" | "cronograma" | "suprimentos" | "gastos" | "aprovacoes" | "historico";
-export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "suprimentos", "gastos", "aprovacoes", "historico"];
+export type Tela = "orcamento" | "cronograma" | "suprimentos" | "gastos" | "tributos" | "projeto" | "aprovacoes" | "historico";
+export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "suprimentos", "gastos", "tributos", "projeto", "aprovacoes", "historico"];
 /** Almoxarifado e Pedidos viraram Suprimentos: links antigos (?tela=pedidos) abrem a tela nova. */
 export const telaDe = (t: string | null): Tela | undefined =>
   t === "almoxarifado" || t === "pedidos" ? "suprimentos" : TELAS_VALIDAS.find((x) => x === t);
 export type AbaAtiva = "conversa" | Tela;
 
 /** Telas que só existem com a API de verdade: a demonstração (dados em memória) não tem as rotas delas. */
-const SO_COM_API: ReadonlySet<Tela> = new Set(["gastos"]);
+const SO_COM_API: ReadonlySet<Tela> = new Set(["gastos", "tributos"]);
 export const telaNoModo = <T extends AbaAtiva>(t: T, demo: boolean): boolean => !demo || !SO_COM_API.has(t as Tela);
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";

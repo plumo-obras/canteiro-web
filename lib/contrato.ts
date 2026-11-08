@@ -28,6 +28,19 @@ export type StatusObra = "em_andamento" | "em_orcamento" | "concluida";
 export type Tipologia = "casa" | "sobrado" | "predio" | "galpao" | "reforma" | "comercial" | "outro";
 export type Padrao = "baixo" | "normal" | "alto";
 export type Regime = "empreitada" | "administracao";
+export type Proprietario = "pf" | "pj";
+/** As destinações da tabela VAU do SERO: é por elas (com UF e mês) que a Receita dá o valor do m². */
+export type Destinacao =
+  | "residencial_unifamiliar"
+  | "residencial_multifamiliar"
+  | "casa_popular"
+  | "conjunto_habitacional"
+  | "comercial"
+  | "edificio_garagens"
+  | "galpao";
+export type Material = "alvenaria" | "mista" | "madeira";
+export type Finalidade = "uso_proprio" | "venda" | "prestacao_servico";
+export type CategoriaObra = "obra_nova" | "acrescimo" | "reforma" | "demolicao";
 
 export interface Obra extends Documento {
   nome: string;
@@ -52,6 +65,27 @@ export interface Obra extends Documento {
   bdi: number;
   /** AAAA-MM: mês dos preços de referência. */
   data_base: string | null;
+  // Dados fiscais (aba Tributos). Opcionais aqui: a demonstração e a API de antes não os mandam.
+  /** Matrícula no CNO, só os 12 dígitos; "" = não informado. */
+  cno?: string;
+  proprietario?: Proprietario | null;
+  destinacao?: Destinacao | null;
+  material?: Material | null;
+  /** m² em milésimos. */
+  area_complementar?: Milesimos;
+  area_descoberta?: Milesimos;
+  /** VAU à mão, centavos por m²; 0 = usar a tabela VAU do SERO para a UF e a destinação. */
+  vau?: Centavos;
+  /** AAAA-MM do VAU à mão. */
+  vau_referencia?: string | null;
+  finalidade?: Finalidade | null;
+  valor_terreno?: Centavos;
+  /** Imóveis residenciais vendidos (redutor social do IBS/CBS). */
+  unidades?: number;
+  /** null = da tipologia (reforma) ou obra nova. */
+  categoria?: CategoriaObra | null;
+  /** DCTFWeb entregue em todos os meses da obra (condição do fator de ajuste do INSS). */
+  dctfweb_em_dia?: boolean | null;
 }
 
 /** PATCH /obras/{id}: só os campos enviados mudam. */
@@ -874,6 +908,133 @@ export interface GastoObra {
   quem: string;
   estornado: boolean;
   criado_em: DataISO;
+  /** O que o pagamento comprova no INSS da obra; null = a classificar. */
+  natureza_fiscal?: NaturezaFiscal | null;
+  /** IBS/CBS destacado na nota (crédito). */
+  ibs_cbs?: Centavos;
+  /** Na nota de mão de obra: traz o CNO da obra. */
+  nf_cno?: boolean | null;
+  /** Retenção de 11% destacada na nota. */
+  retencao?: Centavos;
+}
+
+// --- tributos da obra (estimativa: INSS da aferição e IBS/CBS) ---
+
+export type NaturezaFiscal =
+  | "folha"
+  | "mao_de_obra_nf"
+  | "gps"
+  | "autonomo_mei"
+  | "pre_moldado"
+  | "concreto_usinado"
+  | "mao_de_obra_sem_nf"
+  | "material"
+  | "equipamento"
+  | "outros";
+
+export interface INSSObra {
+  situacao: "calculado" | "isenta" | "sem_dados";
+  /** Por que não calculou (sem_dados) ou por que é isenta. */
+  motivos: string[];
+  /** Área para cálculo do SERO (equivalência + redução das complementares). */
+  area_equivalente: Milesimos;
+  custo_obra: Centavos;
+  /** Mão de obra presumida não decadente, com todas as reduções. */
+  rmt: Centavos;
+  /** Centésimos de ponto (10000 = sem redução). */
+  fator_social: number;
+  percentual_rmt?: number;
+  percentual_categoria?: number;
+  pre_moldado?: "reduziu" | "virou_mista" | null;
+  nao_decadente?: number;
+  /** O que abate da RMT: remunerações corrigidas pela Selic + crédito do concreto. */
+  comprovado: Centavos;
+  comprovado_por_natureza: Partial<Record<NaturezaFiscal, Centavos>>;
+  credito_concreto?: Centavos;
+  credito_autonomo?: Centavos;
+  base: Centavos;
+  inss_sem_fator_ajuste?: Centavos;
+  inss: Centavos;
+  /** Fator de ajuste (só PF): zera o INSS com remuneração declarada suficiente e a DCTFWeb em dia. */
+  fator_ajuste?: "nao_se_aplica" | "aplicado" | "atingido" | "nao_atingido";
+  fator_ajuste_minimo?: number;
+  creditos_fator_ajuste?: Centavos;
+  /** Remuneração declarada que falta para o INSS da aferição zerar. */
+  falta_fator_ajuste?: Centavos;
+  /** Quanto o INSS cairia se a mão de obra sem nota (ou com nota sem o CNO) fosse comprovada. */
+  economia_com_notas: Centavos;
+  mao_de_obra_sem_nf: Centavos;
+  notas_sem_cno?: Centavos;
+  selic_faltando?: string[];
+  avisos?: string[];
+  /** A conta pronta, linha a linha. */
+  linhas: string[];
+}
+
+export interface IBSCBSObra {
+  situacao: "calculado" | "nao_incide" | "sem_dados";
+  motivos: string[];
+  aliquota_efetiva: number;
+  valor_operacao: Centavos;
+  redutor_ajuste: Centavos;
+  redutor_social: Centavos;
+  base: Centavos;
+  debito: Centavos;
+  creditos: Centavos;
+  a_pagar: Centavos;
+  /** A frase da fase da transição no ano corrente. */
+  transicao: string;
+  linhas: string[];
+}
+
+export interface GastoAClassificar {
+  id: string;
+  valor: Centavos;
+  data_pagamento: string;
+  favorecido: string;
+  descricao: string;
+  natureza_fiscal: NaturezaFiscal | null;
+  nf_cno?: boolean | null;
+}
+
+/** GET /obras/{id}/tributos */
+export interface TributosObra {
+  obra_id: string;
+  cno: string;
+  /** AAAA-MM do VAU usado na conta (o informado ou o vigente da tabela). */
+  vau_referencia: string | null;
+  /** Centavos por m²; 0 = sem VAU (a conta fica sem_dados). */
+  vau_usado?: Centavos;
+  /** informado = o VAU à mão da obra; tabela_sero = o vigente da tabela da Receita. */
+  vau_fonte?: "informado" | "tabela_sero" | null;
+  /** A destinação usada (a da obra, ou a que sai do tipo de obra). */
+  destinacao?: Destinacao | null;
+  categoria?: CategoriaObra;
+  /** AAAA-MM: o mês em que a conta supõe a aferição (hoje). */
+  afericao?: string;
+  /** AAAA-MM da última Selic carregada. */
+  selic_ate?: string | null;
+  inss: INSSObra;
+  ibs_cbs: IBSCBSObra;
+  /** Gastos avulsos sem natureza fiscal (contam zero no INSS). */
+  a_classificar: number;
+  valor_a_classificar: Centavos;
+  /** Até 20 pagamentos de mão de obra sem nota (ou com nota sem o CNO), maiores primeiro. */
+  sem_nota: GastoAClassificar[];
+  /** Até 20 gastos a classificar, maiores primeiro. */
+  pendentes: GastoAClassificar[];
+  /** Percentuais usados, com a fonte (para o contador conferir). */
+  parametros: { inss: Record<string, unknown>; ibs_cbs: Record<string, unknown> };
+  aviso: string;
+}
+
+export interface CorpoFiscalGasto {
+  natureza_fiscal: NaturezaFiscal | null;
+  ibs_cbs?: Centavos;
+  /** Só na mao_de_obra_nf: a nota traz o CNO e o endereço da obra. */
+  nf_cno?: boolean | null;
+  /** Só na mao_de_obra_nf: os 11% retidos, em centavos. */
+  retencao?: Centavos;
 }
 
 export interface Confirmacao {

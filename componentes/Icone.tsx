@@ -18,6 +18,7 @@ const CAMINHOS = {
   wrench:
     '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   arrowUp: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  arrowDown: '<path d="m19 12-7 7-7-7"/><path d="M12 5v14"/>',
   chevRight: '<path d="m9 18 6-6-6-6"/>',
   chevDown: '<path d="m6 9 6 6 6-6"/>',
   loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
