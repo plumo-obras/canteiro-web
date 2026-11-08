@@ -43,6 +43,14 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["gastos", "g1"], "DELETE")).toBe(false);
     expect(caminhoPermitido(["gastos", "g1", "estornar"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["gastos"], "PATCH")).toBe(false);
+    // tributos: a leitura pela obra e a natureza fiscal do gasto, só por PATCH
+    expect(caminhoPermitido(["obras", "o1", "tributos"], "GET")).toBe(true);
+    expect(caminhoPermitido(["gastos", "g1", "fiscal"], "PATCH")).toBe(true);
+    expect(caminhoPermitido(["gastos", "g1", "fiscal"], "GET")).toBe(false);
+    expect(caminhoPermitido(["gastos", "g1", "fiscal"], "POST")).toBe(false);
+    expect(caminhoPermitido(["gastos", "g1", "fiscal"], "PUT")).toBe(false);
+    expect(caminhoPermitido(["gastos", "g1", "fiscal", "x"], "PATCH")).toBe(false);
+    expect(caminhoPermitido(["pedidos", "p1", "fiscal"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(true); // previsão e observação (Fase 2)
     expect(caminhoPermitido(["fornecedores", "f1"], "PATCH")).toBe(true);
