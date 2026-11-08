@@ -1479,3 +1479,27 @@ button.g-nome{cursor:pointer}
   .ld.mv-aprovou .ld-feito svg path{animation:none;stroke-dashoffset:0}
   .btn:active,.iconbtn:active,.chip:active,.mm-b:active,.vs-enviar:active,.kc:hover{transform:none}
 }
+/* Desembolso (Cronograma): barras de pago e do que vai sair, a faixa de término e a tabela mês a mês */
+.desemb{margin-top:8px}
+.desemb .sectit{margin-bottom:2px}
+.desemb-sub{margin:0 0 12px;font-size:var(--t-meta)}
+.desemb .faixa{margin-bottom:12px}
+.desemb-cen{margin:0 0 10px}
+rect.db-pago{fill:var(--accent)}
+rect.db-falta{fill:var(--accentSoft);stroke:var(--accent);stroke-width:1;stroke-dasharray:3 2}
+.cs-leg i.db-i{width:12px;height:12px;border:0;border-radius:3px;vertical-align:-1px}
+.cs-leg i.db-pago{background:var(--accent)}
+.cs-leg i.db-falta{background:var(--accentSoft);border:1px solid var(--accent)}
+.desemb-notas{margin:4px 0 12px;padding-left:18px;font-size:var(--t-meta);color:var(--muted);line-height:1.5}
+.desemb-notas li+li{margin-top:4px}
+.desemb-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.desemb-tab{padding:0;overflow-x:auto}
+.desemb-tab th[scope=row]{font-weight:500;text-align:left}
+.desemb-tab tr.desemb-hoje th,.desemb-tab tr.desemb-hoje td{background:var(--sunk);font-weight:600}
+@media (max-width:760px){
+  /* no celular, pago e o que vai sair cabem sem rolar de lado; o previsto está no gráfico e na planilha */
+  .desemb-tab table{width:100%}
+  .desemb-tab .desemb-prev{display:none}
+  .desemb-tab th,.desemb-tab td{padding-left:10px;padding-right:10px}
+  .desemb-tab th:first-child,.desemb-tab td:first-child{padding-left:14px}
+}

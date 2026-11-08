@@ -17,6 +17,7 @@ import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
+import { Desembolso } from "./Desembolso";
 import { Gantt } from "./Gantt";
 import { TabelaFisicoFinanceira } from "./Tabela";
 import { EditorCronograma } from "./Editor";
@@ -142,6 +143,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
         <>
           <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
           <Gantt crono={dado} />
+          <Desembolso obra={obra} />
           <h3 className="sectit">Medições</h3>
           <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
         </>
