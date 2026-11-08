@@ -83,7 +83,7 @@ A imagem roda o servidor standalone do Next, como usuário `node`, com healthche
 
 ### Projeto 3D: tradutor de pranchas e CAD embutido
 
-A tela Projeto 3D lê as pranchas pelo canteiro-tradutor (`TRADUTOR_URL` e `TRADUTOR_CHAVE`, só no servidor; o
+A tela Projeto 3D lê as pranchas pelo [canteiro-cad](https://github.com/plumo-obras/canteiro-cad) (`TRADUTOR_URL` e `TRADUTOR_CHAVE`, só no servidor; o
 navegador passa por `/srv/tradutor/*`). A vista **2D · editar no CAD** é o CADCraft (open source, MIT/Apache)
 compilado do código para WASM e servido em `/cadcraft`, que não vai para o git. Para gerá-lo:
 
