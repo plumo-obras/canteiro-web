@@ -7,8 +7,8 @@ import type { EventoConversa } from "@/lib/contrato";
 import type { Msg, MsgAgente, MsgEu, SessaoApi } from "@/lib/historico";
 import { uuid7 } from "@/lib/ids";
 
-export type Tela = "orcamento" | "cronograma" | "suprimentos" | "gastos" | "tributos" | "aprovacoes" | "historico";
-export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "suprimentos", "gastos", "tributos", "aprovacoes", "historico"];
+export type Tela = "orcamento" | "cronograma" | "suprimentos" | "gastos" | "tributos" | "projeto" | "aprovacoes" | "historico";
+export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "suprimentos", "gastos", "tributos", "projeto", "aprovacoes", "historico"];
 /** Almoxarifado e Pedidos viraram Suprimentos: links antigos (?tela=pedidos) abrem a tela nova. */
 export const telaDe = (t: string | null): Tela | undefined =>
   t === "almoxarifado" || t === "pedidos" ? "suprimentos" : TELAS_VALIDAS.find((x) => x === t);

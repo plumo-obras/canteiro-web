@@ -1,0 +1,124 @@
+/* Projeto 3D: uma mesa de trabalho. À esquerda, a estrutura (3D ou o CAD) ocupando a altura da tela; à direita, o
+   painel do pacote (o que já veio, o que falta, conferências, folhas), que rola sozinho. Nada pede rolar a página
+   para chegar ao modelo. No celular, a vista vem primeiro e o painel desce. */
+.tela{display:flex;flex-direction:column;gap:0;--mesaAlt:clamp(520px,calc(100dvh - 210px),980px)}
+.mesaCheia{grid-template-columns:minmax(0,1fr)!important}
+.mesa{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--s4);margin-top:var(--s4);align-items:stretch}
+@media (min-width:1481px){.mesa{grid-template-columns:minmax(0,1fr) 400px}}
+
+/* ---- a vista ---- */
+.visor{display:flex;flex-direction:column;gap:10px;min-width:0;height:var(--mesaAlt)}
+.visorCab{display:flex;align-items:center;gap:12px;min-height:38px;flex-wrap:wrap}
+.visorCab :global(.seg){margin-top:0}
+.selecao{display:inline-flex;align-items:center;gap:10px;font-size:var(--t-meta);color:var(--ink2);min-width:0}
+.selecao b{font:600 var(--t-body) var(--mono);color:var(--ink);padding:2px 10px;border-radius:var(--rp);background:var(--accentSoft)}
+.mostrarPacote{margin-left:auto}
+.painel[hidden]{display:none}
+.dicaVista{font-size:var(--t-meta);color:var(--muted);min-width:0}
+.visorCorpo{flex:1;min-height:0;display:flex;flex-direction:column}
+.visorVazio{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--s4);justify-content:center;align-items:stretch;
+  border:1px solid var(--edge);border-radius:var(--r);background:var(--card);padding:var(--s6)}
+.vazioTexto{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;color:var(--ink2)}
+.vazioTexto h3{margin:6px 0 0;color:var(--ink)}
+.vazioTexto p{margin:0;max-width:44ch;line-height:1.5}
+
+/* o cartão do 3D e o do CAD enchem o espaço da vista */
+.vista{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--edge);border-radius:var(--r);
+  overflow:hidden;background:var(--cardSolido);box-shadow:var(--shadow)}
+.vista[hidden]{display:none}
+.palco{position:relative;flex:1;min-height:0}
+.palco canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:none}
+.camadas{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:var(--t-meta)}
+.camadas label{display:inline-flex;gap:6px;align-items:center;cursor:pointer;color:var(--ink2)}
+.amostra{width:11px;height:11px;border-radius:3px;border:1px solid var(--line)}
+.vistas{margin-left:auto;margin-top:0}
+.ficha{position:absolute;right:12px;top:12px;min-width:220px;max-width:280px;background:var(--cardForte);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--edge);border-radius:var(--rc);padding:12px 14px;font-size:var(--t-meta);box-shadow:var(--shadow)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.ficha{background:var(--cardSolido)}}
+.ficha h4{margin:0 0 6px;font:600 var(--t-sec) var(--sans)}
+.ficha dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0}
+.ficha dt{color:var(--muted)}
+.ficha dd{margin:0;font-family:var(--mono);color:var(--ink)}
+.dica{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--ink2);pointer-events:none;padding:3px 10px;border-radius:var(--rp);background:var(--cardSolido);border:1px solid var(--line2)}
+.cad{display:block;width:100%;flex:1;min-height:0;border:0;background:var(--sunk)}
+.semCad{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:var(--s6);text-align:center;color:var(--ink2)}
+.semCad h3{margin:4px 0 0;color:var(--ink)}
+.semCad p{margin:0;max-width:56ch;line-height:1.5}
+.semCad small{color:var(--muted);font-size:12px}
+.avisoCad{color:var(--ink2);font-size:var(--t-meta);flex:1;min-width:0}
+
+/* ---- o painel do pacote ---- */
+.painel{display:flex;flex-direction:column;min-width:0;height:var(--mesaAlt);padding:0;overflow:hidden}
+.abas{margin:var(--s3) var(--s3) 0;align-self:stretch;display:flex}
+.abas button{flex:1;justify-content:center;padding:0 8px}
+.painelCorpo{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:var(--s3) var(--s4) var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+.lendo{display:flex;gap:10px;align-items:flex-start;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);background:var(--blueSoft);color:var(--blueInk);font-size:var(--t-meta)}
+.lendo span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lendo small{color:var(--ink2);font-size:12px}
+
+.resumo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.resumo div{padding:10px 12px;border-radius:var(--ri);background:var(--sunk);border:1px solid var(--line2);min-width:0}
+.resumo div:last-child:nth-child(odd){grid-column:1/-1}
+.resumo dt{font-size:12px;color:var(--muted)}
+.resumo dd{margin:2px 0 0;font:600 var(--t-sec) var(--mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resumo small{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.faltaResumo{padding:10px 12px;border-radius:var(--ri);background:var(--amberSoft);font-size:var(--t-meta);color:var(--ink)}
+.faltaResumo ul{margin:4px 0 0;padding-left:16px;display:grid;gap:2px;color:var(--ink2);line-height:1.45}
+.obrig{color:var(--amberInk);font-weight:500}
+
+.pacote{list-style:none;margin:0;padding:0}
+.parte{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line2)}
+.parte:last-child{border-bottom:0}
+.parteTexto{display:flex;flex-direction:column;gap:2px;font-size:var(--t-body);min-width:0}
+.parteTexto b{font-weight:600}
+.resp{color:var(--muted);font-size:var(--t-meta)}
+.deonde{font:12px var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.falta{font-size:var(--t-meta);color:var(--amberInk)}
+.sit_coberto,.sit_parcial,.sit_faltando,.sit_opcional{justify-self:start;font:500 12px var(--mono);padding:2px 8px;border-radius:var(--rp);margin-top:1px}
+.sit_coberto{background:var(--greenSoft);color:var(--greenInk)}
+.sit_parcial{background:var(--amberSoft);color:var(--amberInk)}
+.sit_faltando{background:var(--redSoft);color:var(--redInk)}
+.sit_opcional{background:var(--graySoft);color:var(--grayInk)}
+
+.explica{margin:0;color:var(--ink2);font-size:var(--t-meta);line-height:1.5}
+.bloco{display:flex;flex-direction:column;gap:8px}
+.bloco h3{margin:0;font:600 var(--t-body) var(--sans);color:var(--ink)}
+.provas{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:var(--t-meta);color:var(--ink2)}
+.provas li{display:flex;gap:8px;align-items:baseline;line-height:1.45}
+.selo,.seloOk,.seloAtencao{flex:none;font:500 12px var(--mono);padding:1px 8px;border-radius:var(--rp);background:var(--graySoft);color:var(--grayInk)}
+.seloOk{background:var(--greenSoft);color:var(--greenInk)}
+.seloAtencao{background:var(--amberSoft);color:var(--amberInk)}
+
+.folhas{list-style:none;margin:0;padding:0}
+.folhas li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line2);font-size:var(--t-meta)}
+.folhas li:last-child{border-bottom:0}
+.folhaNome{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.folhaNome b{font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.folhaNome small{color:var(--muted);font-size:12px}
+
+.soltar{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;padding:var(--s6) var(--s4);border:1.5px dashed var(--line);
+  border-radius:var(--ri);background:var(--sunk);color:var(--ink);text-align:center;cursor:pointer;font-size:var(--t-body);
+  transition:border-color var(--mv-rapido) var(--ease),background-color var(--mv-rapido) var(--ease)}
+.visorVazio .soltar{flex:1;max-height:340px}
+.soltar span{color:var(--ink2);font-size:var(--t-meta);max-width:52ch;line-height:1.5}
+.soltarPq{flex-direction:row;flex-wrap:wrap;gap:4px 8px;padding:var(--s3);margin-top:auto;font-size:var(--t-meta)}
+.soltarPq span{font-size:12px}
+@media (hover:hover){.soltar:hover{border-color:var(--amber);background:var(--amberSoft)}}
+.soltarSobre{border-color:var(--amber);background:var(--amberSoft)}
+.soltar[disabled]{opacity:.6;cursor:progress}
+
+/* notebook: o painel estreita um pouco */
+@media (min-width:900px) and (max-width:1180px){.mesa{grid-template-columns:minmax(0,1fr) 320px}}
+/* abaixo de 900: uma coluna, a vista primeiro com boa altura, o painel na altura do conteúdo */
+@media (max-width:899px){
+  .mesa{grid-template-columns:minmax(0,1fr)}
+  .visor{height:auto}
+  .visorCorpo{height:62dvh;min-height:380px;flex:none}
+  .visorVazio{padding:var(--s4);min-height:300px}
+  .painel{height:auto}
+  .painelCorpo{overflow:visible}
+  .abas button{min-height:44px}
+}
+@media (max-width:760px){.vistas{margin-left:0}.ficha{left:12px;right:12px;max-width:none}.parte{grid-template-columns:1fr;gap:4px}}
+@media (max-width:899px){.dicaVista{display:none}}

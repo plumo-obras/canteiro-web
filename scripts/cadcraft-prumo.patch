@@ -1,0 +1,147 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 92d3ca6..c23671a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -831,6 +831,7 @@ dependencies = [
+  "craft-web-host",
+  "eframe",
+  "egui",
++ "js-sys",
+  "log",
+  "serde_json",
+  "wasm-bindgen",
+diff --git a/apps/cadcraft-web/Cargo.toml b/apps/cadcraft-web/Cargo.toml
+index b1225fa..b4b28b5 100644
+--- a/apps/cadcraft-web/Cargo.toml
++++ b/apps/cadcraft-web/Cargo.toml
+@@ -33,4 +33,6 @@ web-sys = { version = "0.3", features = ["HtmlInputElement", "FileList", "File"]
+ eframe = { workspace = true, features = ["persistence", "wgpu", "accesskit"] }
+ wasm-bindgen = "0.2"
+ wasm-bindgen-futures = "0.4"
++# Prumo: ler e responder os comandos da página hospedeira (cadcraft:execute, src/host.rs)
++js-sys = "0.3"
+ web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement", "HtmlAnchorElement", "Location", "Navigator", "Blob", "BlobPropertyBag", "Url", "MessageEvent", "UrlSearchParams", "MediaQueryList", "Event", "EventTarget", "CustomEvent", "CustomEventInit"] }
+diff --git a/apps/cadcraft-web/src/host.rs b/apps/cadcraft-web/src/host.rs
+index dc9ba93..a0e139c 100644
+--- a/apps/cadcraft-web/src/host.rs
++++ b/apps/cadcraft-web/src/host.rs
+@@ -109,3 +109,85 @@ fn receive_open(name: &str, data: &FileData, inbox: &crate::upload::Inbox) {
+     }
+     inbox.receive(name, array.to_vec());
+ }
++
++// ---------------------------------------------------------------------------------------------
++// Prumo: comandos da página hospedeira. Além de abrir e salvar (o contrato do craft-web-host), a
++// página que embute o CAD pode pedir um comando do catálogo (o mesmo da linha de comando e do
++// `cadcraft-cli run --cmd`), por exemplo ir até um elemento: `zoom.window` e `select`.
++//
++//   página -> app: { type: "cadcraft:execute", pedido, id, params }
++//   app -> página: { type: "cadcraft:executed", pedido, ok, result | error }
++//
++// Só a janela que embute o app, na mesma origem, é ouvida e respondida (a mesma regra do bridge).
++// ---------------------------------------------------------------------------------------------
++
++thread_local! {
++    /// Pedidos da página que esperam o próximo quadro: `(pedido, id, params)`.
++    static PEDIDOS: RefCell<Vec<(String, String, serde_json::Value)>> = const { RefCell::new(Vec::new()) };
++}
++
++/// A janela que embute o app, se ela estiver na mesma origem; `None` fora de um iframe.
++fn parent_mesma_origem() -> Option<(web_sys::Window, String)> {
++    let window = web_sys::window()?;
++    let parent = window.parent().ok().flatten()?;
++    if wasm_bindgen::JsValue::from(parent.clone()) == wasm_bindgen::JsValue::from(window.clone()) {
++        return None; // sem iframe: a própria janela
++    }
++    let origem = window.location().origin().ok()?;
++    // outra origem: ler a location dela lança, e o app segue como se não estivesse embutido
++    let origem_parent = parent.location().origin().ok()?;
++    (origem_parent == origem).then_some((parent, origem))
++}
++
++/// Começa a ouvir `cadcraft:execute`. O comando roda no próximo quadro (`run_pending`), dentro do
++/// laço do app, como um comando digitado.
++pub fn listen_execute(ctx: &egui::Context) {
++    use wasm_bindgen::JsCast;
++    use wasm_bindgen::closure::Closure;
++    let Some((parent, origem)) = parent_mesma_origem() else { return };
++    let Some(window) = web_sys::window() else { return };
++    let ctx = ctx.clone();
++    let ouvir = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
++        if ev.origin() != origem {
++            return;
++        }
++        let Some(fonte) = ev.source() else { return };
++        if wasm_bindgen::JsValue::from(fonte) != wasm_bindgen::JsValue::from(parent.clone()) {
++            return;
++        }
++        let data = ev.data();
++        let campo = |k: &str| js_sys::Reflect::get(&data, &k.into()).ok();
++        if campo("type").and_then(|t| t.as_string()).as_deref() != Some("cadcraft:execute") {
++            return;
++        }
++        let pedido = campo("pedido").and_then(|v| v.as_string()).unwrap_or_default();
++        let Some(id) = campo("id").and_then(|v| v.as_string()) else { return };
++        let params = campo("params")
++            .and_then(|p| js_sys::JSON::stringify(&p).ok())
++            .and_then(|s| s.as_string())
++            .and_then(|s| serde_json::from_str(&s).ok())
++            .unwrap_or(serde_json::json!({}));
++        PEDIDOS.with(|p| p.borrow_mut().push((pedido, id, params)));
++        ctx.request_repaint(); // o app pode estar parado esperando input
++    });
++    let _ = window.add_event_listener_with_callback("message", ouvir.as_ref().unchecked_ref());
++    ouvir.forget(); // vive enquanto a página viver
++}
++
++/// Roda os comandos pedidos pela página e responde a cada um.
++pub fn run_pending(app: &mut CadApp) {
++    let pedidos = PEDIDOS.with(|p| std::mem::take(&mut *p.borrow_mut()));
++    if pedidos.is_empty() {
++        return;
++    }
++    let Some((parent, origem)) = parent_mesma_origem() else { return };
++    for (pedido, id, params) in pedidos {
++        let resposta = match app.run(&id, params) {
++            Ok(result) => serde_json::json!({ "type": "cadcraft:executed", "pedido": pedido, "ok": true, "result": result }),
++            Err(error) => serde_json::json!({ "type": "cadcraft:executed", "pedido": pedido, "ok": false, "error": error }),
++        };
++        if let Ok(obj) = js_sys::JSON::parse(&resposta.to_string()) {
++            let _ = parent.post_message(&obj, &origem);
++        }
++    }
++}
+diff --git a/apps/cadcraft-web/src/main.rs b/apps/cadcraft-web/src/main.rs
+index 7a867b7..565fea9 100644
+--- a/apps/cadcraft-web/src/main.rs
++++ b/apps/cadcraft-web/src/main.rs
+@@ -43,8 +43,21 @@ mod web {
+             // Background reads are consume-based and run on hidden ticks too. Dropped files are
+             // input and are read from `ui` only.
+             self.1.drain(&mut self.0);
++            // Prumo: o desenho que a página hospedeira abriu salva direto para ela (Salvar / Ctrl+S), sem pedir
++            // nome: o nome que ela mandou vira o caminho do documento (no navegador o "caminho" só nomeia a entrega).
++            if self.2.is_some() {
++                for doc in &mut self.0.session.docs {
++                    if doc.path.is_none() && doc.title.to_ascii_lowercase().ends_with(".dxf") {
++                        doc.path = Some(doc.title.clone());
++                    }
++                }
++            }
+             self.0.system_animations = self.3.as_ref().map(|reduced| !reduced.matches());
+             self.0.logic(ctx);
++            // Prumo: comandos pedidos pela página hospedeira (cadcraft:execute)
++            if self.2.is_some() {
++                crate::host::run_pending(&mut self.0);
++            }
+             let drawing = self.0.session.state().ok();
+             crate::push_title(&mut self.4, drawing.map(|d| d.title.as_str()), drawing.is_some_and(|d| d.is_dirty()), set_page_title);
+             // The crate suppresses duplicates, so reporting after every logic callback
+@@ -195,6 +208,7 @@ mod web {
+                         }));
+                         let host = app_bridge.inspect(|bridge| {
+                             bridge.listen(inbox.clone());
++                            crate::host::listen_execute(&cc.egui_ctx);
+                             bridge.post_ready();
+                         });
+                         let reduced_motion = web_sys::window().and_then(|w| w.match_media("(prefers-reduced-motion: reduce)").ok().flatten());

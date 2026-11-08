@@ -13,3 +13,6 @@ pesquisa/
 # Impeccable: página de decisão local
 .impeccable/questions/
 .impeccable/review/
+
+# CADCraft compilado por scripts/cadcraft.sh (binário grande, sai do código; não versionar)
+/public/cadcraft/

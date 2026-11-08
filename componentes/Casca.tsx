@@ -19,6 +19,7 @@ import { Icone, Logo, type NomeIcone } from "./Icone";
 import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
 import { Gastos } from "./Gastos";
+import { Projeto } from "./Projeto";
 import { Historico } from "./Historico";
 import { Tributos } from "./Tributos";
 import { Orcamento } from "./Orcamento";
@@ -35,6 +36,7 @@ const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
   { k: "suprimentos", rotulo: "Compras", icone: "package" },
   { k: "gastos", rotulo: "Gastos", icone: "recibo" },
   { k: "tributos", rotulo: "Tributos", icone: "planilha" },
+  { k: "projeto", rotulo: "Projeto 3D", icone: "predio" },
   { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
   { k: "historico", rotulo: "Histórico", icone: "history" },
 ];
@@ -472,6 +474,8 @@ function App({ usuario }: { usuario: Usuario }) {
                     <Gastos obra={obra} />
                   ) : tela === "tributos" ? (
                     <Tributos obra={obra} />
+                  ) : tela === "projeto" ? (
+                    <Projeto obra={obra} />
                   ) : tela === "historico" ? (
                     <Historico obra={obra} />
                   ) : (
