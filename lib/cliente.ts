@@ -39,6 +39,8 @@ import type {
   GastoObra,
   RespostaLeitura,
   ResumoGastos,
+  TributosObra,
+  CorpoFiscalGasto,
   StatusComprovante,
   Topico,
   MinhaConta,
@@ -72,9 +74,20 @@ export class ErroApi extends Error {
 
 /** A rota ainda não existe na API que está no ar (contrato novo chegando antes do deploy dela). */
 export class RotaAusente extends ErroApi {
-  constructor() {
-    super(404, "Mudar a etapa de um gasto ainda não está disponível. A atualização da API chega em breve.");
+  constructor(mensagem = "Mudar a etapa de um gasto ainda não está disponível. A atualização da API chega em breve.") {
+    super(404, mensagem);
     this.name = "RotaAusente";
+  }
+}
+
+/** 404 genérico do FastAPI ou 405: a rota não existe na API que está no ar (o 404 de negócio tem mensagem própria). */
+async function semRota<T>(p: Promise<T>, mensagem?: string): Promise<T> {
+  try {
+    return await p;
+  } catch (e) {
+    if (e instanceof ErroApi && (e.status === 405 || (e.status === 404 && ["Not Found", MENSAGEM_PADRAO[404]].includes(e.message))))
+      throw new RotaAusente(mensagem);
+    throw e;
   }
 }
 
@@ -249,18 +262,19 @@ export const api = {
    * Muda a etapa de um gasto já lançado (admin; "opção 2", para o gasto que ficou fora das etapas do orçamento). Devolve
    * o `registro_id` do Desfazer. A API de antes não tem a rota: 404/405 vira `RotaAusente`, para a tela explicar.
    */
-  mudarEtapaGasto: async (gastoId: string, etapa: string) => {
-    try {
-      return await chamar<ComRegistro<GastoObra>>("PATCH", `/gastos/${seg(gastoId)}`, { etapa });
-    } catch (e) {
-      if (e instanceof ErroApi && (e.status === 405 || (e.status === 404 && ["Not Found", MENSAGEM_PADRAO[404]].includes(e.message))))
-        throw new RotaAusente();
-      throw e;
-    }
-  },
+  mudarEtapaGasto: (gastoId: string, etapa: string) => semRota(chamar<ComRegistro<GastoObra>>("PATCH", `/gastos/${seg(gastoId)}`, { etapa })),
   listarGastos: (obraId: string, filtro: { etapa?: string; limite?: number; antes_de?: string } = {}) =>
     chamar<GastoObra[]>("GET", `/obras/${seg(obraId)}/gastos${q({ ...filtro })}`),
   resumoGastos: (obraId: string) => chamar<ResumoGastos>("GET", `/obras/${seg(obraId)}/gastos/resumo`),
+  /**
+   * INSS da aferição e IBS/CBS estimados pela API (a conta vem pronta, em `linhas`). A API de antes não tem a rota:
+   * 404 do FastAPI vira `RotaAusente` (a obra que não existe responde 404 com mensagem própria, e passa como veio).
+   */
+  tributos: (obraId: string) =>
+    semRota(chamar<TributosObra>("GET", `/obras/${seg(obraId)}/tributos`), "A aba Tributos ainda não está disponível. A atualização da API chega em breve."),
+  /** Natureza fiscal de um gasto (admin), com o `registro_id` do Desfazer. */
+  classificarFiscal: (gastoId: string, corpo: CorpoFiscalGasto) =>
+    semRota(chamar<ComRegistro<GastoObra>>("PATCH", `/gastos/${seg(gastoId)}/fiscal`, corpo), "Classificar um gasto para os tributos ainda não está disponível."),
 
   /** `{proposta, registro}`: o `registro.id` é o que o Desfazer usa. */
   aprovarProposta: (id: string, ajustes?: AjustesProposta) =>
