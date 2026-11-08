@@ -15,6 +15,13 @@ function url(nome: "API_URL" | "AGENTE_URL"): string {
 export const urlApi = () => url("API_URL");
 export const urlAgente = () => url("AGENTE_URL");
 
+/**
+ * O tradutor de pranchas (PDF/PNG da prancha estrutural -> dados e modelo 3D) é um serviço à parte e opcional:
+ * sem TRADUTOR_URL a tela Projeto 3D avisa que ele não está ligado, em vez de quebrar. Vale também na demonstração.
+ */
+export const urlTradutor = (): string | null => process.env.TRADUTOR_URL?.replace(/\/+$/, "") || null;
+export const chaveTradutor = (): string | null => process.env.TRADUTOR_CHAVE || null;
+
 export const COOKIE_RENOVACAO = "canteiro_renovacao";
 // Só as rotas de login recebem o cookie: as chamadas de dados nem o carregam.
 export const CAMINHO_COOKIE = "/srv/auth";

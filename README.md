@@ -81,6 +81,22 @@ docker build -t canteiro-web . && docker run --env-file .env.local -p 3000:3000 
 
 A imagem roda o servidor standalone do Next, como usuário `node`, com healthcheck em `GET /srv/saude` (não chama a API).
 
+### Projeto 3D: tradutor de pranchas e CAD embutido
+
+A tela Projeto 3D lê as pranchas pelo canteiro-tradutor (`TRADUTOR_URL` e `TRADUTOR_CHAVE`, só no servidor; o
+navegador passa por `/srv/tradutor/*`). A vista **2D · editar no CAD** é o CADCraft (open source, MIT/Apache)
+compilado do código para WASM e servido em `/cadcraft`, que não vai para o git. Para gerá-lo:
+
+```bash
+rustup target add wasm32-unknown-unknown && cargo install trunk   # uma vez
+scripts/cadcraft.sh                                               # clona a v0.18.0, aplica o patch, compila
+```
+
+O `scripts/cadcraft-prumo.patch` acrescenta ao modo hospedeiro do CADCraft a mensagem `cadcraft:execute` (o Prumo
+pede zoom e seleção no elemento clicado no 3D) e faz o Salvar do CAD voltar para o Prumo. Sem o build, a vista 2D
+fica vazia e o resto da tela funciona. Só `/cadcraft` pode ser embutido em iframe, e só pela mesma origem
+(`next.config.ts`).
+
 ## Testes, tipos e lint
 
 ```bash
