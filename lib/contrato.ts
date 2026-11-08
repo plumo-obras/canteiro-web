@@ -731,6 +731,54 @@ export interface RespostaMedicao {
   registro_id?: string | null;
 }
 
+/** `GET /obras/{id}/desembolso`: o que já saiu por mês e o que ainda vai sair (servicos/desembolso.py na API). */
+export interface MesDesembolso {
+  mes: string;
+  /** Gastos confirmados pagos no mês. */
+  pago: Centavos;
+  /** O cronograma vigente para o mês. */
+  previsto: Centavos;
+  /** O que ainda vai sair no mês se a obra voltar ao ritmo do cronograma; 0 antes do mês corrente. */
+  projetado: Centavos;
+  /** O mesmo no ritmo medido até aqui. */
+  projetado_no_ritmo: Centavos;
+}
+
+export interface EtapaDesembolso {
+  etapa: string;
+  descricao: string;
+  atual: Centavos;
+  realizado: Centavos;
+  executado_pct: Centesimos;
+  falta: Centavos;
+  devido_agora: Centavos;
+  sem_cronograma: boolean;
+}
+
+export interface Desembolso {
+  mes_atual: string;
+  /** De onde vem o avanço: a medição, os gastos (obra sem medição) ou nada (sem cronograma). */
+  base: "medicao" | "gastos" | "sem_cronograma";
+  mes_referencia: string | null;
+  atraso_meses: number;
+  /** % medido ÷ % previsto na última medição (10000 = no ritmo do plano). */
+  ritmo_pct: Centesimos;
+  termino_projetado: string | null;
+  termino_no_ritmo: string | null;
+  meses: MesDesembolso[];
+  etapas: EtapaDesembolso[];
+  totais: {
+    orcado: Centavos;
+    realizado: Centavos;
+    pago: Centavos;
+    falta: Centavos;
+    custo_final: Centavos;
+    desvio: Centavos;
+    entregue_sem_pagamento: Centavos;
+    sem_mes: Centavos;
+  };
+}
+
 // --- Gastos da obra: árvore, comprovantes e revisão (docs/contrato.md, "Gastos da obra") ---
 
 export interface TopicoNaArvore {

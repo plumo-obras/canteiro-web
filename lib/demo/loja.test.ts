@@ -431,4 +431,10 @@ describe("demonstração: cronograma (Fase 4)", () => {
     expect(chamar("PUT", `obras/${obraId()}/cronograma`, { inicio: "2026-11", meses: 1, etapas: [] }).status).toBe(422);
     expect(chamar("POST", `obras/${obraId()}/medicoes`, {}).status).toBe(422);
   });
+
+  it("desembolso vem vazio, sem cronograma, em vez de rota inexistente", () => {
+    const r = chamar("GET", `obras/${obraId()}/desembolso`);
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ base: "sem_cronograma", meses: [], termino_projetado: null });
+  });
 });

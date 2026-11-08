@@ -19,6 +19,7 @@ import type {
   CorpoMovimento,
   CorpoPedido,
   Cronograma,
+  Desembolso,
   CorpoCronograma,
   CorpoMedicao,
   RespostaMedicao,
@@ -190,6 +191,7 @@ export const api = {
     return chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/versoes`, f);
   },
   cronograma: (obraId: string) => chamar<Cronograma>("GET", `/obras/${seg(obraId)}/cronograma`),
+  desembolso: (obraId: string) => chamar<Desembolso>("GET", `/obras/${seg(obraId)}/desembolso`),
   /** Substitui o cronograma inteiro (o Desfazer volta o anterior). */
   salvarCronograma: (obraId: string, corpo: CorpoCronograma) => chamar<ComRegistro<Cronograma>>("PUT", `/obras/${seg(obraId)}/cronograma`, corpo),
   criarMedicao: (obraId: string, corpo: CorpoMedicao) => chamar<RespostaMedicao>("POST", `/obras/${seg(obraId)}/medicoes`, corpo),
