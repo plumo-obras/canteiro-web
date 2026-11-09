@@ -1,5 +1,5 @@
 /* =====================================================================================================
-   Casca do workspace: topo (marca · obra · telas em pílulas · conta), trilho de atalhos, painel das conversas e o
+   Casca do workspace: topo (marca · obra · telas em pílulas · ⋯ · sino · Mestre de obras · conta), trilho de atalhos, painel das conversas e o
    palco. Tudo flutua em vidro sobre a foto desfocada do fundo. Os tokens (cores, vidro, sombras) vêm do globals.css,
    nos dois temas; aqui só a forma e o lugar das peças.
    ≥ 900 px: trilho fixo à esquerda e painel ao lado dele (abre e fecha). < 900 px: sem trilho, painel em gaveta,
@@ -71,11 +71,16 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   font-size:15px;font-weight:500;white-space:nowrap;transition:background-color .15s var(--ease),color .15s var(--ease),transform .12s var(--ease)}
 .pilula:active{transform:scale(.97)}
 .pilula.on{background:var(--ativo);color:var(--ink)}
-.pilula .n{font-size:12px;font-weight:600;color:var(--onAccent,#1d1505);background:var(--accent);border-radius:99px;min-width:20px;text-align:center;padding:0 6px;line-height:20px}
-.pilula-n{flex:none;font:600 11px var(--mono);width:19px;height:19px;border-radius:50%;display:inline-grid;place-items:center;background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
-.pilula.on .pilula-n{background:var(--accent);color:var(--onAccent,#1d1505);border-color:transparent}
-.pilula-sep{flex:none;width:1px;height:22px;background:var(--line2);margin:0 6px;border:0;padding:0}
 .pilula:focus-visible{outline-offset:-2px}
+.topo-mais{flex:none;display:inline-grid;place-items:center;margin-left:2px}
+.topo-mais .mm-b{width:42px;height:42px;border-color:transparent;background:none;box-shadow:none;border-radius:12px}
+.topo-mais.on .mm-b{background:var(--ativo);color:var(--ink)}
+.topo-sino{position:relative;flex:none;display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:12px;background:none;color:var(--ink2);
+  transition:background-color .15s var(--ease),transform .12s var(--ease)}
+.topo-sino:active{transform:scale(.95)}
+.topo-sino.on{background:var(--ativo);color:var(--ink)}
+.topo-sino-n{position:absolute;top:3px;right:2px;min-width:18px;padding:0 4px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);font:700 11px/18px var(--sans);text-align:center}
+.topo-mestre.on{background:var(--ativo);border-color:var(--line)}
 .topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
 .topo-nav + .topo-dir{margin-left:0}
 /* não coube: menos espaço entre as pílulas e seletor mais estreito (medido em Casca.tsx, classe "aperto") */
@@ -100,7 +105,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .tr-btn.on{background:var(--ativo);color:var(--ink)}
 .tr-sep{width:26px;height:1px;background:var(--line);margin:4px 0;flex:none}
 @media (hover:hover){
-  .tr-btn:hover,.pilula:not(.on):hover{background:var(--sunk);color:var(--ink)}
+  .tr-btn:hover,.pilula:not(.on):hover,.topo-sino:not(.on):hover{background:var(--sunk);color:var(--ink)}
   .seletor-bt:hover{background:var(--hover,var(--sunk))}
 }
 
@@ -147,7 +152,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
 .gaveta-fundo[hidden]{display:none}
 @media (min-width:900px){ .so-movel{display:none!important} }
-/* notebook de 1366: as seis abas, com contadores, e o nome da obra cabem sem cortar a última */
+/* notebook de 1366: as cinco abas, o ⋯, o sino, o Mestre de obras e o nome da obra cabem sem cortar a última */
 @media (max-width:1480px) and (min-width:1181px){
   .topo-marca-t{display:none}
   .pilula{padding:0 12px}
@@ -203,8 +208,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .bi-item.on{color:var(--ink)}
   .bi-item.on svg{color:var(--accent)}
   .bi-item:active{background:var(--sunk)}
-  .bi-n{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;padding:0 5px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);
-    font:700 11px/18px var(--sans);text-align:center}
   .folha-fundo{display:block;position:fixed;inset:0;z-index:60;background:var(--veu);animation:mvAparece var(--mv-base) var(--ease)}
   .folha{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:2px;padding:8px 10px calc(14px + env(safe-area-inset-bottom));
     border-radius:22px 22px 0 0;background:var(--cardSolido);border-top:1px solid var(--edge);box-shadow:0 -16px 40px -20px rgba(0,0,0,.6);animation:mvFolha 240ms var(--ease)}
@@ -212,7 +215,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .folha-item{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border:0;border-radius:14px;background:none;color:var(--ink);font:500 var(--t-body) var(--sans);text-decoration:none;text-align:left}
   .folha-item:active{background:var(--sunk)}
   .folha-item svg{color:var(--ink2)}
-  .folha-item .n{margin-left:auto;min-width:22px;padding:0 7px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);font:700 12px/22px var(--sans);text-align:center}
 }
 @keyframes mvFolha{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){ .folha,.folha-fundo{animation:none} }

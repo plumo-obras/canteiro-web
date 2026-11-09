@@ -1,7 +1,7 @@
 "use client";
 /**
- * A casca do app: topo de vidro com a obra e as telas em pílulas (Agente, Orçamento, Suprimentos…), trilho de
- * atalhos à esquerda e o painel das conversas com o agente, que abre ao lado do trilho. Uma tela por vez no palco;
+ * A casca do app: topo de vidro com a obra, as cinco telas em pílulas, o menu "⋯", o sino das aprovações e o Mestre de
+ * obras (a conversa com o agente); trilho de atalhos à esquerda e o painel das conversas, que abre ao lado do trilho. Uma tela por vez no palco;
  * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
  * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
  */
@@ -16,6 +16,7 @@ import { Aprovacoes } from "./Aprovacoes";
 import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
 import { Conversa } from "./Conversa";
 import { Icone, Logo, type NomeIcone } from "./Icone";
+import { MenuMais, type ItemMenu } from "./MenuMais";
 import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
 import { Gastos } from "./Gastos";
@@ -26,12 +27,13 @@ import { Orcamento } from "./Orcamento";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { trocarTema, useTema } from "./tema";
 import { useCelular, useMidia } from "./midia";
+import { useCarregar } from "./useCarregar";
 import { useSessaoGarantida } from "./useSessaoGarantida";
-import { telaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
+import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
 // Rótulo e ícone de cada tela (para o título de seção e o aria-label).
 const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
-  conversa: { rotulo: "Agente", icone: "message" },
+  conversa: { rotulo: "Mestre de obras", icone: "mestre" },
   projeto: { rotulo: "Projeto", icone: "predio" },
   orcamento: { rotulo: "Orçamento", icone: "calc" },
   suprimentos: { rotulo: "Compras", icone: "package" },
@@ -41,10 +43,10 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   aprovacoes: { rotulo: "Aprovações", icone: "checkCircle" },
   historico: { rotulo: "Histórico", icone: "history" },
 };
-// A navegação É o fluxo da obra, em ordem e numerada (início → fim): do projeto (a entrada) ao agente (tira-dúvidas).
-const FLUXO: AbaAtiva[] = ["projeto", "orcamento", "suprimentos", "cronograma", "conversa"];
-// Fora do fluxo, mas à vista na mesma barra (depois do divisor): nada de esconder área do produto.
-const EXTRAS: AbaAtiva[] = ["aprovacoes", "gastos", "tributos", "historico"];
+// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados.
+const ABAS: AbaAtiva[] = ["projeto", "orcamento", "suprimentos", "cronograma", "gastos"];
+// O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
+const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
 const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "var(--gray)", concluida: "var(--blue)" };
 const TXT_STATUS: Record<Obra["status"], string> = { em_andamento: "em andamento", em_orcamento: "em orçamento", concluida: "concluída" };
@@ -83,6 +85,12 @@ const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
 }
+/** Onde a obra abre: sem orçamento, no Projeto; com, no Mestre de obras. Null (API fora) deixa a tela como está. */
+const telaAoAbrir = (obraId: string): Promise<AbaAtiva | null> =>
+  api
+    .resumoObra(obraId)
+    .then((r): AbaAtiva => (r.financeiro.tem_orcamento ? "conversa" : "projeto"))
+    .catch(() => null);
 function lerPainel() {
   try {
     return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
@@ -119,7 +127,7 @@ function useMenu() {
 }
 
 function App({ usuario }: { usuario: Usuario }) {
-  const { demo, versao, cartoes, receberPropostas, registrarNavegacao } = useCasca();
+  const { demo, versao, cartoes, receberPropostas, registrarNavegacao, podeOperar } = useCasca();
   const router = useRouter();
   const [obras, setObras] = useState<Obra[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -127,6 +135,7 @@ function App({ usuario }: { usuario: Usuario }) {
   const [atual, setAtual] = useState<string | null>(null);
   const [tela, setTela] = useState<AbaAtiva>("conversa");
   useEffect(() => registrarNavegacao(setTela), [registrarNavegacao]);
+  const [dadosObra, setDadosObra] = useState(false);
   const movel = useMovel();
   const barraCelular = useCelular();
   const [painelDesk, setPainelDesk] = useState(lerPainel);
@@ -145,8 +154,8 @@ function App({ usuario }: { usuario: Usuario }) {
     // Uma vez só (o StrictMode do dev roda o efeito duas vezes e abriria duas conversas vazias).
     if (iniciou.current) return;
     iniciou.current = true;
-    // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto
-    // (a obra recém-criada cai direto no Orçamento). A obra, a conversa e a tela ficam na URL (o efeito abaixo as
+    // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto.
+    // Sem ?tela=, quem decide é a obra (telaAoAbrir). A obra, a conversa e a tela ficam na URL (o efeito abaixo as
     // reescreve), para o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar na obra errada.
     const qs = new URLSearchParams(window.location.search);
     let ultima: string | null = null;
@@ -157,16 +166,21 @@ function App({ usuario }: { usuario: Usuario }) {
     }
     const querObra = qs.get("obra") ?? ultima;
     const querSessao = qs.get("sessao");
-    const querTela = telaDe(qs.get("tela"));
+    const querTela = abaDe(qs.get("tela"));
     // link com ?tela=gastos aberto na demonstração cai na conversa: a tela não existe lá
     if (querTela && telaNoModo(querTela, demo)) setTela(querTela);
     api
       .listarObras()
-      .then((os) => {
+      .then(async (os) => {
         setObras(os);
         // sem obra pedida, abre uma em andamento (a lista vem por nome, e a 1ª pode ser uma obra parada)
         const o = os.find((x) => x.id === querObra) ?? os.find((x) => x.status === "em_andamento") ?? os[0];
         if (!o) return;
+        // Antes de abrir a sessão: enquanto ela não existe a casca mostra "carregando", e assim a conversa não pisca.
+        if (!querTela) {
+          const destino = await telaAoAbrir(o.id);
+          if (destino) setTela(destino);
+        }
         const abrirNovaEm = (obraId: string) => {
           const s = novaSessao(obraId);
           despachar({ tipo: "nova", sessao: s });
@@ -261,18 +275,23 @@ function App({ usuario }: { usuario: Usuario }) {
   // A conversa também vai para a URL: recarregar (o portal recarrega a página ao trocar desktop ↔ celular) voltava em
   // "Nova conversa". Só a que já tem mensagem: a vazia ainda não existe no servidor e não teria como ser reaberta.
   const sessaoNaUrl = sessaoAberta && (sessaoAberta.mensagens.length || !sessaoAberta.carregada) ? sessaoAberta.servidorId : null;
+  const { dado: resumoLido } = useCarregar(() => (obraAberta ? api.resumoObra(obraAberta) : Promise.resolve(null)), [obraAberta, versao]);
+  // useCarregar mantém o dado anterior: sem conferir, a obra nova mostraria por um instante os números da outra.
+  const resumo = resumoLido?.obra.id === obraAberta ? resumoLido : null;
+  // Obra sem orçamento abre no Projeto: quem estava na conversa precisa da tela na URL para voltar nela ao recarregar.
+  const semOrcamento = resumo?.financeiro.tem_orcamento === false;
   useEffect(() => {
     if (!obraAberta) return;
     const qs = new URLSearchParams({ obra: obraAberta });
     if (sessaoNaUrl) qs.set("sessao", sessaoNaUrl);
-    if (tela !== "conversa") qs.set("tela", tela);
+    if (tela !== "conversa" || semOrcamento) qs.set("tela", tela);
     window.history.replaceState(null, "", `${window.location.pathname}?${qs}`);
     try {
       localStorage.setItem(CHAVE_OBRA, obraAberta);
     } catch {
       // navegador sem armazenamento: vale a URL
     }
-  }, [obraAberta, sessaoNaUrl, tela]);
+  }, [obraAberta, sessaoNaUrl, tela, semOrcamento]);
 
   const pendentes = (obraId: string) => Object.values(cartoes).filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente").length;
   const sessao = sessoes.find((s) => s.id === atual);
@@ -288,8 +307,14 @@ function App({ usuario }: { usuario: Usuario }) {
     despachar({ tipo: "nova", sessao: s });
     escolherSessao(s.id);
   };
-  /** Trocar de obra mantém a tela aberta; a conversa vai para a mais recente da obra (ou uma nova). */
-  const trocarObra = (obraId: string) => {
+  /** Trocar de obra é abrir a obra: a tela segue a regra de abertura e a conversa vai para a mais recente dela (ou uma nova). */
+  const trocaEmCurso = useRef(0);
+  const trocarObra = async (obraId: string) => {
+    const pedido = ++trocaEmCurso.current;
+    const destino = await telaAoAbrir(obraId);
+    // Dois cliques seguidos: vale a última obra escolhida, não a resposta que chegou por último.
+    if (pedido !== trocaEmCurso.current) return;
+    if (destino) setTela(destino);
     const recente = sessoes.find((s) => s.obraId === obraId);
     if (recente) setAtual(recente.id);
     else {
@@ -327,7 +352,7 @@ function App({ usuario }: { usuario: Usuario }) {
     <div className="card vazio">
       <Icone nome="predio" tam={24} />
       <h3>Nenhuma obra ainda</h3>
-      <p>Cadastre a primeira obra para começar pelo orçamento. As conversas com o agente aparecem aqui.</p>
+      <p>Cadastre a primeira obra para começar pelo projeto. As conversas com o mestre de obras aparecem aqui.</p>
       {podeCadastrar ? (
         <Link href="/obras/nova" className="btn amb">
           Cadastrar obra
@@ -348,8 +373,7 @@ function App({ usuario }: { usuario: Usuario }) {
         trocarObra={trocarObra}
         usuario={usuario}
         demo={demo}
-        painelAberto={painelAberto}
-        alternarPainel={alternarPainel}
+        abrirDados={() => setDadosObra(true)}
         inerte={movel && gaveta}
         sair={async () => {
           await sair();
@@ -366,7 +390,7 @@ function App({ usuario }: { usuario: Usuario }) {
           aria-label={painelAberto ? "Esconder as conversas" : "Mostrar as conversas"}
           aria-expanded={painelAberto}
           aria-controls="painel-conversas"
-          title="Conversas com o agente"
+          title="Conversas com o mestre de obras"
           onClick={alternarPainel}
         >
           <Icone nome="conversas" tam={18} />
@@ -454,7 +478,7 @@ function App({ usuario }: { usuario: Usuario }) {
           (sessao && obra ? (
             <>
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
-              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o agente" hidden={tela !== "conversa"}>
+              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o mestre de obras" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">
                   <h1 className="conversa-t" title={sessao.titulo}>
                     {sessao.titulo}
@@ -492,23 +516,24 @@ function App({ usuario }: { usuario: Usuario }) {
             </>
           ) : null)}
       </main>
-      {obra && !conteudo && barraCelular ? <BarraInferior tela={tela} setTela={setTela} pendentes={pendentes(obra.id)} inerte={movel && gaveta} demo={demo} /> : null}
+      {obra && !conteudo && barraCelular ? <BarraInferior tela={tela} setTela={setTela} abrirDados={() => setDadosObra(true)} inerte={movel && gaveta} demo={demo} /> : null}
+      {obra && dadosObra ? <ModalDadosObra obra={obra} fechar={() => setDadosObra(false)} leitura={!podeOperar} /> : null}
     </div>
   );
 }
 
-/** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: os cinco destinos do dia a dia, o resto no Mais. */
-// Na obra o comprovante sai do celular: Gastos fica à mão na barra, no lugar do Cronograma (que vai para o Mais). Na
-// demonstração não há Gastos, e o Cronograma volta para a barra.
+/** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
 const BARRA: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
-  { k: "conversa", rotulo: "Agente", icone: "message" },
-  { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
-  { k: "gastos", rotulo: "Gastos", icone: "recibo" },
+  { k: "conversa", rotulo: "Hoje", icone: "mestre" },
   { k: "suprimentos", rotulo: "Compras", icone: "package" },
+  { k: "gastos", rotulo: "Gastos", icone: "recibo" },
+  { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
 ];
-const BARRA_DEMO = BARRA.map((n) => (n.k === "gastos" ? { k: "cronograma" as const, rotulo: "Cronograma", icone: "calendario" as const } : n));
+// Na demonstração não há Gastos: o Orçamento fica no lugar dele, e a barra continua com cinco colunas.
+const BARRA_DEMO = BARRA.map((n) => (n.k === "gastos" ? { k: "orcamento" as const, rotulo: "Orçamento", icone: "calc" as const } : n));
+const NA_FOLHA: AbaAtiva[] = ["projeto", "orcamento", ...NO_MENU];
 
-function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pendentes: number; inerte: boolean; demo: boolean }) {
+function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; abrirDados: () => void; inerte: boolean; demo: boolean }) {
   const itens = p.demo ? BARRA_DEMO : BARRA;
   const [mais, setMais] = useState(false);
   // Trocou de tela (pela folha ou por fora dela): a folha fecha, nunca fica cobrindo a tela nova.
@@ -531,7 +556,8 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pend
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const noMais = !itens.some((n) => n.k === p.tela) && p.tela !== "conversa";
+  const naFolha = NA_FOLHA.filter((k) => telaNoModo(k, p.demo) && !itens.some((n) => n.k === k));
+  const noMais = naFolha.includes(p.tela);
   return (
     <>
       <nav ref={barra} className={`barra-inf${compacta ? " compacta" : ""}`} aria-label="Telas da obra" inert={p.inerte}>
@@ -555,11 +581,10 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pend
           className={`bi-item${noMais ? " on" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={mais}
-          aria-label={p.pendentes ? `Mais (${p.pendentes} aprovações pendentes)` : "Mais"}
+          aria-label="Mais"
           onClick={() => setMais(true)}
         >
           <Icone nome="more" tam={20} />
-          {p.pendentes ? <span className="bi-n" aria-hidden="true">{p.pendentes}</span> : null}
           <span className="bi-rot" aria-hidden="true">
             Mais
           </span>
@@ -568,11 +593,14 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pend
       {mais ? (
         <FolhaMais
           fechar={() => setMais(false)}
-          cronograma={!itens.some((n) => n.k === "cronograma")}
-          pendentes={p.pendentes}
+          telas={naFolha}
           ir={(t) => {
             setMais(false);
             p.setTela(t);
+          }}
+          abrirDados={() => {
+            setMais(false);
+            p.abrirDados();
           }}
         />
       ) : null}
@@ -580,8 +608,9 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; pend
   );
 }
 
-/** A folha do Mais: Aprovações (com o contador), Histórico, Conta e Tema. Esc ou toque fora fecham. */
-function FolhaMais({ fechar, pendentes, ir, cronograma }: { fechar: () => void; pendentes: number; ir: (t: AbaAtiva) => void; cronograma: boolean }) {
+/** A folha do Mais: as telas que não couberam na barra, Dados da obra, Conta e Tema. Esc ou toque fora fecham. */
+function FolhaMais(p: { fechar: () => void; telas: AbaAtiva[]; ir: (t: AbaAtiva) => void; abrirDados: () => void }) {
+  const { fechar } = p;
   const caixa = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const antes = document.activeElement as HTMLElement | null;
@@ -599,20 +628,15 @@ function FolhaMais({ fechar, pendentes, ir, cronograma }: { fechar: () => void; 
     <div className="folha-fundo" onClick={(e) => e.target === e.currentTarget && fechar()}>
       <div className="folha" role="dialog" aria-modal="true" aria-label="Mais" ref={caixa}>
         <span className="folha-alca" aria-hidden="true" />
-        {cronograma ? (
-          <button type="button" className="folha-item" onClick={() => ir("cronograma")}>
-            <Icone nome="calendario" tam={18} />
-            <span>Cronograma</span>
+        {p.telas.map((k) => (
+          <button key={k} type="button" className="folha-item" onClick={() => p.ir(k)}>
+            <Icone nome={ROTULOS[k].icone} tam={18} />
+            <span>{ROTULOS[k].rotulo}</span>
           </button>
-        ) : null}
-        <button type="button" className="folha-item" onClick={() => ir("aprovacoes")}>
-          <Icone nome="checkCircle" tam={18} />
-          <span>Aprovações</span>
-          {pendentes ? <span className="n">{pendentes}</span> : null}
-        </button>
-        <button type="button" className="folha-item" onClick={() => ir("historico")}>
-          <Icone nome="history" tam={18} />
-          <span>Histórico</span>
+        ))}
+        <button type="button" className="folha-item" onClick={p.abrirDados}>
+          <Icone nome="predio" tam={18} />
+          <span>Dados da obra</span>
         </button>
         <Link href="/conta" className="folha-item">
           <Icone nome="user" tam={18} />
@@ -645,14 +669,18 @@ function Topo(p: {
   trocarObra: (id: string) => void;
   usuario: Usuario;
   demo: boolean;
-  painelAberto: boolean;
-  alternarPainel: () => void;
+  abrirDados: () => void;
   inerte: boolean;
   sair: () => void;
 }) {
   const { obra, tela } = p;
   const nav = useRef<HTMLDivElement>(null);
   const topo = useRef<HTMLElement>(null);
+  const itensMenu: ItemMenu[] = [
+    ...NO_MENU.filter((k) => telaNoModo(k, p.demo)).map((k) => ({ rotulo: ROTULOS[k].rotulo, acao: () => p.setTela(k) })),
+    { rotulo: "Dados da obra", acao: p.abrirDados },
+  ];
+  const noMenu = NO_MENU.includes(tela);
   // As pílulas rolam quando não cabem (celular; no computador, com a fonte mínima que o portal impõe ou nome de obra
   // longo): a escolhida não pode ficar fora da vista. Rola só a barra, nunca a página.
   useEffect(() => mostrarEscolhida(nav.current), [tela]);
@@ -693,20 +721,7 @@ function Topo(p: {
       {obra ? <SeletorObra obras={p.obras} obra={obra} trocar={p.trocarObra} /> : null}
       {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
-          {FLUXO.filter((k) => telaNoModo(k, p.demo)).map((k, i) => (
-            <button
-              key={k}
-              type="button"
-              className={`pilula${tela === k ? " on" : ""}`}
-              aria-current={tela === k ? "page" : undefined}
-              onClick={() => p.setTela(k)}
-            >
-              <span className="pilula-n" aria-hidden="true">{i + 1}</span>
-              {ROTULOS[k].rotulo}
-            </button>
-          ))}
-          <span className="pilula-sep" role="separator" aria-orientation="vertical" />
-          {EXTRAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
+          {ABAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
             <button
               key={k}
               type="button"
@@ -715,18 +730,39 @@ function Topo(p: {
               onClick={() => p.setTela(k)}
             >
               {ROTULOS[k].rotulo}
-              {k === "aprovacoes" && p.pendentes ? (
-                <span className="n" aria-label={`${p.pendentes} pendentes`}>
-                  {p.pendentes}
-                </span>
-              ) : null}
             </button>
           ))}
+          <span className={`topo-mais${noMenu ? " on" : ""}`}>
+            <MenuMais rotulo={`Mais: ${itensMenu.map((i) => i.rotulo).join(", ")}${noMenu ? ` (aberto: ${ROTULOS[tela].rotulo})` : ""}`} itens={itensMenu} />
+          </span>
         </nav>
       ) : obra ? null : (
         <span className="sp" />
       )}
       <div className="topo-dir">
+        {obra ? (
+          <button
+            type="button"
+            className={`topo-sino${tela === "aprovacoes" ? " on" : ""}`}
+            aria-current={tela === "aprovacoes" ? "page" : undefined}
+            aria-label={`Aprovações: ${p.pendentes === 0 ? "nada esperando você" : p.pendentes === 1 ? "1 coisa esperando você" : `${p.pendentes} coisas esperando você`}`}
+            title="Aprovações"
+            onClick={() => p.setTela("aprovacoes")}
+          >
+            <Icone nome="sino" tam={18} />
+            {p.pendentes ? (
+              <span className="topo-sino-n" aria-hidden="true">
+                {p.pendentes}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
+        {obra && !p.semAbas ? (
+          <button type="button" className={`btn sm topo-mestre${tela === "conversa" ? " on" : ""}`} aria-current={tela === "conversa" ? "page" : undefined} onClick={() => p.setTela("conversa")}>
+            <Icone nome="mestre" tam={16} />
+            {ROTULOS.conversa.rotulo}
+          </button>
+        ) : null}
         <Perfil usuario={p.usuario} sair={p.sair} />
       </div>
     </header>
@@ -747,8 +783,6 @@ function mostrarEscolhida(n: HTMLElement | null) {
 function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; trocar: (id: string) => void }) {
   const { aberto, setAberto, caixa, tecla } = useMenu();
   const { podeOperar } = useCasca();
-  // Os dados da obra (tipo, área, padrão, contrato, BDI, data-base…) moram aqui: o card que repetia isso no Orçamento saiu.
-  const [dados, setDados] = useState(false);
   const [busca, setBusca] = useState("");
   const q = busca
     .normalize("NFD")
@@ -830,28 +864,14 @@ function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; troca
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            className="seletor-nova"
-            onClick={() => {
-              setAberto(false);
-              setDados(true);
-            }}
-          >
-            <Icone nome="predio" tam={15} />
-            Dados desta obra
-          </button>
           {podeOperar ? (
-            <Link href="/obras/nova" role="menuitem" tabIndex={-1}>
+            <Link href="/obras/nova" role="menuitem" tabIndex={-1} className="seletor-nova">
               <Icone nome="plus" tam={15} />
               Nova obra
             </Link>
           ) : null}
         </div>
       ) : null}
-      {dados ? <ModalDadosObra obra={obra} fechar={() => setDados(false)} leitura={!podeOperar} /> : null}
     </div>
   );
 }
