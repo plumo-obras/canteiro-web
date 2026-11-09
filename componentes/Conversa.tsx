@@ -94,7 +94,7 @@ function ConversaVazia({ sugestoes, perguntar }: { sugestoes: string[]; pergunta
   );
 }
 
-export function Conversa({ sessao, obra, resumo = null, despachar }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; despachar: Dispatch<AcaoSessoes> }) {
+export function Conversa({ sessao, obra, resumo = null, despachar, visivel = true }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; visivel?: boolean; despachar: Dispatch<AcaoSessoes> }) {
   const { receberPropostas } = useCasca();
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -192,6 +192,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar }: { sessao: S
           <>
             <HojeNaObra
               obra={obra}
+              visivel={visivel}
               alternativa={sessao.mensagens.length ? null : <ConversaVazia sugestoes={sugestoesDaObra(obra, resumo)} perguntar={(s) => void perguntar(s)} />}
               abaixo={
                 sessao.mensagens.length ? null : (

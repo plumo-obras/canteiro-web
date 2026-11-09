@@ -497,7 +497,7 @@ function App({ usuario }: { usuario: Usuario }) {
                     Conversas
                   </button>
                 </div>
-                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} />
+                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} visivel={tela === "conversa"} />
               </section>
               {tela !== "conversa" ? (
                 // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do

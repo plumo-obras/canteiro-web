@@ -54,19 +54,22 @@ function Acao({ acao, classe }: { acao: AcaoHoje; classe: string }) {
   const tela: AbaAtiva | undefined = telaDe(acao.tela);
   if (!tela) return null;
   return (
-    <button type="button" className={classe} onClick={() => irParaTela(tela)}>
+    <button type="button" className={classe} onClick={() => irParaTela(tela, acao.filtro)}>
       {acao.rotulo}
     </button>
   );
 }
 
 function Ponto({ p }: { p: PontoHoje }) {
+  const { podeOperar } = useCasca();
+  // "Falta você confirmar" não vale para quem só lê: fica o fato, sem a cobrança
+  const detalhe = p.prioridade === "pede_voce" && !podeOperar ? "" : p.detalhe;
   return (
     <li className={s.ponto}>
       <span className={`${s.dot} ${s[p.prioridade]}`} aria-hidden="true" />
       <p className={s.texto}>
-        <span className="sr-only">{ROTULO_PRIORIDADE[p.prioridade]}: </span>
-        <b>{p.titulo}</b> <span className="mut">{p.detalhe}</span>
+        <span className="sr-only">{podeOperar ? ROTULO_PRIORIDADE[p.prioridade] : p.prioridade === "pede_voce" ? "Pendente" : ROTULO_PRIORIDADE[p.prioridade]}: </span>
+        <b>{p.titulo}</b> <span className="mut">{detalhe}</span>
       </p>
       {p.acao ? <Acao acao={p.acao} classe={`btn sm ${s.acao}`} /> : null}
     </li>
@@ -86,7 +89,7 @@ function Evento({ e }: { e: EventoSemana }) {
 }
 
 function EsperandoVoce({ obraId }: { obraId: string }) {
-  const { cartoes, irParaTela } = useCasca();
+  const { cartoes, irParaTela, podeOperar } = useCasca();
   const pendentes = Object.values(cartoes)
     .filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente")
     .map((c) => c.proposta.id);
@@ -103,7 +106,7 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
   return (
     <section aria-labelledby="hoje-esperando">
       <h2 id="hoje-esperando" className={s.tituloBloco}>
-        Esperando você {pendentes.length ? <small>· {pendentes.length}</small> : null}
+        {podeOperar ? "Esperando você" : "Aguardando aprovação"} {pendentes.length ? <small>· {pendentes.length}</small> : null}
       </h2>
       {aMostra.length ? (
         <div className="ld-lista ld-estreita">
@@ -112,7 +115,7 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
           ))}
         </div>
       ) : (
-        <p className={`card ${s.nada}`}>Nenhuma proposta para aprovar.</p>
+        <p className={`card ${s.nada}`}>{podeOperar ? "Nenhuma proposta para aprovar." : "Nenhuma proposta pendente."}</p>
       )}
       {fora ? (
         <button type="button" className={`link ${s.verTodas}`} onClick={() => irParaTela("aprovacoes")}>
@@ -123,9 +126,23 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
   );
 }
 
-/** `alternativa`: o que mostrar se a API no ar ainda não tem a rota. `abaixo`: o que vem depois do resumo. */
-export function HojeNaObra({ obra, alternativa, abaixo }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode }) {
-  const { versao } = useCasca();
+/**
+ * `alternativa`: o que mostrar se a API no ar ainda não tem a rota. `abaixo`: o que vem depois do resumo. `visivel`: a
+ * conversa fica montada e escondida atrás das outras telas; escondida, ela não busca, e ao voltar relê se algo mudou.
+ */
+export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; visivel?: boolean }) {
+  const { versao, podeOperar } = useCasca();
+  const { visivel = true } = props;
+  // "versão ao chegar aqui": só anda com a casa à vista, e é o que dispara a busca
+  const [versaoVista, setVersaoVista] = useState<number | null>(visivel ? versao : null);
+  useEffect(() => {
+    if (visivel) setVersaoVista(versao);
+  }, [visivel, versao]);
+  if (versaoVista === null) return null;
+  return <Casa {...props} versao={versaoVista} podeOperar={podeOperar} />;
+}
+
+function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
 
   if (carregando && !dado) {
@@ -145,8 +162,7 @@ export function HojeNaObra({ obra, alternativa, abaixo }: { obra: Obra; alternat
     );
   }
   if (!dado) return <>{alternativa}</>;
-  // as propostas já aparecem uma a uma em "Esperando você"
-  const pontos = dado.pontos.filter((p) => p.tipo !== "aprovacoes_pendentes");
+  const { pontos } = dado;
 
   return (
     <div className={s.casa}>
@@ -158,7 +174,7 @@ export function HojeNaObra({ obra, alternativa, abaixo }: { obra: Obra; alternat
             </span>
             <div>
               <h1 id="hoje-titulo" className={s.titulo}>
-                {saudacao()} {fraseDoDia(dado.resumo)}
+                {saudacao()} {podeOperar ? fraseDoDia(dado.resumo) : dado.resumo.frase}
               </h1>
               <p className="mut">{linhaDoDia(dado.hoje, dado.resumo)}. Olhei compras, cronograma e gastos. O que importa hoje:</p>
             </div>

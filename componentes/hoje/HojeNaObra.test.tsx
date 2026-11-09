@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,9 +22,11 @@ const HOJE: Hoje = {
   semana: [{ data: "2026-11-12", tipo: "entrega", titulo: "Entrega do aço", detalhe: "Ferragem Inventada", acao: null }],
 };
 const ir = vi.fn();
+let filtroLido: () => unknown = () => null;
 const SEM_PROPOSTAS: Proposta[] = [];
 function CascaFalsa({ propostas = SEM_PROPOSTAS }: { propostas?: Proposta[] }) {
-  const { registrarNavegacao, receberPropostas } = useCasca();
+  const { registrarNavegacao, receberPropostas, lerFiltroTela } = useCasca();
+  filtroLido = () => lerFiltroTela("gastos");
   useEffect(() => registrarNavegacao((t: AbaAtiva) => ir(t)), [registrarNavegacao]);
   useEffect(() => receberPropostas(propostas), [receberPropostas, propostas]);
   return null;
@@ -60,12 +62,60 @@ describe("HojeNaObra", () => {
     expect(screen.getByText("Entrega do aço")).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "Conferir os 2" }));
     expect(ir).toHaveBeenCalledWith("gastos");
+    expect(filtroLido()).toEqual({ status: "a_revisar" });
   });
 
-  it("aprovações não se repetem: os cartões já estão em Esperando você", async () => {
-    montar(() => json({ ...HOJE, pontos: [{ tipo: "aprovacoes_pendentes", prioridade: "pede_voce", titulo: "2 propostas esperando.", detalhe: "", acao: { tela: "aprovacoes", rotulo: "Ver", filtro: null } }, HOJE.pontos[1]] }));
+  it("escondida não busca; ao voltar, relê só se algo mudou", async () => {
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/hoje": () => json(HOJE) });
+    const buscas = () => rede.chamadas.filter((c) => c.caminho.endsWith("/hoje")).length;
+    let escreveu = () => {};
+    const Espia = () => {
+      const { mudou } = useCasca();
+      escreveu = mudou;
+      return null;
+    };
+    const tela = (visivel: boolean) => (
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Espia />
+        <HojeNaObra obra={OBRA} alternativa={null} visivel={visivel} />
+      </ProvedorCasca>
+    );
+    const { rerender } = render(tela(false));
+    await act(async () => {});
+    expect(buscas()).toBe(0);
+
+    rerender(tela(true));
     await screen.findByText("O aço chega quinta.");
-    expect(screen.queryByText("2 propostas esperando.")).toBeNull();
+    expect(buscas()).toBe(1);
+
+    rerender(tela(false));
+    await act(async () => escreveu());
+    await act(async () => escreveu());
+    expect(buscas()).toBe(1);
+
+    rerender(tela(true));
+    await vi.waitFor(() => expect(buscas()).toBe(2));
+
+    rerender(tela(false));
+    rerender(tela(true));
+    await act(async () => {});
+    expect(buscas()).toBe(2);
+  });
+
+  it("quem só lê não recebe cobrança", async () => {
+    const VIEWER = { ...USUARIO, papel: "viewer" as const };
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/hoje": () => json({ ...HOJE, pontos: [{ ...HOJE.pontos[0]!, detalhe: "Falta você confirmar." }] }) });
+    render(
+      <ProvedorCasca usuario={VIEWER} demo={false}>
+        <HojeNaObra obra={OBRA} alternativa={null} />
+      </ProvedorCasca>,
+    );
+    const titulo = await screen.findByRole("heading", { level: 1 });
+    expect(titulo).toHaveTextContent("A obra está no prazo.");
+    expect(titulo).not.toHaveTextContent("esperando");
+    expect(screen.getByText("2 comprovantes para conferir.")).toBeInTheDocument();
+    expect(screen.queryByText("Falta você confirmar.")).toBeNull();
+    expect(screen.getByRole("heading", { name: /Aguardando aprovação/ })).toBeInTheDocument();
   });
 
   it("tela que a web não conhece fica sem botão", async () => {
