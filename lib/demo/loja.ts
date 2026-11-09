@@ -11,6 +11,7 @@ import type {
   DadosObra,
   Mapeamento,
   DadosAvancarPedido,
+  CurvaABC,
   DadosCriarPedido,
   EntradaRegistro,
   ItemInsumo,
@@ -19,6 +20,9 @@ import type {
   Obra,
   Orcamento,
   Pedido,
+  PreviaVersao,
+  MaterialDoProjeto,
+  VersaoOrcamento,
   Proposta,
   RespostaEntrar,
   StatusPedido,
@@ -45,6 +49,15 @@ const diasAtras = (d: number, h = 9) => {
   return t.toISOString();
 };
 
+/** Uma versão do orçamento na demonstração: a meta (como no contrato) e as etapas com seus itens, crus.
+ * A curva ABC, a ordem e os totais por etapa são recalculados na leitura, como a API faz sobre o vigente. */
+interface VersaoDemo {
+  versao: VersaoOrcamento;
+  etapas: { descricao: string; itens: { nome: string; unidade: string; quantidade: number; valor_unitario: number }[] }[];
+  /** A chave de idempotência da gravação: repetir o POST com a mesma chave devolve esta versão, não cria outra. */
+  chave: string | null;
+}
+
 interface EstadoDemo {
   usuarios: Usuario[];
   acessos: Map<string, { usuario: Usuario; vence: number }>;
@@ -55,6 +68,8 @@ interface EstadoDemo {
   pedidos: PedidoDemo[];
   propostas: Proposta[];
   registro: EntradaRegistro[];
+  /** As versões do orçamento (contrato e aditivos), como a API as guarda. Uma versão desfeita fica com `ativa: false`. */
+  versoes: VersaoDemo[];
   contadorPedido: number;
   /** chave_idempotencia → movimento lançado pela tela (o ID na API é derivado da chave; aqui, um mapa). */
   idempotencia: Map<string, Movimento>;
@@ -132,42 +147,126 @@ function dadosObra(c: Record<string, unknown>): DadosObra {
 }
 
 /**
- * A demonstração não reimplementa a importação por etapas: o orçamento dela é um contrato montado dos insumos da obra,
- * numa etapa só, para a tela do orçamento ter o que mostrar sem fingir que leu uma planilha.
+ * O orçamento da obra: as versões que foram lançadas de verdade (contrato e aditivos; na demo, a etapa "Estrutura"
+ * vinda dos materiais do projeto). A curva ABC, a ordem e os totais por etapa são recalculados aqui, sobre o vigente,
+ * como a API faz — a tela não refaz conta. Sem versão ativa, o orçamento é vazio (não se inventa um dos insumos).
  */
 function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
-  const ins = [...e.insumos.values()].filter((i) => i.obra_id === o.id && i.precisa_ate_o_fim > 0);
   const zero = { cotando: 0, comprometido: 0, realizado: 0 };
-  if (!ins.length)
-    return { versoes: [], itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
-  const versao_id = `demo-contrato-${o.id}`;
-  const base = { obra_id: o.id, versao_id, etapa: "1", codigo: "", fonte: "" };
-  const itens: Orcamento["itens"] = ins.map((i, n) => ({
-    ...base,
-    id: `${versao_id}-${n + 1}`,
-    ordem: n + 1,
-    tipo: "item",
-    numero: `1.${n + 1}`,
-    nivel: 2,
-    descricao: i.nome,
-    unidade: i.unidade,
-    quantidade: i.precisa_ate_o_fim,
-    valor_unitario: i.valor_unitario,
-    total: Math.round((i.precisa_ate_o_fim * i.valor_unitario) / 1000),
-    linha: n + 3,
-    curva: i.curva,
-  }));
-  const total = itens.reduce((t, i) => t + i.total, 0);
-  const etapa = { ...base, id: `${versao_id}-0`, ordem: 0, tipo: "etapa" as const, numero: "1", nivel: 1, descricao: "Orçamento", unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: 2, curva: null };
+  const versoesDaObra = e.versoes.filter((v) => v.versao.obra_id === o.id);
+  const ativas = versoesDaObra.filter((v) => v.versao.ativa);
+  const metas = versoesDaObra.map((v) => v.versao);
+  if (!ativas.length)
+    return { versoes: metas, itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
+
+  // Uma etapa por versão de estrutura; o número da etapa segue a ordem das versões ativas.
+  type Linha = { vid: string; etapa: string; nome: string; unidade: string; quantidade: number; valor_unitario: number; total: number };
+  const planas: Linha[] = [];
+  ativas.forEach((v, vi) => {
+    const num = String(vi + 1);
+    for (const et of v.etapas)
+      for (const it of et.itens)
+        planas.push({ vid: v.versao.id, etapa: num, nome: it.nome, unidade: it.unidade, quantidade: it.quantidade, valor_unitario: it.valor_unitario, total: Math.round((it.quantidade * it.valor_unitario) / 1000) });
+  });
+
+  // Curva ABC sobre o vigente inteiro: ordena por total e corta em 80% / 95% do acumulado.
+  const soma = planas.reduce((s, l) => s + l.total, 0);
+  const curvaDe = new Map<Linha, CurvaABC>();
+  let acc = 0;
+  for (const l of [...planas].sort((a, b) => b.total - a.total)) {
+    const antes = acc;
+    acc += l.total;
+    curvaDe.set(l, !soma ? "B" : antes < soma * 0.8 ? "A" : antes < soma * 0.95 ? "B" : "C");
+  }
+
+  const itens: Orcamento["itens"] = [];
+  const etapas: Orcamento["etapas"] = [];
+  let ordem = 0;
+  let linha = 2;
+  ativas.forEach((v, vi) => {
+    const num = String(vi + 1);
+    const desc = v.etapas[0]?.descricao ?? "Estrutura";
+    const desta = planas.filter((l) => l.vid === v.versao.id);
+    const totalEtapa = desta.reduce((s, l) => s + l.total, 0);
+    const base = { obra_id: o.id, versao_id: v.versao.id, etapa: num, codigo: "", fonte: "" };
+    itens.push({ ...base, id: `${v.versao.id}-0`, ordem: ordem++, tipo: "etapa", numero: num, nivel: 1, descricao: desc, unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: linha++, curva: null });
+    desta.forEach((l, k) => {
+      itens.push({ ...base, id: `${v.versao.id}-${k + 1}`, ordem: ordem++, tipo: "item", numero: `${num}.${k + 1}`, nivel: 2, descricao: l.nome, unidade: l.unidade, quantidade: l.quantidade, valor_unitario: l.valor_unitario, total: l.total, linha: linha++, curva: curvaDe.get(l) ?? null });
+    });
+    const aditivo = v.versao.tipo === "aditivo";
+    etapas.push({ etapa: num, descricao: desc, contratado: aditivo ? 0 : totalEtapa, aditivos: aditivo ? totalEtapa : 0, atual: totalEtapa, saldo: totalEtapa, estourou: false, ...zero });
+  });
+
+  const contratado = ativas.filter((v) => v.versao.tipo === "contrato").reduce((s, v) => s + v.versao.total, 0);
+  const aditivos = ativas.filter((v) => v.versao.tipo === "aditivo").reduce((s, v) => s + v.versao.total, 0);
+  const atual = contratado + aditivos;
   return {
-    versoes: [
-      { id: versao_id, obra_id: o.id, tipo: "contrato", numero: 0, descricao: "", data: null, arquivo: "", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: o.criado_em },
-    ],
-    itens: [etapa, ...itens],
-    // Previsto × realizado chega à demo no fim da fase: zerado, para a tela não quebrar.
-    etapas: [{ etapa: "1", descricao: "Orçamento", contratado: total, aditivos: 0, atual: total, saldo: total, estourou: false, ...zero }],
-    totais: { contratado: total, aditivos: 0, atual: total, saldo: total, aditivos_pct: total ? 0 : null, n_itens: itens.length, n_etapas: 1, ...zero, sem_etapa: zero },
+    versoes: metas,
+    itens,
+    etapas,
+    totais: { contratado, aditivos, atual, saldo: atual, aditivos_pct: contratado ? Math.round((aditivos / contratado) * 10000) : null, n_itens: planas.length, n_etapas: etapas.length, ...zero, sem_etapa: zero },
   };
+}
+
+/**
+ * Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, se a obra ainda não tem um, ou
+ * aditivo, se já tem. Espelha o POST /obras/{id}/orcamento/estrutura da API. `aplicar: false` é a prévia.
+ */
+function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string, unknown>): PreviaVersao {
+  const itens = (corpo.itens as MaterialDoProjeto[] | undefined) ?? [];
+  const etapaNome = String(corpo.etapa ?? "Estrutura").trim() || "Estrutura";
+  const chave = corpo.chave_idempotencia ? String(corpo.chave_idempotencia) : null;
+  const aplicar = corpo.aplicar === true;
+  const unidade = (x: string) => ({ m3: "m³", m2: "m²" })[x.trim().toLowerCase()] ?? x.trim();
+
+  const limpos = itens.map((x) => ({
+    nome: String(x.nome ?? "").trim(),
+    unidade: unidade(String(x.unidade ?? "")),
+    quantidade: Number(x.quantidade) || 0,
+    valor_unitario: Number(x.valor_unitario) || 0,
+  }));
+  const temContrato = e.versoes.some((v) => v.versao.obra_id === o.id && v.versao.ativa && v.versao.tipo === "contrato");
+  const tipo: VersaoOrcamento["tipo"] = temContrato ? "aditivo" : "contrato";
+  const numero = tipo === "contrato" ? 0 : e.versoes.filter((v) => v.versao.obra_id === o.id && v.versao.ativa && v.versao.tipo === "aditivo").length + 1;
+
+  const total = (q: number, val: number) => Math.round((q * val) / 1000);
+  const somaTotal = limpos.reduce((s, x) => s + total(x.quantidade, x.valor_unitario), 0);
+  const previaItens = [
+    { ordem: 0, tipo: "etapa" as const, numero: "1", nivel: 1, etapa: "1", codigo: "", fonte: "", descricao: etapaNome, unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: 1 },
+    ...limpos.map((x, i) => ({ ordem: i + 1, tipo: "item" as const, numero: `1.${i + 1}`, nivel: 2, etapa: "1", codigo: "", fonte: "", descricao: x.nome, unidade: x.unidade, quantidade: x.quantidade, valor_unitario: x.valor_unitario, total: total(x.quantidade, x.valor_unitario), linha: i + 2 })),
+  ];
+  const base: PreviaVersao = {
+    aplicado: false, tipo, itens: previaItens, ignoradas: [], erros: [], avisos: [],
+    total: somaTotal, n_itens: limpos.length, n_etapas: 1,
+    etapas: [{ etapa: "1", descricao: etapaNome, total: somaTotal }],
+    substitui: null, versao_id: null, registro_id: null,
+  };
+  if (!aplicar) return base;
+
+  // Idempotência: o mesmo POST (mesma chave) devolve a versão já gravada, não cria outra.
+  const ja = chave ? e.versoes.find((v) => v.versao.obra_id === o.id && v.chave === chave) : undefined;
+  if (ja) return { ...base, aplicado: true, versao_id: ja.versao.id, registro_id: ja.versao.registro_id };
+
+  const versaoId = uuid7();
+  const vd: VersaoDemo = {
+    versao: {
+      id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
+      data: hojeSP().slice(0, 10), arquivo: "", itens: limpos.length, etapas: 1,
+      total: somaTotal, ativa: true, substitui: null, registro_id: null, criado_em: agoraISO(),
+    },
+    etapas: [{ descricao: etapaNome, itens: limpos }],
+    chave,
+  };
+  e.versoes.push(vd);
+  const reg = registrar(e, u, {
+    obra_id: o.id,
+    texto: `Lançou a estrutura do projeto como ${tipo === "contrato" ? "contrato" : `aditivo ${numero}`} (${limpos.length} ${limpos.length === 1 ? "item" : "itens"}, ${fmtReais(somaTotal)})`,
+    proposta_id: null,
+    desfazer: { op: "desfazer_versao", versao_id: versaoId },
+    origem: "tela",
+  });
+  vd.versao.registro_id = reg.id;
+  return { ...base, aplicado: true, versao_id: versaoId, registro_id: reg.id };
 }
 
 /**
@@ -224,6 +323,28 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
 }
 
 const INDISPONIVEL = "Indisponível na demonstração.";
+
+/**
+ * O orçamento de cada obra nasce com uma versão de verdade: a estrutura do projeto lançada como contrato (etapa
+ * "Estrutura"), montada dos insumos da obra — não um contrato fingido. Idempotente: não duplica se já houver. Serve
+ * tanto para semear o estado novo quanto para migrar um estado em memória anterior a este campo.
+ */
+function semearVersoes(e: EstadoDemo): void {
+  const porObra = new Map<string, ItemDemo[]>();
+  for (const i of e.insumos.values()) {
+    if (i.precisa_ate_o_fim > 0) porObra.set(i.obra_id, [...(porObra.get(i.obra_id) ?? []), i]);
+  }
+  for (const [obraId, ins] of porObra) {
+    if (e.versoes.some((v) => v.versao.obra_id === obraId)) continue;
+    const itens = ins.map((i) => ({ nome: i.nome, unidade: i.unidade, quantidade: i.precisa_ate_o_fim, valor_unitario: i.valor_unitario }));
+    const total = itens.reduce((s, i) => s + Math.round((i.quantidade * i.valor_unitario) / 1000), 0);
+    e.versoes.push({
+      versao: { id: `demo-estrutura-${obraId}`, obra_id: obraId, tipo: "contrato", numero: 0, descricao: "Estrutura", data: diasAtras(60).slice(0, 10), arquivo: "", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(60) },
+      etapas: [{ descricao: "Estrutura", itens }],
+      chave: null,
+    });
+  }
+}
 
 function semear(): EstadoDemo {
   const doc = <T extends object>(x: T, criado = agoraISO()) => ({ id: uuid7(), tenant_id: TENANT, criado_em: criado, ...x });
@@ -309,6 +430,7 @@ function semear(): EstadoDemo {
     pedidos,
     propostas: [],
     registro: [],
+    versoes: [],
     contadorPedido: 167,
     idempotencia: new Map(),
     obrasPorChave: new Map(),
@@ -318,6 +440,7 @@ function semear(): EstadoDemo {
     creditos: { saldo: 0, franquia: 20_000_000 },
     uso: semearUso(obra.id, outras[0]!.id),
   };
+  semearVersoes(e);
   // Saldo coerente com o consumo do mês: franquia menos o que já foi gasto desde o dia 1.
   const mes = hojeSP().slice(0, 8);
   e.creditos.saldo = Math.max(0, e.creditos.franquia - e.uso.filter((x) => x.dia >= `${mes}01`).reduce((t, x) => t + x.custo, 0));
@@ -388,7 +511,15 @@ function semearUso(obraA: string, obraB: string): EstadoDemo["uso"] {
 
 const g = globalThis as unknown as { __canteiroDemo?: EstadoDemo };
 /** Um estado por processo; sobrevive ao recarregamento de módulo do `next dev`. */
-export const estado = () => (g.__canteiroDemo ??= semear());
+export const estado = () => {
+  const e = (g.__canteiroDemo ??= semear());
+  // Estado em memória anterior ao campo `versoes` (hot reload): cria e semeia sem reiniciar (não perde o que a pessoa subiu).
+  if (!e.versoes) {
+    e.versoes = [];
+    semearVersoes(e);
+  }
+  return e;
+};
 export const reiniciarDemo = () => {
   g.__canteiroDemo = semear();
   return g.__canteiroDemo;
@@ -801,6 +932,13 @@ export function desfazer(registroId: string, u: Usuario) {
     if (Object.entries(r.depois).some(([k, v]) => o[k] !== v)) throw new Conflito("A obra mudou de novo desde então; não dá para desfazer.");
     Object.assign(o, r.antes);
     texto = `Desfeito: dados de ${o.nome} voltaram ao que eram`;
+  } else if (d.op === "desfazer_versao") {
+    const vid = (ent.desfazer as { versao_id: string }).versao_id;
+    const vd = e.versoes.find((v) => v.versao.id === vid);
+    if (!vd) throw new NaoEncontrado("Versão do orçamento não encontrada.");
+    if (!vd.versao.ativa) throw new Conflito("Esta versão do orçamento já foi desfeita.");
+    vd.versao.ativa = false;
+    texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
   } else if (d.op === "reabrir_orcamento") {
     const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);
     if (o.status !== "em_andamento") throw new Conflito("A obra já mudou de status; não dá para reabrir o orçamento.");
@@ -1043,10 +1181,59 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "POST" && b === "orcamento") {
         exigirAdmin(u);
         if (id2 === "versoes") return erro(422, "Na demonstração a importação do orçamento por etapas não está disponível.");
+        if (id2 === "estrutura") return ok(lancarEstrutura(e, u, obraPorId(e, id), c as Record<string, unknown>));
         const existentes = () =>
           [...e.insumos.values()]
             .filter((i) => i.obra_id === id)
             .map((i) => ({ nome: i.nome, unidade: i.unidade, precisa: i.precisa_ate_o_fim, valor: i.valor_unitario }));
+        if (id2 === "materiais") {
+          // os materiais das pranchas: a mesma prévia e gravação da lista de materiais, sem planilha
+          const corpo = c as { origem?: string; itens?: { nome: string; unidade: string; quantidade: number; valor_unitario?: number }[]; aplicar?: boolean };
+          const itens = corpo.itens ?? [];
+          if (!itens.length || itens.some((x) => !x.nome?.trim() || !(x.quantidade > 0))) return erro(422, "Envie os materiais com nome e quantidade.");
+          const unidade = (u2: string) => ({ m3: "m³", m2: "m²" })[u2.trim().toLowerCase()] ?? u2.trim();
+          const ex = existentes();
+          const total = (q: number, v: number) => Math.round((q * v) / 1000);
+          const soma = itens.reduce((s, x) => s + total(x.quantidade, x.valor_unitario ?? 0), 0);
+          let acumulado = 0;
+          const linhas = [...itens]
+            .map((x, i) => ({ x, i }))
+            .sort((a, b) => total(b.x.quantidade, b.x.valor_unitario ?? 0) - total(a.x.quantidade, a.x.valor_unitario ?? 0))
+            .map(({ x, i }) => {
+              const t2 = total(x.quantidade, x.valor_unitario ?? 0);
+              const antes = acumulado;
+              acumulado += t2;
+              const curva: "A" | "B" | "C" = !soma ? "B" : antes < soma * 0.8 ? "A" : antes < soma * 0.95 ? "B" : "C";
+              const atual = ex.find((y) => nomeChave(y.nome) === nomeChave(x.nome));
+              return {
+                linhas: [i + 1], nome: x.nome.trim(), unidade: unidade(x.unidade), quantidade: x.quantidade, valor_unitario: x.valor_unitario ?? 0,
+                total: t2, curva, saldo: 0, situacao: atual ? ("atualiza" as const) : ("novo" as const),
+                precisa_antes: atual ? atual.precisa : null, valor_antes: atual ? atual.valor : null,
+              };
+            })
+            .sort((a, b) => a.linhas[0]! - b.linhas[0]!);
+          const erros = linhas
+            .filter((l) => { const a = ex.find((y) => nomeChave(y.nome) === nomeChave(l.nome)); return a && a.unidade.toLowerCase() !== l.unidade.toLowerCase(); })
+            .map((l) => ({ linha: l.linhas[0]!, campo: "unidade", mensagem: `'${l.nome}' já está cadastrado em outra unidade nesta obra.` }));
+          const previa = { aplicado: false, linhas, ignoradas: [], erros, total: linhas.reduce((s, l) => s + l.total, 0), novos: linhas.filter((l) => l.situacao === "novo").length, atualizados: linhas.filter((l) => l.situacao === "atualiza").length, juntadas: 0 };
+          if (!corpo.aplicar || erros.length) return ok(previa);
+          for (const l of linhas) {
+            const atual = [...e.insumos.values()].find((i) => i.obra_id === id && nomeChave(i.nome) === nomeChave(l.nome));
+            if (atual) Object.assign(atual, { precisa_ate_o_fim: l.quantidade, valor_unitario: l.valor_unitario, curva: l.curva });
+            else {
+              const ins: ItemDemo = { id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), obra_id: id, nome: l.nome, unidade: l.unidade, precisa_ate_o_fim: l.quantidade, curva: l.curva, valor_unitario: l.valor_unitario };
+              e.insumos.set(`orc-${ins.id}`, ins);
+            }
+          }
+          const reg = registrar(e, u, {
+            obra_id: id,
+            texto: `Importou os materiais do ${String(corpo.origem ?? "projeto")}: ${previa.novos} novos, ${previa.atualizados} atualizados (${fmtReais(previa.total)})`,
+            proposta_id: null,
+            desfazer: null,
+            origem: "tela",
+          });
+          return ok({ ...previa, aplicado: true, registro_ids: [reg.id] });
+        }
         const arq = c.arquivo as { nome: string; texto: string } | undefined;
         if ((id2 === "ler" || id2 === "importar") && !arq) return erro(422, "Envie o arquivo da planilha.");
         if (id2 === "ler") return ok(lerPlanilhaDemo(arq!.texto, arq!.nome));
@@ -1086,8 +1273,29 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         if (id2 === "aprovar") {
           const o = obraPorId(e, id);
           if (o.status !== "em_orcamento") return erro(409, "O orçamento já foi aprovado.");
+          // Aprovar o orçamento é o que cria as compras: cada item das versões vigentes (ex.: a etapa "Estrutura"
+          // vinda do projeto) vira um insumo da obra, com a quantidade do orçamento como o que precisa. Só aqui o
+          // material entra em Compras — antes de aprovar, o projeto fica só no orçamento.
+          for (const v of e.versoes.filter((x) => x.versao.obra_id === id && x.versao.ativa)) {
+            for (const et of v.etapas) {
+              for (const it of et.itens) {
+                if (it.quantidade <= 0) continue;
+                const ex = [...e.insumos.values()].find((i) => i.obra_id === id && nomeChave(i.nome) === nomeChave(it.nome));
+                if (ex) {
+                  ex.precisa_ate_o_fim = Math.max(ex.precisa_ate_o_fim, it.quantidade);
+                  if (!ex.valor_unitario) ex.valor_unitario = it.valor_unitario;
+                  continue;
+                }
+                const ins: ItemDemo = {
+                  id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), obra_id: id,
+                  nome: it.nome, unidade: it.unidade, precisa_ate_o_fim: it.quantidade, curva: "B", valor_unitario: it.valor_unitario,
+                };
+                e.insumos.set(`orc-${ins.id}`, ins);
+              }
+            }
+          }
           const its = [...e.insumos.values()].filter((i) => i.obra_id === id && i.precisa_ate_o_fim > 0);
-          if (!its.length) return erro(422, "Importe ou cadastre o orçamento antes de aprovar.");
+          if (!its.length) return erro(422, "Lance o projeto (ou importe o orçamento) antes de aprovar.");
           const total = its.reduce((t, i) => t + Math.round((i.precisa_ate_o_fim * i.valor_unitario) / 1000), 0);
           o.status = "em_andamento";
           const reg = registrar(e, u, {

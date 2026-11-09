@@ -62,6 +62,14 @@ describe("/srv/tradutor/* — caminhos", () => {
     expect(caminhoTradutor(["projetos"], "GET", busca)).toBe(ok);
   });
 
+  it("libera os materiais do projeto com ids válidos e UF de duas letras", () => {
+    expect(caminhoTradutor(["projetos", "materiais"], "GET", `?ids=${ID}&uf=SP`)).toBe(true);
+    expect(caminhoTradutor(["projetos", "materiais"], "GET", `?ids=${ID}`)).toBe(true);
+    expect(caminhoTradutor(["projetos", "materiais"], "GET", `?ids=${ID}&uf=SAO`)).toBe(false);
+    expect(caminhoTradutor(["projetos", "materiais"], "GET", "?ids=../x&uf=SP")).toBe(false);
+    expect(caminhoTradutor(["projetos", "materiais"], "POST", `?ids=${ID}&uf=SP`)).toBe(false);
+  });
+
   it("libera só o espelho .dxf dentro de projetos", () => {
     expect(caminhoTradutor(["projetos", "espelho.dxf"], "GET", `?ids=${ID}`)).toBe(true);
     expect(caminhoTradutor(["projetos", "espelho.dxf"], "POST", `?ids=${ID}`)).toBe(false);

@@ -141,6 +141,16 @@ export interface PreviaOrcamento {
   novos: number;
   atualizados: number;
   juntadas: number;
+  /** Só depois de aplicada: uma entrada do registro por lote (é o que o Desfazer usa). */
+  registro_ids?: string[];
+}
+
+/** Um material do projeto estrutural levado para a obra (POST /obras/{id}/orcamento/materiais). */
+export interface MaterialDoProjeto {
+  nome: string;
+  unidade: string;
+  quantidade: Milesimos;
+  valor_unitario: Centavos;
 }
 
 export type CurvaABC = "A" | "B" | "C";
