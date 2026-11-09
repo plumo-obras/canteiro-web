@@ -32,13 +32,16 @@ export function faltaPorEtapa(itens: ItemInsumo[], etapas: EtapaObra[]): GrupoFa
 
 export const valorPeloOrcamento = (i: ItemInsumo) => totalLinha(i.conta.comprar, i.insumo.valor_unitario);
 
-export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; fazerPedido: (marcados: ItemInsumo[]) => void; desfazendo?: boolean }) {
-  const { itens, etapas, fazerPedido, desfazendo } = props;
+export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; fazerPedido: (marcados: ItemInsumo[]) => void; desfazendo?: boolean; etapa?: string | null; verTudo?: () => void }) {
+  const { itens, etapas, fazerPedido, desfazendo, etapa, verTudo } = props;
   const { podeOperar: podeOperarConta } = useCasca();
   // Com o Desfazer da aprovação pela metade, a API recusa pedido novo: nem oferece.
   const podeOperar = podeOperarConta && !desfazendo;
   const [ids, setIds] = useState<ReadonlySet<string>>(new Set());
-  const grupos = useMemo(() => faltaPorEtapa(itens, etapas), [itens, etapas]);
+  const todosGrupos = useMemo(() => faltaPorEtapa(itens, etapas), [itens, etapas]);
+  // etapa que já não tem o que comprar: mostra a lista inteira, em vez de uma tela vazia que parece "tudo comprado"
+  const recorte = etapa ? todosGrupos.find((g) => g.chave === etapa) : undefined;
+  const grupos = recorte ? [recorte] : todosGrupos;
   const todos = grupos.flatMap((g) => g.itens);
   // O que já foi comprado sai da lista; a marca dele não pode continuar contando na barra.
   const marcados = todos.filter((i) => ids.has(i.insumo.id));
@@ -62,6 +65,14 @@ export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; 
         <p className={`mut ${s.vazio}`}>{itens.length ? "Tudo o que a obra precisa já foi comprado ou está a caminho." : "Os itens aparecem aqui quando o orçamento for aprovado."}</p>
       ) : (
         <>
+          {recorte ? (
+            <p className={`mut ${s.recorte}`}>
+              Só {recorte.nome}.{" "}
+              <button type="button" className="link" onClick={verTudo}>
+                Ver tudo o que falta
+              </button>
+            </p>
+          ) : null}
           {desfazendo ? <p className={`mut ${s.vazio}`}>O Desfazer da aprovação parou no meio. Termine-o no Orçamento para voltar a comprar.</p> : null}
           {grupos.map((g) => (
             <div key={g.chave || "sem"} role="group" aria-label={g.nome}>

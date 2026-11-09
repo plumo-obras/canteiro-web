@@ -1,10 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ItemInsumo, Obra, Pedido, Usuario } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO, type Rota } from "@/testes/rede";
-import { ProvedorCasca } from "./contexto";
+import { ProvedorCasca, useCasca } from "./contexto";
 import { Suprimentos } from "./Suprimentos";
 import { faltaPorEtapa } from "./suprimentos/FaltaComprar";
 
@@ -118,6 +119,47 @@ describe("Compras", () => {
     await enviar();
     await screen.findByText(/PED-0005: pedido feito/);
     expect(chaves()[2]).not.toBe(chaves()[0]);
+  });
+
+  it("aberta com filtro de etapa, mostra só ela e deixa ver tudo; na próxima visita abre inteira", async () => {
+    const Recorte = () => {
+      const { registrarNavegacao, irParaTela } = useCasca();
+      const [aberta, setAberta] = useState(false);
+      useEffect(() => registrarNavegacao(() => setAberta(true)), [registrarNavegacao]);
+      return aberta ? (
+        <>
+          <button type="button" onClick={() => setAberta(false)}>sair</button>
+          <Suprimentos obra={OBRA} />
+        </>
+      ) : (
+        <>
+          <button type="button" onClick={() => irParaTela("suprimentos", { etapa: "2" })}>com filtro</button>
+          <button type="button" onClick={() => setAberta(true)}>pela aba</button>
+        </>
+      );
+    };
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/insumos": () => json(ITENS),
+      "GET /srv/api/obras/o1/pedidos": () => json([]),
+      "GET /srv/api/obras/o1/etapas": () => json(ETAPAS),
+      "GET /srv/api/fornecedores": () => json([]),
+    });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Recorte />
+      </ProvedorCasca>,
+    );
+    const u = userEvent.setup();
+    await u.click(screen.getByRole("button", { name: "com filtro" }));
+    expect(await screen.findByRole("group", { name: "Estrutura" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Serviços preliminares" })).toBeNull();
+    await u.click(screen.getByRole("button", { name: "Ver tudo o que falta" }));
+    expect(screen.getByRole("group", { name: "Serviços preliminares" })).toBeInTheDocument();
+
+    await u.click(screen.getByRole("button", { name: "sair" }));
+    await u.click(screen.getByRole("button", { name: "pela aba" }));
+    expect(await screen.findByRole("group", { name: "Serviços preliminares" })).toBeInTheDocument();
   });
 
   it("Voltar no pedido mantém as marcações; criado o pedido, elas saem", async () => {

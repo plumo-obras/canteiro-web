@@ -355,11 +355,13 @@ function hojeDemo(e: EstadoDemo, o: Obra): HojeNaObra {
   const nomeDe = (id: string) => insumos.find((i) => i.id === id)?.nome ?? "material";
   const pontos: PontoHoje[] = [];
   if (!temOrcamento) pontos.push({ tipo: "sem_orcamento", prioridade: "pede_voce", titulo: "A obra ainda não tem orçamento.", detalhe: "Envie as pranchas para levantar os materiais.", acao: acao("projeto", "Enviar as pranchas") });
-  if (propostas) pontos.push({ tipo: "aprovacoes_pendentes", prioridade: "pede_voce", titulo: propostas === 1 ? "1 proposta esperando a sua aprovação." : `${propostas} propostas esperando a sua aprovação.`, detalhe: "O mestre de obras preparou; só executa com o seu toque.", acao: acao("aprovacoes", "Ver aprovações") });
-  if (falta.length) pontos.push({ tipo: "falta_comprar", prioridade: "atencao", titulo: `${itens(falta.length)} ainda sem pedido.`, detalhe: falta.slice(0, 3).map((i) => i.nome).join(", "), acao: acao("suprimentos", "Ver em Compras") });
+  if (falta.length) {
+    const etapa = etapaDoInsumo(e, o.id)(falta[0]!.nome);
+    pontos.push({ tipo: "falta_comprar", prioridade: "atencao", titulo: `${itens(falta.length)} ainda sem pedido.`, detalhe: falta.slice(0, 3).map((i) => i.nome).join(", "), acao: { tela: "suprimentos", rotulo: "Ver o que falta", filtro: etapa ? { etapa } : null } });
+  }
   if (semPreco) pontos.push({ tipo: "itens_sem_preco", prioridade: "atencao", titulo: `${itens(semPreco)} sem preço.`, detalhe: "Entram com R$ 0,00 no orçado.", acao: acao("orcamento", "Preencher os preços") });
   if (aCaminho.length) pontos.push({ tipo: "entregas_semana", prioridade: "a_caminho", titulo: aCaminho.length === 1 ? "1 entrega a caminho." : `${aCaminho.length} entregas a caminho.`, detalhe: `${nomeDe(aCaminho[0]!.insumo_id)} com ${aCaminho[0]!.fornecedor}.`, acao: acao("suprimentos", "Ver em Compras") });
-  const esperando = pontos.filter((p) => p.prioridade === "pede_voce").length;
+  const esperando = propostas + pontos.filter((p) => p.prioridade === "pede_voce").length;
   const base = o.status === "em_orcamento" ? "A obra ainda está em orçamento" : "A obra ainda não tem medição";
   return {
     hoje: hojeSP().slice(0, 10),

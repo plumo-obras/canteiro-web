@@ -664,7 +664,7 @@ export interface HojeNaObra {
   resumo: {
     situacao: "no_prazo" | "atrasada" | "sem_medicao";
     frase: string;
-    /** Quantos pontos pedem a pessoa, mesmo os cortados pelo limite. */
+    /** Uma por proposta pendente, mais os pontos que pedem a pessoa (mesmo os cortados pelo limite). */
     esperando: number;
     /** null sem cronograma; `semana_atual` null antes do início, e passa do total se atrasar. */
     semana_atual?: number | null;

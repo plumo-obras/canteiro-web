@@ -4,7 +4,7 @@
  * contagem) e fornecedores ficam no "⋯": são consulta, não o trabalho do dia. A tela carrega uma vez o que as seções
  * usam, e a "versão" da casca recarrega tudo depois de cada escrita.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { uuid7 } from "@/lib/ids";
@@ -35,6 +35,9 @@ export function Suprimentos({ obra }: { obra: Obra }) {
   // Sobe a cada pedido criado: as marcações só saem aí, e "Voltar" no pedido não perde nada.
   const [pedidosFeitos, setPedidosFeitos] = useState(0);
   const desfazendo = obra.status === "desfazendo_aprovacao";
+  const { lerFiltroTela, limparFiltroTela } = useCasca();
+  const [etapaRecorte, setEtapaRecorte] = useState(() => lerFiltroTela("suprimentos")?.etapa ?? null);
+  useEffect(limparFiltroTela, [limparFiltroTela]);
   // Aqui, e não no diálogo: fechar e reabrir depois de uma resposta perdida tem de repetir a mesma chave.
   const chavePedido = useRef(uuid7());
   const [modal, setModal] = useState<{ k: "item" } | { k: "fornecedor"; f?: Fornecedor } | null>(null);
@@ -102,7 +105,7 @@ export function Suprimentos({ obra }: { obra: Obra }) {
       ) : dado ? (
         secao === "compras" ? (
           <>
-            <FaltaComprar key={pedidosFeitos} itens={itens} etapas={etapas} fazerPedido={setMarcados} desfazendo={desfazendo} />
+            <FaltaComprar key={pedidosFeitos} itens={itens} etapas={etapas} fazerPedido={setMarcados} desfazendo={desfazendo} etapa={etapaRecorte} verTudo={() => setEtapaRecorte(null)} />
             <ListaPedidos obra={obra} pedidos={pedidos} itens={itens} etapas={etapas} fornecedores={fornecedores} />
           </>
         ) : secao === "estoque" ? (
