@@ -57,6 +57,14 @@ describe("o que falta para confirmar", () => {
     });
   });
 
+  it("Ver depois lança sem etapa e sem tópico, e não fica como pendência", () => {
+    const r = revisao({ classificacao: { estado: "conferir", escolhido: null, opcoes: [] } } as Partial<Revisao>);
+    const e = { ...escolhasIniciais(r), data: 1 as const, etapa: "depois" as const };
+    e.propria = { ...e.propria, descricao: "tubos" };
+    expect(pendencias(r, e, HOJE)).toEqual([]);
+    expect(corpoConfirmar(r, e, HOJE)).toMatchObject({ etapa: null, topico_id: null });
+  });
+
   it("resposta própria troca a opção lida: valor digitado, etapa e tópico escolhidos à mão", () => {
     const r = revisao({ data_pagamento: campo("lido", "2026-11-03"), descricao: campo("lido", "fio") });
     const e = { ...escolhasIniciais(r), valor: "propria" as const, etapa: "propria" as const, favorecido: "propria" as const, pedido: "p1" };

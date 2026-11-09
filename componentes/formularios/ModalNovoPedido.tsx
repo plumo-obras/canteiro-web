@@ -8,6 +8,7 @@
 import { useId, useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, TipoInsumo } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { criarPedidoComChave, type ChavePedido } from "../suprimentos/chavePedido";
 import { fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
 import { useCasca } from "../contexto";
@@ -50,6 +51,7 @@ export function ModalNovoPedido(props: {
   etapas: EtapaObra[];
   fornecedores: Fornecedor[];
   insumoInicial?: string;
+  chave: ChavePedido;
   fechar: () => void;
 }) {
   const { obraId, itens, etapas, fornecedores } = props;
@@ -61,7 +63,8 @@ export function ModalNovoPedido(props: {
   // digitada sumia calada e o pedido ia sem ela.
   const [previsaoRuim, setPrevisaoRuim] = useState(false);
   const [observacao, setObservacao] = useState("");
-  const [aprovado, setAprovado] = useState(false);
+  // O pedido nasce "feito": passar pela cotação é a exceção de quem combina preço antes.
+  const [aprovado, setAprovado] = useState(true);
   const primeiro = useRef<HTMLInputElement>(null);
   const listaForn = useId();
   // Insumos novos criados num envio que falhou depois: o reenvio usa o que já existe em vez de dar 409 por nome.
@@ -119,7 +122,7 @@ export function ModalNovoPedido(props: {
         }
         corpoLinhas.push({ insumo_id: id!, quantidade: lidas[i]!.q!, valor_unitario: lidas[i]!.v!, etapa: l.etapa || null });
       }
-      const p = await api.criarPedido(obraId, {
+      const p = await criarPedidoComChave(props.chave, mudou, obraId, {
         fornecedor: forn?.nome ?? fornecedor.trim(),
         fornecedor_id: forn?.id ?? null,
         previsao: previsao || null,

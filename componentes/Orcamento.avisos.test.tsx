@@ -72,6 +72,58 @@ describe("avisos do Orçamento", () => {
   });
 });
 
+describe("Desfazer da aprovação pela metade", () => {
+  const PARADA = { ...OBRA, status: "desfazendo_aprovacao", desfazendo_registro_id: "r7" } as Obra;
+  const insumo = (id: string) => ({ insumo: { id, nome: id, unidade: "kg", precisa_ate_o_fim: 1000, valor_unitario: 100 }, conta: { precisa: 1000, falta: 1000, comprar: 1000, saldo: 0, a_caminho: 0, cotando: 0, transferencia: 0 } });
+  const abrir = (desfazer: () => Response, usuario: Usuario = USUARIO) => {
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/orcamento": () => json(orc("planilha.xlsx", [500])),
+      "GET /srv/api/obras/o1/insumos": () => json([insumo("a"), insumo("b")]),
+      "POST /srv/api/registro/r7/desfazer": desfazer,
+    });
+    render(
+      <ProvedorCasca usuario={usuario} demo={false}>
+        <Orcamento obra={PARADA} />
+      </ProvedorCasca>,
+    );
+    return rede;
+  };
+
+  it("avisa quantos itens ficaram, sem oferecer aprovar nem comprar", async () => {
+    abrir(() => json({}));
+    expect(await screen.findByText(/parou no meio: 2 itens ainda em Compras/)).toBeInTheDocument();
+    expect(screen.getByText("desfazendo a aprovação")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Comprar o que vem primeiro" })).toBeNull();
+  });
+
+  it("Continuar chama o Desfazer do registro e avisa", async () => {
+    const rede = abrir(() => json({ id: "r8", texto: "Desfeito", criado_em: "2026-11-09T10:00:00Z" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Continuar o Desfazer" }));
+    expect(await screen.findByText("Aprovação desfeita. A obra voltou para em orçamento.")).toBeInTheDocument();
+    expect(rede.chamadas.some((c) => c.metodo === "POST" && c.caminho === "/srv/api/registro/r7/desfazer")).toBe(true);
+  });
+
+  it("a recusa da API fica à vista no aviso, dizendo o que resolver", async () => {
+    abrir(() => json({ detail: "Aço já tem pedido (PED-0170); cancele o pedido antes de desfazer a aprovação." }, 409));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Continuar o Desfazer" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("cancele o pedido antes de desfazer");
+  });
+
+  it("não manda tocar no preço, que está travado", async () => {
+    abrir(() => json({}));
+    await screen.findByText(/parou no meio/);
+    expect(screen.queryByText(/Toque no preço/)).toBeNull();
+  });
+
+  it("viewer lê o aviso, sem o botão", async () => {
+    abrir(() => json({}), { ...USUARIO, papel: "viewer" });
+    expect(await screen.findByText(/parou no meio/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar o Desfazer" })).toBeNull();
+  });
+});
+
 describe("soDasPranchas", () => {
   const v = (arquivo: string, ativa = true) => ({ arquivo, ativa });
   it("só quando tudo o que vale saiu do Projeto", () => {

@@ -18,7 +18,7 @@ import { Confirmar, Drawer, Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { useCarregar } from "../useCarregar";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
-import { acoesDe, type AcaoPedido } from "./Pedidos";
+import { acoesDe, useChegou, type AcaoPedido } from "./Pedidos";
 
 /** Diferença entre a NF e o valor das linhas que já merece um segundo olhar (centavos). */
 export const TOLERANCIA_NF = 100;
@@ -55,7 +55,9 @@ export function DetalhePedido(props: {
   const encerrado = p.status === "conferido" || p.status === "cancelado";
   const previsaoMudou = previsao !== (p.previsao ?? "").slice(0, 10);
 
+  const chegada = useChegou(p, props.atualizar);
   const executar = async (a: AcaoPedido) => {
+    if (a.tipo === "chegou") return chegada.registrar();
     if (a.tipo !== "avancar") return setModal(a.tipo);
     setOcupado(true);
     try {
@@ -106,8 +108,8 @@ export function DetalhePedido(props: {
             key={a.rotulo}
             type="button"
             className={`btn${i === 0 ? " amb" : ""}`}
-            disabled={ocupado}
-            aria-busy={ocupado && i === 0}
+            disabled={ocupado || chegada.ocupado}
+            aria-busy={(ocupado || chegada.ocupado) && i === 0}
             onClick={() => executar(a)}
           >
             {a.rotulo}

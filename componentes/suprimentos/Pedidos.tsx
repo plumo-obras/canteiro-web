@@ -1,58 +1,111 @@
 "use client";
 /**
- * Pedidos de Suprimentos: uma coluna por status. O pedido tem várias linhas (material e serviço), então o cartão mostra
- * o fornecedor, a 1ª linha e quantas mais, o valor e a previsão; clicar abre o detalhe, onde se registra a entrega, se
- * edita a previsão e se imprime. Cada cartão tem UMA ação à vista, nomeada pela consequência, e o resto no "⋯". Quem
- * valida a transição é a API.
+ * Pedidos de Compras: na tela são dois estados, "Pedido feito" e "Chegou", sem o quadro de cinco colunas. Os status do
+ * domínio continuam (quem valida a transição é a API); `estadoDoPedido` diz como cada um aparece. "Chegou" é um toque:
+ * registra a entrega do que falta em cada linha, com Desfazer. Entrega pela metade e NF ficam no "⋯" e no detalhe.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, Obra, Pedido, StatusPedido } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtPrevisao, fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
-import { ROTULO_STATUS } from "../CartaoProposta";
+import { uuid7 } from "@/lib/ids";
 import { mensagemDe, useCasca } from "../contexto";
 import { Icone } from "../Icone";
 import { MenuMais } from "../MenuMais";
 import { BotaoMais, useMaisAntigos } from "../Paginacao";
 import { ConfirmarEncerrar, DetalhePedido, ModalRecebimento } from "./DetalhePedido";
+import s from "./compras.module.css";
 
 const ENCERRADOS = 20;
+const fDiaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+/** "2026-11-06" → "06/11". */
+const diaMes = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 /** O que ainda está em jogo; `recebido` é o status antigo (chegou, falta conferir), que só a demonstração tem. */
 export const ABERTOS: StatusPedido[] = ["em_cotacao", "aprovado", "enviado", "em_transito", "parcial", "recebido"];
-// Recebido (conferido) e cancelado já saíram do trabalho: ficam recolhidos embaixo, e as 5 colunas cabem em 1100 px.
-const COLUNAS: StatusPedido[] = ["em_cotacao", "aprovado", "enviado", "em_transito", "parcial"];
-/** Onde cada status aparece no quadro (o `recebido` antigo junta-se ao em trânsito: ainda falta dar entrada). */
-const COLUNA_DE: Partial<Record<StatusPedido, StatusPedido>> = { recebido: "em_transito" };
-
-export type AcaoPedido = { tipo: "avancar"; para: StatusPedido; rotulo: string; feito: string } | { tipo: "entrega"; rotulo: string } | { tipo: "encerrar"; rotulo: string };
+export type AcaoPedido =
+  | { tipo: "chegou"; rotulo: string }
+  | { tipo: "avancar"; para: StatusPedido; rotulo: string; feito: string }
+  | { tipo: "entrega"; rotulo: string }
+  | { tipo: "encerrar"; rotulo: string };
 
 /** As ações que a tela oferece a partir de cada status: a primeira fica à vista, as outras vão para o "⋯". */
 export function acoesDe(p: Pedido): AcaoPedido[] {
   const cancelar: AcaoPedido = { tipo: "avancar", para: "cancelado", rotulo: "Cancelar pedido", feito: `${p.numero} cancelado.` };
-  const entrega: AcaoPedido = { tipo: "entrega", rotulo: "Registrar entrega" };
+  const parte: AcaoPedido = { tipo: "entrega", rotulo: "Chegou só uma parte ou com NF" };
+  const chegou: AcaoPedido = { tipo: "chegou", rotulo: "Chegou" };
   switch (p.status) {
     case "em_cotacao":
       return [{ tipo: "avancar", para: "aprovado", rotulo: `Aprovar ${fmtReais(p.valor)}`, feito: `${p.numero} aprovado.` }, cancelar];
     case "aprovado":
-      return [{ tipo: "avancar", para: "enviado", rotulo: "Marcar como enviado ao fornecedor", feito: `${p.numero} enviado.` }, entrega, cancelar];
     case "enviado":
-      return [entrega, { tipo: "avancar", para: "em_transito", rotulo: "Marcar em trânsito", feito: `${p.numero} em trânsito.` }, cancelar];
+      return [chegou, parte, cancelar];
     case "em_transito":
-      return [entrega];
+      return [chegou, parte];
     case "parcial":
-      return [entrega, { tipo: "encerrar", rotulo: "Encerrar o resto" }];
+      return [{ tipo: "chegou", rotulo: "Chegou o resto" }, parte, { tipo: "encerrar", rotulo: "O resto não vem" }];
     case "recebido":
-      return [{ tipo: "avancar", para: "conferido", rotulo: "Dar entrada", feito: `Entrada do ${p.numero} registrada.` }];
+      return [chegou];
     default:
       return [];
   }
 }
 
-/** "Cimento CP-II · 40 sc" e "+ 3 itens": o que cabe num cartão de quadro. */
+export interface EstadoPedido {
+  grupo: "feito" | "chegou" | "cancelado";
+  texto: string;
+  tom: "info" | "ok" | "warn" | "";
+}
+
+/** Como cada status do domínio aparece: a pessoa só lida com "Pedido feito" e "Chegou". */
+export function estadoDoPedido(p: Pedido): EstadoPedido {
+  if (p.status === "cancelado") return { grupo: "cancelado", texto: "Cancelado", tom: "" };
+  if (p.status === "conferido") {
+    const pago = p.valor > 0 && (p.pago ?? 0) >= p.valor;
+    const veioTudo = p.linhas.every((l) => l.recebida >= l.quantidade);
+    return { grupo: "chegou", texto: `${veioTudo ? "Chegou" : "Chegou em parte"}${p.recebido_em ? ` ${diaMes(p.recebido_em)}` : ""}${pago ? " · pago" : ""}`, tom: "ok" };
+  }
+  if (p.status === "em_cotacao") return { grupo: "feito", texto: "Pedido feito · falta aprovar", tom: "warn" };
+  if (p.status === "parcial") return { grupo: "feito", texto: `Pedido feito · ${progressoParcial(p)}`, tom: "warn" };
+  return { grupo: "feito", texto: p.previsao ? `Pedido feito · ${fmtPrevisao(p.previsao)}` : "Pedido feito", tom: "info" };
+}
+
+/** A entrega do que falta em cada linha: é o que "Chegou" grava. */
+export const linhasDaChegada = (p: Pedido) => p.linhas.flatMap((l, indice) => (l.falta_entregar > 0 ? [{ indice, quantidade: l.falta_entregar }] : []));
+
+/**
+ * Registra o "Chegou". A chave só muda depois de gravar (ou se o que falta mudar): com a resposta perdida, tocar de
+ * novo não dá entrada duas vezes no almoxarifado. O erro relê a lista para mostrar o que realmente valeu.
+ */
+export function useChegou(p: Pedido, depois?: (atualizado: Pedido) => void) {
+  const { avisar, avisarFeito, mudou } = useCasca();
+  const [ocupado, setOcupado] = useState(false);
+  const chave = useRef<{ conteudo: string; valor: string } | null>(null);
+  const registrar = async () => {
+    const linhas = linhasDaChegada(p);
+    const conteudo = JSON.stringify(linhas);
+    if (chave.current?.conteudo !== conteudo) chave.current = { conteudo, valor: uuid7() };
+    setOcupado(true);
+    try {
+      const r = await api.registrarRecebimento(p.id, { linhas, chave_idempotencia: chave.current.valor });
+      chave.current = null;
+      depois?.(r.pedido);
+      mudou();
+      avisarFeito(p.linhas.every((l) => l.tipo === "servico") ? `Medição do ${p.numero} registrada.` : `${p.numero} chegou.`, r.registro_id);
+    } catch (e) {
+      mudou();
+      avisar(mensagemDe(e), true);
+    } finally {
+      setOcupado(false);
+    }
+  };
+  return { ocupado, registrar };
+}
+
+/** "Cimento CP-II · 40 sc" e "+ 3 itens": o que cabe numa linha da lista. */
 export function resumoLinhas(p: Pedido): { primeira: string; mais: number } {
   const l = p.linhas[0];
-  return { primeira: l ? `${fmtQtdUn(l.quantidade, l.unidade)} · ${l.nome}` : "sem linhas", mais: Math.max(0, p.linhas.length - 1) };
+  return { primeira: l ? `${l.nome} · ${fmtQtdUn(l.quantidade, l.unidade)}` : "sem linhas", mais: Math.max(0, p.linhas.length - 1) };
 }
 
 /**
@@ -80,18 +133,23 @@ interface Contexto {
   fornecedores: Fornecedor[];
 }
 
-function CartaoPedido({ p, abrir }: { p: Pedido; abrir: () => void }) {
+function LinhaDoPedido({ p, etapas, abrir }: { p: Pedido; etapas: EtapaObra[]; abrir: () => void }) {
   const { podeOperar, avisar, avisarFeito, mudou } = useCasca();
-  const [ocupado, setOcupado] = useState(false);
+  const [avancando, setAvancando] = useState(false);
   const [detalhe, setDetalhe] = useState<"entrega" | "encerrar" | null>(null);
+  const chegada = useChegou(p);
   const acoes = podeOperar ? acoesDe(p) : [];
   const [pri, ...resto] = acoes;
   const r = resumoLinhas(p);
-  const encerrado = p.status === "conferido" || p.status === "cancelado";
+  const est = estadoDoPedido(p);
+  const ocupado = avancando || chegada.ocupado;
+  const chavesEtapa = [...new Set(p.linhas.map((l) => l.etapa))];
+  const etapa = chavesEtapa.length === 1 && chavesEtapa[0] ? etapas.find((e) => e.etapa === chavesEtapa[0])?.descricao : undefined;
 
   const executar = async (a: AcaoPedido) => {
+    if (a.tipo === "chegou") return chegada.registrar();
     if (a.tipo !== "avancar") return setDetalhe(a.tipo);
-    setOcupado(true);
+    setAvancando(true);
     try {
       const x = await api.avancarPedido(p.id, a.para);
       mudou();
@@ -99,114 +157,67 @@ function CartaoPedido({ p, abrir }: { p: Pedido; abrir: () => void }) {
     } catch (e) {
       avisar(mensagemDe(e), true);
     } finally {
-      setOcupado(false);
+      setAvancando(false);
     }
   };
 
   return (
-    <li className={`kc kc-click${encerrado ? " done" : ""}`} onClick={abrir}>
-      <button
-        type="button"
-        className="kn kc-abrir"
-        onClick={(e) => {
-          e.stopPropagation();
-          abrir();
-        }}
-      >
-        {p.numero}
-      </button>
-      <span className="kt">{p.fornecedor}</span>
-      <span className="mut">
-        {r.primeira}
-        {r.mais ? ` + ${r.mais} ${r.mais === 1 ? "item" : "itens"}` : ""}
-      </span>
-      <div className="meta">
-        <b>{fmtReais(p.valor)}</b>
-        {p.previsao && !encerrado ? <span>{fmtPrevisao(p.previsao)}</span> : null}
+    <li className={s.ped}>
+      <div className={s.pedItem}>
+        <button type="button" className={s.pedAbrir} onClick={abrir}>
+          {r.primeira}
+          {r.mais ? ` + ${r.mais} ${r.mais === 1 ? "item" : "itens"}` : ""}
+        </button>
+        <span className="mut sm">{[etapa, `pedido em ${fDiaMes.format(new Date(p.criado_em))}`].filter(Boolean).join(" · ")}</span>
       </div>
-      {p.status === "parcial" ? (
-        <div className="kdif falta">
-          {progressoParcial(p)} · o resto continua a caminho
-        </div>
-      ) : null}
-      {pri ? (
-        <div className="kact" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="btn" disabled={ocupado} aria-busy={ocupado} onClick={() => executar(pri)}>
+      <span className={s.pedForn}>{p.fornecedor}</span>
+      <span className={`num ${s.pedValor}`}>{fmtReais(p.valor)}</span>
+      <span className={`pill ${est.tom}`}>{est.texto}</span>
+      <div className={s.pedAcoes}>
+        {pri ? (
+          <button type="button" className="btn sm" disabled={ocupado} aria-busy={ocupado} aria-label={`${pri.rotulo}: ${p.numero}`} onClick={() => executar(pri)}>
             {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
             {pri.rotulo}
           </button>
-          {resto.length ? (
-            <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((a) => ({ rotulo: a.rotulo, acao: () => void executar(a) }))} />
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+        {resto.length ? <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((a) => ({ rotulo: a.rotulo, acao: () => void executar(a) }))} /> : null}
+      </div>
       {detalhe === "entrega" ? <ModalRecebimento pedido={p} fechar={() => setDetalhe(null)} /> : null}
       {detalhe === "encerrar" ? <ConfirmarEncerrar pedido={p} fechar={() => setDetalhe(null)} /> : null}
     </li>
   );
 }
 
-/**
- * Recebidos e cancelados só crescem: vêm da API de 20 em 20 (cursor `antes_de`), recolhidos embaixo do quadro.
- * O quadro em si busca só os status abertos, para nenhum pedido em andamento sumir atrás de um limite.
- */
-function Encerrados({ status, ctx, abrir }: { status: "conferido" | "cancelado"; ctx: Contexto; abrir: (p: Pedido) => void }) {
-  const { versao } = useCasca();
-  const m = useMaisAntigos((antes) => api.listarPedidos(ctx.obra.id, { status, limite: ENCERRADOS, antes_de: antes }), ENCERRADOS, [ctx.obra.id, status, versao]);
-  if (!m.itens?.length) return null;
-  return (
-    <details className="cobertos">
-      <summary>
-        <Icone nome="chevRight" tam={14} />
-        {status === "conferido" ? "Recebidos" : "Cancelados"} ({m.itens.length}
-        {m.acabou ? "" : "+"})
-      </summary>
-      <ul className="kb-lista">
-        {m.itens.map((p) => (
-          <CartaoPedido key={p.id} p={p} abrir={() => abrir(p)} />
-        ))}
-      </ul>
-      <BotaoMais acabou={m.acabou} buscando={m.buscando} carregarMais={m.carregarMais} rotulo="Mostrar mais antigos" />
-    </details>
-  );
-}
-
-/** Seção Pedidos de Suprimentos. `pedidos` = os abertos, que a tela já carregou para os números do cabeçalho. */
-export function QuadroPedidos(props: Contexto & { pedidos: Pedido[] }) {
+/** Seção Pedidos: o que ainda vai chegar e, embaixo, o que já chegou, de 20 em 20 (cursor `antes_de`). */
+export function ListaPedidos(props: Contexto & { pedidos: Pedido[] }) {
   const { pedidos, ...ctx } = props;
+  const { versao } = useCasca();
   const [aberto, setAberto] = useState<Pedido | null>(null);
-  // O pedido aberto acompanha a lista recarregada (depois de uma entrega, o status e as quantidades mudam). Recebido
-  // ou cancelado ele sai dos abertos: vale então a versão que a própria escrita devolveu (`atualizar`).
-  const atual = aberto ? (pedidos.find((p) => p.id === aberto.id) ?? aberto) : null;
-  const colunas = COLUNAS.map((st) => ({ st, ps: pedidos.filter((p) => (COLUNA_DE[p.status] ?? p.status) === st) })).filter((c) => c.ps.length);
+  const chegaram = useMaisAntigos((antes) => api.listarPedidos(ctx.obra.id, { status: "conferido", limite: ENCERRADOS, antes_de: antes }), ENCERRADOS, [ctx.obra.id, versao]);
+  const cancelados = useMaisAntigos((antes) => api.listarPedidos(ctx.obra.id, { status: "cancelado", limite: ENCERRADOS, antes_de: antes }), ENCERRADOS, [ctx.obra.id, versao]);
+  // O pedido aberto acompanha a lista recarregada; já encerrado, vale a versão que a própria escrita devolveu.
+  const atual = aberto ? ([...pedidos, ...(chegaram.itens ?? [])].find((p) => p.id === aberto.id) ?? aberto) : null;
+  const lista = [...pedidos, ...(chegaram.itens ?? [])];
+  const linha = (p: Pedido) => <LinhaDoPedido key={p.id} p={p} etapas={ctx.etapas} abrir={() => setAberto(p)} />;
   return (
-    <>
-      {/* Coluna vazia não aparece: "0 — Nenhum pedido." quatro vezes antes do único pedido real era ruído. */}
-      {colunas.length ? (
-        <div className="kb" style={{ "--n-col": colunas.length } as React.CSSProperties}>
-          {colunas.map(({ st, ps }) => (
-            <section key={st} className="col" data-st={st} aria-labelledby={`col-${st}`}>
-              <h3 id={`col-${st}`}>
-                <i className="col-dot" aria-hidden="true" />
-                {ROTULO_STATUS[st]}
-                <small>{ps.length}</small>
-              </h3>
-              <div className="col-total">{fmtReais(ps.reduce((t, p) => t + p.valor, 0))}</div>
-              <ul>
-                {ps.map((p) => (
-                  <CartaoPedido key={p.id} p={p} abrir={() => setAberto(p)} />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      ) : (
-        <p className="mut">Nenhum pedido aberto.</p>
-      )}
-      {(["conferido", "cancelado"] as const).map((st) => (
-        <Encerrados key={st} status={st} ctx={ctx} abrir={setAberto} />
-      ))}
+    <section className={`card ${s.bloco}`} aria-labelledby="pedidos-titulo">
+      <h2 id="pedidos-titulo" className={s.titulo}>
+        Pedidos
+      </h2>
+      {lista.length ? <ul className={s.pedidos}>{lista.map(linha)}</ul> : <p className={`mut ${s.vazio}`}>Nenhum pedido ainda. Marque acima o que vai comprar.</p>}
+      {!chegaram.acabou && chegaram.itens?.length ? <BotaoMais acabou={chegaram.acabou} buscando={chegaram.buscando} carregarMais={chegaram.carregarMais} rotulo="Mostrar mais antigos" /> : null}
+      {cancelados.itens?.length ? (
+        <details className={`cobertos ${s.cancelados}`}>
+          <summary>
+            <Icone nome="chevRight" tam={14} />
+            Cancelados ({cancelados.itens.length}
+            {cancelados.acabou ? "" : "+"})
+          </summary>
+          <ul className={s.pedidos}>{cancelados.itens.map(linha)}</ul>
+          <BotaoMais acabou={cancelados.acabou} buscando={cancelados.buscando} carregarMais={cancelados.carregarMais} rotulo="Mostrar mais antigos" />
+        </details>
+      ) : null}
       {atual ? <DetalhePedido pedido={atual} {...ctx} fechar={() => setAberto(null)} atualizar={setAberto} /> : null}
-    </>
+    </section>
   );
 }

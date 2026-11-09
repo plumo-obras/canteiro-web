@@ -118,6 +118,67 @@ describe("revisão do comprovante", () => {
     });
   });
 
+  it("Ver depois confirma sem etapa e sem tópico", async () => {
+    const r = rede(detalhe(), {
+      "POST /srv/api/comprovantes/c1/confirmar": () => json({ gasto: { id: "g1", valor: 35000 } as GastoObra, comprovante: { id: "c1" }, registro_id: "r1" }, 201),
+    });
+    const fechar = abrir();
+    await userEvent.click(await screen.findByRole("radio", { name: /28\/10\/2026/ }));
+    await userEvent.type(screen.getByRole("textbox", { name: "O que foi pago (outro)" }), "tubos");
+    await userEvent.click(within(grupo("Etapa da obra")).getByRole("radio", { name: /Ver depois/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar gasto" }));
+    await waitFor(() => expect(fechar).toHaveBeenCalled());
+    expect(r.chamadas.find((c) => c.caminho.endsWith("/confirmar"))!.corpo).toMatchObject({ etapa: null, topico_id: null });
+  });
+
+  it("+ criar etapa grava a etapa e já a deixa escolhida", async () => {
+    const r = rede(detalhe(), {
+      "POST /srv/api/obras/o1/etapas-extras": ({ corpo }) => json({ id: "e1", chave: "x-e1", obra_id: "o1", nome: (corpo as { nome: string }).nome, arquivado: false, registro_id: "r2" }, 201),
+    });
+    abrir();
+    await screen.findByRole("radiogroup", { name: "Etapa da obra" });
+    await userEvent.click(screen.getByRole("button", { name: "+ criar etapa" }));
+    await userEvent.click(screen.getByRole("button", { name: "Criar etapa" }));
+    expect(await screen.findByText("Dê um nome para a etapa.")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox", { name: "Nome da etapa nova" }), "Muro de divisa");
+    await userEvent.click(screen.getByRole("button", { name: "Criar etapa" }));
+    expect(await screen.findByRole("option", { name: "Muro de divisa" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Etapa (outra)" })).toHaveValue("x-e1");
+    expect(r.chamadas.find((c) => c.caminho.endsWith("/etapas-extras"))!.corpo).toEqual({ nome: "Muro de divisa" });
+  });
+
+  it("etapa criada troca a escolha e não leva o tópico da etapa anterior", async () => {
+    const r = rede(detalhe(), {
+      "POST /srv/api/obras/o1/etapas-extras": () => json({ id: "e1", chave: "x-e1", obra_id: "o1", nome: "Muro", arquivado: false, registro_id: "r2" }, 201),
+      "POST /srv/api/comprovantes/c1/confirmar": () => json({ gasto: { id: "g1", valor: 35000 } as GastoObra, comprovante: { id: "c1" }, registro_id: "r1" }, 201),
+    });
+    const fechar = abrir();
+    await userEvent.click(await screen.findByRole("radio", { name: /28\/10\/2026/ }));
+    await userEvent.type(screen.getByRole("textbox", { name: "O que foi pago (outro)" }), "muro");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Etapa (outra)" }), "eletrica");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Tópico (opcional)" }), "t1");
+    await userEvent.click(screen.getByRole("button", { name: "+ criar etapa" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Nome da etapa nova" }), "Muro");
+    await userEvent.click(screen.getByRole("button", { name: "Criar etapa" }));
+    await screen.findByRole("option", { name: "Muro" });
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar gasto" }));
+    await waitFor(() => expect(fechar).toHaveBeenCalled());
+    expect(r.chamadas.find((c) => c.caminho.endsWith("/confirmar"))!.corpo).toMatchObject({ etapa: "x-e1", topico_id: null });
+  });
+
+  it("Enter duas vezes cria uma etapa só", async () => {
+    let soltar: (x: Response) => void = () => {};
+    const r = rede(detalhe(), { "POST /srv/api/obras/o1/etapas-extras": () => new Promise<Response>((ok) => (soltar = ok)) });
+    abrir();
+    await screen.findByRole("radiogroup", { name: "Etapa da obra" });
+    await userEvent.click(screen.getByRole("button", { name: "+ criar etapa" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Nome da etapa nova" }), "Muro{Enter}{Enter}");
+    await waitFor(() => expect(r.chamadas.filter((c) => c.caminho.endsWith("/etapas-extras"))).toHaveLength(1));
+    soltar(json({ id: "e1", chave: "x-e1", obra_id: "o1", nome: "Muro", arquivado: false, registro_id: "r2" }, 201));
+    await screen.findByRole("option", { name: "Muro" });
+    expect(r.chamadas.filter((c) => c.caminho.endsWith("/etapas-extras"))).toHaveLength(1);
+  });
+
   it("passar pelo campo próprio com Tab não desmarca a opção da IA; digitar escolhe a própria", async () => {
     rede();
     abrir();

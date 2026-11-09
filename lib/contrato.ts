@@ -23,7 +23,8 @@ interface Documento {
   criado_em: DataISO;
 }
 
-export type StatusObra = "em_andamento" | "em_orcamento" | "concluida";
+/** `desfazendo_aprovacao`: o Desfazer da aprovação parou no meio; a API recusa o que mexe em Compras (409) até terminar. */
+export type StatusObra = "em_andamento" | "em_orcamento" | "concluida" | "desfazendo_aprovacao";
 
 export type Tipologia = "casa" | "sobrado" | "predio" | "galpao" | "reforma" | "comercial" | "outro";
 export type Padrao = "baixo" | "normal" | "alto";
@@ -48,6 +49,8 @@ export interface Obra extends Documento {
   cep: string;
   verba: Centavos;
   status: StatusObra;
+  /** O registro a desfazer de novo para continuar, quando `status` é `desfazendo_aprovacao`. */
+  desfazendo_registro_id?: string | null;
   endereco: string;
   uf: string;
   tipologia: Tipologia | null;
@@ -274,6 +277,18 @@ export interface Orcamento {
   };
 }
 
+/** `PATCH /obras/{id}/orcamento/itens/{item_id}`: ao menos um dos dois. */
+export interface CorpoEditarItem {
+  quantidade?: Milesimos;
+  valor_unitario?: Centavos;
+}
+
+export interface ItemEditado {
+  item: ItemOrcamento;
+  total_versao: Centavos;
+  registro_id: string;
+}
+
 /** O que acompanha a planilha no `POST …/orcamento/versoes`. */
 export interface CorpoVersao {
   mapeamento: Mapeamento;
@@ -296,6 +311,8 @@ export interface Insumo extends Documento {
   valor_unitario: Centavos;
   /** Ausente nas respostas antigas = material. */
   tipo?: TipoInsumo;
+  /** A etapa do orçamento de onde o item saiu (chave de `GET …/etapas`); null ou ausente = sem etapa. */
+  etapa?: string | null;
 }
 
 /** Calculada por `regras.conta_de_falta` na API. O front só mostra; nunca refaz a conta. */
@@ -307,6 +324,8 @@ export interface Conta {
   transferencia: Milesimos;
   falta: Milesimos;
   comprar: Milesimos;
+  /** Serviço já entregue (medido). Ausente em API antiga. */
+  medido?: Milesimos;
 }
 
 export interface ItemInsumo {
@@ -403,6 +422,8 @@ export interface Pedido {
   status: StatusPedido;
   /** Soma dos `total` das linhas. */
   valor: Centavos;
+  /** AAAA-MM-DD da última entrega; null sem entrega (ausente em API antiga). */
+  recebido_em?: string | null;
   /** Quantos recebimentos (entregas) o pedido já teve. */
   recebimentos: number;
   /** Soma dos gastos confirmados como pagamento deste pedido (só informa: o custo conta pela entrega). */
@@ -426,6 +447,8 @@ export interface CorpoPedido {
   observacao?: string;
   aprovado: boolean;
   linhas: CorpoLinhaPedido[];
+  /** A mesma chave devolve o pedido já criado; com outro conteúdo, 409. */
+  chave_idempotencia?: string;
 }
 
 /** `PATCH /pedidos/{id}`. */
@@ -603,6 +626,8 @@ export interface ResumoObra {
   /** Pedidos recebidos esperando a conferência da NF. */
   nf_para_conferir: number;
   ultima_atividade: DataISO | null;
+  /** Tem orçamento (versão vigente ou lista de materiais). Ausente em API antiga. */
+  tem_orcamento?: boolean;
   /** O prazo do cronograma (o mesmo do GET /obras/{id}/cronograma); null sem cronograma. */
   prazo?: PrazoCronograma | null;
 }
@@ -927,7 +952,8 @@ export interface CorpoConfirmar {
   data_pagamento: string;
   favorecido: string;
   descricao: string;
-  etapa: string;
+  /** null = "Ver depois": entra sem etapa e conta só no total da obra. */
+  etapa: string | null;
   topico_id?: string | null;
   fornecedor_id?: string | null;
   pedido_id?: string | null;
@@ -943,7 +969,10 @@ export interface GastoObra {
   favorecido: string;
   fornecedor_id: string | null;
   descricao: string;
-  etapa: string;
+  /** null = sem etapa, a definir ("Ver depois"). */
+  etapa: string | null;
+  etapa_nome?: string;
+  etapa_origem?: string;
   topico_id: string | null;
   pedido_id: string | null;
   quem: string;
@@ -1090,7 +1119,10 @@ export interface ResumoGastos {
   /** Gastos ligados a pedido (o custo já conta pela entrega). */
   pagamentos_de_pedidos: Centavos;
   a_revisar: number;
-  etapas: { etapa: string; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
+  /** Gastos em "Ver depois": contam na obra e em nenhuma etapa. Ausente em API antiga. */
+  a_definir?: Centavos;
+  /** A linha com `etapa` null é a dos gastos sem etapa. */
+  etapas: { etapa: string | null; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
 }
 
 /** O que o agente responde em `POST /leituras/comprovante` (a leitura, ou o erro, já está gravada no comprovante). */

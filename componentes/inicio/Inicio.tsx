@@ -19,8 +19,8 @@ import { Paginacao, usePaginas } from "../Paginacao";
 import s from "./inicio.module.css";
 import { haQuanto, primeiroNome } from "./tempo";
 
-const TXT_STATUS: Record<StatusObra, string> = { em_andamento: "Em andamento", em_orcamento: "Em orçamento", concluida: "Concluída" };
-const ORDEM_STATUS: Record<StatusObra, number> = { em_andamento: 0, em_orcamento: 1, concluida: 2 };
+const TXT_STATUS: Record<StatusObra, string> = { em_andamento: "Em andamento", em_orcamento: "Em orçamento", concluida: "Concluída", desfazendo_aprovacao: "Desfazendo a aprovação" };
+const ORDEM_STATUS: Record<StatusObra, number> = { em_andamento: 0, em_orcamento: 1, concluida: 2, desfazendo_aprovacao: 0 };
 
 const POR_PAGINA = 12;
 const normal = (t: string) =>
@@ -201,7 +201,8 @@ function CartaoObra({ r, href }: { r: ResumoObra; href: string }) {
         <span className={s.topo}>
           <span className={s.status} data-st={obra.status}>
             <span className={s.dot} aria-hidden="true" />
-            {TXT_STATUS[obra.status]}
+            {/* "Em orçamento" numa obra sem orçamento nenhum diz o contrário do que ela está */}
+            {obra.status === "em_orcamento" && r.tem_orcamento === false ? "Sem orçamento" : TXT_STATUS[obra.status]}
           </span>
           {obra.cidade ? <span className={s.cidade}>{obra.cidade}</span> : null}
         </span>

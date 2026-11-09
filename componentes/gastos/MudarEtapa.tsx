@@ -11,11 +11,14 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { nomeComCodigo, nomeCurto } from "./escolhas";
+import { NovaEtapa } from "./NovaEtapa";
 
-export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore: EtapaNaArvore[]; fechar: () => void }) {
+export function MudarEtapa({ gasto, arvore: arvoreInicial, fechar }: { gasto: GastoObra; arvore: EtapaNaArvore[]; fechar: () => void }) {
   const { mudou, avisarFeito } = useCasca();
+  const [arvore, setArvore] = useState(arvoreInicial);
   const naArvore = arvore.some((e) => e.chave === gasto.etapa);
-  const [etapa, setEtapa] = useState(naArvore ? gasto.etapa : "");
+  const semEtapa = gasto.etapa === null;
+  const [etapa, setEtapa] = useState(naArvore ? gasto.etapa! : "");
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const id = useId();
@@ -41,7 +44,7 @@ export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore
 
   return (
     <Modal
-      titulo="Mudar etapa do gasto"
+      titulo={semEtapa ? "Definir a etapa do gasto" : "Mudar etapa do gasto"}
       fechar={fechar}
       rodape={
         <>
@@ -50,7 +53,7 @@ export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore
           </button>
           <button type="button" className="btn amb" disabled={!etapa || mesma || ocupado} aria-busy={ocupado} onClick={salvar}>
             {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
-            Mudar etapa
+            {semEtapa ? "Definir etapa" : "Mudar etapa"}
           </button>
         </>
       }
@@ -70,7 +73,14 @@ export function MudarEtapa({ gasto, arvore, fechar }: { gasto: GastoObra; arvore
             </option>
           ))}
         </select>
-        {!naArvore ? <div className="campo-dica">A etapa em que ele estava não existe mais na obra: escolha a nova.</div> : null}
+        {!naArvore && !semEtapa ? <div className="campo-dica">A etapa em que ele estava não existe mais na obra: escolha a nova.</div> : null}
+        <NovaEtapa
+          obraId={gasto.obra_id}
+          criada={(e) => {
+            setArvore((a) => [...a, e]);
+            setEtapa(e.chave);
+          }}
+        />
       </div>
       {erro ? (
         <div className="aviso-erro form-erro" role="alert">

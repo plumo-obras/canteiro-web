@@ -13,13 +13,15 @@ import { fmtReais, lerReais } from "@/lib/formato";
 
 /** Opção da IA (índice) ou a resposta própria; null = ainda não escolheu. */
 export type Escolha = number | "propria" | null;
+/** Na etapa cabe mais uma resposta: "Ver depois", que lança sem etapa. */
+export type EscolhaEtapa = Escolha | "depois";
 
 export interface Escolhas {
   valor: Escolha;
   data: Escolha;
   favorecido: Escolha;
   descricao: Escolha;
-  etapa: Escolha;
+  etapa: EscolhaEtapa;
   /** O que a pessoa digitou ou escolheu na resposta própria de cada campo. */
   propria: { valor: string; data: string; favorecido: string; descricao: string; etapa: string; topico: string };
   pedido: string;
@@ -75,7 +77,7 @@ export function pendencias(r: Revisao, e: Escolhas, hoje: string): string[] {
   if (v.data === null) falta.push("data");
   if (!v.favorecido) falta.push("favorecido");
   if (!v.descricao) falta.push("descricao");
-  if (!v.etapa) falta.push("etapa");
+  if (!v.etapa && e.etapa !== "depois") falta.push("etapa");
   return falta.map((k) => (k === "data" && v.dataNoFuturo ? "data do pagamento (não pode ser depois de hoje)" : ROTULOS[k]));
 }
 
@@ -87,7 +89,7 @@ export function corpoConfirmar(r: Revisao, e: Escolhas, hoje: string): CorpoConf
     data_pagamento: v.data!,
     favorecido: v.favorecido!,
     descricao: v.descricao!,
-    etapa: v.etapa!,
+    etapa: e.etapa === "depois" ? null : v.etapa,
     topico_id: v.topico_id,
     fornecedor_id: v.fornecedor_id,
     pedido_id: e.pedido || null,
@@ -160,8 +162,8 @@ export type OrigemArvore = "orcamento" | "padrao";
 export const origemDaArvore = (arvore: EtapaNaArvore[]): OrigemArvore => (arvore.some((e) => e.origem === "orcamento") ? "orcamento" : "padrao");
 
 /** Gasto cuja etapa não está mais na árvore do orçamento (a obra ganhou orçamento depois do lançamento). Extra arquivada não conta. */
-export const foraDoOrcamento = (arvore: EtapaNaArvore[], etapa: string) =>
-  origemDaArvore(arvore) === "orcamento" && !etapa.startsWith("x-") && !arvore.some((e) => e.chave === etapa);
+export const foraDoOrcamento = (arvore: EtapaNaArvore[], etapa: string | null) =>
+  etapa !== null && origemDaArvore(arvore) === "orcamento" && !etapa.startsWith("x-") && !arvore.some((e) => e.chave === etapa);
 
 /**
  * Código e nome de uma etapa do orçamento: o código é a chave ("3", "18.2") e o nome, a descrição da planilha. Etapa
@@ -214,10 +216,11 @@ export interface Arquivado {
 
 export function arquivadosDoResumo(
   arvore: EtapaNaArvore[],
-  resumo: { etapas: { etapa: string; nome: string; topicos: { topico_id: string | null; nome: string }[] }[] } | null,
+  resumo: { etapas: { etapa: string | null; nome: string; topicos: { topico_id: string | null; nome: string }[] }[] } | null,
 ): Arquivado[] {
   const fora: Arquivado[] = [];
   for (const e of resumo?.etapas ?? []) {
+    if (e.etapa === null) continue; // a linha dos gastos sem etapa não é uma etapa arquivada
     const no = arvore.find((x) => x.chave === e.etapa);
     // etapa fixa ou do orçamento não se arquiva: só a extra ("x-<id>") some da árvore por arquivamento
     if (!no && e.etapa.startsWith("x-")) fora.push({ tipo: "etapa", id: e.etapa.slice(2), nome: e.nome, etapaNome: e.nome });
