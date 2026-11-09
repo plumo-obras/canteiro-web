@@ -6,5 +6,7 @@
 
 @media (max-width:760px){
   .faixa{padding:16px}
+  /* a ação principal é a última no HTML (à direita no desktop): aqui ela sobe, senão fica atrás da barra inferior */
+  .acoes{flex-direction:column-reverse}
   .acoes,.acoes :global(.btn){width:100%}
 }
