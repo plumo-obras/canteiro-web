@@ -29,17 +29,22 @@ import { useCelular, useMidia } from "./midia";
 import { useSessaoGarantida } from "./useSessaoGarantida";
 import { telaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 
-const NAV: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
-  { k: "conversa", rotulo: "Agente", icone: "message" },
-  { k: "orcamento", rotulo: "Orçamento", icone: "calc" },
-  { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
-  { k: "suprimentos", rotulo: "Compras", icone: "package" },
-  { k: "gastos", rotulo: "Gastos", icone: "recibo" },
-  { k: "tributos", rotulo: "Tributos", icone: "planilha" },
-  { k: "projeto", rotulo: "Projeto 3D", icone: "predio" },
-  { k: "aprovacoes", rotulo: "Aprovações", icone: "checkCircle" },
-  { k: "historico", rotulo: "Histórico", icone: "history" },
-];
+// Rótulo e ícone de cada tela (para o título de seção e o aria-label).
+const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
+  conversa: { rotulo: "Agente", icone: "message" },
+  projeto: { rotulo: "Projeto", icone: "predio" },
+  orcamento: { rotulo: "Orçamento", icone: "calc" },
+  suprimentos: { rotulo: "Compras", icone: "package" },
+  cronograma: { rotulo: "Cronograma", icone: "calendario" },
+  gastos: { rotulo: "Gastos", icone: "recibo" },
+  tributos: { rotulo: "Tributos", icone: "planilha" },
+  aprovacoes: { rotulo: "Aprovações", icone: "checkCircle" },
+  historico: { rotulo: "Histórico", icone: "history" },
+};
+// A navegação É o fluxo da obra, em ordem e numerada (início → fim): do projeto (a entrada) ao agente (tira-dúvidas).
+const FLUXO: AbaAtiva[] = ["projeto", "orcamento", "suprimentos", "cronograma", "conversa"];
+// Fora do fluxo, mas à vista na mesma barra (depois do divisor): nada de esconder área do produto.
+const EXTRAS: AbaAtiva[] = ["aprovacoes", "gastos", "tributos", "historico"];
 
 const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "var(--gray)", concluida: "var(--blue)" };
 const TXT_STATUS: Record<Obra["status"], string> = { em_andamento: "em andamento", em_orcamento: "em orçamento", concluida: "concluída" };
@@ -463,7 +468,7 @@ function App({ usuario }: { usuario: Usuario }) {
               {tela !== "conversa" ? (
                 // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do
                 // cronograma, por exemplo) ficava montado com a obra B, e "Salvar" gravava o de A em B.
-                <section key={obra.id} className="palco-tela" aria-label={NAV.find((n) => n.k === tela)!.rotulo}>
+                <section key={obra.id} className="palco-tela" aria-label={ROTULOS[tela].rotulo}>
                   {tela === "orcamento" ? (
                     <Orcamento obra={obra} />
                   ) : tela === "cronograma" ? (
@@ -687,16 +692,29 @@ function Topo(p: {
       {obra ? <SeletorObra obras={p.obras} obra={obra} trocar={p.trocarObra} /> : null}
       {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
-          {NAV.filter((n) => telaNoModo(n.k, p.demo)).map((n) => (
+          {FLUXO.filter((k) => telaNoModo(k, p.demo)).map((k, i) => (
             <button
-              key={n.k}
+              key={k}
               type="button"
-              className={`pilula${tela === n.k ? " on" : ""}`}
-              aria-current={tela === n.k ? "page" : undefined}
-              onClick={() => p.setTela(n.k)}
+              className={`pilula${tela === k ? " on" : ""}`}
+              aria-current={tela === k ? "page" : undefined}
+              onClick={() => p.setTela(k)}
             >
-              {n.rotulo}
-              {n.k === "aprovacoes" && p.pendentes ? (
+              <span className="pilula-n" aria-hidden="true">{i + 1}</span>
+              {ROTULOS[k].rotulo}
+            </button>
+          ))}
+          <span className="pilula-sep" role="separator" aria-orientation="vertical" />
+          {EXTRAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
+            <button
+              key={k}
+              type="button"
+              className={`pilula${tela === k ? " on" : ""}`}
+              aria-current={tela === k ? "page" : undefined}
+              onClick={() => p.setTela(k)}
+            >
+              {ROTULOS[k].rotulo}
+              {k === "aprovacoes" && p.pendentes ? (
                 <span className="n" aria-label={`${p.pendentes} pendentes`}>
                   {p.pendentes}
                 </span>

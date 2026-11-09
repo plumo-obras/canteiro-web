@@ -72,6 +72,9 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .pilula:active{transform:scale(.97)}
 .pilula.on{background:var(--ativo);color:var(--ink)}
 .pilula .n{font-size:12px;font-weight:600;color:var(--onAccent,#1d1505);background:var(--accent);border-radius:99px;min-width:20px;text-align:center;padding:0 6px;line-height:20px}
+.pilula-n{flex:none;font:600 11px var(--mono);width:19px;height:19px;border-radius:50%;display:inline-grid;place-items:center;background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
+.pilula.on .pilula-n{background:var(--accent);color:var(--onAccent,#1d1505);border-color:transparent}
+.pilula-sep{flex:none;width:1px;height:22px;background:var(--line2);margin:0 6px;border:0;padding:0}
 .pilula:focus-visible{outline-offset:-2px}
 .topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
 .topo-nav + .topo-dir{margin-left:0}
