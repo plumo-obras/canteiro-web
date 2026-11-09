@@ -100,12 +100,6 @@
 .matLinha{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .matLinha b{font-weight:600;min-width:0}
 .matLinha .num{font-family:var(--mono);white-space:nowrap;color:var(--ink)}
-.levar{justify-content:center}
-/* as duas ações do projeto (Compras e Orçamento) lado a lado; empilham no celular */
-.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.acoes>.btn{flex:1 1 220px;justify-content:center}
-/* a linha de cabeçalho de etapa na prévia da versão */
-.linhaEtapa>td{background:var(--fundo);font-weight:600}
 .folhas{list-style:none;margin:0;padding:0}
 .folhas li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line2);font-size:var(--t-meta)}
 .folhas li:last-child{border-bottom:0}
