@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Obra } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
-import { Casca } from "./Casca";
+import { Casca, lerPainel } from "./Casca";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 
@@ -301,5 +301,18 @@ describe("a conversa vazia pergunta sobre o momento da obra", () => {
     render(<Casca demo={false} />);
     expect(await screen.findByRole("button", { name: "O que falta para fechar o orçamento?" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Quanto falta de cimento?" })).toBeNull();
+  });
+});
+
+describe("painel de conversas", () => {
+  afterEach(() => localStorage.removeItem("plumo.painel"));
+
+  it("começa fechado e só fica aberto para quem abriu", () => {
+    localStorage.removeItem("plumo.painel");
+    expect(lerPainel()).toBe(false);
+    localStorage.setItem("plumo.painel", "fechado");
+    expect(lerPainel()).toBe(false);
+    localStorage.setItem("plumo.painel", "aberto");
+    expect(lerPainel()).toBe(true);
   });
 });
