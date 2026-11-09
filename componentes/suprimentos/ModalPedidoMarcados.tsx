@@ -14,7 +14,7 @@ import { totalLinha } from "../formularios/ModalNovoPedido";
 import s from "./compras.module.css";
 import { valorPeloOrcamento } from "./FaltaComprar";
 
-export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsumo[]; etapas: EtapaObra[]; fornecedores: Fornecedor[]; pedidos: Pedido[]; fechar: () => void }) {
+export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsumo[]; etapas: EtapaObra[]; fornecedores: Fornecedor[]; pedidos: Pedido[]; fechar: () => void; criado: () => void }) {
   const { obraId, marcados, etapas, fornecedores, pedidos } = props;
   const { avisarFeito, mudou } = useCasca();
   const [fornecedor, setFornecedor] = useState("");
@@ -64,6 +64,7 @@ export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsum
         linhas: linhas.map((l, i) => ({ insumo_id: l.item.insumo.id, quantidade: lidas[i]!.q!, valor_unitario: lidas[i]!.v!, etapa: l.etapa || null })),
       });
       mudou();
+      props.criado();
       props.fechar();
       avisarFeito(`${p.numero}: pedido feito, ${fmtReais(p.valor)}.`, p.registro_id);
     },

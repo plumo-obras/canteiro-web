@@ -32,8 +32,11 @@ export function faltaPorEtapa(itens: ItemInsumo[], etapas: EtapaObra[]): GrupoFa
 
 export const valorPeloOrcamento = (i: ItemInsumo) => totalLinha(i.conta.comprar, i.insumo.valor_unitario);
 
-export function FaltaComprar({ itens, etapas, fazerPedido }: { itens: ItemInsumo[]; etapas: EtapaObra[]; fazerPedido: (marcados: ItemInsumo[]) => void }) {
-  const { podeOperar } = useCasca();
+export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; fazerPedido: (marcados: ItemInsumo[]) => void; desfazendo?: boolean }) {
+  const { itens, etapas, fazerPedido, desfazendo } = props;
+  const { podeOperar: podeOperarConta } = useCasca();
+  // Com o Desfazer da aprovação pela metade, a API recusa pedido novo: nem oferece.
+  const podeOperar = podeOperarConta && !desfazendo;
   const [ids, setIds] = useState<ReadonlySet<string>>(new Set());
   const grupos = useMemo(() => faltaPorEtapa(itens, etapas), [itens, etapas]);
   const todos = grupos.flatMap((g) => g.itens);
@@ -59,6 +62,7 @@ export function FaltaComprar({ itens, etapas, fazerPedido }: { itens: ItemInsumo
         <p className={`mut ${s.vazio}`}>{itens.length ? "Tudo o que a obra precisa já foi comprado ou está a caminho." : "Os itens aparecem aqui quando o orçamento for aprovado."}</p>
       ) : (
         <>
+          {desfazendo ? <p className={`mut ${s.vazio}`}>O Desfazer da aprovação parou no meio. Termine-o no Orçamento para voltar a comprar.</p> : null}
           {grupos.map((g) => (
             <div key={g.chave || "sem"} role="group" aria-label={g.nome}>
               <p className={s.grupo}>{g.nome}</p>
@@ -98,10 +102,7 @@ export function FaltaComprar({ itens, etapas, fazerPedido }: { itens: ItemInsumo
                 type="button"
                 className="btn amb"
                 disabled={demais}
-                onClick={() => {
-                  fazerPedido(marcados);
-                  setIds(new Set());
-                }}
+                onClick={() => fazerPedido(marcados)}
               >
                 <Icone nome="plus" tam={15} />
                 {n === 1 ? "Fazer pedido do item" : `Fazer pedido dos ${n} itens`}

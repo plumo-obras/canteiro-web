@@ -111,6 +111,12 @@ describe("Desfazer da aprovação pela metade", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("cancele o pedido antes de desfazer");
   });
 
+  it("não manda tocar no preço, que está travado", async () => {
+    abrir(() => json({}));
+    await screen.findByText(/parou no meio/);
+    expect(screen.queryByText(/Toque no preço/)).toBeNull();
+  });
+
   it("viewer lê o aviso, sem o botão", async () => {
     abrir(() => json({}), { ...USUARIO, papel: "viewer" });
     expect(await screen.findByText(/parou no meio/)).toBeInTheDocument();

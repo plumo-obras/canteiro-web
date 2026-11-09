@@ -31,6 +31,9 @@ export function Suprimentos({ obra }: { obra: Obra }) {
   const [secao, setSecao] = useState<Secao>("compras");
   const [lancando, setLancando] = useState<Lancar | null>(null);
   const [marcados, setMarcados] = useState<ItemInsumo[] | null>(null);
+  // Sobe a cada pedido criado: as marcações só saem aí, e "Voltar" no pedido não perde nada.
+  const [pedidosFeitos, setPedidosFeitos] = useState(0);
+  const desfazendo = obra.status === "desfazendo_aprovacao";
   const [modal, setModal] = useState<{ k: "item" } | { k: "fornecedor"; f?: Fornecedor } | null>(null);
   const { dado, erro, carregando } = useCarregar(
     () =>
@@ -60,7 +63,7 @@ export function Suprimentos({ obra }: { obra: Obra }) {
   const menu =
     secao === "compras"
       ? [
-          ...(podeOperar && dado ? [{ rotulo: "Pedido de item fora do orçamento", acao: () => setLancando({ tipo: "pedido" }) }] : []),
+          ...(podeOperar && dado && !desfazendo ? [{ rotulo: "Pedido de item fora do orçamento", acao: () => setLancando({ tipo: "pedido" }) }] : []),
           { rotulo: "Estoque: entradas e saídas", acao: () => setSecao("estoque") },
           { rotulo: "Fornecedores", acao: () => setSecao("fornecedores") },
         ]
@@ -96,7 +99,7 @@ export function Suprimentos({ obra }: { obra: Obra }) {
       ) : dado ? (
         secao === "compras" ? (
           <>
-            <FaltaComprar itens={itens} etapas={etapas} fazerPedido={setMarcados} />
+            <FaltaComprar key={pedidosFeitos} itens={itens} etapas={etapas} fazerPedido={setMarcados} desfazendo={desfazendo} />
             <ListaPedidos obra={obra} pedidos={pedidos} itens={itens} etapas={etapas} fornecedores={fornecedores} />
           </>
         ) : secao === "estoque" ? (
@@ -117,7 +120,7 @@ export function Suprimentos({ obra }: { obra: Obra }) {
         />
       ) : null}
 
-      {marcados ? <ModalPedidoMarcados obraId={obra.id} marcados={marcados} etapas={etapas} fornecedores={fornecedores} pedidos={pedidos} fechar={() => setMarcados(null)} /> : null}
+      {marcados ? <ModalPedidoMarcados obraId={obra.id} marcados={marcados} etapas={etapas} fornecedores={fornecedores} pedidos={pedidos} fechar={() => setMarcados(null)} criado={() => setPedidosFeitos((n) => n + 1)} /> : null}
       {lancando?.tipo === "pedido" ? (
         <ModalNovoPedido
           obraId={obra.id}

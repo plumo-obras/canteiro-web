@@ -91,6 +91,43 @@ describe("Compras", () => {
     });
   });
 
+  it("Voltar no pedido mantém as marcações; criado o pedido, elas saem", async () => {
+    montar({ "POST /srv/api/obras/o1/pedidos": () => json({ ...PEDIDO, numero: "PED-0004", registro_id: "r1" }, 201) });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("checkbox", { name: /Tapume/ }));
+    await u.click(screen.getByRole("button", { name: "Fazer pedido do item" }));
+    let dialogo = await screen.findByRole("dialog", { name: "Pedido de 1 item" });
+    await u.click(within(dialogo).getByRole("button", { name: "Voltar" }));
+    expect(screen.getByRole("checkbox", { name: /Tapume/ })).toBeChecked();
+
+    await u.click(screen.getByRole("button", { name: "Fazer pedido do item" }));
+    dialogo = await screen.findByRole("dialog", { name: "Pedido de 1 item" });
+    await u.type(within(dialogo).getByLabelText("Fornecedor"), "Madeireira Inventada");
+    await u.click(within(dialogo).getByRole("button", { name: /Registrar pedido de/ }));
+    await screen.findByText(/PED-0004: pedido feito/);
+    await vi.waitFor(() => expect(screen.getByRole("checkbox", { name: /Tapume/ })).not.toBeChecked());
+  });
+
+  it("com o Desfazer da aprovação pela metade não oferece marcar nem pedir", async () => {
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/insumos": () => json(ITENS),
+      "GET /srv/api/obras/o1/pedidos": () => json([]),
+      "GET /srv/api/obras/o1/etapas": () => json(ETAPAS),
+      "GET /srv/api/fornecedores": () => json([]),
+    });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Suprimentos obra={{ ...OBRA, status: "desfazendo_aprovacao" }} />
+      </ProvedorCasca>,
+    );
+    const u = userEvent.setup();
+    expect(await screen.findByText(/Termine-o no Orçamento/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    await u.click(screen.getByRole("button", { name: "Mais ações de Compras" }));
+    expect(screen.queryByRole("menuitem", { name: "Pedido de item fora do orçamento" })).toBeNull();
+  });
+
   it("a etapa da linha vem do item e pode ser trocada no pedido", async () => {
     const rede = montar({ "POST /srv/api/obras/o1/pedidos": () => json({ ...PEDIDO, numero: "PED-0003", registro_id: "r1" }, 201) });
     const u = userEvent.setup();

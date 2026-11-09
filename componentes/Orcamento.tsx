@@ -155,7 +155,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
               <Icone nome="alert" tam={15} />
               <p>
                 <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}.</b> {nSemPreco === 1 ? "Ele entra" : "Eles entram"} com R$ 0,00, e o orçado atual fica abaixo do custo real.
-                {podeOperar ? " Toque no preço, na linha do item, para preencher." : ""}
+                {podeOperar && !desfazendo ? " Toque no preço, na linha do item, para preencher." : ""}
               </p>
             </div>
           ) : null}
