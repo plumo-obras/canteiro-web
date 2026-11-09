@@ -429,17 +429,47 @@ describe("demonstração: paginação pelo cursor antes_de", () => {
 });
 
 describe("demonstração: orçamento por etapas", () => {
-  it("GET …/orcamento monta um contrato dos insumos (uma etapa) e a importação EAP responde 422", () => {
+  it("GET …/orcamento traz a versão de verdade (etapa Estrutura); a importação EAP por planilha responde 422", () => {
     const o = chamar("GET", `obras/${obraId()}/orcamento`).corpo as import("../contrato").Orcamento;
     expect(o.versoes).toHaveLength(1);
-    expect(o.versoes[0]).toMatchObject({ tipo: "contrato", numero: 0, ativa: true, etapas: 1 });
-    expect(o.etapas).toEqual([expect.objectContaining({ etapa: "1", descricao: "Orçamento", aditivos: 0 })]);
+    expect(o.versoes[0]).toMatchObject({ tipo: "contrato", numero: 0, ativa: true, descricao: "Estrutura", etapas: 1 });
+    expect(o.etapas).toEqual([expect.objectContaining({ etapa: "1", descricao: "Estrutura", aditivos: 0 })]);
     const itens = o.itens.filter((i) => i.tipo === "item");
     expect(o.totais).toMatchObject({ n_itens: itens.length, n_etapas: 1, aditivos: 0 });
     expect(o.totais.atual).toBe(itens.reduce((t, i) => t + i.total, 0));
     const r = chamar("POST", `obras/${obraId()}/orcamento/versoes`, { arquivo: { nome: "orc.csv", texto: "" } });
     expect(r.status).toBe(422);
     expect(r.corpo).toMatchObject({ detail: "Na demonstração a importação do orçamento por etapas não está disponível." });
+  });
+
+  it("POST …/orcamento/estrutura: prévia não grava; aplicar vira aditivo (já há contrato) e o Desfazer o remove", () => {
+    type O = import("../contrato").Orcamento;
+    type PV = import("../contrato").PreviaVersao;
+    const itens = [
+      { nome: "Telha fibrocimento 6mm", unidade: "m2", quantidade: 120_000, valor_unitario: 4200 },
+      { nome: "Caibro de madeira", unidade: "m3", quantidade: 2_000, valor_unitario: 350000 },
+    ];
+    const previa = chamar("POST", `obras/${obraId()}/orcamento/estrutura`, { itens, aplicar: false }).corpo as PV;
+    expect(previa).toMatchObject({ aplicado: false, tipo: "aditivo", n_itens: 2, n_etapas: 1 });
+    expect(previa.total).toBe(120_000 * 4200 / 1000 + 2_000 * 350000 / 1000);
+    expect((chamar("GET", `obras/${obraId()}/orcamento`).corpo as O).versoes).toHaveLength(1);
+
+    const gravou = chamar("POST", `obras/${obraId()}/orcamento/estrutura`, { itens, aplicar: true, chave_idempotencia: "k1" }).corpo as PV;
+    expect(gravou).toMatchObject({ aplicado: true, tipo: "aditivo" });
+    expect(gravou.versao_id).toBeTruthy();
+    const depois = chamar("GET", `obras/${obraId()}/orcamento`).corpo as O;
+    expect(depois.versoes).toHaveLength(2);
+    expect(depois.etapas).toHaveLength(2);
+    expect(depois.totais.aditivos).toBe(previa.total);
+
+    // Idempotência: repetir com a mesma chave não cria outra versão.
+    chamar("POST", `obras/${obraId()}/orcamento/estrutura`, { itens, aplicar: true, chave_idempotencia: "k1" });
+    expect((chamar("GET", `obras/${obraId()}/orcamento`).corpo as O).versoes).toHaveLength(2);
+
+    chamar("POST", `registro/${gravou.registro_id}/desfazer`);
+    const final = chamar("GET", `obras/${obraId()}/orcamento`).corpo as O;
+    expect(final.versoes.filter((v) => v.ativa)).toHaveLength(1);
+    expect(final.totais.aditivos).toBe(0);
   });
 });
 

@@ -43,6 +43,26 @@ const PREVIA = {
   juntadas: 0,
 };
 
+const PREVIA_ESTR = {
+  aplicado: false,
+  tipo: "contrato" as const,
+  itens: [
+    { ordem: 0, tipo: "etapa" as const, numero: "1", nivel: 1, etapa: "1", codigo: "", fonte: "", descricao: "Estrutura", unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: 1 },
+    { ordem: 1, tipo: "item" as const, numero: "1.1", nivel: 2, etapa: "1", codigo: "", fonte: "", descricao: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220300, valor_unitario: 669, total: 147381, linha: 2 },
+    { ordem: 2, tipo: "item" as const, numero: "1.2", nivel: 2, etapa: "1", codigo: "", fonte: "", descricao: "EPS B8/30/125", unidade: "un", quantidade: 382000, valor_unitario: 0, total: 0, linha: 3 },
+  ],
+  ignoradas: [],
+  erros: [],
+  avisos: [],
+  total: 147381,
+  n_itens: 2,
+  n_etapas: 1,
+  etapas: [{ etapa: "1", descricao: "Estrutura", total: 147381 }],
+  substitui: null,
+  versao_id: null,
+  registro_id: null,
+};
+
 const montar = (usuario: Usuario = USUARIO) =>
   render(
     <ProvedorCasca usuario={usuario} demo={false}>
@@ -117,6 +137,38 @@ describe("Materiais do projeto", () => {
     });
     montar();
     expect(await screen.findByRole("alert")).toHaveTextContent("O tradutor de pranchas não respondeu.");
+  });
+
+  it("lança a estrutura do projeto como versão do orçamento (contrato): manda o projeto inteiro e avisa em Orçamento", async () => {
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS),
+      "POST /srv/api/obras/o-1/orcamento/estrutura": ({ corpo }) =>
+        json((corpo as { aplicar: boolean }).aplicar ? { ...PREVIA_ESTR, aplicado: true, versao_id: "v1", registro_id: "rv1" } : PREVIA_ESTR),
+    });
+    const u = userEvent.setup();
+    montar();
+
+    await u.click(await screen.findByRole("button", { name: "Lançar no orçamento (Estrutura)" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Lançar a estrutura do projeto no orçamento?" });
+    const previa = rede.chamadas.find((c) => c.caminho.endsWith("/orcamento/estrutura"))!;
+    expect(previa.corpo).toEqual({
+      aplicar: false,
+      itens: [
+        { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220300, valor_unitario: 669 },
+        { nome: "EPS B8/30/125", unidade: "un", quantidade: 382000, valor_unitario: 0 },
+      ],
+    });
+    expect(dialogo).toHaveTextContent("contrato");
+    expect(within(dialogo).getByText("Estrutura")).toBeInTheDocument();
+
+    await u.click(within(dialogo).getByRole("button", { name: "Lançar como contrato" }));
+    expect(await screen.findByText(/Estrutura do projeto lançada como contrato do orçamento/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    const aplicou = rede.chamadas.filter((c) => c.caminho.endsWith("/orcamento/estrutura")).at(-1)!.corpo as { aplicar: boolean; chave_idempotencia?: string };
+    expect(aplicou.aplicar).toBe(true);
+    expect(typeof aplicou.chave_idempotencia).toBe("string");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("avisa o que já existe na obra e, por padrão, não duplica (só manda os novos)", async () => {

@@ -179,6 +179,13 @@ export const api = {
   /** Os materiais das pranchas viram a lista de materiais da obra. `aplicar: false` é a prévia. */
   materiaisDoProjeto: (obraId: string, origem: string, itens: MaterialDoProjeto[], aplicar: boolean) =>
     chamar<PreviaOrcamento>("POST", `/obras/${seg(obraId)}/orcamento/materiais`, { origem, itens, aplicar }),
+  /** Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, ou aditivo se já houver. */
+  estruturaDoProjeto: (obraId: string, itens: MaterialDoProjeto[], aplicar: boolean, chaveIdempotencia?: string) =>
+    chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/estrutura`, {
+      itens,
+      aplicar,
+      ...(chaveIdempotencia ? { chave_idempotencia: chaveIdempotencia } : {}),
+    }),
   /** O orçamento da obra (EAP): versões, itens vigentes com curva, totais por etapa. */
   orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
   /** Contrato ou aditivo. `aplicar: false` é a prévia; com `aplicar: true` a chave de idempotência é obrigatória. */

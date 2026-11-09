@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/cliente";
-import type { ItemInsumo, MaterialDoProjeto, Obra, PreviaOrcamento } from "@/lib/contrato";
+import type { ItemInsumo, MaterialDoProjeto, Obra, PreviaOrcamento, PreviaVersao } from "@/lib/contrato";
 import { fmtQtdUn, fmtReais } from "@/lib/formato";
 import { tradutor, type MateriaisProjeto, type MaterialProjeto } from "@/lib/tradutor";
 import { mensagemDe, useCasca } from "../contexto";
@@ -70,6 +70,9 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
   const [existentes, setExistentes] = useState<ItemInsumo[]>([]);
   const [incluirExistentes, setIncluirExistentes] = useState(false);
   const lancar = useRef<HTMLButtonElement>(null);
+  const [previaEstr, setPreviaEstr] = useState<PreviaVersao | null>(null);
+  const chaveEstr = useRef<string>("");
+  const lancarEstr = useRef<HTMLButtonElement>(null);
   const chaveIds = ids.join(",");
 
   useEffect(() => {
@@ -111,6 +114,8 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
     () => (dados ? paraAObra(dados.itens.filter((m) => incluirExistentes || !duplicadoDe.has(m.chave))) : []),
     [dados, duplicadoDe, incluirExistentes],
   );
+  // A versão "Estrutura" do orçamento é o projeto inteiro (não se tira duplicado: é o orçamento do projeto, não a compra).
+  const todosDoProjeto = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
 
   const verPrevia = useCallback(async () => {
     setOcupado(true);
@@ -133,6 +138,35 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
       mudou();
       const n = r.linhas.length;
       avisarFeito(`${n} ${n === 1 ? "material do projeto lançado" : "materiais do projeto lançados"} na obra. O que falta comprar está em Compras.`, r.registro_ids?.[0]);
+    } catch (e) {
+      setErroEnvio(mensagemDe(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  const verPreviaEstrutura = useCallback(async () => {
+    setOcupado(true);
+    setErroEnvio(null);
+    try {
+      chaveEstr.current = crypto.randomUUID();
+      setPreviaEstr(await api.estruturaDoProjeto(obra.id, todosDoProjeto, false));
+    } catch (e) {
+      setErroEnvio(mensagemDe(e));
+    } finally {
+      setOcupado(false);
+    }
+  }, [obra.id, todosDoProjeto]);
+
+  async function aplicarEstrutura() {
+    setOcupado(true);
+    setErroEnvio(null);
+    try {
+      const r = await api.estruturaDoProjeto(obra.id, todosDoProjeto, true, chaveEstr.current);
+      setPreviaEstr(null);
+      mudou();
+      const comoQue = r.tipo === "contrato" ? "contrato do orçamento" : "aditivo do orçamento";
+      avisarFeito(`Estrutura do projeto lançada como ${comoQue} (${fmtReais(r.total)}). Veja em Orçamento.`, r.registro_id ?? undefined);
     } catch (e) {
       setErroEnvio(mensagemDe(e));
     } finally {
@@ -215,10 +249,16 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
         </label>
       ) : null}
       {podeOperar ? (
-        <button type="button" className={`btn amb ${s.levar}`} disabled={ocupado || !enviaveis.length} aria-busy={ocupado} onClick={() => void verPrevia()}>
-          <Icone nome={ocupado ? "loader" : "package"} tam={15} className={ocupado ? "spin" : undefined} />
-          {enviaveis.length ? `Levar ${enviaveis.length} ${enviaveis.length === 1 ? "material" : "materiais"} para Compras` : "Todos já estão na obra"}
-        </button>
+        <div className={s.acoes}>
+          <button type="button" className={`btn amb ${s.levar}`} disabled={ocupado || !enviaveis.length} aria-busy={ocupado} onClick={() => void verPrevia()}>
+            <Icone nome={ocupado ? "loader" : "package"} tam={15} className={ocupado ? "spin" : undefined} />
+            {enviaveis.length ? `Levar ${enviaveis.length} ${enviaveis.length === 1 ? "material" : "materiais"} para Compras` : "Todos já estão na obra"}
+          </button>
+          <button type="button" className="btn" disabled={ocupado || !todosDoProjeto.length} aria-busy={ocupado} onClick={() => void verPreviaEstrutura()}>
+            <Icone nome="planilha" tam={15} />
+            Lançar no orçamento (Estrutura)
+          </button>
+        </div>
       ) : null}
       {erroEnvio && !previa ? (
         <div className="aviso-erro" role="alert">
@@ -305,6 +345,87 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
                     <b>{fmtReais(previa.total)}</b>
                   </td>
                   <td aria-hidden="true" />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Modal>
+      ) : null}
+
+      {previaEstr ? (
+        <Modal
+          titulo="Lançar a estrutura do projeto no orçamento?"
+          fechar={() => setPreviaEstr(null)}
+          focoInicial={lancarEstr}
+          largo
+          rodape={
+            <>
+              <button type="button" className="btn" onClick={() => setPreviaEstr(null)}>
+                Voltar
+              </button>
+              <button ref={lancarEstr} type="button" className="btn amb" disabled={ocupado || previaEstr.erros.length > 0} aria-busy={ocupado} onClick={() => void aplicarEstrutura()}>
+                Lançar como {previaEstr.tipo === "contrato" ? "contrato" : "aditivo"}
+              </button>
+            </>
+          }
+        >
+          <p className="mut">
+            Os materiais do projeto viram uma <b>versão do orçamento</b> (etapa «Estrutura») —{" "}
+            {previaEstr.tipo === "contrato" ? (
+              <>o <b>contrato</b> da obra, por ser a primeira versão.</>
+            ) : (
+              <>um <b>aditivo</b>, porque a obra já tem contrato.</>
+            )}{" "}
+            {previaEstr.n_itens} {previaEstr.n_itens === 1 ? "item" : "itens"}, valor total <b>{fmtReais(previaEstr.total)}</b>. É diferente de «Levar para Compras»: aqui o projeto entra como orçamento, não como lista de materiais. Dá para desfazer pelo Histórico.
+          </p>
+          {previaEstr.erros.map((e) => (
+            <div key={`${e.linha}-${e.mensagem}`} className="aviso-erro" role="alert">
+              <Icone nome="alert" tam={15} />
+              <span>{e.mensagem}</span>
+            </div>
+          ))}
+          {erroEnvio ? (
+            <div className="aviso-erro" role="alert">
+              <Icone nome="alert" tam={15} />
+              <span>{erroEnvio}</span>
+            </div>
+          ) : null}
+          <div className="tbl-rola">
+            <table className="tbl-orc">
+              <thead>
+                <tr>
+                  <th scope="col">Item</th>
+                  <th scope="col" className="num">
+                    Quantidade
+                  </th>
+                  <th scope="col" className="num">
+                    Unitário
+                  </th>
+                  <th scope="col" className="num">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {previaEstr.itens.map((l) => (
+                  <tr key={`${l.numero}-${l.descricao}`} className={l.tipo === "etapa" ? s.linhaEtapa : undefined}>
+                    <td>
+                      {l.tipo === "etapa" ? <b>{l.descricao}</b> : l.descricao}
+                    </td>
+                    <td className="num">{l.tipo === "item" ? fmtQtdUn(l.quantidade, l.unidade) : ""}</td>
+                    <td className="num">{l.tipo === "item" && l.valor_unitario ? fmtReais(l.valor_unitario) : ""}</td>
+                    <td className="num">{l.tipo === "item" && l.total ? fmtReais(l.total) : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Valor total</th>
+                  <td className="num" aria-hidden="true" />
+                  <td className="num" aria-hidden="true" />
+                  <td className="num">
+                    <b>{fmtReais(previaEstr.total)}</b>
+                  </td>
                 </tr>
               </tfoot>
             </table>
