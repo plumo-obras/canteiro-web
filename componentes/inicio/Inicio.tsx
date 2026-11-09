@@ -201,7 +201,8 @@ function CartaoObra({ r, href }: { r: ResumoObra; href: string }) {
         <span className={s.topo}>
           <span className={s.status} data-st={obra.status}>
             <span className={s.dot} aria-hidden="true" />
-            {TXT_STATUS[obra.status]}
+            {/* "Em orçamento" numa obra sem orçamento nenhum diz o contrário do que ela está */}
+            {obra.status === "em_orcamento" && r.tem_orcamento === false ? "Sem orçamento" : TXT_STATUS[obra.status]}
           </span>
           {obra.cidade ? <span className={s.cidade}>{obra.cidade}</span> : null}
         </span>

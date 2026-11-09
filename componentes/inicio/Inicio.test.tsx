@@ -23,6 +23,22 @@ describe("hrefDaObra", () => {
 });
 
 describe("Inicio", () => {
+  it("obra sem orçamento não diz 'Em orçamento'", async () => {
+    criarRede({
+      "GET /srv/api/obras/resumo": () =>
+        json([
+          { obra: obra("a", "Obra Sem Nada", "em_orcamento"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, tem_orcamento: false },
+          { obra: obra("b", "Obra Orcada", "em_orcamento"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, tem_orcamento: true },
+        ]),
+      "GET /srv/api/sessoes": () => json([]),
+    });
+    render(<Inicio usuario={eu} />);
+    const sem = (await screen.findByRole("heading", { name: "Obra Sem Nada" })).closest("a")!;
+    const com = screen.getByRole("heading", { name: "Obra Orcada" }).closest("a")!;
+    expect(sem).toHaveTextContent("Sem orçamento");
+    expect(com).toHaveTextContent("Em orçamento");
+  });
+
   it("saúda pelo primeiro nome e mostra um cartão por obra com o que pede ação", async () => {
     criarRede({
       "GET /srv/api/obras/resumo": () =>
