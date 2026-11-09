@@ -98,6 +98,31 @@ export interface Projeto {
   nao_encontradas: string[];
 }
 
+/** Um material que o projeto pede, com o insumo do SINAPI que é o mesmo produto (quando existe). */
+export interface MaterialProjeto {
+  chave: string;
+  categoria: "aco" | "concreto" | "forma" | "enchimento" | "vigota";
+  especificacao: string;
+  unidade: string;
+  /** Na unidade do material (kg, m3...), não em milésimos: é o levantamento do projeto. 0 = a confirmar. */
+  quantidade: number;
+  origem: string[];
+  /** O que foi corrigido do que estava no CAD (bitola fora da NBR 7480). */
+  ajuste: string | null;
+  /** O que quem compra precisa saber sobre a quantidade. */
+  nota: string | null;
+  referencia: { codigo: string; descricao: string; unidade: string; preco_centavos: number | null; total_centavos: number | null } | null;
+}
+
+export interface MateriaisProjeto {
+  referencia: { fonte: string; mes: string; encargos: string; uf: string } | null;
+  itens: MaterialProjeto[];
+  total_referencia_centavos: number;
+  avisos: string[];
+  em_andamento: { id: string; status: StatusTraducao; nome: string | null; erro: string | null }[];
+  nao_encontradas: string[];
+}
+
 async function pedir<T>(caminho: string, init?: RequestInit): Promise<T> {
   const r = await comAcesso(`/srv/tradutor/${caminho}`, init);
   const corpo = (await r.json().catch(() => ({}))) as T & { detail?: string };
@@ -126,6 +151,9 @@ export const tradutor = {
   modelo3d: (id: string) => pedir<Modelo3D>(`traducoes/${encodeURIComponent(id)}/modelo3d`),
   /** As folhas do projeto juntas: o que cada parte cobre, o que falta, as conferências e o 3D com tudo. */
   projeto: (ids: string[]) => pedir<Projeto>(`projetos?ids=${ids.map(encodeURIComponent).join(",")}`),
+  /** O que o projeto pede para a estrutura sair do papel, com o insumo do SINAPI e o preço na UF da obra. */
+  materiais: (ids: string[], uf: string) =>
+    pedir<MateriaisProjeto>(`projetos/materiais?ids=${ids.map(encodeURIComponent).join(",")}&uf=${encodeURIComponent(uf)}`),
   /** O modelo em DXF para abrir e editar no CAD (CADCraft, AutoCAD...); volta arrastando o DXF salvo. */
   espelho: async (ids: string[]): Promise<{ arquivo: Blob; nome: string }> => {
     const r = await comAcesso(`/srv/tradutor/projetos/espelho.dxf?ids=${ids.map(encodeURIComponent).join(",")}`);

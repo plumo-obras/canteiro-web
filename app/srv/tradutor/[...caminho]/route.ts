@@ -17,13 +17,18 @@ export function idsDoProjeto(busca: string): boolean {
 
 /**
  * POST traducoes · GET traducoes/{id} · GET traducoes/{id}/(resultado|modelo3d) · GET projetos?ids=...
- * · GET projetos/espelho.dxf?ids=... (o modelo para editar no CAD)
+ * · GET projetos/espelho.dxf?ids=... (o modelo para editar no CAD) · GET projetos/materiais?ids=...&uf=SP
  * Nada mais (nem DELETE, nem Excel).
  */
 export function caminhoTradutor(seg: string[], metodo: string, busca = ""): boolean {
   const m = metodo.toUpperCase();
   if (seg[0] === "projetos" && (seg.length === 1 || (seg.length === 2 && seg[1] === "espelho.dxf"))) {
     return m === "GET" && idsDoProjeto(busca);
+  }
+  if (seg[0] === "projetos" && seg.length === 2 && seg[1] === "materiais") {
+    // a UF só escolhe o preço de referência do SINAPI: duas letras ou nada
+    const uf = new URLSearchParams(busca).get("uf");
+    return m === "GET" && idsDoProjeto(busca) && (uf === null || /^[A-Za-z]{2}$/.test(uf));
   }
   if (seg[0] !== "traducoes") return false;
   if (seg.length === 1) return m === "POST";

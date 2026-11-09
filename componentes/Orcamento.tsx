@@ -124,9 +124,12 @@ export function Orcamento({ obra }: { obra: Obra }) {
               Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
             </p>
           ) : null}
+          {dado.etapas.length ? <ResumoOrcamento orc={dado} /> : null}
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
           <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
-          <Versoes versoes={dado.versoes} atual={dado.totais.atual} />
+          {/* Versão única (só o contrato, ex.: a Estrutura do projeto) não vira um bloco à parte — a etapa já a mostra.
+              O bloco aparece quando há aditivos, que é quando a comparação entre versões passa a importar. */}
+          {dado.versoes.length > 1 ? <Versoes versoes={dado.versoes} atual={dado.totais.atual} /> : null}
           {materiais.length ? (
             <p className="mut sm">
               A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Suprimentos.
@@ -268,6 +271,29 @@ function exportarCsv(obra: Obra, orc: DadosOrcamento) {
     .replace(/^-|-$/g, "")
     .toLowerCase();
   baixarCsv(`andamento-${nome}-${hoje}.csv`, csvAndamento(orc));
+}
+
+/**
+ * Uma linha de orientação antes da lista de etapas, para bater o olho e saber o orçamento: quantas etapas e itens e a
+ * maior etapa (onde está o dinheiro). Os números vêm prontos da API; a tela só acha o maior.
+ */
+function ResumoOrcamento({ orc }: { orc: DadosOrcamento }) {
+  const maior = [...orc.etapas].filter((e) => e.descricao).sort((a, b) => b.atual - a.atual)[0];
+  return (
+    <p className="orc-resumo mut sm">
+      <span className="fx-nw">{plural(orc.totais.n_etapas, "etapa", "etapas")}</span>
+      {" · "}
+      <span className="fx-nw">{plural(orc.totais.n_itens, "item", "itens")}</span>
+      {maior ? (
+        <>
+          {" · maior etapa "}
+          <span className="fx-nw">
+            <b>{maior.descricao}</b> ({fmtReais(maior.atual)})
+          </span>
+        </>
+      ) : null}
+    </p>
+  );
 }
 
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */

@@ -81,7 +81,12 @@ const ORDENS: { k: "desvio" | "planilha"; rotulo: string }[] = [
 
 export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
   const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: "desvio" });
-  const [abertas, setAbertas] = useState<Set<string>>(() => new Set());
+  // Com uma etapa só (ex.: a Estrutura do projeto), já abre: a quantidade e o unitário de cada item ficam à vista
+  // sem precisar clicar para expandir.
+  const [abertas, setAbertas] = useState<Set<string>>(() => {
+    const unica = orc.etapas.length === 1 ? orc.etapas[0] : null;
+    return unica ? new Set([unica.etapa]) : new Set();
+  });
   const lista = useMemo(() => montarLista(orc, filtro), [orc, filtro]);
   const filtrando = !!filtro.busca.trim() || !!filtro.curva;
   const achados = lista.reduce((n, e) => n + e.itens.length, 0);

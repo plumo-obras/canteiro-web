@@ -14,6 +14,7 @@ import { useCasca } from "./contexto";
 import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
+import { Materiais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
 import s from "./projeto/projeto.module.css";
 
@@ -57,7 +58,7 @@ export function Projeto({ obra }: { obra: Obra }) {
   const [vista, setVista] = useState<"3d" | "2d">("3d");
   const [cadMontado, setCadMontado] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
-  const [aba, setAba] = useState<"pacote" | "conferencias" | "folhas">("pacote");
+  const [aba, setAba] = useState<"pacote" | "materiais" | "conferencias" | "folhas">("pacote");
   // no 2D o CAD precisa da largura toda (ele tem os próprios painéis): o pacote recolhe e volta por um botão
   const [pacoteNo2d, setPacoteNo2d] = useState(false);
   const [apagando, setApagando] = useState(false);
@@ -259,6 +260,7 @@ export function Projeto({ obra }: { obra: Obra }) {
 
   const abas = [
     { k: "pacote", rotulo: "Pacote", n: projeto ? `${cobertas}/${projeto.pacote.length}` : null, dica: `${cobertas} de ${projeto?.pacote.length ?? 0} partes cobertas` },
+    { k: "materiais", rotulo: "Materiais", n: null, dica: "" },
     { k: "conferencias", rotulo: "Conferências", n: verificar || null, dica: `${verificar} para verificar` },
     { k: "folhas", rotulo: "Folhas", n: folhas.length || null, dica: `${folhas.length} enviadas` },
   ] as const;
@@ -495,7 +497,15 @@ export function Projeto({ obra }: { obra: Obra }) {
             ))}
           </div>
           <div id="aba-painel" role="tabpanel" aria-labelledby={`aba-${aba}`} className={s.painelCorpo}>
-            {aba === "pacote" ? painelPacote : aba === "conferencias" ? painelConferencias : painelFolhas}
+            {aba === "pacote" ? (
+              painelPacote
+            ) : aba === "materiais" ? (
+              <Materiais obra={obra} ids={(projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id))} />
+            ) : aba === "conferencias" ? (
+              painelConferencias
+            ) : (
+              painelFolhas
+            )}
           </div>
         </aside>
       </div>
