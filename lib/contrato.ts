@@ -321,6 +321,8 @@ export interface Conta {
   transferencia: Milesimos;
   falta: Milesimos;
   comprar: Milesimos;
+  /** Serviço já entregue (medido). Ausente em API antiga. */
+  medido?: Milesimos;
 }
 
 export interface ItemInsumo {
