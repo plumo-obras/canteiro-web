@@ -93,6 +93,8 @@ describe("Materiais do projeto", () => {
     });
     expect(within(dialogo).getByText("atualiza")).toBeInTheDocument();
     expect(dialogo).toHaveTextContent("antes 100");
+    // o valor total de referência aparece no diálogo
+    expect(within(dialogo).getByText("Valor total de referência")).toBeInTheDocument();
 
     await u.click(within(dialogo).getByRole("button", { name: "Lançar 2 materiais na obra" }));
     expect(await screen.findByText("2 materiais do projeto lançados na obra. O que falta comprar está em Compras.")).toBeInTheDocument();

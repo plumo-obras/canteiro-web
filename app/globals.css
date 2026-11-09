@@ -1503,3 +1503,7 @@ rect.db-falta{fill:var(--accentSoft);stroke:var(--accent);stroke-width:1;stroke-
   .desemb-tab th,.desemb-tab td{padding-left:10px;padding-right:10px}
   .desemb-tab th:first-child,.desemb-tab td:first-child{padding-left:14px}
 }
+
+/* total da prévia de materiais do projeto */
+.tbl-orc tfoot th,.tbl-orc tfoot td{border-top:2px solid var(--line);padding-top:10px;font-size:var(--t-body)}
+.tbl-orc tfoot th{text-align:left;color:var(--ink2);font-weight:500}

@@ -246,8 +246,9 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
         >
           <p className="mut">
             {previa.novos} {previa.novos === 1 ? "novo" : "novos"}
-            {previa.atualizados ? `, ${previa.atualizados} já ${previa.atualizados === 1 ? "existia e terá" : "existiam e terão"} a quantidade trocada pela do projeto` : ""}. O que
-            falta comprar sai da conta de Compras (precisa − estoque − a caminho). Dá para desfazer pelo Histórico.
+            {previa.atualizados ? `, ${previa.atualizados} já ${previa.atualizados === 1 ? "existia e terá" : "existiam e terão"} a quantidade trocada pela do projeto` : ""} — valor
+            total de referência <b>{fmtReais(previa.total)}</b>. O que falta comprar sai da conta de Compras (precisa −
+            estoque − a caminho). Dá para desfazer pelo Histórico.
           </p>
           {previa.erros.map((e) => (
             <div key={`${e.linha}-${e.mensagem}`} className="aviso-erro" role="alert">
@@ -295,6 +296,17 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Valor total de referência</th>
+                  <td className="num" aria-hidden="true" />
+                  <td className="num" aria-hidden="true" />
+                  <td className="num">
+                    <b>{fmtReais(previa.total)}</b>
+                  </td>
+                  <td aria-hidden="true" />
+                </tr>
+              </tfoot>
             </table>
           </div>
         </Modal>
