@@ -56,7 +56,7 @@ export function Gastos({ obra }: { obra: Obra }) {
 
   const numeros: Numero[] = [];
   if (resumo) {
-    numeros.push({ rotulo: "Gasto na obra", valor: fmtReais(resumo.total), sub: "confirmado, fora pagamento de pedido" });
+    // Sem total aqui: o gasto da obra é um número só, o "Gasto até hoje" do placar. resumo.total é só o avulso.
     if (resumo.a_revisar) numeros.push({ rotulo: "A revisar", valor: `${resumo.a_revisar}`, tag: "não contam ainda", tom: "atencao" });
     if (resumo.pagamentos_de_pedidos) numeros.push({ rotulo: "Pagamentos de pedidos", valor: fmtReais(resumo.pagamentos_de_pedidos), sub: "já contam pela entrega" });
   }
