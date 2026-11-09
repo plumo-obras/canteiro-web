@@ -931,7 +931,8 @@ export interface CorpoConfirmar {
   data_pagamento: string;
   favorecido: string;
   descricao: string;
-  etapa: string;
+  /** null = "Ver depois": entra sem etapa e conta só no total da obra. */
+  etapa: string | null;
   topico_id?: string | null;
   fornecedor_id?: string | null;
   pedido_id?: string | null;
@@ -947,7 +948,10 @@ export interface GastoObra {
   favorecido: string;
   fornecedor_id: string | null;
   descricao: string;
-  etapa: string;
+  /** null = sem etapa, a definir ("Ver depois"). */
+  etapa: string | null;
+  etapa_nome?: string;
+  etapa_origem?: string;
   topico_id: string | null;
   pedido_id: string | null;
   quem: string;
@@ -1094,7 +1098,10 @@ export interface ResumoGastos {
   /** Gastos ligados a pedido (o custo já conta pela entrega). */
   pagamentos_de_pedidos: Centavos;
   a_revisar: number;
-  etapas: { etapa: string; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
+  /** Gastos em "Ver depois": contam na obra e em nenhuma etapa. Ausente em API antiga. */
+  a_definir?: Centavos;
+  /** A linha com `etapa` null é a dos gastos sem etapa. */
+  etapas: { etapa: string | null; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
 }
 
 /** O que o agente responde em `POST /leituras/comprovante` (a leitura, ou o erro, já está gravada no comprovante). */

@@ -48,7 +48,7 @@ export function Gastos({ obra }: { obra: Obra }) {
   const nomesResumo = useMemo(() => {
     const m = new Map<string, string>();
     for (const e of resumo?.etapas ?? []) {
-      m.set(e.etapa, e.nome);
+      if (e.etapa) m.set(e.etapa, e.nome);
       for (const t of e.topicos) if (t.topico_id) m.set(t.topico_id, t.nome);
     }
     return m;
@@ -113,7 +113,7 @@ export function Gastos({ obra }: { obra: Obra }) {
             ) : (
               <ul className={`card lista ${s.lista}`} role="list">
                 {resumo.etapas.map((e) => (
-                  <li key={e.etapa} className={s.linha}>
+                  <li key={e.etapa ?? "sem-etapa"} className={s.linha}>
                     <div className={s.linhaTopo}>
                       <strong>{e.nome}</strong>
                       <span className={s.valor}>{fmtReais(e.total)}</span>
@@ -136,7 +136,8 @@ export function Gastos({ obra }: { obra: Obra }) {
             <Lancados
               obra={obra}
               semEtapa={(resumo?.etapas ?? []).filter((e) => foraDoOrcamento(arvore, e.etapa)).reduce((t, e) => t + e.total, 0)}
-              etapaDe={(g) => rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo)}
+              etapaDe={(g) => (g.etapa === null ? (g.etapa_nome ?? "Sem etapa") : rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo))}
+              aDefinir={resumo?.a_definir ?? 0}
               fora={(g) => foraDoOrcamento(arvore, g.etapa)}
               podeMudar={podeOperar}
               mudar={setMudando}
@@ -243,6 +244,8 @@ function Lancados(p: {
   obra: Obra;
   /** Soma, do resumo, dos gastos sem etapa do orçamento: a lista só tem as páginas carregadas e contaria errado. */
   semEtapa: number;
+  /** Soma, do resumo, dos gastos em "Ver depois". */
+  aDefinir: number;
   etapaDe: (g: GastoObra) => string;
   fora: (g: GastoObra) => boolean;
   podeMudar: boolean;
@@ -267,6 +270,12 @@ function Lancados(p: {
   if (!itens.length) return <Vazio texto="Nenhum gasto lançado ainda." />;
   return (
     <>
+      {p.aDefinir ? (
+        <div className={`${s.aviso} ${s.avisoTopo}`} role="status">
+          <Icone nome="alert" tam={14} />
+          <span>{fmtReais(p.aDefinir)} em gastos sem etapa, para definir.</span>
+        </div>
+      ) : null}
       {p.semEtapa ? (
         <div className={`${s.aviso} ${s.avisoTopo}`} role="status">
           <Icone nome="alert" tam={14} />
@@ -290,7 +299,15 @@ function Lancados(p: {
               <div className={`mut sm ${s.linhaMeta}`}>
                 <span>
                   {fmtDia(g.data_pagamento)} ·{" "}
-                  {fora ? (
+                  {g.etapa === null ? (
+                    p.podeMudar ? (
+                      <button type="button" className={s.link} onClick={() => p.mudar(g)} aria-label={`Definir etapa de ${g.descricao}`}>
+                        Sem etapa · definir
+                      </button>
+                    ) : (
+                      <span className="pill warn">Sem etapa</span>
+                    )
+                  ) : fora ? (
                     <>
                       <span className="pill warn">sem etapa do orçamento</span> <span className={s.etapaVelha}>{p.etapaDe(g)}</span>
                     </>
@@ -313,7 +330,7 @@ function Lancados(p: {
                     </>
                   ) : null}
                 </span>
-                {p.podeMudar ? (
+                {p.podeMudar && g.etapa !== null ? (
                   <button type="button" className={`btn sm${fora ? " amb" : ""}`} onClick={() => p.mudar(g)} aria-label={`Mudar etapa de ${g.descricao}`}>
                     Mudar etapa
                   </button>

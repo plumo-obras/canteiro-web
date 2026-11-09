@@ -242,6 +242,18 @@ describe("enviar comprovante", () => {
     expect(screen.queryByText("R$ 350,00")).toBeNull();
   });
 
+  it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {
+    rede({
+      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, etapa: null, etapa_nome: "Sem etapa", etapa_origem: "a_definir", topico_id: null }]),
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 35000, etapas: [{ etapa: null, nome: "Sem etapa", total: 35000, topicos: [] }] }),
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    await userEvent.click(await screen.findByRole("tab", { name: /Lançados/ }));
+    expect(await screen.findByText(/R\$ 350,00 em gastos sem etapa, para definir/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Definir etapa de/ }));
+    expect(await screen.findByRole("dialog", { name: "Definir a etapa do gasto" })).toBeInTheDocument();
+  });
+
   it("a legenda digitada vai no envio", async () => {
     vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 800, height: 600, close: () => {} })));
     let form: FormData | null = null;

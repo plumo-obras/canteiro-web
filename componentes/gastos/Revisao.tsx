@@ -12,6 +12,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { corpoConfirmar, escolhasIniciais, hojeNaObra, nomeComCodigo, pendencias, type Escolha, type Escolhas } from "./escolhas";
+import { NovaEtapa } from "./NovaEtapa";
 import s from "./gastos.module.css";
 
 const PAGOS = ["aprovado", "enviado", "em_transito", "recebido", "parcial", "conferido"] as const;
@@ -281,7 +282,18 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
                   />
                 }
               />
-              <CampoEtapa c={c} arvore={arvore} esc={esc} mudar={mudar} proprio={proprio} />
+              <CampoEtapa
+                c={c}
+                obraId={obra.id}
+                arvore={arvore}
+                esc={esc}
+                mudar={mudar}
+                proprio={proprio}
+                criada={(e) => {
+                  setArvore((a) => [...a, e]);
+                  proprio("etapa", e.chave);
+                }}
+              />
               <CampoPedido pedidos={pedidos} esc={esc} mudar={mudar} />
             </fieldset>
             {revisavel && podeOperar && falta.length ? (
@@ -394,10 +406,12 @@ function Grupo({ rotulo, estado, children }: { rotulo: string; estado: EstadoCam
 
 function CampoEtapa(p: {
   c: ComprovanteDetalhe;
+  obraId: string;
   arvore: EtapaNaArvore[];
   esc: Escolhas;
   mudar: (x: Partial<Escolhas>) => void;
   proprio: (k: keyof Escolhas["propria"], v: string) => void;
+  criada: (e: EtapaNaArvore) => void;
 }) {
   const nome = useId();
   const cl = p.c.revisao.classificacao;
@@ -447,7 +461,15 @@ function CampoEtapa(p: {
           </select>
         </span>
         {no?.inclui ? <span className={s.opcMotivo}>Entra aqui: {no.inclui}</span> : null}
+        <NovaEtapa obraId={p.obraId} criada={p.criada} />
       </Propria>
+      <label className={`${s.opc}${p.esc.etapa === "depois" ? ` ${s.on}` : ""}`}>
+        <input type="radio" name={nome} checked={p.esc.etapa === "depois"} onChange={() => p.mudar({ etapa: "depois" })} />
+        <span className={s.opcTexto}>
+          <span className={s.opcValor}>Ver depois</span>
+          <span className={s.opcMotivo}>O gasto entra sem etapa e você define depois, em Lançados.</span>
+        </span>
+      </label>
     </Grupo>
   );
 }
