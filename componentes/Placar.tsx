@@ -1,6 +1,6 @@
 "use client";
 /**
- * O placar fixo no topo de toda tela da obra: Contrato · Gasto até hoje · Falta gastar · Prazo. É onde o "gasto" é um
+ * O placar fixo no topo de toda tela da obra: Valor fechado · Gasto até hoje · Falta gastar · Prazo. É onde o "gasto" é um
  * número só no app: o realizado do orçamento, igual ao da API para o agente. A casca busca o resumo; aqui só formata.
  */
 import { useId, useState } from "react";
@@ -35,8 +35,8 @@ function prazo(c: ResumoDaObra["cronograma"]): Celula {
 /** As quatro células. `r` null = ainda não veio (ou a API falhou): nada de "R$ 0,00" que pareça dado. */
 export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null, falhou: boolean): Celula[] {
   const contrato: Celula = obra.verba
-    ? { rotulo: "Contrato", valor: fmtReais(obra.verba), sub: "fechado com o cliente" }
-    : { rotulo: "Contrato", valor: "—", sub: "não informado", tom: "mut" };
+    ? { rotulo: "Valor fechado", valor: fmtReais(obra.verba), sub: "com o cliente" }
+    : { rotulo: "Valor fechado", valor: "—", sub: "não informado", tom: "mut" };
   if (!r) {
     const sub = falhou ? "não carregou" : "";
     return [contrato, { rotulo: "Gasto até hoje", valor: "—", sub, tom: "mut" }, { rotulo: "Falta gastar", valor: "—", sub, tom: "mut" }, { rotulo: "Prazo", valor: "—", sub, tom: "mut" }];

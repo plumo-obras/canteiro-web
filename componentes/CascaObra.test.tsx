@@ -246,12 +246,60 @@ describe("a barra da obra", () => {
 });
 
 describe("a barra do celular", () => {
-  it("Hoje, Compras, Gastos, Cronograma e Mais", async () => {
+  const abrir = async (resposta: ReturnType<typeof resumo>, status = "em_andamento") => {
+    rede({ "GET /srv/api/obras": () => json(OBRAS.map((o) => ({ ...o, status }))), "GET /srv/api/obras/o-emei/resumo": resposta });
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("760"), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), onchange: null, dispatchEvent: vi.fn() }));
     vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} unobserve() {} });
-    window.history.replaceState(null, "", "/?obra=o-emei");
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=conversa");
     render(<Casca demo={false} />);
     await waitFor(() => expect(document.querySelector(".barra-inf")).toBeTruthy());
-    expect([...document.querySelectorAll(".barra-inf .bi-item")].map((b) => b.getAttribute("aria-label"))).toEqual(["Hoje", "Compras", "Gastos", "Cronograma", "Mais"]);
+  };
+  const barra = () => [...document.querySelectorAll(".barra-inf .bi-item")].map((b) => b.querySelector(".bi-rot")?.textContent);
+
+  it("orçamento aprovado: Mestre, Compras, Gastos, Cronograma e Mais", async () => {
+    await abrir(resumo("o-emei", true));
+    await waitFor(() => expect(barra()).toEqual(["Mestre", "Compras", "Gastos", "Cronograma", "Mais"]));
+    expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Mestre de obras");
+  });
+
+  it("sem orçamento: Mestre, Projeto, Orçamento, Gastos e Mais", async () => {
+    await abrir(resumo("o-emei", false));
+    await waitFor(() => expect(barra()).toEqual(["Mestre", "Projeto", "Orçamento", "Gastos", "Mais"]));
+  });
+
+  it("orçamento ainda não aprovado também fica nos primeiros passos, e o resto vai para o Mais", async () => {
+    await abrir(resumo("o-emei", true), "em_orcamento");
+    await waitFor(() => expect(barra()).toEqual(["Mestre", "Projeto", "Orçamento", "Gastos", "Mais"]));
+    fireEvent.click(screen.getByRole("button", { name: "Mais" }));
+    expect([...document.querySelectorAll(".folha-item")].map((b) => b.textContent)).toEqual(expect.arrayContaining(["Compras", "Cronograma", "Tributos", "Histórico"]));
+  });
+});
+
+describe("o selo da obra não promete orçamento que não existe", () => {
+  const abrir = async (tem: boolean) => {
+    rede({ "GET /srv/api/obras": () => json(OBRAS.map((o) => ({ ...o, status: "em_orcamento" }))), "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", tem) });
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=conversa");
+    render(<Casca demo={false} />);
+  };
+  const selo = () => document.querySelector(".seletor-st")?.textContent;
+
+  it("sem orçamento, 'começando'", async () => {
+    await abrir(false);
+    await waitFor(() => expect(selo()).toBe("começando"));
+  });
+
+  it("com orçamento, 'em orçamento'", async () => {
+    await abrir(true);
+    await waitFor(() => expect(selo()).toBe("em orçamento"));
+  });
+});
+
+describe("a conversa vazia pergunta sobre o momento da obra", () => {
+  it("sem orçamento, sugere fechar o orçamento", async () => {
+    rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", false) });
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=conversa");
+    render(<Casca demo={false} />);
+    expect(await screen.findByRole("button", { name: "O que falta para fechar o orçamento?" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Quanto falta de cimento?" })).toBeNull();
   });
 });
