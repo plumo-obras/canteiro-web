@@ -114,7 +114,11 @@ describe("Projeto 3D", () => {
 
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
     montar();
-    expect(within(await screen.findByRole("region", passo)).getByRole("link", { name: "Ver quanto a obra deve custar" })).toHaveAttribute("href", "/?obra=o-1&tela=orcamento");
+    expect(within(await screen.findByRole("region", passo)).getByRole("link", { name: "Ver o orçamento" })).toHaveAttribute("href", "/?obra=o-1&tela=orcamento");
+    // o passo vem antes da mesa, e o Enviar pranchas deixa de ser o dourado da tela
+    const passoNaTela = screen.getByRole("region", passo);
+    expect(passoNaTela.compareDocumentPosition(screen.getByRole("region", { name: "Estrutura" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Enviar pranchas" })).not.toHaveClass("amb");
   });
 
   it("apagar o projeto pede confirmação, apaga cada leitura no tradutor e esvazia o pacote", async () => {
