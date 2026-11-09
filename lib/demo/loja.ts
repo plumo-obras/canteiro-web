@@ -270,8 +270,8 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
 }
 
 /**
- * A demonstração ainda guarda o pedido antigo, de uma linha só (Fase 2: a importação de pedidos com várias linhas,
- * fornecedores e recebimentos chega à demo no fim da fase). Na saída ele vira o pedido do contrato novo.
+ * A demonstração guarda o pedido no formato antigo (a primeira linha nos campos do pedido) e as demais em `outras`;
+ * entrega pela metade ela não tem. Na saída ele vira o pedido do contrato novo.
  */
 export interface PedidoDemo {
   id: string;
@@ -288,11 +288,35 @@ export interface PedidoDemo {
   rastreio: string | null;
   quantidade_recebida?: number | null;
   nf?: string | null;
+  /** As linhas depois da primeira. `valor` é o do pedido inteiro. */
+  outras?: LinhaExtraDemo[];
+}
+
+export interface LinhaExtraDemo {
+  insumo_id: string;
+  quantidade: number;
+  valor: number;
 }
 
 function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
-  const ins = e.insumos.get([...e.insumos.keys()].find((k) => e.insumos.get(k)!.id === p.insumo_id) ?? "");
-  const recebida = p.status === "conferido" ? (p.quantidade_recebida ?? p.quantidade) : 0;
+  const insDe = (id: string) => e.insumos.get([...e.insumos.keys()].find((k) => e.insumos.get(k)!.id === id) ?? "");
+  const extras = p.outras ?? [];
+  const linha = (insumo_id: string, quantidade: number, total: number, recebida: number) => {
+    const ins = insDe(insumo_id);
+    return {
+      insumo_id,
+      nome: ins?.nome ?? "insumo",
+      unidade: ins?.unidade ?? "",
+      tipo: "material" as const,
+      etapa: null,
+      quantidade,
+      valor_unitario: quantidade ? Math.round((total * 1000) / quantidade) : 0,
+      total,
+      recebida,
+      falta_entregar: p.status === "conferido" || p.status === "cancelado" ? 0 : Math.max(0, quantidade - recebida),
+    };
+  };
+  const chegou = p.status === "conferido";
   return {
     id: p.id,
     numero: p.numero,
@@ -306,18 +330,8 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
     recebimentos: p.status === "conferido" ? 1 : 0,
     criado_em: p.criado_em,
     linhas: [
-      {
-        insumo_id: p.insumo_id,
-        nome: ins?.nome ?? "insumo",
-        unidade: ins?.unidade ?? "",
-        tipo: "material",
-        etapa: null,
-        quantidade: p.quantidade,
-        valor_unitario: p.quantidade ? Math.round((p.valor * 1000) / p.quantidade) : 0,
-        total: p.valor,
-        recebida,
-        falta_entregar: p.status === "conferido" || p.status === "cancelado" ? 0 : Math.max(0, p.quantidade - recebida),
-      },
+      linha(p.insumo_id, p.quantidade, p.valor - extras.reduce((t, l) => t + l.valor, 0), chegou ? (p.quantidade_recebida ?? p.quantidade) : 0),
+      ...extras.map((l) => linha(l.insumo_id, l.quantidade, l.valor, chegou ? l.quantidade : 0)),
     ],
   };
 }
@@ -562,8 +576,8 @@ export function saldoDe(e: EstadoDemo, insumoId: string) {
 }
 
 export function contaDoInsumo(e: EstadoDemo, i: ItemDemo): Conta {
-  const ps = e.pedidos.filter((p) => p.insumo_id === i.id);
-  const soma = (sts: StatusPedido[]) => ps.filter((p) => sts.includes(p.status)).reduce((s, p) => s + p.quantidade, 0);
+  const linhas = e.pedidos.flatMap((p) => [p, ...(p.outras ?? []).map((l) => ({ ...l, status: p.status }))]).filter((l) => l.insumo_id === i.id);
+  const soma = (sts: StatusPedido[]) => linhas.filter((l) => sts.includes(l.status)).reduce((s, l) => s + l.quantidade, 0);
   return contaDeFalta({ precisa: i.precisa_ate_o_fim, saldo: saldoDe(e, i.id), a_caminho: soma(A_CAMINHO), cotando: soma(EM_COTACAO) });
 }
 
@@ -792,18 +806,34 @@ function avancar(e: EstadoDemo, u: Usuario, p: PedidoDemo, para: StatusPedido, o
   return { texto, desfazer: { op: "voltar_pedido", pedido_id: p.id, de, para, movimento_id } };
 }
 
+/** A entrega de tudo o que falta, a partir do status real: como a API, vale de aprovado em diante e o Desfazer volta a ele. */
+function receber(e: EstadoDemo, u: Usuario, p: PedidoDemo, quantidade?: number) {
+  if (!A_CAMINHO.includes(p.status)) throw new RegraViolada(`O pedido não pode receber entrega em '${p.status}'.`);
+  const de = p.status;
+  const q = quantidade ?? p.quantidade;
+  const entrada = (insumo_id: string, qtd: number) => movimentar(e, u, { obra_id: p.obra_id, insumo_id, tipo: "entrada", quantidade: qtd, origem_doc: p.numero, origem: "tela" }).id;
+  const [movimento_id, ...movimentos_extra] = [entrada(p.insumo_id, q), ...(p.outras ?? []).map((l) => entrada(l.insumo_id, l.quantidade))];
+  p.quantidade_recebida = q;
+  p.status = "conferido";
+  return { texto: `${p.numero}: chegou`, desfazer: { op: "voltar_pedido", pedido_id: p.id, de, para: "conferido" as const, movimento_id, movimentos_extra } };
+}
+
 function unidadeDe(e: EstadoDemo, insumoId: string) {
   for (const i of e.insumos.values()) if (i.id === insumoId) return i.unidade;
   return "";
 }
 
-function criarPedido(e: EstadoDemo, obraId: string, d: DadosCriarPedido, aprovado: boolean) {
+function criarPedido(e: EstadoDemo, obraId: string, d: DadosCriarPedido, aprovado: boolean, outras: LinhaExtraDemo[] = []) {
   if (!e.obras.some((o) => o.id === obraId)) throw new NaoEncontrado("Obra não encontrada.");
   const ins = [...e.insumos.values()].find((i) => i.id === d.insumo_id && i.obra_id === obraId);
   if (!ins) throw new NaoEncontrado("Insumo não encontrado nesta obra.");
   if (!(Number.isInteger(d.quantidade) && d.quantidade > 0)) throw new RegraViolada("A quantidade tem de ser maior que zero.");
   if (!(Number.isInteger(d.valor) && d.valor >= 0)) throw new RegraViolada("Valor inválido.");
   if (!String(d.fornecedor ?? "").trim()) throw new RegraViolada("Diga o fornecedor.");
+  for (const l of outras) {
+    if (![...e.insumos.values()].some((i) => i.id === l.insumo_id && i.obra_id === obraId)) throw new NaoEncontrado("Insumo não encontrado nesta obra.");
+    if (!(Number.isInteger(l.quantidade) && l.quantidade > 0)) throw new RegraViolada("A quantidade tem de ser maior que zero.");
+  }
   const status: StatusPedido = aprovado ? "aprovado" : "em_cotacao";
   const p: PedidoDemo = {
     id: uuid7(),
@@ -820,11 +850,12 @@ function criarPedido(e: EstadoDemo, obraId: string, d: DadosCriarPedido, aprovad
     rastreio: null,
     quantidade_recebida: null,
     nf: null,
+    ...(outras.length ? { outras } : {}),
   };
   e.pedidos.push(p);
   return {
     pedido: p,
-    texto: `${p.numero} criado: ${fmtQtdUn(p.quantidade, ins.unidade)} de ${ins.nome} com ${p.fornecedor} (${fmtReais(p.valor)})${aprovado ? " · aprovado" : ""}`,
+    texto: `${p.numero} criado: ${fmtQtdUn(p.quantidade, ins.unidade)} de ${ins.nome}${outras.length ? ` e mais ${outras.length}` : ""} com ${p.fornecedor} (${fmtReais(p.valor)})${aprovado ? " · aprovado" : ""}`,
     desfazer: { op: "cancelar_pedido", pedido_id: p.id, status_criado: status },
   };
 }
@@ -943,7 +974,7 @@ export function desfazer(registroId: string, u: Usuario) {
   if (!ent) throw new NaoEncontrado("Entrada do registro não encontrada.");
   if (ent.desfeito) throw new Conflito("Isto já foi desfeito.");
   if (!ent.desfazer) throw new RegraViolada("Esta entrada não tem como ser desfeita.");
-  const d = ent.desfazer as { op: string; pedido_id: string; de: StatusPedido; para: StatusPedido; status_criado?: StatusPedido; movimento_id: string | null };
+  const d = ent.desfazer as { op: string; pedido_id: string; de: StatusPedido; para: StatusPedido; status_criado?: StatusPedido; movimento_id: string | null; movimentos_extra?: string[] };
   let texto: string;
   if (d.op === "cancelar_pedido") {
     const p = pedidoPorId(e, d.pedido_id);
@@ -953,7 +984,7 @@ export function desfazer(registroId: string, u: Usuario) {
   } else if (d.op === "voltar_pedido") {
     const p = pedidoPorId(e, d.pedido_id);
     if (p.status !== d.para) throw new Conflito(`${p.numero} já mudou de status desde então; não dá para desfazer.`);
-    if (d.movimento_id) estornar(e, u, d.movimento_id);
+    for (const m of [d.movimento_id, ...(d.movimentos_extra ?? [])]) if (m) estornar(e, u, m);
     p.status = d.de;
     p.quantidade_recebida = null;
     p.nf = null;
@@ -1406,16 +1437,14 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       }
       if (metodo === "POST" && b === "pedidos" && !id2) {
         exigirAdmin(u);
-        // Corpo novo (várias linhas): o pedido da demo guarda uma linha só, então cada linha vira um pedido dela.
+        // Corpo novo: um pedido só, com todas as linhas, e um registro só para o Desfazer cancelar tudo.
         const linhas = c.linhas as { insumo_id: string; quantidade: number; valor_unitario: number }[] | undefined;
-        const pedidoDe = (l: { insumo_id: string; quantidade: number; valor_unitario: number }) => ({
-          insumo_id: l.insumo_id, quantidade: l.quantidade, fornecedor: c.fornecedor, previsao: c.previsao ?? null, valor: Math.round((l.quantidade * l.valor_unitario) / 1000),
-        });
-        for (const l of (linhas ?? []).slice(1)) {
-          const extra = criarPedido(e, id, pedidoDe(l) as unknown as DadosCriarPedido, c.aprovado === true);
-          registrar(e, u, { obra_id: id, texto: extra.texto, proposta_id: null, desfazer: extra.desfazer, origem: "tela" });
-        }
-        const r = criarPedido(e, id, (linhas ? pedidoDe(linhas[0]!) : c) as unknown as DadosCriarPedido, c.aprovado === true);
+        const totalDe = (l: { quantidade: number; valor_unitario: number }) => Math.round((l.quantidade * l.valor_unitario) / 1000);
+        const d = linhas
+          ? { insumo_id: linhas[0]!.insumo_id, quantidade: linhas[0]!.quantidade, fornecedor: c.fornecedor, previsao: c.previsao ?? null, valor: linhas.reduce((t, l) => t + totalDe(l), 0) }
+          : c;
+        const outras = (linhas ?? []).slice(1).map((l) => ({ insumo_id: l.insumo_id, quantidade: l.quantidade, valor: totalDe(l) }));
+        const r = criarPedido(e, id, d as unknown as DadosCriarPedido, c.aprovado === true, outras);
         const reg = registrar(e, u, { obra_id: id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
         return ok({ ...pedidoApi(e, r.pedido), registro_id: reg.id }, 201);
       }
@@ -1471,10 +1500,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
     if (metodo === "POST" && a === "pedidos" && id && b === "recebimentos") {
       exigirAdmin(u);
       const p = pedidoPorId(e, id);
-      // O pedido da demo não tem entrega parcial: o que chegou o encerra, pelo caminho antigo de "recebido".
-      p.status = "recebido";
-      const q = (c.linhas as { quantidade: number }[] | undefined)?.[0]?.quantidade;
-      const r = avancar(e, u, p, "conferido", "tela", { quantidade_recebida: q });
+      // A demo não tem entrega parcial: o que chegou encerra o pedido.
+      const r = receber(e, u, p, (c.linhas as { indice: number; quantidade: number }[] | undefined)?.find((l) => l.indice === 0)?.quantidade);
       const reg = registrar(e, u, { obra_id: p.obra_id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
       return ok({ recebimento: {}, pedido: pedidoApi(e, p), registro_id: reg.id }, 201);
     }

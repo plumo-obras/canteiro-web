@@ -83,6 +83,43 @@ describe("demonstração: aprovar executa e o desfazer volta", () => {
 });
 
 describe("demonstração: pedidos", () => {
+  const insumos = () => (chamar("GET", `obras/${obraId()}/insumos`).corpo as ItemInsumo[]).slice(0, 2);
+  const pedidoDeDuasLinhas = () => {
+    const [a, b] = insumos();
+    const linhas = [a!, b!].map((i) => ({ insumo_id: i.insumo.id, quantidade: 2000, valor_unitario: 500 }));
+    return chamar("POST", `obras/${obraId()}/pedidos`, { fornecedor: "Fulano", aprovado: true, linhas }).corpo as Pedido & { registro_id: string };
+  };
+
+  it("várias linhas: um pedido só, e o Desfazer cancela o pedido inteiro", () => {
+    const antes = e.pedidos.length;
+    const p = pedidoDeDuasLinhas();
+    expect(e.pedidos.length).toBe(antes + 1);
+    expect(p.linhas).toHaveLength(2);
+    expect(p.valor).toBe(2000);
+    expect(p.linhas.map((l) => l.total)).toEqual([1000, 1000]);
+    expect(chamar("POST", `registro/${p.registro_id}/desfazer`).status).toBeLessThan(300);
+    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("cancelado");
+  });
+
+  it("a entrega parte do status real: Desfazer volta a ele e estorna as linhas", () => {
+    const p = pedidoDeDuasLinhas();
+    const [a] = insumos();
+    const saldo = () => (insumos().find((i) => i.insumo.id === a!.insumo.id) as ItemInsumo).conta.saldo;
+    const antes = saldo();
+    const r = chamar("POST", `pedidos/${p.id}/recebimentos`, { linhas: [{ indice: 0, quantidade: 2000 }, { indice: 1, quantidade: 2000 }], chave_idempotencia: "c1" });
+    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("conferido");
+    expect(saldo()).toBe(antes + 2000);
+    expect(chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`).status).toBeLessThan(300);
+    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("aprovado");
+    expect(saldo()).toBe(antes);
+  });
+
+  it("pedido em cotação não recebe entrega", () => {
+    const ped = e.pedidos.find((x) => x.status === "em_cotacao")!;
+    expect(chamar("POST", `pedidos/${ped.id}/recebimentos`, { linhas: [{ indice: 0, quantidade: 1 }], chave_idempotencia: "c2" }).status).toBe(422);
+    expect(ped.status).toBe("em_cotacao");
+  });
+
   it("valida a transição como regras.validar_transicao", () => {
     const ped = e.pedidos.find((p) => p.numero === "PED-0158")!; // em trânsito
     expect(chamar("POST", `pedidos/${ped.id}/avancar`, { para: "cancelado" }).status).toBe(422);
