@@ -34,8 +34,8 @@ const previa = (aplicar: boolean, tipo: "contrato" | "aditivo") => ({
 const estrutura = (tipo: "contrato" | "aditivo" = "contrato") => ({ corpo }: { corpo: unknown }) => json(previa((corpo as { aplicar: boolean }).aplicar, tipo));
 
 // a lista e o cartão, ligados como na tela do Projeto
-function Tela() {
-  const m = useMateriais(["f1", "f2"], "MG");
+function Tela({ ids = ["f1", "f2"] }: { ids?: string[] }) {
+  const m = useMateriais(ids, "MG");
   return (
     <>
       <Materiais {...m} />
@@ -43,12 +43,12 @@ function Tela() {
     </>
   );
 }
-const montar = (usuario: Usuario = USUARIO) =>
-  render(
-    <ProvedorCasca usuario={usuario} demo={false}>
-      <Tela />
-    </ProvedorCasca>,
-  );
+const comCasca = (ids: string[] | undefined, usuario: Usuario = USUARIO) => (
+  <ProvedorCasca usuario={usuario} demo={false}>
+    <Tela ids={ids} />
+  </ProvedorCasca>
+);
+const montar = (usuario: Usuario = USUARIO) => render(comCasca(undefined, usuario));
 const rotas = (extra = {}) => ({
   "POST /srv/auth/renovar": renovarOk,
   "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS),
@@ -114,6 +114,66 @@ describe("Materiais das pranchas", () => {
     expect(gravou.aplicar).toBe(true);
     expect(gravou.chave_idempotencia).toMatch(/^[0-9a-f-]{36}$/);
     expect(gravou.itens.map((i) => i.nome)).toEqual([NOME_ACO, "EPS B8/30/125"]);
+  });
+
+  it("resposta perdida: repete com a mesma chave e relê o orçamento; depois de gravar, a chave é outra", async () => {
+    let tentativas = 0;
+    const rede = criarRede(
+      rotas({
+        "POST /srv/api/obras/o-1/orcamento/estrutura": ({ corpo }: { corpo: unknown }) => {
+          const aplicar = (corpo as { aplicar: boolean }).aplicar;
+          if (aplicar && ++tentativas === 1) return json({ detail: "O servidor não respondeu." }, 502);
+          return json(previa(aplicar, "contrato"));
+        },
+      }),
+    );
+    const leiturasDoOrcamento = () => rede.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-1/orcamento").length;
+    const chaves = () =>
+      escritas(rede)
+        .map((c) => c.corpo as { aplicar: boolean; chave_idempotencia: string })
+        .filter((c) => c.aplicar)
+        .map((c) => c.chave_idempotencia);
+    const u = userEvent.setup();
+    montar();
+    const abrirEConfirmar = async () => {
+      await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
+      await u.click(await screen.findByRole("button", { name: "Levar para o orçamento" }));
+    };
+
+    await abrirEConfirmar();
+    const dialogo = await screen.findByRole("dialog", { name: "Levar os materiais para o orçamento?" });
+    expect(await within(dialogo).findByText("O servidor não respondeu.")).toBeInTheDocument();
+    await vi.waitFor(() => expect(leiturasDoOrcamento()).toBe(2));
+    await u.click(within(dialogo).getByRole("button", { name: "Voltar" }));
+
+    // fechar e reabrir não troca a chave: se a primeira gravou, a API devolve a mesma versão
+    await abrirEConfirmar();
+    await screen.findByText("Materiais das pranchas no orçamento, como contrato.");
+    expect(chaves()).toHaveLength(2);
+    expect(chaves()[1]).toBe(chaves()[0]);
+
+    await abrirEConfirmar();
+    await vi.waitFor(() => expect(chaves()).toHaveLength(3));
+    expect(chaves()[2]).not.toBe(chaves()[0]);
+  });
+
+  it("ao mudar as folhas, tira a leitura velha até a nova chegar: nada de levar materiais antigos", async () => {
+    let liberar: (r: Response) => void = () => {};
+    let leituras = 0;
+    criarRede(
+      rotas({
+        "GET /srv/tradutor/projetos/materiais": () => (++leituras === 1 ? json(MATERIAIS) : new Promise<Response>((r) => (liberar = r))),
+      }),
+    );
+    const { rerender } = render(comCasca(["f1", "f2"]));
+    await screen.findByRole("button", { name: "Levar para o orçamento…" });
+
+    rerender(comCasca(["f1"]));
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull());
+    expect(screen.getByText(/Levantando os materiais/)).toBeInTheDocument();
+
+    liberar(json(MATERIAIS));
+    expect(await screen.findByRole("button", { name: "Levar para o orçamento…" })).toBeInTheDocument();
   });
 
   it("em obra com contrato, o diálogo avisa que entra como aditivo e diz o valor no botão", async () => {
