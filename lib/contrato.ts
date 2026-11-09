@@ -718,6 +718,7 @@ export interface ResumoDaObra {
     falta_gastar?: Centavos;
     /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
     realizado_pct?: number | null;
+    etapas_estouradas?: unknown[];
   };
   cronograma: {
     cadastrado: boolean;
@@ -727,7 +728,10 @@ export interface ResumoDaObra {
     termino_projetado: string | null;
     /** Décimos de mês (1,4 mês = 14); null sem medição. */
     atraso_decimos: number | null;
+    etapas_atrasadas?: unknown[];
   };
+  entregas?: { atrasadas?: unknown[] };
+  pendencias?: { propostas: number };
 }
 
 /** `GET /obras/{id}/cronograma`. Sem cronograma: `inicio` null e `meses` 0. */

@@ -308,7 +308,7 @@ export async function* conversar(corpo: CorpoConversa, sinal?: AbortSignal): Asy
     // 500 sem corpo do Next = o repasse não alcançou o agente: é o mesmo caso do serviço desligado.
     if (r.status >= 500) {
       const e = await erroDe(r);
-      yield { tipo: "erro", mensagem: e.message === "Algo deu errado. Tente de novo." ? "O agente ainda não está ligado nesta instalação." : e.message };
+      yield { tipo: "erro", mensagem: e.message === "Algo deu errado. Tente de novo." ? "O mestre de obras ainda não está ligado nesta instalação." : e.message };
       return;
     }
     yield { tipo: "erro", mensagem: (await erroDe(r)).message };

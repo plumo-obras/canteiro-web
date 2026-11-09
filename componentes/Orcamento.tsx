@@ -70,7 +70,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Orçamento"
-        selo={<span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{emOrcamento ? "em orçamento" : "aprovado"}</span>}
+        selo={dado ? <span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{!emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
         acao={
           podeOperar && podeAprovar ? (
             <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>

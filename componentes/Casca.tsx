@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Obra, Usuario } from "@/lib/contrato";
+import type { Obra, ResumoDaObra, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { formatarHistorico } from "@/lib/historico";
 import { sair } from "@/lib/sessao";
@@ -51,6 +51,12 @@ const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
 const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "var(--gray)", concluida: "var(--blue)" };
 const TXT_STATUS: Record<Obra["status"], string> = { em_andamento: "em andamento", em_orcamento: "em orçamento", concluida: "concluída" };
+/** O status da API nasce "em_orcamento": sem orçamento nenhum, chamar assim promete o que não existe. Sem saber, não afirma. */
+function statusDaObra(o: Obra, r: ResumoDaObra | null): string {
+  if (o.status !== "em_orcamento") return TXT_STATUS[o.status];
+  if (r?.obra.id !== o.id) return "";
+  return r.financeiro.tem_orcamento ? TXT_STATUS.em_orcamento : "começando";
+}
 const iniciais = (n: string) =>
   n
     .split(/\s+/)
@@ -367,6 +373,7 @@ function App({ usuario }: { usuario: Usuario }) {
         semAbas={barraCelular}
         obras={obras ?? []}
         obra={obra}
+        resumo={resumo}
         tela={tela}
         setTela={irPara}
         pendentes={obra ? pendentes(obra.id) : 0}
@@ -489,7 +496,7 @@ function App({ usuario }: { usuario: Usuario }) {
                     Conversas
                   </button>
                 </div>
-                <Conversa key={sessao.id} sessao={sessao} obra={obra} despachar={despachar} />
+                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} />
               </section>
               {tela !== "conversa" ? (
                 // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do
@@ -517,25 +524,22 @@ function App({ usuario }: { usuario: Usuario }) {
             </>
           ) : null)}
       </main>
-      {obra && !conteudo && barraCelular ? <BarraInferior tela={tela} setTela={irPara} abrirDados={() => setDadosObra(true)} inerte={movel && gaveta} demo={demo} /> : null}
+      {obra && !conteudo && barraCelular ? <BarraInferior aprovada={obra.status !== "em_orcamento" && !semOrcamento} tela={tela} setTela={irPara} abrirDados={() => setDadosObra(true)} inerte={movel && gaveta} demo={demo} /> : null}
       {obra && dadosObra ? <ModalDadosObra obra={obra} fechar={() => setDadosObra(false)} leitura={!podeOperar} /> : null}
     </div>
   );
 }
 
 /** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
-const BARRA: { k: AbaAtiva; rotulo: string; icone: NomeIcone }[] = [
-  { k: "conversa", rotulo: "Hoje", icone: "mestre" },
-  { k: "suprimentos", rotulo: "Compras", icone: "package" },
-  { k: "gastos", rotulo: "Gastos", icone: "recibo" },
-  { k: "cronograma", rotulo: "Cronograma", icone: "calendario" },
-];
-// Na demonstração não há Gastos: o Orçamento fica no lugar dele, e a barra continua com cinco colunas.
-const BARRA_DEMO = BARRA.map((n) => (n.k === "gastos" ? { k: "orcamento" as const, rotulo: "Orçamento", icone: "calc" as const } : n));
-const NA_FOLHA: AbaAtiva[] = ["projeto", "orcamento", ...NO_MENU];
+// Antes do orçamento aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar, lançar e acompanhar.
+function barraDe(aprovada: boolean, demo: boolean): AbaAtiva[] {
+  const abas: AbaAtiva[] = aprovada ? ["conversa", "suprimentos", "gastos", "cronograma"] : ["conversa", "projeto", "orcamento", "gastos"];
+  // Na demonstração não há Gastos: outra tela fica no lugar, e a barra continua com cinco colunas.
+  return demo ? abas.map((k) => (k !== "gastos" ? k : aprovada ? "orcamento" : "suprimentos")) : abas;
+}
 
-function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; abrirDados: () => void; inerte: boolean; demo: boolean }) {
-  const itens = p.demo ? BARRA_DEMO : BARRA;
+function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaAtiva) => void; abrirDados: () => void; inerte: boolean; demo: boolean }) {
+  const itens = barraDe(p.aprovada, p.demo);
   const [mais, setMais] = useState(false);
   // Trocou de tela (pela folha ou por fora dela): a folha fecha, nunca fica cobrindo a tela nova.
   useEffect(() => setMais(false), [p.tela]);
@@ -557,23 +561,23 @@ function BarraInferior(p: { tela: AbaAtiva; setTela: (t: AbaAtiva) => void; abri
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const naFolha = NA_FOLHA.filter((k) => telaNoModo(k, p.demo) && !itens.some((n) => n.k === k));
+  const naFolha = [...ABAS, ...NO_MENU].filter((k) => telaNoModo(k, p.demo) && !itens.includes(k));
   const noMais = naFolha.includes(p.tela);
   return (
     <>
       <nav ref={barra} className={`barra-inf${compacta ? " compacta" : ""}`} aria-label="Telas da obra" inert={p.inerte}>
-        {itens.map((n) => (
+        {itens.map((k) => (
           <button
-            key={n.k}
+            key={k}
             type="button"
-            className={`bi-item${p.tela === n.k ? " on" : ""}`}
-            aria-current={p.tela === n.k ? "page" : undefined}
-            aria-label={n.rotulo}
-            onClick={() => p.setTela(n.k)}
+            className={`bi-item${p.tela === k ? " on" : ""}`}
+            aria-current={p.tela === k ? "page" : undefined}
+            aria-label={ROTULOS[k].rotulo}
+            onClick={() => p.setTela(k)}
           >
-            <Icone nome={n.icone} tam={20} />
+            <Icone nome={ROTULOS[k].icone} tam={20} />
             <span className="bi-rot" aria-hidden="true">
-              {n.rotulo}
+              {k === "conversa" ? "Mestre" : ROTULOS[k].rotulo}
             </span>
           </button>
         ))}
@@ -664,6 +668,7 @@ function Topo(p: {
   semAbas?: boolean;
   obras: Obra[];
   obra: Obra | undefined;
+  resumo: ResumoDaObra | null;
   tela: AbaAtiva;
   setTela: (t: AbaAtiva) => void;
   pendentes: number;
@@ -719,7 +724,7 @@ function Topo(p: {
         <span className="topo-marca-t">Plumo</span>
         {p.demo ? <span className="tag">demo</span> : null}
       </Link>
-      {obra ? <SeletorObra obras={p.obras} obra={obra} trocar={p.trocarObra} /> : null}
+      {obra ? <SeletorObra obras={p.obras} obra={obra} resumo={p.resumo} trocar={p.trocarObra} /> : null}
       {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
           {ABAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
@@ -781,7 +786,7 @@ function mostrarEscolhida(n: HTMLElement | null) {
   else if (r.right > rn.right) n.scrollLeft += r.right - rn.right + 28;
 }
 
-function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; trocar: (id: string) => void }) {
+function SeletorObra({ obras, obra, resumo, trocar }: { obras: Obra[]; obra: Obra; resumo: ResumoDaObra | null; trocar: (id: string) => void }) {
   const { aberto, setAberto, caixa, tecla } = useMenu();
   const { podeOperar } = useCasca();
   const [busca, setBusca] = useState("");
@@ -809,13 +814,13 @@ function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; troca
         className="seletor-bt"
         aria-haspopup="menu"
         aria-expanded={aberto}
-        title={`${obra.nome} · ${TXT_STATUS[obra.status]}`}
+        title={[obra.nome, statusDaObra(obra, resumo)].filter(Boolean).join(" · ")}
         onClick={() => setAberto((a) => !a)}
       >
         <span className="dot" style={{ background: COR_STATUS[obra.status] }} aria-hidden="true" />
         <span className="seletor-t">
           <span className="seletor-nome">{obra.nome}</span>
-          <span className="seletor-st">{TXT_STATUS[obra.status]}</span>
+          <span className="seletor-st">{statusDaObra(obra, resumo)}</span>
         </span>
         <Icone nome="chevDown" tam={14} />
       </button>
@@ -861,7 +866,7 @@ function SeletorObra({ obras, obra, trocar }: { obras: Obra[]; obra: Obra; troca
               >
                 <span className="dot" style={{ background: COR_STATUS[o.status] }} aria-hidden="true" />
                 <span className="seletor-pop-n">{o.nome}</span>
-                <span className="seletor-pop-st">{TXT_STATUS[o.status]}</span>
+                <span className="seletor-pop-st">{statusDaObra(o, resumo)}</span>
               </button>
             ))}
           </div>

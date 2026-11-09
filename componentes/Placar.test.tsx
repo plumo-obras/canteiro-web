@@ -13,7 +13,7 @@ const valores = (...a: Parameters<typeof celulasPlacar>) => celulasPlacar(...a).
 describe("o placar da obra", () => {
   it("com orçamento mostra o que a API mandou, sem conta na tela", () => {
     expect(valores({ verba: 52000000 }, r(), false)).toEqual([
-      ["R$ 520.000,00", "fechado com o cliente"],
+      ["R$ 520.000,00", "com o cliente"],
       ["R$ 21.337,30", "4,8% do orçado"],
       ["R$ 419.107,70", "de R$ 440.445,00 orçados"],
       ["Sem medição", "entrega 03/2027"],

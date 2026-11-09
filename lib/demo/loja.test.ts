@@ -144,7 +144,7 @@ describe("demonstração: histórico da conversa", () => {
     const { mensagens, propostaIds } = formatarHistorico(msgs);
     expect(mensagens.map((m) => m.papel)).toEqual(["eu", "agente"]);
     expect(mensagens[0]).toMatchObject({ texto: "quanto falta de bloco?" });
-    expect(mensagens[1]).toMatchObject({ propostas: [prop.id], ferramentas: [{ resumo: "usou almoxarifado" }, { nivel: "propoe" }] });
+    expect(mensagens[1]).toMatchObject({ propostas: [prop.id], ferramentas: [{ resumo: "consultou o estoque" }, { nivel: "propoe" }] });
     expect(propostaIds).toEqual([prop.id]);
     expect((chamar("GET", "sessoes/s-demo/mensagens?depois_de=3").corpo as MensagemSessao[]).map((m) => m.seq)).toEqual([4]);
   });
