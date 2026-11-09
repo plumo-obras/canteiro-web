@@ -8,7 +8,6 @@ import type { Obra, ResumoDaObra } from "@/lib/contrato";
 import { fmtReais } from "@/lib/formato";
 import { Icone } from "./Icone";
 import { useCelular } from "./midia";
-import type { AbaAtiva } from "./sessoes";
 
 export type Tom = "mut" | "ok" | "neg";
 export interface Celula {
@@ -34,7 +33,7 @@ function prazo(c: ResumoDaObra["cronograma"]): Celula {
 }
 
 /** As quatro células. `r` null = ainda não veio (ou a API falhou): nada de "R$ 0,00" que pareça dado. */
-export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null, tela: AbaAtiva, falhou: boolean): Celula[] {
+export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null, falhou: boolean): Celula[] {
   const contrato: Celula = obra.verba
     ? { rotulo: "Contrato", valor: fmtReais(obra.verba), sub: "fechado com o cliente" }
     : { rotulo: "Contrato", valor: "—", sub: "não informado", tom: "mut" };
@@ -46,7 +45,7 @@ export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null,
   const pct = f.tem_orcamento && f.realizado_pct != null ? `${(f.realizado_pct / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "";
   const gasto: Celula = { rotulo: "Gasto até hoje", valor: fmtReais(f.realizado), sub: !f.realizado ? "nenhum gasto lançado" : f.tem_orcamento ? pct : "sem orçamento para comparar" };
   const falta: Celula = !f.tem_orcamento
-    ? { rotulo: "Falta gastar", valor: "—", sub: tela === "projeto" ? "aparece com a estimativa" : "aparece com o orçamento", tom: "mut" }
+    ? { rotulo: "Falta gastar", valor: "—", sub: "aparece com o orçamento", tom: "mut" }
     : f.falta_gastar == null
       ? { rotulo: "Falta gastar", valor: "—", sub: "", tom: "mut" }
       : { rotulo: "Falta gastar", valor: fmtReais(f.falta_gastar), sub: `de ${fmtReais(f.orcado_atual)} orçados` };
@@ -71,11 +70,11 @@ function gravarAberto(obraId: string, aberto: boolean) {
 }
 
 /** Quem usa `Placar` dá key pela obra: o estado aberto/recolhido nasce do que foi lembrado para ela. */
-export function Placar(p: { obra: Obra; resumo: ResumoDaObra | null; tela: AbaAtiva; falhou: boolean }) {
+export function Placar(p: { obra: Obra; resumo: ResumoDaObra | null; falhou: boolean }) {
   const celular = useCelular();
   const [aberto, setAberto] = useState(() => lerAberto(p.obra.id));
   const idNumeros = useId();
-  const celulas = celulasPlacar(p.obra, p.resumo, p.tela, p.falhou);
+  const celulas = celulasPlacar(p.obra, p.resumo, p.falhou);
   const numeros = (
     <dl id={idNumeros}>
       {celulas.map((c) => (
