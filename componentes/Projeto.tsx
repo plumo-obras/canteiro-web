@@ -14,7 +14,8 @@ import { useCasca } from "./contexto";
 import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
-import { Materiais } from "./projeto/Materiais";
+import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
+import { ProximoPasso } from "./ProximoPasso";
 import { Vista3D } from "./projeto/Vista3D";
 import s from "./projeto/projeto.module.css";
 
@@ -237,6 +238,9 @@ export function Projeto({ obra }: { obra: Obra }) {
     avisar(`Projeto apagado: ${n} prancha${n === 1 ? "" : "s"} removida${n === 1 ? "" : "s"}.`);
   }
 
+  const idsLidos = (projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id));
+  const materiais = useMateriais(idsLidos, obra.uf || "SP");
+
   const q = projeto?.quantitativos;
   const cobertas = projeto?.pacote.filter((p) => p.situacao === "coberto").length ?? 0;
   const o = projeto?.obra;
@@ -252,6 +256,8 @@ export function Projeto({ obra }: { obra: Obra }) {
   const verificar = (projeto?.conferencias.filter((c) => !c.ok).length ?? 0) + (projeto?.modelo3d?.avisos.length ?? 0);
   const temModelo = Boolean(projeto?.modelo3d);
   const painelVisivel = !temModelo || vista === "3d" || pacoteNo2d;
+  // com folha ainda sendo lida, os materiais e a conta do pacote vão mudar: nada de sugerir o passo seguinte
+  const pranchasLidas = cobertas > 0 && !enviando.length && !projeto?.em_andamento.some((a) => a.status !== "falhou");
 
   function abrir2d() {
     setCadMontado(true);
@@ -500,7 +506,7 @@ export function Projeto({ obra }: { obra: Obra }) {
             {aba === "pacote" ? (
               painelPacote
             ) : aba === "materiais" ? (
-              <Materiais obra={obra} ids={(projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id))} />
+              <Materiais {...materiais} />
             ) : aba === "conferencias" ? (
               painelConferencias
             ) : (
@@ -509,6 +515,20 @@ export function Projeto({ obra }: { obra: Obra }) {
           </div>
         </aside>
       </div>
+
+      {pranchasLidas ? (
+        <>
+          <CartaoMateriais obra={obra} dados={materiais.dados} />
+          {/* a frase do protótipo promete o que falta "estimado pela área": só vale com a tela Estimativa */}
+          <ProximoPasso
+            obraId={obra.id}
+            para="orcamento"
+            acao="Ver quanto a obra deve custar"
+            titulo="As pranchas estão lidas."
+            texto="Confira no orçamento o que já entrou e o que falta lançar."
+          />
+        </>
+      ) : null}
 
       {apagando ? (
         <Confirmar titulo="Apagar o projeto desta obra?" confirmar={`Apagar ${folhas.length} prancha${folhas.length === 1 ? "" : "s"}`} fechar={() => setApagando(false)} aoConfirmar={apagarProjeto}>
