@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useReducer, useState } from "react";
@@ -114,9 +114,10 @@ describe("conversa por SSE", () => {
     await screen.findByText("ok");
     await screen.findByTestId("sessao-servidor").then((el) => expect(el).toHaveTextContent("srv-9"));
     await userEvent.type(campo, "dois{Enter}");
-    await screen.findAllByText("ok");
-    const turnos = rede.chamadas.filter((c) => c.caminho === "/srv/agente/conversa");
-    expect(turnos[1]!.corpo).toMatchObject({ sessao_id: "srv-9", texto: "dois" });
+    // o "ok" do 1º turno já está na tela: quem prova que o 2º saiu é a própria chamada
+    const turnos = () => rede.chamadas.filter((c) => c.caminho === "/srv/agente/conversa");
+    await vi.waitFor(() => expect(turnos()).toHaveLength(2));
+    expect(turnos()[1]!.corpo).toMatchObject({ sessao_id: "srv-9", texto: "dois" });
   });
 
   it("evento erro (sem créditos) e HTTP 402 aparecem como alerta no balão", async () => {

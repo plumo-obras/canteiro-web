@@ -61,7 +61,12 @@ describe("ModalNovoItem — busca na tabela oficial", () => {
     expect(screen.getByText(/Preço de referência/)).toHaveTextContent("SINAPI 34");
 
     await u.click(screen.getByRole("button", { name: "Cadastrar material" }));
-    const envio = rede.chamadas.find((c) => c.caminho === "/srv/api/obras/o-1/insumos")!;
+    // o clique só dispara o envio, que ainda espera o token: a chamada não existe logo depois dele
+    const envio = await vi.waitFor(() => {
+      const c = rede.chamadas.find((x) => x.caminho === "/srv/api/obras/o-1/insumos");
+      if (!c) throw new Error("o cadastro ainda não saiu");
+      return c;
+    });
     expect(envio.corpo).toMatchObject({ nome: "ACO CA-50, 10,0 MM, VERGALHAO", unidade: "kg", valor_unitario: 669 });
   });
 

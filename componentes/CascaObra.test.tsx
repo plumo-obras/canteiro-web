@@ -186,12 +186,16 @@ describe("a obra abre onde faz sentido", () => {
     const r = rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
+    const doResumo = (id: string) => r.chamadas.filter((c) => c.caminho === `/srv/api/obras/${id}/resumo`);
+    // O Mestre já está ativo antes de o resumo sair (a chamada ainda espera o token): esperar a aba não garante a chamada.
+    await waitFor(() => expect(doResumo("o-emei")).toHaveLength(1));
     await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
-    expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-emei/resumo")).toHaveLength(1);
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
     await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
-    expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-casa/resumo")).toHaveLength(1);
+    // só no fim: o tempo da troca de obra é o que deixaria aparecer uma chamada repetida
+    expect(doResumo("o-casa")).toHaveLength(1);
+    expect(doResumo("o-emei")).toHaveLength(1);
   });
 
   it("trocar de obra segue a mesma regra", async () => {

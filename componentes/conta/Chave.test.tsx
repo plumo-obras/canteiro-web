@@ -36,9 +36,10 @@ describe("chave própria da Anthropic", () => {
     expect(campo.type).toBe("password");
     await userEvent.type(campo, "sk-ant-api03-abcdefghijklmnop");
     await userEvent.click(screen.getByRole("button", { name: "Conectar chave" }));
+    // o clique só dispara o envio: o "fim" dele é o mudou
+    await vi.waitFor(() => expect(mudou).toHaveBeenCalled());
     expect(rede.chamadas.at(-1)!.corpo).toEqual({ chave: "sk-ant-api03-abcdefghijklmnop" });
     expect(campo.value).toBe("");
-    expect(mudou).toHaveBeenCalled();
   });
 
   it("ativa mostra só o final; quem não é master não vê o formulário", () => {
