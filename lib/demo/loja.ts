@@ -363,7 +363,7 @@ function hojeDemo(e: EstadoDemo, o: Obra): HojeNaObra {
   const base = o.status === "em_orcamento" ? "A obra ainda está em orçamento" : "A obra ainda não tem medição";
   return {
     hoje: hojeSP().slice(0, 10),
-    resumo: { situacao: "sem_medicao", frase: esperando ? `${base}, com ${esperando === 1 ? "1 coisa esperando" : `${esperando} coisas esperando`} você.` : `${base}.`, esperando },
+    resumo: { situacao: "sem_medicao", frase: `${base}.`, esperando },
     pontos: pontos.slice(0, 6),
     mais: Math.max(0, pontos.length - 6),
     // a previsão da demo é texto livre ("chega segunda"): as datas aqui são só para a semana ter o que mostrar

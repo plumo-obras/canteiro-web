@@ -36,9 +36,9 @@ export function diaPorExtenso(d: string): string {
 /** "2026-11-12" → "qui 12". */
 export const diaCurto = (d: string) => `${noFuso({ weekday: "short" }).format(meioDia(d)).replace(".", "")} ${d.slice(8, 10)}`;
 
-/** A frase da API; se ela disser só a situação, a web acrescenta o que está esperando. */
+/** A API diz só a situação; o que está esperando a web acrescenta, pelo número que vem pronto. */
 export function fraseDoDia(r: HojeT["resumo"]): string {
-  if (!r.esperando || r.frase.includes("esperando")) return r.frase;
+  if (!r.esperando) return r.frase;
   return `${r.frase.replace(/\.$/, "")}, com ${r.esperando === 1 ? "1 coisa" : `${r.esperando} coisas`} esperando você.`;
 }
 

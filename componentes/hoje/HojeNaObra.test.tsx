@@ -12,7 +12,7 @@ import { diaCurto, diaPorExtenso, fraseDoDia, HojeNaObra, linhaDoDia, saudacao }
 const OBRA = { id: "o1", nome: "Casa Inventada" } as Obra;
 const HOJE: Hoje = {
   hoje: "2026-11-09",
-  resumo: { situacao: "no_prazo", frase: "A obra está no prazo, com 1 coisa esperando você.", esperando: 1 },
+  resumo: { situacao: "no_prazo", frase: "A obra está no prazo.", esperando: 1 },
   pontos: [
     { tipo: "gastos_a_conferir", prioridade: "pede_voce", titulo: "2 comprovantes para conferir.", detalhe: "R$ 1.022,00 no total.", acao: { tela: "gastos", rotulo: "Conferir os 2", filtro: { status: "a_revisar" } } },
     { tipo: "entregas_semana", prioridade: "a_caminho", titulo: "O aço chega quinta.", detalhe: "Com a Ferragem Inventada.", acao: { tela: "suprimentos", rotulo: "Ver em Compras", filtro: null } },
@@ -109,11 +109,10 @@ describe("datas e saudação", () => {
     expect(diaCurto("2026-11-12")).toBe("qui 12");
   });
 
-  it("a frase ganha o que espera só se a API não disse, e a semana só com cronograma", () => {
+  it("a frase ganha o que está esperando, e a semana só com cronograma", () => {
     const r = { situacao: "no_prazo" as const, frase: "A obra está no prazo.", esperando: 2 };
     expect(fraseDoDia(r)).toBe("A obra está no prazo, com 2 coisas esperando você.");
     expect(fraseDoDia({ ...r, esperando: 1 })).toBe("A obra está no prazo, com 1 coisa esperando você.");
-    expect(fraseDoDia({ ...r, frase: "A obra está no prazo, com 2 coisas esperando você." })).toBe("A obra está no prazo, com 2 coisas esperando você.");
     expect(fraseDoDia({ ...r, esperando: 0 })).toBe("A obra está no prazo.");
     expect(linhaDoDia("2026-11-09", { ...r, semana_atual: 2, semanas_total: 20 })).toBe("Segunda, 09/11 · semana 2 de 20");
     expect(linhaDoDia("2026-11-09", { ...r, semana_atual: null, semanas_total: 20 })).toBe("Segunda, 09/11");
