@@ -30,8 +30,8 @@ describe("ProximoPasso", () => {
     expect(ir).toHaveBeenCalledWith("suprimentos");
   });
 
-  it("a conversa é a obra sem ?tela", () => {
+  it("a conversa vai explícita na URL: sem ela, a obra sem orçamento abriria no Projeto", () => {
     montar(vi.fn(), "conversa");
-    expect(screen.getByRole("link", { name: "Seguir" })).toHaveAttribute("href", "/?obra=o+1");
+    expect(screen.getByRole("link", { name: "Seguir" })).toHaveAttribute("href", "/?obra=o+1&tela=conversa");
   });
 });

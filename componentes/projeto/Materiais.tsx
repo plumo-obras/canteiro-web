@@ -72,6 +72,8 @@ export function useMateriais(ids: string[], uf: string) {
   useEffect(() => {
     if (!chaveIds) return;
     let vivo = true;
+    // A leitura anterior não vale para as folhas novas: com ela na tela, o botão levaria materiais velhos ao orçamento.
+    setDados(null);
     setErro(null);
     tradutor
       .materiais(chaveIds.split(","), uf)
@@ -165,9 +167,10 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
   const [vendo, setVendo] = useState(false);
   const [preparando, setPreparando] = useState(false);
   const [previa, setPrevia] = useState<PreviaVersao | null>(null);
-  // Uma chave por confirmação, nunca derivada do conteúdo: depois de um Desfazer, a mesma chave devolveria a versão
-  // desfeita e nada entraria no orçamento. Repetir o POST com ela (rede caiu no meio) não duplica.
-  const chave = useRef("");
+  // Vale até dar certo: se a API gravou e a resposta se perdeu, repetir com a mesma chave não duplica o aditivo. Depois
+  // de gravar ela é trocada, porque depois de um Desfazer a mesma chave devolveria a versão desfeita sem gravar nada.
+  // Materiais diferentes pedem outra: a API recusa a chave já usada para outro conteúdo.
+  const chave = useRef<{ conteudo: string; valor: string } | null>(null);
 
   if (!dados || !tem || (!orc.dado && !orc.erro)) return null;
   const situacao = situacaoNoOrcamento(todos, orc.dado);
@@ -180,7 +183,8 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
     try {
       const p = await api.estruturaDoProjeto(obra.id, todos, false);
       if (p.erros.length) return avisar(p.erros[0]!.mensagem, true);
-      chave.current = uuid7();
+      const conteudo = assinatura(todos);
+      if (chave.current?.conteudo !== conteudo) chave.current = { conteudo, valor: uuid7() };
       setPrevia(p);
     } catch (e) {
       avisar(mensagemDe(e), true);
@@ -190,8 +194,15 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
   }
 
   async function levar() {
-    const r = await api.estruturaDoProjeto(obra.id, todos, true, chave.current);
+    let r: PreviaVersao;
+    try {
+      r = await api.estruturaDoProjeto(obra.id, todos, true, chave.current!.valor);
+    } catch (e) {
+      mudou(); // a resposta pode ter se perdido com a gravação feita: relê o orçamento para o cartão mostrar o que valeu
+      throw e;
+    }
     if (!r.aplicado) throw new Error(r.erros[0]?.mensagem ?? "Os materiais não entraram no orçamento. Tente de novo.");
+    chave.current = null;
     setPrevia(null);
     mudou();
     avisarFeito(`Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "contrato"}.`, r.registro_id);
