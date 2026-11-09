@@ -478,7 +478,7 @@ function App({ usuario }: { usuario: Usuario }) {
         {conteudo ??
           (sessao && obra ? (
             <>
-              <Placar obra={obra} resumo={resumo} tela={tela} falhou={!!erroResumo} />
+              <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} tela={tela} falhou={!!erroResumo} />
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
               <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o mestre de obras" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">

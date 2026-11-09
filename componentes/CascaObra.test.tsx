@@ -122,6 +122,15 @@ describe("a obra abre onde faz sentido", () => {
     await waitFor(() => expect(telaAtiva()).toBe("Compras"));
   });
 
+  it("o placar e a tela convivem sem chave repetida", async () => {
+    const erro = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=pedidos");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+    expect(erro.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
+    erro.mockRestore();
+  });
+
   it("trocar de obra segue a mesma regra", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
     window.history.replaceState(null, "", "/?obra=o-emei");

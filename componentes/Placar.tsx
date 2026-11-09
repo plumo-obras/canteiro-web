@@ -3,8 +3,11 @@
  * O placar fixo no topo de toda tela da obra: Contrato · Gasto até hoje · Falta gastar · Prazo. É onde o "gasto" é um
  * número só no app: o realizado do orçamento, igual ao da API para o agente. A casca busca o resumo; aqui só formata.
  */
+import { useId, useState } from "react";
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
 import { fmtReais } from "@/lib/formato";
+import { Icone } from "./Icone";
+import { useCelular } from "./midia";
 import type { AbaAtiva } from "./sessoes";
 
 export type Tom = "mut" | "ok" | "neg";
@@ -50,18 +53,69 @@ export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null,
   return [contrato, gasto, falta, prazo(r.cronograma)];
 }
 
+const chaveAberto = (obraId: string) => `plumo.placar.${obraId}`;
+function lerAberto(obraId: string) {
+  try {
+    return localStorage.getItem(chaveAberto(obraId)) === "aberto";
+  } catch {
+    return false;
+  }
+}
+function gravarAberto(obraId: string, aberto: boolean) {
+  try {
+    if (aberto) localStorage.setItem(chaveAberto(obraId), "aberto");
+    else localStorage.removeItem(chaveAberto(obraId));
+  } catch {
+    // navegador sem armazenamento: a escolha vale até trocar de obra
+  }
+}
+
+/** Quem usa `Placar` dá key pela obra: o estado aberto/recolhido nasce do que foi lembrado para ela. */
 export function Placar(p: { obra: Obra; resumo: ResumoDaObra | null; tela: AbaAtiva; falhou: boolean }) {
+  const celular = useCelular();
+  const [aberto, setAberto] = useState(() => lerAberto(p.obra.id));
+  const idNumeros = useId();
+  const celulas = celulasPlacar(p.obra, p.resumo, p.tela, p.falhou);
+  const numeros = (
+    <dl id={idNumeros}>
+      {celulas.map((c) => (
+        <div key={c.rotulo}>
+          <dt>{c.rotulo}</dt>
+          <dd className={`placar-v${c.tom ? ` t-${c.tom}` : ""}`}>{c.valor}</dd>
+          <dd className="placar-s">{c.sub}</dd>
+        </div>
+      ))}
+    </dl>
+  );
   return (
     <section className="placar" aria-label="Placar da obra" aria-busy={!p.resumo && !p.falhou}>
-      <dl>
-        {celulasPlacar(p.obra, p.resumo, p.tela, p.falhou).map((c) => (
-          <div key={c.rotulo}>
-            <dt>{c.rotulo}</dt>
-            <dd className={`placar-v${c.tom ? ` t-${c.tom}` : ""}`}>{c.valor}</dd>
-            <dd className="placar-s">{c.sub}</dd>
-          </div>
-        ))}
-      </dl>
+      {celular ? (
+        // No celular a altura é da tela aberta: os dois números do dia a dia à vista, os quatro a um toque.
+        <button
+          type="button"
+          className="placar-linha"
+          aria-expanded={aberto}
+          aria-controls={aberto ? idNumeros : undefined}
+          onClick={() => {
+            gravarAberto(p.obra.id, !aberto);
+            setAberto(!aberto);
+          }}
+        >
+          <span className="placar-linha-t">
+            {aberto ? (
+              "Placar da obra"
+            ) : (
+              <>
+                <span className="fx-nw">Gasto {celulas[1]!.valor}</span>
+                {" · "}
+                <span className="fx-nw">Falta {celulas[2]!.valor}</span>
+              </>
+            )}
+          </span>
+          <Icone nome="chevDown" tam={16} />
+        </button>
+      ) : null}
+      {!celular || aberto ? numeros : null}
     </section>
   );
 }
