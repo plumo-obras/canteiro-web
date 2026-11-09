@@ -92,11 +92,12 @@ const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
 }
-function lerPainel() {
+/** Começa fechado: a casa da obra precisa da largura. Só fica aberto para quem abriu (a preferência fica salva). */
+export function lerPainel() {
   try {
-    return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
+    return localStorage.getItem(CHAVE_PAINEL) === "aberto";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -496,7 +497,7 @@ function App({ usuario }: { usuario: Usuario }) {
                     Conversas
                   </button>
                 </div>
-                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} />
+                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} visivel={tela === "conversa"} />
               </section>
               {tela !== "conversa" ? (
                 // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do

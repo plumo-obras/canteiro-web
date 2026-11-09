@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Obra } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
-import { Casca } from "./Casca";
+import { Casca, lerPainel } from "./Casca";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 
@@ -186,12 +186,16 @@ describe("a obra abre onde faz sentido", () => {
     const r = rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
+    const doResumo = (id: string) => r.chamadas.filter((c) => c.caminho === `/srv/api/obras/${id}/resumo`);
+    // O Mestre já está ativo antes de o resumo sair (a chamada ainda espera o token): esperar a aba não garante a chamada.
+    await waitFor(() => expect(doResumo("o-emei")).toHaveLength(1));
     await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
-    expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-emei/resumo")).toHaveLength(1);
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
     await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
-    expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-casa/resumo")).toHaveLength(1);
+    // só no fim: o tempo da troca de obra é o que deixaria aparecer uma chamada repetida
+    expect(doResumo("o-casa")).toHaveLength(1);
+    expect(doResumo("o-emei")).toHaveLength(1);
   });
 
   it("trocar de obra segue a mesma regra", async () => {
@@ -301,5 +305,18 @@ describe("a conversa vazia pergunta sobre o momento da obra", () => {
     render(<Casca demo={false} />);
     expect(await screen.findByRole("button", { name: "O que falta para fechar o orçamento?" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Quanto falta de cimento?" })).toBeNull();
+  });
+});
+
+describe("painel de conversas", () => {
+  afterEach(() => localStorage.removeItem("plumo.painel"));
+
+  it("começa fechado e só fica aberto para quem abriu", () => {
+    localStorage.removeItem("plumo.painel");
+    expect(lerPainel()).toBe(false);
+    localStorage.setItem("plumo.painel", "fechado");
+    expect(lerPainel()).toBe(false);
+    localStorage.setItem("plumo.painel", "aberto");
+    expect(lerPainel()).toBe(true);
   });
 });

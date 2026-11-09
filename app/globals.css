@@ -197,6 +197,9 @@ p{text-wrap:pretty}
   transition:border-color .12s var(--ease),transform .12s var(--ease)}
 .chip:active{transform:scale(.97)}
 .ca-pe{flex:none;padding:6px 0 0;position:relative}
+@media (min-width:900px){ .msgs.com-casa{padding-left:max(28px,calc((100% - 1080px)/2));padding-right:max(28px,calc((100% - 1080px)/2))} }
+.conv-sob-casa{width:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+.conv-sugestoes{justify-content:center}
 .composer{margin:8px auto 20px;width:calc(100% - 56px);max-width:760px;padding:12px 14px 10px;position:relative;isolation:isolate;border:1px solid var(--edgeHi);border-radius:24px;background:var(--glassStrong);
   box-shadow:var(--hl),0 0 0 1px var(--edge),var(--shadowUp)}
 @media (min-width:900px){ .composer{background:none} }
@@ -394,6 +397,13 @@ tr.click{cursor:pointer}
 .lc-falta.t-ok{color:var(--greenInk)}
 .lc-comprar{font-weight:600;color:var(--ink)}
 td .lc{font-size:var(--t-meta)}
+/* Em coluna estreita no desktop (a casa da obra), o cartão usa o leiaute do celular: o @media não sabe da coluna. */
+.ld-lista.ld-estreita .ld{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 16px}
+.ld-lista.ld-estreita .ld-prazo,.ld-lista.ld-estreita .ld-txt{grid-column:1/-1}
+.ld-lista.ld-estreita .ld-valor{grid-column:1;text-align:left}
+.ld-lista.ld-estreita .ld-acts{grid-column:2;flex-wrap:wrap}
+.ld-lista.ld-estreita .ld.valor-no-botao .ld-valor{display:none}
+.ld-lista.ld-estreita .ld.valor-no-botao .ld-acts{grid-column:1/-1;justify-content:flex-end}
 .ld-ajuste{font-size:var(--t-meta);color:var(--amberInk);margin-top:2px}
 .ld-obra{font-size:12px;font-weight:600;color:var(--accentInk);margin-bottom:2px}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){

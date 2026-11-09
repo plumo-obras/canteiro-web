@@ -172,6 +172,8 @@ describe("Materiais das pranchas", () => {
     await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull());
     expect(screen.getByText(/Levantando os materiais/)).toBeInTheDocument();
 
+    // a 2ª leitura precisa ter saído: antes disso, ainda não há o que liberar
+    await vi.waitFor(() => expect(leituras).toBe(2));
     liberar(json(MATERIAIS));
     expect(await screen.findByRole("button", { name: "Levar para o orçamento…" })).toBeInTheDocument();
   });

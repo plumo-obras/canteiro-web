@@ -42,6 +42,7 @@ import type {
   GastoObra,
   RespostaLeitura,
   ResumoGastos,
+  HojeNaObra,
   CorpoEditarItem,
   ItemEditado,
   TributosObra,
@@ -193,6 +194,12 @@ export const api = {
   /** Corrige quantidade ou preço de um item vigente; o total da linha e o da versão quem refaz é a API. */
   editarItemOrcamento: (obraId: string, itemId: string, corpo: CorpoEditarItem) =>
     semRota(chamar<ItemEditado>("PATCH", `/obras/${seg(obraId)}/orcamento/itens/${seg(itemId)}`, corpo), "Editar o item do orçamento ainda não está disponível."),
+  /** O que importa hoje na obra. `null` quando a API no ar ainda não tem a rota: a conversa abre sem o resumo. */
+  hojeNaObra: (obraId: string) =>
+    chamar<HojeNaObra>("GET", `/obras/${seg(obraId)}/hoje`).catch((e) => {
+      if (e instanceof ErroApi && e.status === 404) return null;
+      throw e;
+    }),
   /** O orçamento da obra (EAP): versões, itens vigentes com curva, totais por etapa. */
   orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
   /** Contrato ou aditivo. `aplicar: false` é a prévia; com `aplicar: true` a chave de idempotência é obrigatória. */

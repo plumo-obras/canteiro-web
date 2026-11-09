@@ -4,7 +4,7 @@
  * confere e confirma; só então vira gasto, na etapa (e no tópico) da obra. Seções: o que espera revisão, o gasto por
  * etapa, os gastos lançados e as etapas e tópicos onde eles entram.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Comprovante, GastoObra, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtDiaHora, fmtReais } from "@/lib/formato";
@@ -33,9 +33,11 @@ const SECOES: { k: Secao; rotulo: string; curto: string }[] = [
 const LENDO_MS = 2 * 60 * 1000;
 
 export function Gastos({ obra }: { obra: Obra }) {
-  const { versao, podeOperar } = useCasca();
+  const { versao, podeOperar, lerFiltroTela, limparFiltroTela } = useCasca();
   const [mudando, setMudando] = useState<GastoObra | null>(null);
-  const [secao, setSecao] = useState<Secao>("revisar");
+  const [soSemEtapa, setSoSemEtapa] = useState(() => lerFiltroTela("gastos")?.status === "a_definir");
+  const [secao, setSecao] = useState<Secao>(soSemEtapa ? "lancados" : "revisar");
+  useEffect(limparFiltroTela, [limparFiltroTela]);
   const [enviando, setEnviando] = useState(false);
   const [revisando, setRevisando] = useState<string | null>(null);
   const { dado, erro, carregando } = useCarregar(
@@ -138,6 +140,8 @@ export function Gastos({ obra }: { obra: Obra }) {
               semEtapa={(resumo?.etapas ?? []).filter((e) => foraDoOrcamento(arvore, e.etapa)).reduce((t, e) => t + e.total, 0)}
               etapaDe={(g) => (g.etapa === null ? (g.etapa_nome ?? "Sem etapa") : rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo))}
               aDefinir={resumo?.a_definir ?? 0}
+              soSemEtapa={soSemEtapa}
+              verTodos={() => setSoSemEtapa(false)}
               fora={(g) => foraDoOrcamento(arvore, g.etapa)}
               podeMudar={podeOperar}
               mudar={setMudando}
@@ -246,6 +250,9 @@ function Lancados(p: {
   semEtapa: number;
   /** Soma, do resumo, dos gastos em "Ver depois". */
   aDefinir: number;
+  /** Veio de "Definir a etapa": a lista abre só com os gastos sem etapa. */
+  soSemEtapa: boolean;
+  verTodos: () => void;
   etapaDe: (g: GastoObra) => string;
   fora: (g: GastoObra) => boolean;
   podeMudar: boolean;
@@ -268,6 +275,7 @@ function Lancados(p: {
   ) : null;
   if (!itens) return aviso;
   if (!itens.length) return <Vazio texto="Nenhum gasto lançado ainda." />;
+  const visiveis = p.soSemEtapa ? itens.filter((g) => g.etapa === null) : itens;
   return (
     <>
       {p.aDefinir ? (
@@ -285,8 +293,16 @@ function Lancados(p: {
           </span>
         </div>
       ) : null}
+      {p.soSemEtapa ? (
+        <p className="mut sm">
+          Só os gastos sem etapa.{" "}
+          <button type="button" className="link" onClick={p.verTodos}>
+            Ver todos
+          </button>
+        </p>
+      ) : null}
       <ul className={`card lista ${s.lista}`} role="list" aria-label="Gastos lançados">
-        {itens.map((g) => {
+        {visiveis.map((g) => {
           const fora = p.fora(g);
           return (
             <li key={g.id} className={`${s.linha}${fora ? ` ${s.linhaFora}` : ""}`}>

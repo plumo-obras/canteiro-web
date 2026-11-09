@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -252,6 +252,25 @@ describe("enviar comprovante", () => {
     expect(await screen.findByText(/R\$ 350,00 em gastos sem etapa, para definir/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Definir etapa de/ }));
     expect(await screen.findByRole("dialog", { name: "Definir a etapa do gasto" })).toBeInTheDocument();
+  });
+
+  it("aberta por 'Definir a etapa', abre em Lançados só com os sem etapa", async () => {
+    rede({
+      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, id: "g2", descricao: "gasto com etapa" }, { ...GASTO, descricao: "gasto sem etapa", etapa: null, topico_id: null }]),
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 35000, etapas: [] }),
+    });
+    const Abre = () => {
+      const { irParaTela, registrarNavegacao } = useCasca();
+      const [aberta, setAberta] = useState(false);
+      useEffect(() => registrarNavegacao(() => setAberta(true)), [registrarNavegacao]);
+      return aberta ? <Gastos obra={OBRA} /> : <button type="button" onClick={() => irParaTela("gastos", { status: "a_definir" })}>abrir</button>;
+    };
+    render(comCasca(<Abre />));
+    await userEvent.click(screen.getByRole("button", { name: "abrir" }));
+    expect(await screen.findByText("gasto sem etapa")).toBeInTheDocument();
+    expect(screen.queryByText("gasto com etapa")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Ver todos" }));
+    expect(await screen.findByText("gasto com etapa")).toBeInTheDocument();
   });
 
   it("a legenda digitada vai no envio", async () => {

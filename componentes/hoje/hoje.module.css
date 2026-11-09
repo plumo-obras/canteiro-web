@@ -1,0 +1,40 @@
+/* A casa da obra: o resumo à esquerda; o que espera a pessoa e a semana à direita. Flex que quebra, e não @media: com o
+   painel de conversas aberto sobra menos largura do que a tela sugere. */
+.casa{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:flex-start;width:100%}
+.coluna{display:grid;gap:var(--s4);min-width:0;flex:1 1 320px}
+.coluna:first-child{flex:1.5 1 420px}
+.nota{flex-basis:100%;margin:0}
+
+.hoje{padding:22px 24px;display:grid;gap:14px}
+.cabeca{display:grid;grid-template-columns:36px minmax(0,1fr);gap:14px;align-items:start}
+.cabeca p{margin:4px 0 0}
+.mestre{width:36px;height:36px;border-radius:var(--rc);display:grid;place-items:center;background:var(--accentSoft);color:var(--accentInk)}
+.titulo{margin:0;font-size:var(--t-h1);line-height:1.2}
+
+.pontos,.eventos{list-style:none;margin:0;padding:0}
+.ponto{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:6px 12px;align-items:start;padding:12px 0;border-top:1px solid var(--line2)}
+.dot{width:8px;height:8px;border-radius:var(--rp);margin-top:7px;background:var(--gray)}
+.pede_voce{background:var(--amber)}
+.atencao{background:var(--red)}
+.a_caminho{background:var(--blue)}
+.ok{background:var(--green)}
+.texto{margin:0;min-width:0;line-height:1.45}
+.acao{justify-self:end;white-space:nowrap}
+.tudoEmDia{display:flex;align-items:center;gap:8px;margin:0;color:var(--greenInk)}
+.mais{margin:0}
+
+.tituloBloco{font-size:var(--t-sec);margin:0 0 10px}
+.tituloBloco small{font:400 var(--t-body) var(--sans);color:var(--muted)}
+.nada{margin:0;padding:16px 20px;color:var(--muted)}
+.verTodas{margin-top:8px}
+
+.semana{padding:18px 20px}
+.evento{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line2)}
+.quando{font:var(--t-meta) var(--mono)}
+
+@media (max-width:899px){
+  .hoje{padding:18px 16px}
+  .titulo{font-size:var(--t-bloco)}
+  .ponto{grid-template-columns:10px minmax(0,1fr)}
+  .acao{grid-column:2;justify-self:start}
+}

@@ -9,6 +9,12 @@ import type { AjustesProposta, Proposta, Usuario } from "@/lib/contrato";
 import { api, ErroApi } from "@/lib/cliente";
 import type { AbaAtiva } from "./sessoes";
 
+/** Recorte que uma tela leva à outra: a etapa em Compras, o status em Gastos. */
+export interface FiltroTela {
+  etapa?: string;
+  status?: string;
+}
+
 export interface CartaoEstado {
   proposta: Proposta;
   registroId: string | null;
@@ -72,7 +78,10 @@ interface Valor {
   recusar: (id: string, motivo: string) => Promise<void>;
   desfazer: (id: string) => Promise<void>;
   /** Troca a tela da obra sem recarregar (a faixa de próximo passo, por exemplo). */
-  irParaTela: (tela: AbaAtiva) => void;
+  irParaTela: (tela: AbaAtiva, filtro?: FiltroTela | null) => void;
+  /** O recorte com que a tela foi aberta. A tela lê uma vez ao montar e limpa, para a próxima visita abrir inteira. */
+  lerFiltroTela: (tela: AbaAtiva) => FiltroTela | null;
+  limparFiltroTela: () => void;
   /** Só a casca chama: a tela aberta é estado dela, e devolve a função que desfaz o registro. */
   registrarNavegacao: (ir: (tela: AbaAtiva) => void) => () => void;
 }
@@ -169,7 +178,16 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       navegar.current = null;
     };
   }, []);
-  const irParaTela = useCallback((tela: AbaAtiva) => navegar.current?.(tela), []);
+  // Em ref, como a navegação: é lido uma vez, quando a tela de destino monta.
+  const filtro = useRef<{ tela: AbaAtiva; filtro: FiltroTela } | null>(null);
+  const irParaTela = useCallback((tela: AbaAtiva, f?: FiltroTela | null) => {
+    filtro.current = f ? { tela, filtro: f } : null;
+    navegar.current?.(tela);
+  }, []);
+  const lerFiltroTela = useCallback((tela: AbaAtiva) => (filtro.current?.tela === tela ? filtro.current.filtro : null), []);
+  const limparFiltroTela = useCallback(() => {
+    filtro.current = null;
+  }, []);
 
   const valor = useMemo<Valor>(
     () => ({
@@ -186,9 +204,11 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       recusar,
       desfazer,
       irParaTela,
+      lerFiltroTela,
+      limparFiltroTela,
       registrarNavegacao,
     }),
-    [usuario, demo, versao, mudou, avisar, avisarFeito, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, registrarNavegacao],
+    [usuario, demo, versao, mudou, avisar, avisarFeito, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, lerFiltroTela, limparFiltroTela, registrarNavegacao],
   );
 
   return (
