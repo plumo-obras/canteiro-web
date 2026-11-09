@@ -31,7 +31,7 @@ describe("demonstração: resumo da obra (o placar e a abertura)", () => {
   it("responde como a API, sem cronograma", () => {
     const r = chamar("GET", `obras/${obraId()}/resumo`);
     expect(r.status).toBe(200);
-    expect(r.corpo).toMatchObject({ obra: { id: obraId() }, cronograma: { cadastrado: false }, financeiro: { tem_orcamento: expect.any(Boolean) } });
+    expect(r.corpo).toMatchObject({ obra: { id: obraId() }, cronograma: { cadastrado: false }, financeiro: { tem_orcamento: expect.any(Boolean), falta_gastar: expect.any(Number) } });
   });
 
   it("obra sem versão de contrato não tem orçamento", () => {

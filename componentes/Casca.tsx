@@ -20,6 +20,7 @@ import { MenuMais, type ItemMenu } from "./MenuMais";
 import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
 import { Gastos } from "./Gastos";
+import { Placar } from "./Placar";
 import { Projeto } from "./Projeto";
 import { Historico } from "./Historico";
 import { Tributos } from "./Tributos";
@@ -275,7 +276,7 @@ function App({ usuario }: { usuario: Usuario }) {
   // A conversa também vai para a URL: recarregar (o portal recarrega a página ao trocar desktop ↔ celular) voltava em
   // "Nova conversa". Só a que já tem mensagem: a vazia ainda não existe no servidor e não teria como ser reaberta.
   const sessaoNaUrl = sessaoAberta && (sessaoAberta.mensagens.length || !sessaoAberta.carregada) ? sessaoAberta.servidorId : null;
-  const { dado: resumoLido } = useCarregar(() => (obraAberta ? api.resumoObra(obraAberta) : Promise.resolve(null)), [obraAberta, versao]);
+  const { dado: resumoLido, erro: erroResumo } = useCarregar(() => (obraAberta ? api.resumoObra(obraAberta) : Promise.resolve(null)), [obraAberta, versao]);
   // useCarregar mantém o dado anterior: sem conferir, a obra nova mostraria por um instante os números da outra.
   const resumo = resumoLido?.obra.id === obraAberta ? resumoLido : null;
   // Obra sem orçamento abre no Projeto: quem estava na conversa precisa da tela na URL para voltar nela ao recarregar.
@@ -477,6 +478,7 @@ function App({ usuario }: { usuario: Usuario }) {
         {conteudo ??
           (sessao && obra ? (
             <>
+              <Placar obra={obra} resumo={resumo} tela={tela} falhou={!!erroResumo} />
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
               <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o mestre de obras" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">

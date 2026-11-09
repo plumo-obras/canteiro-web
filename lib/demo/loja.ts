@@ -1199,6 +1199,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             comprometido: t.comprometido,
             realizado: t.realizado,
             saldo: t.saldo,
+            falta_gastar: Math.max(0, t.atual - t.realizado),
+            realizado_pct: t.atual ? Math.round((t.realizado * 10000) / t.atual) : null,
             etapas_estouradas: [],
             gastos: { total: 0, nas_etapas: 0, fora_do_orcamento: 0, na_lista_padrao: 0, sem_etapa_do_orcamento: 0 },
           },

@@ -714,6 +714,10 @@ export interface ResumoDaObra {
     comprometido: Centavos;
     realizado: Centavos;
     saldo: Centavos;
+    /** Orçado atual − realizado, nunca negativo. Opcional: a API de antes não manda. */
+    falta_gastar?: Centavos;
+    /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
+    realizado_pct?: number | null;
   };
   cronograma: {
     cadastrado: boolean;

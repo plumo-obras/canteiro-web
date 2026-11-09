@@ -26,11 +26,11 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   background:linear-gradient(150deg,#f5c978 0%,#e8b04a 55%,#d99a2e 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 2px 6px -1px rgba(0,0,0,.3)}
 
 /* vidro das peças que flutuam */
-.trilho,.painel,.palco-conversa{
+.trilho,.painel,.palco-conversa,.placar{
   background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   border:1px solid var(--edge);box-shadow:var(--hl),var(--shadow)}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .trilho,.painel,.palco-conversa{background:var(--cardSolido,var(--card))}
+  .trilho,.painel,.palco-conversa,.placar{background:var(--cardSolido,var(--card))}
   .topo{background:var(--cardSolido,var(--card))}
 }
 
@@ -148,6 +148,19 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .conversa-t{margin:0;font:600 var(--t-sec) var(--sans);letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .palco>.card.vazio,.palco>.aviso-erro,.palco>.carregando{margin-top:24px}
 
+/* ---------- placar: fica fora da rolagem da tela, sempre à vista ---------- */
+.placar{flex:none;margin-bottom:12px;border-radius:20px}
+.placar dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0}
+.placar dl>div{display:grid;gap:1px;align-content:start;min-width:0;padding:12px 18px;border-left:1px solid var(--line2)}
+.placar dl>div:first-child{border-left:0}
+.placar dt{font-size:var(--t-meta);color:var(--muted)}
+.placar dd{margin:0}
+.placar-v{font:600 clamp(18px,1.55vw,22px)/1.25 var(--serif);letter-spacing:-.01em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.placar-s{min-height:1.4em;font-size:12px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
+.placar-v.t-mut{color:var(--muted)}
+.placar-v.t-ok{color:var(--greenInk)}
+.placar-v.t-neg{color:var(--redInk)}
+
 /* ---------- celular e tablet ---------- */
 .gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
 .gaveta-fundo[hidden]{display:none}
@@ -190,6 +203,17 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .conversa-cab{padding:10px 12px 8px 16px}
   .palco-tela .page{padding:4px 2px calc(24px + env(safe-area-inset-bottom))}
 }
+@media (max-width:899px){
+  .placar{margin-bottom:8px;border-radius:16px}
+  .placar dl{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .placar dl>div{padding:8px 12px}
+  .placar dl>div:nth-child(odd){border-left:0}
+  .placar dl>div:nth-child(n+3){border-top:1px solid var(--line2)}
+  .placar-v{font-size:17px}
+}
+/* teclado aberto (o dvh encolhe) e editor do cronograma: a altura é de quem está digitando */
+@media (max-width:899px) and (max-height:560px){ .placar{display:none} }
+@media (max-width:760px){ html:has(.crono-editor) .placar{display:none} }
 @keyframes mvGaveta{from{transform:translateX(-100%)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){ .app>.painel{animation:none} }
 
