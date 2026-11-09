@@ -324,6 +324,28 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
 
 const INDISPONIVEL = "Indisponível na demonstração.";
 
+/**
+ * O orçamento de cada obra nasce com uma versão de verdade: a estrutura do projeto lançada como contrato (etapa
+ * "Estrutura"), montada dos insumos da obra — não um contrato fingido. Idempotente: não duplica se já houver. Serve
+ * tanto para semear o estado novo quanto para migrar um estado em memória anterior a este campo.
+ */
+function semearVersoes(e: EstadoDemo): void {
+  const porObra = new Map<string, ItemDemo[]>();
+  for (const i of e.insumos.values()) {
+    if (i.precisa_ate_o_fim > 0) porObra.set(i.obra_id, [...(porObra.get(i.obra_id) ?? []), i]);
+  }
+  for (const [obraId, ins] of porObra) {
+    if (e.versoes.some((v) => v.versao.obra_id === obraId)) continue;
+    const itens = ins.map((i) => ({ nome: i.nome, unidade: i.unidade, quantidade: i.precisa_ate_o_fim, valor_unitario: i.valor_unitario }));
+    const total = itens.reduce((s, i) => s + Math.round((i.quantidade * i.valor_unitario) / 1000), 0);
+    e.versoes.push({
+      versao: { id: `demo-estrutura-${obraId}`, obra_id: obraId, tipo: "contrato", numero: 0, descricao: "Estrutura", data: diasAtras(60).slice(0, 10), arquivo: "materiais-do-projeto.csv", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(60) },
+      etapas: [{ descricao: "Estrutura", itens }],
+      chave: null,
+    });
+  }
+}
+
 function semear(): EstadoDemo {
   const doc = <T extends object>(x: T, criado = agoraISO()) => ({ id: uuid7(), tenant_id: TENANT, criado_em: criado, ...x });
   const obra: Obra = doc({
@@ -418,17 +440,7 @@ function semear(): EstadoDemo {
     creditos: { saldo: 0, franquia: 20_000_000 },
     uso: semearUso(obra.id, outras[0]!.id),
   };
-  // O orçamento da obra já nasce com uma versão de verdade: a estrutura do projeto lançada como contrato (etapa
-  // "Estrutura"), como se alguém tivesse levado os materiais do projeto para o orçamento — não um contrato fingido.
-  {
-    const itensEstrutura = [...insumos.values()].map((i) => ({ nome: i.nome, unidade: i.unidade, quantidade: i.precisa_ate_o_fim, valor_unitario: i.valor_unitario }));
-    const totalEstrutura = itensEstrutura.reduce((s, i) => s + Math.round((i.quantidade * i.valor_unitario) / 1000), 0);
-    e.versoes.push({
-      versao: { id: `demo-estrutura-${obra.id}`, obra_id: obra.id, tipo: "contrato", numero: 0, descricao: "Estrutura", data: diasAtras(60).slice(0, 10), arquivo: "materiais-do-projeto.csv", itens: itensEstrutura.length, etapas: 1, total: totalEstrutura, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(60) },
-      etapas: [{ descricao: "Estrutura", itens: itensEstrutura }],
-      chave: null,
-    });
-  }
+  semearVersoes(e);
   // Saldo coerente com o consumo do mês: franquia menos o que já foi gasto desde o dia 1.
   const mes = hojeSP().slice(0, 8);
   e.creditos.saldo = Math.max(0, e.creditos.franquia - e.uso.filter((x) => x.dia >= `${mes}01`).reduce((t, x) => t + x.custo, 0));
@@ -499,7 +511,15 @@ function semearUso(obraA: string, obraB: string): EstadoDemo["uso"] {
 
 const g = globalThis as unknown as { __canteiroDemo?: EstadoDemo };
 /** Um estado por processo; sobrevive ao recarregamento de módulo do `next dev`. */
-export const estado = () => (g.__canteiroDemo ??= semear());
+export const estado = () => {
+  const e = (g.__canteiroDemo ??= semear());
+  // Estado em memória anterior ao campo `versoes` (hot reload): cria e semeia sem reiniciar (não perde o que a pessoa subiu).
+  if (!e.versoes) {
+    e.versoes = [];
+    semearVersoes(e);
+  }
+  return e;
+};
 export const reiniciarDemo = () => {
   g.__canteiroDemo = semear();
   return g.__canteiroDemo;
