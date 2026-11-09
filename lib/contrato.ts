@@ -632,6 +632,50 @@ export interface ResumoObra {
   prazo?: PrazoCronograma | null;
 }
 
+/** `GET /obras/{id}/hoje`: o que importa hoje, determinístico, com as contas prontas. */
+export type PrioridadeHoje = "pede_voce" | "atencao" | "a_caminho" | "ok";
+
+export interface AcaoHoje {
+  /** Os nomes de tela da web ("suprimentos" é Compras). */
+  tela: string;
+  rotulo: string;
+  filtro: { etapa?: string; status?: string } | null;
+}
+
+export interface PontoHoje {
+  tipo: string;
+  prioridade: PrioridadeHoje;
+  titulo: string;
+  detalhe: string;
+  acao: AcaoHoje | null;
+}
+
+export interface EventoSemana {
+  /** AAAA-MM-DD */
+  data: string;
+  tipo: "entrega" | "inicio_etapa";
+  titulo: string;
+  detalhe: string;
+  acao: AcaoHoje | null;
+}
+
+export interface HojeNaObra {
+  hoje: string;
+  resumo: {
+    situacao: "no_prazo" | "atrasada" | "sem_medicao";
+    frase: string;
+    /** Quantos pontos pedem a pessoa, mesmo os cortados pelo limite. */
+    esperando: number;
+    /** null sem cronograma; `semana_atual` null antes do início, e passa do total se atrasar. */
+    semana_atual?: number | null;
+    semanas_total?: number | null;
+  };
+  pontos: PontoHoje[];
+  /** Quantos pontos ficaram de fora do limite de 6. */
+  mais: number;
+  semana: EventoSemana[];
+}
+
 /** Valores de IA em microdólares (1 US$ = 1.000.000), inteiros como o resto do dinheiro. */
 export type Microdolares = number;
 

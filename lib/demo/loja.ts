@@ -18,6 +18,8 @@ import type {
   MinhaConta,
   Movimento,
   Obra,
+  HojeNaObra,
+  PontoHoje,
   Orcamento,
   Pedido,
   PreviaVersao,
@@ -339,6 +341,35 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
 }
 
 const INDISPONIVEL = "Indisponível na demonstração.";
+
+/** GET /obras/{id}/hoje na demonstração: os mesmos tipos de ponto que a demo consegue saber, na ordem do contrato. */
+function hojeDemo(e: EstadoDemo, o: Obra): HojeNaObra {
+  const insumos = [...e.insumos.values()].filter((i) => i.obra_id === o.id);
+  const temOrcamento = e.versoes.some((v) => v.versao.obra_id === o.id && v.versao.ativa) || insumos.some((i) => i.precisa_ate_o_fim > 0);
+  const propostas = e.propostas.filter((p) => p.obra_id === o.id && p.status === "pendente").length;
+  const falta = insumos.filter((i) => contaDoInsumo(e, i).comprar > 0);
+  const semPreco = insumos.filter((i) => i.precisa_ate_o_fim > 0 && !i.valor_unitario).length;
+  const aCaminho = e.pedidos.filter((p) => p.obra_id === o.id && A_CAMINHO.includes(p.status));
+  const acao = (tela: string, rotulo: string) => ({ tela, rotulo, filtro: null });
+  const itens = (n: number) => (n === 1 ? "1 item" : `${n} itens`);
+  const nomeDe = (id: string) => insumos.find((i) => i.id === id)?.nome ?? "material";
+  const pontos: PontoHoje[] = [];
+  if (!temOrcamento) pontos.push({ tipo: "sem_orcamento", prioridade: "pede_voce", titulo: "A obra ainda não tem orçamento.", detalhe: "Envie as pranchas para levantar os materiais.", acao: acao("projeto", "Enviar as pranchas") });
+  if (propostas) pontos.push({ tipo: "aprovacoes_pendentes", prioridade: "pede_voce", titulo: propostas === 1 ? "1 proposta esperando a sua aprovação." : `${propostas} propostas esperando a sua aprovação.`, detalhe: "O mestre de obras preparou; só executa com o seu toque.", acao: acao("aprovacoes", "Ver aprovações") });
+  if (falta.length) pontos.push({ tipo: "falta_comprar", prioridade: "atencao", titulo: `${itens(falta.length)} ainda sem pedido.`, detalhe: falta.slice(0, 3).map((i) => i.nome).join(", "), acao: acao("suprimentos", "Ver em Compras") });
+  if (semPreco) pontos.push({ tipo: "itens_sem_preco", prioridade: "atencao", titulo: `${itens(semPreco)} sem preço.`, detalhe: "Entram com R$ 0,00 no orçado.", acao: acao("orcamento", "Preencher os preços") });
+  if (aCaminho.length) pontos.push({ tipo: "entregas_semana", prioridade: "a_caminho", titulo: aCaminho.length === 1 ? "1 entrega a caminho." : `${aCaminho.length} entregas a caminho.`, detalhe: `${nomeDe(aCaminho[0]!.insumo_id)} com ${aCaminho[0]!.fornecedor}.`, acao: acao("suprimentos", "Ver em Compras") });
+  const esperando = pontos.filter((p) => p.prioridade === "pede_voce").length;
+  const base = o.status === "em_orcamento" ? "A obra ainda está em orçamento" : "A obra ainda não tem medição";
+  return {
+    hoje: hojeSP().slice(0, 10),
+    resumo: { situacao: "sem_medicao", frase: esperando ? `${base}, com ${esperando === 1 ? "1 coisa esperando" : `${esperando} coisas esperando`} você.` : `${base}.`, esperando },
+    pontos: pontos.slice(0, 6),
+    mais: Math.max(0, pontos.length - 6),
+    // a previsão da demo é texto livre ("chega segunda"): as datas aqui são só para a semana ter o que mostrar
+    semana: aCaminho.slice(0, 4).map((p, i) => ({ data: diasAtras(-(i + 1)).slice(0, 10), tipo: "entrega" as const, titulo: `Entrega de ${nomeDe(p.insumo_id)}`, detalhe: p.fornecedor, acao: acao("suprimentos", "Ver") })),
+  };
+}
 
 /** PATCH de um item do orçamento. O id do item na demo é "<versão>-<posição>", a posição contando as etapas da versão. */
 function editarItemDemo(e: EstadoDemo, u: Usuario, o: Obra, itemId: string, c: Record<string, unknown>): RespostaDemo {
@@ -1410,6 +1441,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         exigirAdmin(u);
         return editarItemDemo(e, u, obraPorId(e, id), c2, c);
       }
+      if (metodo === "GET" && b === "hoje" && !id2) return ok(hojeDemo(e, obraPorId(e, id)));
       if (metodo === "GET" && b === "insumos" && !id2) {
         const etapa = etapaDoInsumo(e, id);
         const itens = [...e.insumos.values()].filter((i) => i.obra_id === id).map((insumo) => ({ insumo: { ...insumo, etapa: etapa(insumo.nome) }, conta: contaDoInsumo(e, insumo) }));
