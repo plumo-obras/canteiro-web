@@ -61,7 +61,8 @@ export function ModalNovoPedido(props: {
   // digitada sumia calada e o pedido ia sem ela.
   const [previsaoRuim, setPrevisaoRuim] = useState(false);
   const [observacao, setObservacao] = useState("");
-  const [aprovado, setAprovado] = useState(false);
+  // O pedido nasce "feito": passar pela cotação é a exceção de quem combina preço antes.
+  const [aprovado, setAprovado] = useState(true);
   const primeiro = useRef<HTMLInputElement>(null);
   const listaForn = useId();
   // Insumos novos criados num envio que falhou depois: o reenvio usa o que já existe em vez de dar 409 por nome.
