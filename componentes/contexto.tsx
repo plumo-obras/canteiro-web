@@ -7,6 +7,7 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { AjustesProposta, Proposta, Usuario } from "@/lib/contrato";
 import { api, ErroApi } from "@/lib/cliente";
+import type { AbaAtiva } from "./sessoes";
 
 export interface CartaoEstado {
   proposta: Proposta;
@@ -70,6 +71,10 @@ interface Valor {
   aprovar: (id: string, ajustes?: AjustesProposta) => Promise<void>;
   recusar: (id: string, motivo: string) => Promise<void>;
   desfazer: (id: string) => Promise<void>;
+  /** Troca a tela da obra sem recarregar (a faixa de próximo passo, por exemplo). */
+  irParaTela: (tela: AbaAtiva) => void;
+  /** Só a casca chama: a tela aberta é estado dela, e devolve a função que desfaz o registro. */
+  registrarNavegacao: (ir: (tela: AbaAtiva) => void) => () => void;
 }
 
 const Ctx = createContext<Valor | null>(null);
@@ -156,6 +161,16 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
     [mudou],
   );
 
+  // Em ref: a casca fica abaixo deste provedor, e trocar de tela não deve re-renderizar quem só usa o contexto.
+  const navegar = useRef<((tela: AbaAtiva) => void) | null>(null);
+  const registrarNavegacao = useCallback((ir: (tela: AbaAtiva) => void) => {
+    navegar.current = ir;
+    return () => {
+      navegar.current = null;
+    };
+  }, []);
+  const irParaTela = useCallback((tela: AbaAtiva) => navegar.current?.(tela), []);
+
   const valor = useMemo<Valor>(
     () => ({
       usuario,
@@ -170,8 +185,10 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       aprovar,
       recusar,
       desfazer,
+      irParaTela,
+      registrarNavegacao,
     }),
-    [usuario, demo, versao, mudou, avisar, avisarFeito, cartoes, receberPropostas, aprovar, recusar, desfazer],
+    [usuario, demo, versao, mudou, avisar, avisarFeito, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, registrarNavegacao],
   );
 
   return (

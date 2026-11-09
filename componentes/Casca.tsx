@@ -119,13 +119,14 @@ function useMenu() {
 }
 
 function App({ usuario }: { usuario: Usuario }) {
-  const { demo, versao, cartoes, receberPropostas } = useCasca();
+  const { demo, versao, cartoes, receberPropostas, registrarNavegacao } = useCasca();
   const router = useRouter();
   const [obras, setObras] = useState<Obra[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sessoes, despachar] = useReducer(redutorSessoes, []);
   const [atual, setAtual] = useState<string | null>(null);
   const [tela, setTela] = useState<AbaAtiva>("conversa");
+  useEffect(() => registrarNavegacao(setTela), [registrarNavegacao]);
   const movel = useMovel();
   const barraCelular = useCelular();
   const [painelDesk, setPainelDesk] = useState(lerPainel);
