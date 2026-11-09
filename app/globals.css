@@ -956,6 +956,7 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
   .card.lista .tbl-orc tr td:nth-child(4){grid-column:2;grid-row:1;text-align:right;color:var(--ink);font-size:var(--t-body);font-weight:600}
   .card.lista .tbl-orc tr td:nth-child(5){display:none}
 }
+.orc-resumo{margin:0 0 12px;display:flex;flex-wrap:wrap;gap:4px 2px;align-items:baseline}
 .orc-versoes{margin:0;padding:0;list-style:none}
 .orc-v{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line2)}
 .orc-v:last-child{border-bottom:0}
