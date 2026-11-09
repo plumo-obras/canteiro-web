@@ -292,6 +292,7 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
                 criada={(e) => {
                   setArvore((a) => [...a, e]);
                   proprio("etapa", e.chave);
+                  proprio("topico", ""); // o tópico escolhido era da etapa anterior
                 }}
               />
               <CampoPedido pedidos={pedidos} esc={esc} mudar={mudar} />

@@ -22,6 +22,7 @@ export function NovaEtapa({ obraId, criada }: { obraId: string; criada: (e: Etap
     );
   }
   const criar = async () => {
+    if (ocupado) return; // Enter duas vezes criaria duas etapas
     const limpo = nome.trim();
     if (!limpo) return setErro("Dê um nome para a etapa.");
     setOcupado(true);
