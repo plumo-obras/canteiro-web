@@ -272,8 +272,10 @@ function ItensDaEtapa({
 }) {
   const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
   const n = itens.filter((i) => i.tipo === "item").length;
-  // Depois de aprovado, mudar o preço mexe na referência de custo da obra: a regra ainda vai ser decidida.
-  const editavel = podeOperar && obra.status === "em_orcamento";
+  // Aprovado, o orçamento é a referência de custo da obra e fica travado; só o item sem preço ainda pode recebê-lo.
+  const emOrcamento = obra.status === "em_orcamento";
+  const qtdEditavel = podeOperar && emOrcamento;
+  const precoEditavel = (i: ItemDaEtapa) => podeOperar && (emOrcamento || !i.valor_unitario);
   const editar = async (i: ItemDaEtapa, corpo: CorpoEditarItem, feito: string) => {
     try {
       const r = await api.editarItemOrcamento(obra.id, i.id, corpo);
@@ -332,7 +334,7 @@ function ItensDaEtapa({
                   </td>
                   <td>{i.unidade}</td>
                   <td className="num">
-                    {editavel ? (
+                    {qtdEditavel ? (
                       <CelulaEditavel
                         rotulo={`Quantidade de ${i.descricao}`}
                         inicial={qtdParaCampo(i.quantidade)}
@@ -351,7 +353,7 @@ function ItensDaEtapa({
                     )}
                   </td>
                   <td className="num">
-                    {editavel ? (
+                    {precoEditavel(i) ? (
                       <CelulaEditavel
                         rotulo={`Preço de ${i.descricao}`}
                         inicial={i.valor_unitario ? reaisParaCampo(i.valor_unitario) : ""}

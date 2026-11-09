@@ -91,6 +91,31 @@ describe("Compras", () => {
     });
   });
 
+  it("a etapa da linha vem do item e pode ser trocada no pedido", async () => {
+    const rede = montar({ "POST /srv/api/obras/o1/pedidos": () => json({ ...PEDIDO, numero: "PED-0003", registro_id: "r1" }, 201) });
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("checkbox", { name: /Aço/ }));
+    await u.click(screen.getByRole("button", { name: "Fazer pedido do item" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Pedido de 1 item" });
+    const etapa = within(dialogo).getByRole("combobox", { name: "Etapa de Aço" });
+    expect(etapa).toHaveValue("2");
+    await u.selectOptions(etapa, "1");
+    await u.type(within(dialogo).getByLabelText("Fornecedor"), "Ferragem Inventada");
+    await u.click(within(dialogo).getByRole("button", { name: /Registrar pedido de/ }));
+    await screen.findByText(/PED-0003: pedido feito/);
+    expect(rede.chamadas.find((c) => c.metodo === "POST" && c.caminho.endsWith("/pedidos"))!.corpo).toMatchObject({ linhas: [{ insumo_id: "a", etapa: "1" }] });
+  });
+
+  it("serviço não chega: o aviso fala em medição", async () => {
+    const SERVICO = { ...PEDIDO, linhas: PEDIDO.linhas.map((l) => ({ ...l, tipo: "servico" as const })) };
+    montar({
+      "GET /srv/api/obras/o1/pedidos": ({ url }) => json(url.searchParams.getAll("status").includes("aprovado") ? [SERVICO] : []),
+      "POST /srv/api/pedidos/p1/recebimentos": () => json({ recebimento: {}, pedido: { ...SERVICO, status: "conferido" }, registro_id: "r9" }, 201),
+    });
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Chegou: PED-0001" }));
+    expect(await screen.findByText("Medição do PED-0001 registrada.")).toBeInTheDocument();
+  });
+
   it("item sem preço no orçamento: não inventa zero, pede o preço", async () => {
     montar({}, USUARIO, [item("a", "Aço", "2", 100_000, 0)]);
     const u = userEvent.setup();

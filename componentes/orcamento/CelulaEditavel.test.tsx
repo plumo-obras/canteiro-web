@@ -12,6 +12,7 @@ const ORC = {
   itens: [
     { id: "e", versao_id: "v1", tipo: "etapa", numero: "1", nivel: 1, etapa: "1", descricao: "Estrutura", unidade: "", quantidade: 0, valor_unitario: 0, total: 0, codigo: "", fonte: "", curva: null },
     { id: "i1", versao_id: "v1", tipo: "item", numero: "1.1", nivel: 2, etapa: "1", descricao: "Aço CA-50", unidade: "kg", quantidade: 220_300, valor_unitario: 0, total: 0, codigo: "", fonte: "", curva: "C" },
+    { id: "i2", versao_id: "v1", tipo: "item", numero: "1.2", nivel: 2, etapa: "1", descricao: "Concreto", unidade: "m³", quantidade: 3_000, valor_unitario: 50_000, total: 150_000, codigo: "", fonte: "", curva: "A" },
   ],
   etapas: [{ etapa: "1", descricao: "Estrutura", contratado: 0, aditivos: 0, atual: 0, cotando: 0, comprometido: 0, realizado: 0, saldo: 0, estourou: false }],
   totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, cotando: 0, comprometido: 0, realizado: 0, aditivos_pct: 0, n_itens: 1, n_etapas: 1, sem_etapa: {} },
@@ -72,10 +73,19 @@ describe("editar o item na linha", () => {
     expect(screen.getByRole("textbox", { name: "Preço de Aço CA-50" })).toHaveValue("6,69");
   });
 
-  it("depois de aprovado, e para quem só lê, é só leitura", async () => {
+  it("antes de aprovar, tudo se edita", async () => {
+    montar();
+    await screen.findByText("Aço CA-50");
+    expect(screen.getByRole("button", { name: "Editar Preço de Concreto" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Editar Quantidade de Concreto" })).toBeInTheDocument();
+  });
+
+  it("aprovado: só o item sem preço recebe o preço; quantidade e preço já dado ficam travados", async () => {
     montar({}, { ...OBRA, status: "em_andamento" });
     await screen.findByText("Aço CA-50");
-    expect(screen.queryByRole("button", { name: /Editar Preço/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Editar Preço de Aço CA-50" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar Preço de Concreto" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Editar Quantidade/ })).toBeNull();
   });
 
   it("viewer não edita", async () => {

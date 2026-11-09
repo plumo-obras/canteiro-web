@@ -331,6 +331,8 @@ function editarItemDemo(e: EstadoDemo, u: Usuario, o: Obra, itemId: string, c: R
   const it = v?.etapas.flatMap((et) => et.itens)[Number(itemId.slice(corte + 1)) - 1];
   if (!v || !it) return erro(404, "Item não encontrado nesta obra.");
   if (c.quantidade === 0 || (typeof c.valor_unitario === "number" && c.valor_unitario < 0)) return erro(422, "Quantidade ou preço inválido.");
+  // Mesma regra da API: aprovado, só o item a R$ 0,00 recebe preço; quantidade, nunca.
+  if (o.status !== "em_orcamento" && (typeof c.quantidade === "number" || it.valor_unitario > 0)) return erro(409, "O orçamento já foi aprovado: só o item sem preço pode receber o preço.");
   if (typeof c.quantidade === "number") it.quantidade = c.quantidade;
   if (typeof c.valor_unitario === "number") it.valor_unitario = c.valor_unitario;
   v.versao.total = v.etapas.flatMap((et) => et.itens).reduce((s, x) => s + Math.round((x.quantidade * x.valor_unitario) / 1000), 0);

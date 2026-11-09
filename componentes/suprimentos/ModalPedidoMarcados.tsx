@@ -132,7 +132,8 @@ export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsum
                 <input className="f" inputMode="decimal" autoComplete="off" aria-label={`Quantidade de ${nome}`} value={l.qtd} onChange={(e) => mudar(i, { qtd: e.target.value })} />
                 <input className="f" inputMode="decimal" autoComplete="off" placeholder="0,00" aria-label={`Preço de ${nome}`} value={l.unit} onChange={(e) => mudar(i, { unit: e.target.value })} />
                 <span className={`num ${s.total}`}>{t ? fmtReais(t) : "—"}</span>
-                {etapas.length && !l.item.insumo.etapa ? (
+                {/* O mesmo item em duas etapas vira um só, na de maior valor: aqui a pessoa pode pô-lo na etapa da compra. */}
+                {etapas.length > 1 || (etapas.length && !l.item.insumo.etapa) ? (
                   <select className={`f ${s.etapaPed}`} aria-label={`Etapa de ${nome}`} value={l.etapa} onChange={(e) => mudar(i, { etapa: e.target.value })}>
                     <option value="">Escolha a etapa…</option>
                     {etapas.map((e) => (
