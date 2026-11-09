@@ -21,6 +21,7 @@ import type {
   CorpoPedido,
   Cronograma,
   Desembolso,
+  ResumoDaObra,
   CorpoCronograma,
   CorpoMedicao,
   RespostaMedicao,
@@ -152,6 +153,7 @@ const seg = encodeURIComponent;
 export const api = {
   listarObras: () => chamar<Obra[]>("GET", "/obras"),
   resumoObras: () => chamar<ResumoObra[]>("GET", "/obras/resumo"),
+  resumoObra: (obraId: string) => chamar<ResumoDaObra>("GET", `/obras/${seg(obraId)}/resumo`),
   conta: () => chamar<MinhaConta>("GET", "/conta"),
   chaveAnthropic: () => chamar<ChavePropria>("GET", "/conta/chave-anthropic"),
   /** Só master. A resposta não importa para a tela: ela relê `GET /conta`, que é a fonte da verdade. */

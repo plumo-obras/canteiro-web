@@ -1177,6 +1177,36 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           totais: { orcado: orc.totais.atual, realizado, pago: 0, falta: 0, custo_final: realizado, desvio: 0, entregue_sem_pagamento: 0, sem_mes: 0 },
         });
       }
+      if (metodo === "GET" && b === "resumo" && !id2) {
+        const obra = obraPorId(e, id);
+        const orc = orcamentoDemo(e, obra);
+        const t = orc.totais;
+        // Mesma regra da API (servicos/resumo.py): só o contrato vigente faz a obra "ter orçamento".
+        const tem = orc.versoes.some((v) => v.ativa && v.tipo === "contrato");
+        const pendentes = e.propostas.filter((p) => p.obra_id === obra.id && p.status === "pendente");
+        return ok({
+          obra,
+          hoje: new Date().toISOString().slice(0, 10),
+          // a demonstração não tem cronograma: o mesmo "sem cronograma" que a API devolve
+          cronograma: { cadastrado: false, mes_corrente: new Date().toISOString().slice(0, 7), termino_contratual: null, termino_projetado: null, atraso_decimos: null },
+          financeiro: {
+            tem_orcamento: tem,
+            contratado: t.contratado,
+            aditivos: t.aditivos,
+            aditivos_pct: t.aditivos_pct,
+            orcado_atual: t.atual,
+            cotando: t.cotando,
+            comprometido: t.comprometido,
+            realizado: t.realizado,
+            saldo: t.saldo,
+            etapas_estouradas: [],
+            gastos: { total: 0, nas_etapas: 0, fora_do_orcamento: 0, na_lista_padrao: 0, sem_etapa_do_orcamento: 0 },
+          },
+          entregas: { hoje: [], atrasadas: [], proximos_7_dias: [], sem_previsao: [], nf_para_conferir: [] },
+          almoxarifado: { insumos: 0, falta_comprar: [], sem_previsao: [], consumo_projetado: false },
+          pendencias: { propostas: pendentes.length, titulos: pendentes.slice(0, 5).map((p) => p.titulo) },
+        });
+      }
       if (metodo === "GET" && b === "orcamento" && !id2) return ok(orcamentoDemo(e, obraPorId(e, id)));
       if (metodo === "POST" && b === "orcamento") {
         exigirAdmin(u);
