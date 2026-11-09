@@ -5,7 +5,7 @@
  * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
  * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
  */
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Obra, Usuario } from "@/lib/contrato";
@@ -86,12 +86,6 @@ const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
 }
-/** Onde a obra abre: sem orçamento, no Projeto; com, no Mestre de obras. Null (API fora) deixa a tela como está. */
-const telaAoAbrir = (obraId: string): Promise<AbaAtiva | null> =>
-  api
-    .resumoObra(obraId)
-    .then((r): AbaAtiva => (r.financeiro.tem_orcamento ? "conversa" : "projeto"))
-    .catch(() => null);
 function lerPainel() {
   try {
     return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
@@ -135,7 +129,14 @@ function App({ usuario }: { usuario: Usuario }) {
   const [sessoes, despachar] = useReducer(redutorSessoes, []);
   const [atual, setAtual] = useState<string | null>(null);
   const [tela, setTela] = useState<AbaAtiva>("conversa");
-  useEffect(() => registrarNavegacao(setTela), [registrarNavegacao]);
+  // Obra recém-aberta sem ?tela=: o destino sai do resumo, que pode demorar (cold start). A obra e a sessão abrem na hora
+  // e o destino só vale se ninguém navegou enquanto ele vinha; por isso toda navegação da pessoa passa por irPara.
+  const [destinoPendente, setDestinoPendente] = useState<string | null>(null);
+  const irPara = useCallback((t: AbaAtiva) => {
+    setDestinoPendente(null);
+    setTela(t);
+  }, []);
+  useEffect(() => registrarNavegacao(irPara), [registrarNavegacao, irPara]);
   const [dadosObra, setDadosObra] = useState(false);
   const movel = useMovel();
   const barraCelular = useCelular();
@@ -156,7 +157,7 @@ function App({ usuario }: { usuario: Usuario }) {
     if (iniciou.current) return;
     iniciou.current = true;
     // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto.
-    // Sem ?tela=, quem decide é a obra (telaAoAbrir). A obra, a conversa e a tela ficam na URL (o efeito abaixo as
+    // Sem ?tela=, quem decide é a obra (destinoPendente). A obra, a conversa e a tela ficam na URL (o efeito abaixo as
     // reescreve), para o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar na obra errada.
     const qs = new URLSearchParams(window.location.search);
     let ultima: string | null = null;
@@ -172,16 +173,12 @@ function App({ usuario }: { usuario: Usuario }) {
     if (querTela && telaNoModo(querTela, demo)) setTela(querTela);
     api
       .listarObras()
-      .then(async (os) => {
+      .then((os) => {
         setObras(os);
         // sem obra pedida, abre uma em andamento (a lista vem por nome, e a 1ª pode ser uma obra parada)
         const o = os.find((x) => x.id === querObra) ?? os.find((x) => x.status === "em_andamento") ?? os[0];
         if (!o) return;
-        // Antes de abrir a sessão: enquanto ela não existe a casca mostra "carregando", e assim a conversa não pisca.
-        if (!querTela) {
-          const destino = await telaAoAbrir(o.id);
-          if (destino) setTela(destino);
-        }
+        if (!querTela) setDestinoPendente(o.id);
         const abrirNovaEm = (obraId: string) => {
           const s = novaSessao(obraId);
           despachar({ tipo: "nova", sessao: s });
@@ -252,7 +249,7 @@ function App({ usuario }: { usuario: Usuario }) {
       return;
     }
     if (tela !== "conversa") {
-      setTela("conversa");
+      irPara("conversa");
       if (painelDesk) return;
     }
     const novo = !painelDesk;
@@ -282,6 +279,13 @@ function App({ usuario }: { usuario: Usuario }) {
   // Obra sem orçamento abre no Projeto: quem estava na conversa precisa da tela na URL para voltar nela ao recarregar.
   const semOrcamento = resumo?.financeiro.tem_orcamento === false;
   useEffect(() => {
+    if (!destinoPendente) return;
+    if (resumo?.obra.id === destinoPendente) {
+      setDestinoPendente(null);
+      setTela(resumo.financeiro.tem_orcamento ? "conversa" : "projeto");
+    } else if (erroResumo) setDestinoPendente(null); // sem resposta, a tela fica como está
+  }, [destinoPendente, resumo, erroResumo]);
+  useEffect(() => {
     if (!obraAberta) return;
     const qs = new URLSearchParams({ obra: obraAberta });
     if (sessaoNaUrl) qs.set("sessao", sessaoNaUrl);
@@ -300,7 +304,7 @@ function App({ usuario }: { usuario: Usuario }) {
 
   const escolherSessao = (id: string) => {
     setAtual(id);
-    setTela("conversa");
+    irPara("conversa");
     if (movel) fecharGaveta(false);
   };
   const abrirNova = (obraId: string) => {
@@ -309,13 +313,8 @@ function App({ usuario }: { usuario: Usuario }) {
     escolherSessao(s.id);
   };
   /** Trocar de obra é abrir a obra: a tela segue a regra de abertura e a conversa vai para a mais recente dela (ou uma nova). */
-  const trocaEmCurso = useRef(0);
-  const trocarObra = async (obraId: string) => {
-    const pedido = ++trocaEmCurso.current;
-    const destino = await telaAoAbrir(obraId);
-    // Dois cliques seguidos: vale a última obra escolhida, não a resposta que chegou por último.
-    if (pedido !== trocaEmCurso.current) return;
-    if (destino) setTela(destino);
+  const trocarObra = (obraId: string) => {
+    setDestinoPendente(obraId);
     const recente = sessoes.find((s) => s.obraId === obraId);
     if (recente) setAtual(recente.id);
     else {
@@ -369,7 +368,7 @@ function App({ usuario }: { usuario: Usuario }) {
         obras={obras ?? []}
         obra={obra}
         tela={tela}
-        setTela={setTela}
+        setTela={irPara}
         pendentes={obra ? pendentes(obra.id) : 0}
         trocarObra={trocarObra}
         usuario={usuario}
@@ -478,7 +477,7 @@ function App({ usuario }: { usuario: Usuario }) {
         {conteudo ??
           (sessao && obra ? (
             <>
-              <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} tela={tela} falhou={!!erroResumo} />
+              <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} />
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
               <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o mestre de obras" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">
@@ -518,7 +517,7 @@ function App({ usuario }: { usuario: Usuario }) {
             </>
           ) : null)}
       </main>
-      {obra && !conteudo && barraCelular ? <BarraInferior tela={tela} setTela={setTela} abrirDados={() => setDadosObra(true)} inerte={movel && gaveta} demo={demo} /> : null}
+      {obra && !conteudo && barraCelular ? <BarraInferior tela={tela} setTela={irPara} abrirDados={() => setDadosObra(true)} inerte={movel && gaveta} demo={demo} /> : null}
       {obra && dadosObra ? <ModalDadosObra obra={obra} fechar={() => setDadosObra(false)} leitura={!podeOperar} /> : null}
     </div>
   );

@@ -12,7 +12,7 @@ const valores = (...a: Parameters<typeof celulasPlacar>) => celulasPlacar(...a).
 
 describe("o placar da obra", () => {
   it("com orçamento mostra o que a API mandou, sem conta na tela", () => {
-    expect(valores({ verba: 52000000 }, r(), "conversa", false)).toEqual([
+    expect(valores({ verba: 52000000 }, r(), false)).toEqual([
       ["R$ 520.000,00", "fechado com o cliente"],
       ["R$ 21.337,30", "4,8% do orçado"],
       ["R$ 419.107,70", "de R$ 440.445,00 orçados"],
@@ -22,30 +22,29 @@ describe("o placar da obra", () => {
 
   it("sem orçamento e sem cronograma: — com o texto do protótipo", () => {
     const sem = r({ tem_orcamento: false, realizado: 0, orcado_atual: 0, falta_gastar: 0, realizado_pct: null }, { cadastrado: false, termino_contratual: null });
-    expect(valores({ verba: 0 }, sem, "projeto", false)).toEqual([
+    expect(valores({ verba: 0 }, sem, false)).toEqual([
       ["—", "não informado"],
       ["R$ 0,00", "nenhum gasto lançado"],
-      ["—", "aparece com a estimativa"],
+      ["—", "aparece com o orçamento"],
       ["—", "aparece com o cronograma"],
     ]);
-    expect(valores({ verba: 0 }, sem, "orcamento", false)[2]).toEqual(["—", "aparece com o orçamento"]);
   });
 
   it("API antiga, sem os campos novos: — no Falta e sem o %", () => {
-    const c = valores({ verba: 1 }, r({ falta_gastar: undefined, realizado_pct: undefined }), "conversa", false);
+    const c = valores({ verba: 1 }, r({ falta_gastar: undefined, realizado_pct: undefined }), false);
     expect(c[1]).toEqual(["R$ 21.337,30", ""]);
     expect(c[2]).toEqual(["—", ""]);
   });
 
   it("medição define o prazo; só ela diz se está no prazo", () => {
-    expect(valores({ verba: 1 }, r({}, { atraso_decimos: 0 }), "conversa", false)[3]).toEqual(["No prazo", "entrega 03/2027"]);
-    expect(valores({ verba: 1 }, r({}, { atraso_decimos: 14, termino_projetado: "2027-05" }), "conversa", false)[3]).toEqual(["Atrasada 1,4 mês", "previsão entrega 05/2027"]);
-    expect(valores({ verba: 1 }, r({}, { atraso_decimos: 30 }), "conversa", false)[3]![0]).toBe("Atrasada 3 meses");
+    expect(valores({ verba: 1 }, r({}, { atraso_decimos: 0 }), false)[3]).toEqual(["No prazo", "entrega 03/2027"]);
+    expect(valores({ verba: 1 }, r({}, { atraso_decimos: 14, termino_projetado: "2027-05" }), false)[3]).toEqual(["Atrasada 1,4 mês", "previsão entrega 05/2027"]);
+    expect(valores({ verba: 1 }, r({}, { atraso_decimos: 30 }), false)[3]![0]).toBe("Atrasada 3 meses");
   });
 
   it("sem resposta da API não inventa R$ 0,00", () => {
-    expect(celulasPlacar({ verba: 1 }, null, "conversa", true).slice(1).map((c) => c.valor)).toEqual(["—", "—", "—"]);
-    expect(celulasPlacar({ verba: 1 }, null, "conversa", true)[1]!.sub).toBe("não carregou");
+    expect(celulasPlacar({ verba: 1 }, null, true).slice(1).map((c) => c.valor)).toEqual(["—", "—", "—"]);
+    expect(celulasPlacar({ verba: 1 }, null, true)[1]!.sub).toBe("não carregou");
   });
 });
 
@@ -53,7 +52,7 @@ describe("o placar no celular", () => {
   const obra = (id: string) => ({ id, verba: 52000000 }) as Obra;
   const celular = () =>
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("760"), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-  const montar = (id = "o-1") => render(<Placar key={id} obra={obra(id)} resumo={r()} tela="conversa" falhou={false} />);
+  const montar = (id = "o-1") => render(<Placar key={id} obra={obra(id)} resumo={r()} falhou={false} />);
   const linha = () => screen.getByRole("button", { expanded: false });
   afterEach(() => {
     localStorage.clear();
@@ -106,7 +105,7 @@ describe("o placar no celular", () => {
 
   it("sem resposta da API, a linha não inventa valor", () => {
     celular();
-    render(<Placar obra={obra("o-1")} resumo={null} tela="conversa" falhou />);
+    render(<Placar obra={obra("o-1")} resumo={null} falhou />);
     expect(linha().textContent).toBe("Gasto — · Falta —");
   });
 

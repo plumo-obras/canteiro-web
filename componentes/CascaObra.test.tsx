@@ -131,6 +131,69 @@ describe("a obra abre onde faz sentido", () => {
     erro.mockRestore();
   });
 
+  describe("com a API lenta", () => {
+    const adiado = (id: string, tem: boolean) => {
+      let soltar = () => {};
+      const resposta = new Promise<Response>((ok) => {
+        soltar = () => ok(resumo(id, tem)());
+      });
+      return { rota: () => resposta, soltar: () => soltar() };
+    };
+
+    it("a obra troca na hora, antes de o resumo chegar", async () => {
+      const lento = adiado("o-casa", false);
+      rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": lento.rota });
+      window.history.replaceState(null, "", "/?obra=o-emei");
+      render(<Casca demo={false} />);
+      await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+      fireEvent.click(document.querySelector(".seletor-bt")!);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
+      await waitFor(() => expect(document.querySelector(".seletor-nome")?.textContent).toBe("Casa Vila Nova"));
+      expect(telaAtiva()).toBe("Mestre de obras");
+      lento.soltar();
+      await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
+    });
+
+    it("a resposta atrasada não tira a pessoa da aba que ela clicou", async () => {
+      const lento = adiado("o-emei", false);
+      const r = rede({ "GET /srv/api/obras/o-emei/resumo": lento.rota });
+      window.history.replaceState(null, "", "/?obra=o-emei");
+      render(<Casca demo={false} />);
+      await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Compras" }));
+      await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+      lento.soltar();
+      await waitFor(() => expect(document.querySelector(".placar-v")).toBeTruthy());
+      await waitFor(() => expect(r.chamadas.some((c) => c.caminho.endsWith("/resumo"))).toBe(true));
+      await new Promise((f) => setTimeout(f, 0));
+      expect(telaAtiva()).toBe("Compras");
+    });
+
+    it("clicar na mesma aba em que já está também conta como escolha", async () => {
+      const lento = adiado("o-emei", false);
+      rede({ "GET /srv/api/obras/o-emei/resumo": lento.rota });
+      window.history.replaceState(null, "", "/?obra=o-emei");
+      render(<Casca demo={false} />);
+      await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+      fireEvent.click(document.querySelector(".topo-mestre")!);
+      lento.soltar();
+      await waitFor(() => expect(window.location.search).toContain("tela=conversa"));
+      expect(telaAtiva()).toBe("Mestre de obras");
+    });
+  });
+
+  it("o resumo sai uma vez só ao abrir e ao trocar de obra", async () => {
+    const r = rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
+    window.history.replaceState(null, "", "/?obra=o-emei");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+    expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-emei/resumo")).toHaveLength(1);
+    fireEvent.click(document.querySelector(".seletor-bt")!);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
+    await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
+    expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o-casa/resumo")).toHaveLength(1);
+  });
+
   it("trocar de obra segue a mesma regra", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
     window.history.replaceState(null, "", "/?obra=o-emei");
