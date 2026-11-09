@@ -106,7 +106,7 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
         Esperando você {pendentes.length ? <small>· {pendentes.length}</small> : null}
       </h2>
       {aMostra.length ? (
-        <div className="ld-lista">
+        <div className="ld-lista ld-estreita">
           {aMostra.map((id) => (
             <CartaoProposta key={id} id={id} foco={id === primeira} />
           ))}

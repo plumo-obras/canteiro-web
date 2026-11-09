@@ -1,7 +1,9 @@
-/* A casa da obra: o resumo à esquerda; o que espera a pessoa e a semana à direita. No celular, tudo em coluna. */
-.casa{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:var(--s4);align-items:start;width:100%}
-.coluna{display:grid;gap:var(--s4);min-width:0}
-.nota{grid-column:1/-1;margin:0}
+/* A casa da obra: o resumo à esquerda; o que espera a pessoa e a semana à direita. Flex que quebra, e não @media: com o
+   painel de conversas aberto sobra menos largura do que a tela sugere. */
+.casa{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:flex-start;width:100%}
+.coluna{display:grid;gap:var(--s4);min-width:0;flex:1 1 320px}
+.coluna:first-child{flex:1.5 1 420px}
+.nota{flex-basis:100%;margin:0}
 
 .hoje{padding:22px 24px;display:grid;gap:14px}
 .cabeca{display:grid;grid-template-columns:36px minmax(0,1fr);gap:14px;align-items:start}
@@ -31,7 +33,6 @@
 .quando{font:var(--t-meta) var(--mono)}
 
 @media (max-width:899px){
-  .casa{grid-template-columns:minmax(0,1fr)}
   .hoje{padding:18px 16px}
   .titulo{font-size:var(--t-bloco)}
   .ponto{grid-template-columns:10px minmax(0,1fr)}
