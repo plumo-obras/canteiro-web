@@ -30,12 +30,13 @@ export function EnviarComprovante({ obra, fechar, revisar }: { obra: Obra; fecha
   const escolhido = useRef<File | null>(null);
   const aberto = useRef(true);
 
-  useEffect(
-    () => () => {
+  // Volta a true ao montar: o StrictMode do dev desmonta e remonta o efeito, e o ref ficava falso para sempre.
+  useEffect(() => {
+    aberto.current = true;
+    return () => {
       aberto.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   useEffect(() => {
     if (!arquivo || !arquivo.type.startsWith("image/")) {
       setPrevia(null);

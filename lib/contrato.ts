@@ -705,6 +705,35 @@ export interface Medicao {
   registro_id?: string | null;
 }
 
+/** `GET /obras/{id}/resumo`: só os blocos que a web lê (o resto do contrato — entregas, almoxarifado — é do agente). */
+export interface ResumoDaObra {
+  obra: Obra;
+  financeiro: {
+    tem_orcamento: boolean;
+    orcado_atual: Centavos;
+    comprometido: Centavos;
+    realizado: Centavos;
+    saldo: Centavos;
+    /** Orçado atual − realizado, nunca negativo. Opcional: a API de antes não manda. */
+    falta_gastar?: Centavos;
+    /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
+    realizado_pct?: number | null;
+    etapas_estouradas?: unknown[];
+  };
+  cronograma: {
+    cadastrado: boolean;
+    /** AAAA-MM */
+    termino_contratual: string | null;
+    /** AAAA-MM; null sem medição. */
+    termino_projetado: string | null;
+    /** Décimos de mês (1,4 mês = 14); null sem medição. */
+    atraso_decimos: number | null;
+    etapas_atrasadas?: unknown[];
+  };
+  entregas?: { atrasadas?: unknown[] };
+  pendencias?: { propostas: number };
+}
+
 /** `GET /obras/{id}/cronograma`. Sem cronograma: `inicio` null e `meses` 0. */
 export interface Cronograma {
   inicio: string | null;

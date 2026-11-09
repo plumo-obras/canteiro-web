@@ -61,8 +61,8 @@ export interface SessaoApi {
 
 const RESUMO: Record<string, string> = {
   listar_obras: "consultou as obras",
-  consultar_estoque: "usou almoxarifado",
-  historico_movimentos: "usou movimentos do almoxarifado",
+  consultar_estoque: "consultou o estoque",
+  historico_movimentos: "consultou os movimentos do estoque",
   listar_pedidos: "usou pedidos",
   resumo_obra: "consultou o resumo da obra",
   consultar_orcamento: "consultou o orçamento",

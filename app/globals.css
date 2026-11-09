@@ -254,6 +254,9 @@ p{text-wrap:pretty}
 .vazio h3{font-size:var(--t-sec);margin:8px 0 8px}
 .vazio p{margin:0;line-height:1.6;color:var(--ink2)}
 .carregando{color:var(--muted);font-size:var(--t-meta);display:flex;align-items:center;gap:8px;padding:16px 0}
+.aviso-atencao{display:flex;gap:9px;align-items:flex-start;border-radius:14px;padding:10px 14px;font-size:var(--t-meta);line-height:1.5;margin-bottom:var(--s4);background:var(--amberSoft);color:var(--amberInk)}
+.aviso-atencao p{margin:0}
+.aviso-atencao .btn{margin-top:8px}
 .aviso-erro{display:flex;gap:9px;align-items:flex-start;border-radius:14px;padding:10px 14px;font-size:var(--t-meta);line-height:1.5;margin-bottom:var(--s4);background:var(--redSoft);color:var(--redInk)}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:var(--t-meta);color:var(--muted);font-weight:500;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--sunk)}

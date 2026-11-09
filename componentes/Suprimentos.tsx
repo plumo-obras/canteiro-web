@@ -12,6 +12,7 @@ import { fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
 import { Icone } from "./Icone";
+import { ProximoPasso } from "./ProximoPasso";
 import { useCarregar } from "./useCarregar";
 import { ModalMovimento } from "./formularios/ModalMovimento";
 import { ModalNovoPedido } from "./formularios/ModalNovoPedido";
@@ -117,6 +118,17 @@ export function Suprimentos({ obra, secaoInicial = "itens" }: { obra: Obra; seca
             <ListaFornecedores fornecedores={fornecedores} editar={podeOperar ? (f) => setModal({ k: "fornecedor", f }) : null} />
           )}
         </div>
+      ) : null}
+
+      {itens.length ? (
+        <ProximoPasso
+          obraId={obra.id}
+          para="cronograma"
+          acao="Ver o cronograma"
+          secundario
+          titulo="Quando cada compra precisa chegar?"
+          texto="O cronograma distribui as etapas do orçamento pelos meses da obra."
+        />
       ) : null}
 
       {lancando?.tipo === "pedido" ? (

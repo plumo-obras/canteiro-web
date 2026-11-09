@@ -21,6 +21,7 @@ import type {
   CorpoPedido,
   Cronograma,
   Desembolso,
+  ResumoDaObra,
   CorpoCronograma,
   CorpoMedicao,
   RespostaMedicao,
@@ -152,6 +153,7 @@ const seg = encodeURIComponent;
 export const api = {
   listarObras: () => chamar<Obra[]>("GET", "/obras"),
   resumoObras: () => chamar<ResumoObra[]>("GET", "/obras/resumo"),
+  resumoObra: (obraId: string) => chamar<ResumoDaObra>("GET", `/obras/${seg(obraId)}/resumo`),
   conta: () => chamar<MinhaConta>("GET", "/conta"),
   chaveAnthropic: () => chamar<ChavePropria>("GET", "/conta/chave-anthropic"),
   /** Só master. A resposta não importa para a tela: ela relê `GET /conta`, que é a fonte da verdade. */
@@ -306,7 +308,7 @@ export async function* conversar(corpo: CorpoConversa, sinal?: AbortSignal): Asy
     // 500 sem corpo do Next = o repasse não alcançou o agente: é o mesmo caso do serviço desligado.
     if (r.status >= 500) {
       const e = await erroDe(r);
-      yield { tipo: "erro", mensagem: e.message === "Algo deu errado. Tente de novo." ? "O agente ainda não está ligado nesta instalação." : e.message };
+      yield { tipo: "erro", mensagem: e.message === "Algo deu errado. Tente de novo." ? "O mestre de obras ainda não está ligado nesta instalação." : e.message };
       return;
     }
     yield { tipo: "erro", mensagem: (await erroDe(r)).message };

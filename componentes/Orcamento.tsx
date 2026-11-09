@@ -22,9 +22,16 @@ import { baixarCsv } from "@/lib/csv";
 import { MenuMais } from "./MenuMais";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
 import { Ajuda } from "./Ajuda";
+import { ProximoPasso } from "./ProximoPasso";
+import { situacao } from "./suprimentos/Itens";
 
 
-export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Contrato" : `${v.numero}º aditivo`);
+export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Orçamento inicial" : `${v.numero}º aditivo`);
+/** Só veio das pranchas: toda versão vigente é a Estrutura lançada pelo Projeto (a API dá esse nome ao arquivo). */
+export const soDasPranchas = (versoes: Pick<VersaoOrcamento, "ativa" | "arquivo">[]) => {
+  const vigentes = versoes.filter((v) => v.ativa);
+  return vigentes.length > 0 && vigentes.every((v) => v.arquivo.endsWith("(projeto).csv"));
+};
 export const fmtData = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
@@ -44,6 +51,11 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const temContrato = !!dado?.versoes.some((v) => v.tipo === "contrato" && v.ativa);
   const emOrcamento = obra.status === "em_orcamento";
   const podeAprovar = emOrcamento && (temContrato || materiais.length > 0);
+  const nFalta = (ins.dado ?? []).filter((i) => situacao(i.conta) === "falta").length;
+  const primeiraEtapa = dado?.etapas.find((e) => e.descricao)?.descricao;
+  const nSemPreco = temContrato
+    ? (dado?.itens ?? []).filter((i) => i.tipo === "item" && !i.valor_unitario).length
+    : materiais.filter((i) => !i.insumo.valor_unitario).length;
 
   const aprovar = async () => {
     const r = await api.aprovarOrcamento(obra.id);
@@ -66,7 +78,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Orçamento"
-        selo={<span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{emOrcamento ? "em orçamento" : "aprovado"}</span>}
+        selo={dado ? <span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{!emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
         acao={
           podeOperar && podeAprovar ? (
             <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
@@ -119,6 +131,31 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         <>
+          {soDasPranchas(dado.versoes) ? (
+            <div className="aviso-atencao" role="note">
+              <Icone nome="alert" tam={15} />
+              <div>
+                <p>
+                  <b>Este orçamento tem só o que as pranchas trazem: estrutura e fundações.</b> Cobertura, piso, instalações e mão de obra ainda não estão nele.
+                  {podeOperar ? " Para completar, importe a planilha da obra (também fica no ⋯)." : ""}
+                </p>
+                {podeOperar ? (
+                  <button type="button" className="btn sm" onClick={() => setModal("importar")}>
+                    Importar planilha
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {nSemPreco ? (
+            <div className="aviso-atencao" role="note">
+              <Icone nome="alert" tam={15} />
+              <p>
+                <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}.</b> {nSemPreco === 1 ? "Ele entra" : "Eles entram"} com R$ 0,00, e o orçado atual fica abaixo do custo real.
+                {podeOperar ? " Para preencher, importe a planilha com os preços pelo ⋯." : ""}
+              </p>
+            </div>
+          ) : null}
           {emOrcamento ? (
             <p className="mut sm">
               Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
@@ -138,9 +175,20 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </>
       ) : null}
 
+      {/* Antes de aprovar, o próximo passo é o Aprovar do cabeçalho: comprar só existe depois dele. */}
+      {dado && !emOrcamento && nFalta ? (
+        <ProximoPasso
+          obraId={obra.id}
+          para="suprimentos"
+          acao="Comprar o que vem primeiro"
+          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
+          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
+        />
+      ) : null}
+
       {modal === "importar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} /> : null}
       {modal === "aprovar" ? (
-        <Confirmar titulo="Aprovar o orçamento?" confirmar="Aprovar orçamento" fechar={() => setModal(null)} aoConfirmar={aprovar}>
+        <Confirmar titulo="Aprovar o orçamento?" confirmar={nSemPreco ? "Aprovar mesmo assim" : "Aprovar orçamento"} fechar={() => setModal(null)} aoConfirmar={aprovar}>
           <div className="prev-resumo">
             <div>
               <span className="prev-n">{fmtReais(temContrato ? (t?.atual ?? 0) : totalMateriais)}</span>
@@ -151,6 +199,14 @@ export function Orcamento({ obra }: { obra: Obra }) {
               <span>{temContrato ? ((t?.n_itens ?? 0) === 1 ? "item" : "itens") : materiais.length === 1 ? "insumo" : "insumos"}</span>
             </div>
           </div>
+          {nSemPreco ? (
+            <div className="aviso-atencao" role="note">
+              <Icone nome="alert" tam={15} />
+              <p>
+                <b>{plural(nSemPreco, "item está sem preço", "itens estão sem preço")}.</b> {nSemPreco === 1 ? "Ele entra" : "Eles entram"} com R$ 0,00 na referência de custo da obra.
+              </p>
+            </div>
+          ) : null}
           <p className="mut" style={{ margin: "4px 0 0" }}>
             {obra.nome} sai de em orçamento e passa para em andamento. Dá para desfazer pelo Histórico enquanto nada mudar depois.
           </p>
@@ -212,7 +268,7 @@ function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Paramet
       valor: fmtReais(t.atual),
       tag: pilula ? (
         <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${verba?.tom === "acima" ? " t-acima" : ""}`}>
-          Contrato {fmtReais(t.contratado)}
+          Orçamento inicial {fmtReais(t.contratado)}
           {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
           {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}
         </Ajuda>
@@ -321,8 +377,8 @@ function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]
     if (v.tipo === "aditivo") return `O ${nomeVersao(v)} sai de vigência e o orçado atual volta para ${fmtReais(atual - v.total)}.`;
     const anterior = versoes.find((o) => o.id === v.substitui);
     return anterior
-      ? `O contrato sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${anterior.arquivo ? ` (${anterior.arquivo})` : ""}.`
-      : "O contrato sai de vigência e a obra fica sem orçamento: os pedidos e saídas perdem a lista de etapas até importar de novo.";
+      ? `O orçamento inicial sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${anterior.arquivo ? ` (${anterior.arquivo})` : ""}.`
+      : "O orçamento inicial sai de vigência e a obra fica sem orçamento: os pedidos e saídas perdem a lista de etapas até importar de novo.";
   };
 
   const desfazer = async (v: VersaoOrcamento) => {

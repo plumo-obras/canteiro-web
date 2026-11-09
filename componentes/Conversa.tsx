@@ -4,13 +4,14 @@
  * vira o chip "usou almoxarifado…", `texto` cresce o balão, `proposta` vira o cartão de decisão (que só a pessoa aprova).
  */
 import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from "react";
-import type { Obra } from "@/lib/contrato";
+import type { Obra, ResumoDaObra } from "@/lib/contrato";
 import { conversar } from "@/lib/cliente";
 import { CartaoProposta } from "./CartaoProposta";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
 import { MensagemMarkdown } from "./MensagemMarkdown";
 import { novaPergunta, type AcaoSessoes, type MsgAgente, type Sessao } from "./sessoes";
+import { sugestoesDaObra } from "./sugestoes";
 
 /**
  * O fluxo em andamento de cada sessão, fora do componente: a Conversa remonta (key={sessao.id}) quando a pessoa troca
@@ -18,8 +19,6 @@ import { novaPergunta, type AcaoSessoes, type MsgAgente, type Sessao } from "./s
  * rodando. Pela chave da sessão, quem volta para ela ainda acha como pará-la.
  */
 const fluxos = new Map<string, AbortController>();
-
-const SUGESTOES = ["Quanto falta de cimento?", "Precisa comprar bloco?", "O aço chega a tempo?"];
 
 function BalaoAgente({ m }: { m: MsgAgente }) {
   const esperando = !m.terminou && !m.texto && !m.erro;
@@ -74,7 +73,7 @@ function BalaoAgente({ m }: { m: MsgAgente }) {
   );
 }
 
-export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Obra | undefined; despachar: Dispatch<AcaoSessoes> }) {
+export function Conversa({ sessao, obra, resumo = null, despachar }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; despachar: Dispatch<AcaoSessoes> }) {
   const { receberPropostas } = useCasca();
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -99,7 +98,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
     despachar({ tipo: "perguntou", sessaoId: sessao.id, eu, agente });
     setTexto("");
     setEnviando(true);
-    setAnuncio("O agente está respondendo.");
+    setAnuncio("O mestre de obras está respondendo.");
     colado.current = true;
     const ctl = new AbortController();
     fluxos.set(sessao.id, ctl);
@@ -109,7 +108,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
         despachar({ tipo: "evento", sessaoId: sessao.id, msgId: agente.id, evento: e });
       }
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id });
-      setAnuncio("Resposta do agente pronta.");
+      setAnuncio("Resposta do mestre de obras pronta.");
     } catch (x) {
       const abortou = ctl.signal.aborted;
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id, erro: abortou ? "Você parou a resposta." : mensagemDe(x) });
@@ -172,7 +171,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
             {/* a obra já está no topo: o título não a repete */}
             <h2>O que você quer saber?</h2>
             <div className="chips">
-              {SUGESTOES.map((s) => (
+              {(obra ? sugestoesDaObra(obra, resumo) : []).map((s) => (
                 <button key={s} type="button" className="chip" onClick={() => void perguntar(s)}>
                   {s}
                 </button>
@@ -204,7 +203,7 @@ export function Conversa({ sessao, obra, despachar }: { sessao: Sessao; obra: Ob
           }}
         >
           <label htmlFor={`campo-${sessao.id}`} className="sr-only">
-            Pergunte ao agente
+            Pergunte ao mestre de obras
           </label>
           <textarea
             id={`campo-${sessao.id}`}

@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -232,6 +233,15 @@ describe("enviar comprovante", () => {
     expect(screen.getByRole("button", { name: "Enviar e ler" })).toBeDisabled();
   });
 
+  it("não mostra um total de gastos próprio: o gasto da obra é o do placar", async () => {
+    rede({ "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 12000, a_revisar: 0, etapas: [] }) });
+    render(comCasca(<Gastos obra={OBRA} />));
+    // o outro número do resumo na tela prova que ele já carregou
+    expect(await screen.findByText("Pagamentos de pedidos")).toBeInTheDocument();
+    expect(screen.queryByText("Gasto na obra")).toBeNull();
+    expect(screen.queryByText("R$ 350,00")).toBeNull();
+  });
+
   it("a legenda digitada vai no envio", async () => {
     vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 800, height: 600, close: () => {} })));
     let form: FormData | null = null;
@@ -252,6 +262,53 @@ describe("enviar comprovante", () => {
     expect(form).not.toBeNull();
     expect(form!.get("legenda")).toBe("mão de obra do quadro");
     expect(form!.get("arquivo")).toBeInstanceOf(Blob);
+  });
+
+  describe("montado em StrictMode, como no dev", () => {
+    const foto = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "pix.jpg", { type: "image/jpeg" });
+    const emStrict = (revisar: (id: string) => void) =>
+      render(<StrictMode>{comCasca(<EnviarComprovante obra={OBRA} fechar={() => {}} revisar={revisar} />)}</StrictMode>);
+    beforeEach(() => vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 800, height: 600, close: () => {} }))));
+
+    it("a conferência do arquivo termina e o envio acende", async () => {
+      rede();
+      emStrict(() => {});
+      await escolher(foto());
+      await waitFor(() => expect(screen.queryByText("Conferindo o arquivo…")).toBeNull());
+      expect(screen.getByRole("button", { name: "Enviar e ler" })).toBeEnabled();
+    });
+
+    it("terminada a leitura, a revisão abre", async () => {
+      rede({ "POST /srv/api/obras/o1/comprovantes": () => json(COMPROVANTE, 201), "POST /srv/agente/leitura": () => json({ ok: true }) });
+      const revisar = vi.fn();
+      emStrict(revisar);
+      await escolher(foto());
+      const enviar = screen.getByRole("button", { name: "Enviar e ler" });
+      await waitFor(() => expect(enviar).toBeEnabled());
+      await userEvent.click(enviar);
+      await waitFor(() => expect(revisar).toHaveBeenCalledWith("c1"));
+    });
+
+    it("quem fechou durante a leitura não é levado à revisão", async () => {
+      let soltar = () => {};
+      const leitura = new Promise<Response>((ok) => {
+        soltar = () => ok(json({ ok: true }));
+      });
+      rede({ "POST /srv/api/obras/o1/comprovantes": () => json(COMPROVANTE, 201), "POST /srv/agente/leitura": () => leitura });
+      const revisar = vi.fn();
+      const tela = emStrict(revisar);
+      await escolher(foto());
+      const enviar = screen.getByRole("button", { name: "Enviar e ler" });
+      await waitFor(() => expect(enviar).toBeEnabled());
+      await userEvent.click(enviar);
+      await screen.findByRole("button", { name: "Revisar depois" });
+      tela.unmount();
+      soltar();
+      await act(async () => {
+        await new Promise((f) => setTimeout(f, 0));
+      });
+      expect(revisar).not.toHaveBeenCalled();
+    });
   });
 });
 

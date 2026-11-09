@@ -27,6 +27,19 @@ describe("demonstração: dados de exemplo do contrato (Casa Vila Nova)", () => 
   });
 });
 
+describe("demonstração: resumo da obra (o placar e a abertura)", () => {
+  it("responde como a API, sem cronograma", () => {
+    const r = chamar("GET", `obras/${obraId()}/resumo`);
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ obra: { id: obraId() }, cronograma: { cadastrado: false }, financeiro: { tem_orcamento: expect.any(Boolean), falta_gastar: expect.any(Number) } });
+  });
+
+  it("obra sem versão de contrato não tem orçamento", () => {
+    const sem = e.obras.find((o) => !e.versoes.some((v) => v.versao.obra_id === o.id))!;
+    expect((chamar("GET", `obras/${sem.id}/resumo`).corpo as { financeiro: { tem_orcamento: boolean } }).financeiro.tem_orcamento).toBe(false);
+  });
+});
+
 describe("demonstração: aprovar executa e o desfazer volta", () => {
   it("criar_pedido: aprovar cria o pedido já aprovado (a caminho sobe, falta zera); desfazer cancela", () => {
     const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[]).find((p) => p.tipo === "criar_pedido")!;
@@ -131,7 +144,7 @@ describe("demonstração: histórico da conversa", () => {
     const { mensagens, propostaIds } = formatarHistorico(msgs);
     expect(mensagens.map((m) => m.papel)).toEqual(["eu", "agente"]);
     expect(mensagens[0]).toMatchObject({ texto: "quanto falta de bloco?" });
-    expect(mensagens[1]).toMatchObject({ propostas: [prop.id], ferramentas: [{ resumo: "usou almoxarifado" }, { nivel: "propoe" }] });
+    expect(mensagens[1]).toMatchObject({ propostas: [prop.id], ferramentas: [{ resumo: "consultou o estoque" }, { nivel: "propoe" }] });
     expect(propostaIds).toEqual([prop.id]);
     expect((chamar("GET", "sessoes/s-demo/mensagens?depois_de=3").corpo as MensagemSessao[]).map((m) => m.seq)).toEqual([4]);
   });

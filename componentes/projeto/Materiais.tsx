@@ -1,20 +1,22 @@
 "use client";
 /**
- * Aba Materiais do Projeto 3D: o que o projeto estrutural pede para sair do papel (aço por bitola, concreto, forma,
- * enchimento), cada material com o insumo do SINAPI que é o mesmo produto e o preço de referência na UF da obra.
- * Entender os materiais já os leva ao Orçamento (viram a versão «Estrutura»); comprar é só depois de aprovar o
- * orçamento. Esta tela só lista — não lança nada por botão.
+ * Os materiais que saem das pranchas: o que o projeto estrutural pede para sair do papel (aço por bitola, concreto,
+ * forma, enchimento), cada um com o insumo do SINAPI que é o mesmo produto e o preço de referência na UF da obra.
+ * Nada vai para o orçamento sozinho: o cartão mostra quantos saíram, e só o clique confirmado grava. Numa obra que já
+ * tem orçamento inicial, a gravação vira aditivo, e isso não pode acontecer sem a pessoa ver.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/cliente";
-import type { MaterialDoProjeto, Obra } from "@/lib/contrato";
+import type { MaterialDoProjeto, Obra, Orcamento, PreviaVersao } from "@/lib/contrato";
 import { fmtReais } from "@/lib/formato";
+import { uuid7 } from "@/lib/ids";
 import { tradutor, type MateriaisProjeto, type MaterialProjeto } from "@/lib/tradutor";
-import { useCasca } from "../contexto";
+import { mensagemDe, useCasca } from "../contexto";
+import { Confirmar, Drawer } from "../Dialogo";
 import { Icone } from "../Icone";
+import { Faixa, LinkTela, ProximoPasso } from "../ProximoPasso";
+import { useCarregar } from "../useCarregar";
 import s from "./projeto.module.css";
-
-const ORIGEM = "projeto estrutural";
 
 /** O nome do insumo na obra: legível em Compras, estável entre envios (reenviar atualiza, não duplica) e com o código. */
 export function nomeNaObra(m: MaterialProjeto): string {
@@ -33,78 +35,62 @@ export function paraAObra(itens: MaterialProjeto[]): MaterialDoProjeto[] {
     }));
 }
 
-/** Assinatura estável do conjunto de materiais: reabrir a aba com o mesmo projeto não relança a Estrutura. */
-function assinatura(itens: MaterialDoProjeto[]): string {
-  const txt = itens.map((m) => `${m.nome}|${m.unidade}|${m.quantidade}|${m.valor_unitario}`).join(";");
-  let h = 5381;
-  for (let i = 0; i < txt.length; i++) h = ((h << 5) + h + txt.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
+const ETAPA = "Estrutura";
+const assinatura = (itens: Pick<MaterialDoProjeto, "nome" | "quantidade" | "valor_unitario">[]) =>
+  itens
+    .map((m) => `${m.nome}|${m.quantidade}|${m.valor_unitario}`)
+    .sort()
+    .join(";");
+
+/**
+ * Estes materiais já estão no orçamento? "igual" esconde o botão: lançar de novo somaria um aditivo com os mesmos
+ * materiais. "anterior" é uma Estrutura de outras pranchas, que continua valendo se a pessoa lançar esta.
+ */
+export function situacaoNoOrcamento(materiais: MaterialDoProjeto[], orc: Orcamento | null): "fora" | "igual" | "anterior" {
+  const estruturas = (orc?.versoes ?? []).filter((v) => v.ativa && v.descricao === ETAPA);
+  if (!estruturas.length) return "fora";
+  const estes = assinatura(materiais);
+  const lancada = estruturas.some(
+    (v) =>
+      assinatura(
+        orc!.itens.filter((i) => i.versao_id === v.id && i.tipo === "item").map((i) => ({ nome: i.descricao, quantidade: i.quantidade, valor_unitario: i.valor_unitario })),
+      ) === estes,
+  );
+  return lancada ? "igual" : "anterior";
 }
 
 const unidade = (u: string) => ({ m3: "m³", m2: "m²" })[u] ?? u;
 
-export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
-  const { podeOperar, mudou, avisarFeito } = useCasca();
+const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
+
+/** Os materiais das folhas já lidas. Fica na tela do Projeto porque a aba Materiais e o cartão mostram a mesma leitura. */
+export function useMateriais(ids: string[], uf: string) {
   const [dados, setDados] = useState<MateriaisProjeto | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const aplicado = useRef<string>("");
   const chaveIds = ids.join(",");
 
   useEffect(() => {
     if (!chaveIds) return;
     let vivo = true;
+    // A leitura anterior não vale para as folhas novas: com ela na tela, o botão levaria materiais velhos ao orçamento.
+    setDados(null);
     setErro(null);
     tradutor
-      .materiais(chaveIds.split(","), obra.uf || "SP")
+      .materiais(chaveIds.split(","), uf)
       .then((d) => vivo && setDados(d))
       .catch((e) => vivo && setErro((e as Error).message));
     return () => {
       vivo = false;
     };
-  }, [chaveIds, obra.uf]);
+  }, [chaveIds, uf]);
 
-  // O projeto inteiro (o que tem quantidade) é a versão "Estrutura" do orçamento.
-  const todos = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
+  return { dados: chaveIds ? dados : null, erro: chaveIds ? erro : null, semFolhas: !chaveIds };
+}
 
-  // Entender os materiais já os leva ao Orçamento: assim que a lista com preço fica pronta, ela vira a versão
-  // "Estrutura" (uma vez por conteúdo — reabrir a aba não duplica). Comprar é só depois de aprovar o orçamento.
-  useEffect(() => {
-    if (!podeOperar || !todos.length) return;
-    const chave = `estrutura:${obra.id}:${assinatura(todos)}`;
-    if (aplicado.current === chave) return;
-    const marca = `canteiro:estrutura:${obra.id}`;
-    try {
-      if (localStorage.getItem(marca) === chave) {
-        aplicado.current = chave;
-        return;
-      }
-    } catch {
-      /* sem localStorage: aplica assim mesmo (a chave torna idempotente no servidor) */
-    }
-    aplicado.current = chave;
-    let vivo = true;
-    api
-      .estruturaDoProjeto(obra.id, todos, true, chave)
-      .then((r) => {
-        if (!vivo) return;
-        try {
-          localStorage.setItem(marca, chave);
-        } catch {
-          /* ignore */
-        }
-        if (r.aplicado) {
-          mudou();
-          avisarFeito("Materiais do projeto no Orçamento (etapa «Estrutura»). Aprove o orçamento para comprar.", r.registro_id ?? undefined);
-        }
-      })
-      .catch(() => {
-        aplicado.current = ""; // falhou: deixa tentar de novo numa próxima abertura
-      });
-    return () => {
-      vivo = false;
-    };
-  }, [obra.id, todos, podeOperar, mudou, avisarFeito]);
+const SEM_FOLHA_DE_DETALHE = "Os materiais aparecem quando houver folha de detalhamento (quadro de aço, concreto e forma) no pacote.";
 
+/** A aba Materiais do painel: só lista. */
+export function Materiais({ dados, erro, semFolhas }: { dados: MateriaisProjeto | null; erro: string | null; semFolhas: boolean }) {
   if (erro) {
     return (
       <div className="aviso-erro" role="alert">
@@ -113,6 +99,7 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
       </div>
     );
   }
+  if (semFolhas) return <p className={s.explica}>{SEM_FOLHA_DE_DETALHE}</p>;
   if (!dados) {
     return (
       <div className="carregando" role="status">
@@ -121,10 +108,11 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
       </div>
     );
   }
-  if (!dados.itens.length) {
-    return <p className={s.explica}>Os materiais aparecem quando houver folha de detalhamento (quadro de aço, concreto e forma) no pacote.</p>;
-  }
+  if (!dados.itens.length) return <p className={s.explica}>{SEM_FOLHA_DE_DETALHE}</p>;
+  return <ListaMateriais dados={dados} />;
+}
 
+function ListaMateriais({ dados }: { dados: MateriaisProjeto }) {
   const ref = dados.referencia;
   return (
     <>
@@ -140,11 +128,6 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
         </span>
         {dados.total_referencia_centavos ? <b className={s.matTotal}>{fmtReais(dados.total_referencia_centavos)}</b> : null}
       </div>
-      {podeOperar ? (
-        <p className={s.explica}>
-          Estes materiais já estão no <b>Orçamento</b> como a etapa «Estrutura». Para comprar, aprove o orçamento.
-        </p>
-      ) : null}
       <ul className={s.materiais} aria-label="Materiais do projeto">
         {dados.itens.map((m) => (
           <li key={m.chave}>
@@ -171,6 +154,143 @@ export function Materiais({ obra, ids }: { obra: Obra; ids: string[] }) {
           {a}
         </p>
       ))}
+    </>
+  );
+}
+
+/**
+ * O próximo passo do Projeto, um por vez e no topo da tela: primeiro levar os materiais; levados, ver o orçamento.
+ * Pranchas que mudaram depois de levar não empurram outro aditivo: levar de novo fica como opção, sem destaque.
+ */
+export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: MateriaisProjeto | null; erro?: string | null }) {
+  const { podeOperar, versao, mudou, avisar, avisarFeito } = useCasca();
+  const todos = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
+  const tem = todos.length > 0;
+  const orc = useCarregar(() => (tem ? api.orcamento(obra.id) : Promise.resolve(null)), [obra.id, versao, tem]);
+  const situacao = situacaoNoOrcamento(todos, orc.dado);
+  const levado = !!orc.dado && situacao === "igual";
+  // O botão clicado some ao levar: o foco e o olhar vão para o que entrou no lugar, em vez de ficar só o aviso.
+  const irAoOrcamento = useRef<HTMLAnchorElement>(null);
+  const acabouDeLevar = useRef(false);
+  useEffect(() => {
+    if (!levado || !acabouDeLevar.current) return;
+    acabouDeLevar.current = false;
+    irAoOrcamento.current?.focus({ preventScroll: true });
+  }, [levado]);
+  const [vendo, setVendo] = useState(false);
+  const [preparando, setPreparando] = useState(false);
+  const [previa, setPrevia] = useState<PreviaVersao | null>(null);
+  // Vale até dar certo: se a API gravou e a resposta se perdeu, repetir com a mesma chave não duplica o aditivo. Depois
+  // de gravar ela é trocada, porque depois de um Desfazer a mesma chave devolveria a versão desfeita sem gravar nada.
+  // Materiais diferentes pedem outra: a API recusa a chave já usada para outro conteúdo.
+  const chave = useRef<{ conteudo: string; valor: string } | null>(null);
+
+  if (erro || (dados && !tem)) {
+    return <ProximoPasso obraId={obra.id} para="orcamento" acao="Ver o orçamento" titulo="As pranchas estão lidas." texto="Confira no orçamento o que já entrou e o que falta lançar." />;
+  }
+  if (!dados || (!orc.dado && !orc.erro)) return null;
+  const semQuantidade = dados.itens.length - todos.length;
+  const semPreco = todos.filter((m) => !m.valor_unitario).length;
+
+  // A prévia vem antes do diálogo: é a API que diz se entra como orçamento inicial ou aditivo, e por quanto.
+  async function preparar() {
+    setPreparando(true);
+    try {
+      const p = await api.estruturaDoProjeto(obra.id, todos, false);
+      if (p.erros.length) return avisar(p.erros[0]!.mensagem, true);
+      const conteudo = assinatura(todos);
+      if (chave.current?.conteudo !== conteudo) chave.current = { conteudo, valor: uuid7() };
+      setPrevia(p);
+    } catch (e) {
+      avisar(mensagemDe(e), true);
+    } finally {
+      setPreparando(false);
+    }
+  }
+
+  async function levar() {
+    let r: PreviaVersao;
+    try {
+      r = await api.estruturaDoProjeto(obra.id, todos, true, chave.current!.valor);
+    } catch (e) {
+      mudou(); // a resposta pode ter se perdido com a gravação feita: relê o orçamento para o cartão mostrar o que valeu
+      throw e;
+    }
+    if (!r.aplicado) throw new Error(r.erros[0]?.mensagem ?? "Os materiais não entraram no orçamento. Tente de novo.");
+    chave.current = null;
+    acabouDeLevar.current = true;
+    setPrevia(null);
+    mudou();
+    avisarFeito(`Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "orçamento inicial"}.`, r.registro_id);
+  }
+
+  const ver = (
+    <button type="button" className="btn" onClick={() => setVendo(true)}>
+      Ver
+    </button>
+  );
+  const destacarLevar = situacao === "fora" && podeOperar;
+  const verOrcamento = destacarLevar ? null : (
+    <LinkTela obraId={obra.id} para="orcamento" ref={irAoOrcamento}>
+      Ver o orçamento
+    </LinkTela>
+  );
+  return (
+    <>
+      <Faixa
+        rotulo="Próximo passo"
+        titulo={levado ? `${plural(todos.length, "material das pranchas já está", "materiais das pranchas já estão")} no orçamento.` : `${plural(todos.length, "material saiu das pranchas", "materiais saíram das pranchas")}.`}
+        texto={levado ? "Confira os preços e o que falta lançar." : situacao === "anterior" ? "O orçamento ainda tem a Estrutura de pranchas anteriores." : "Só entram no orçamento se você levar."}
+      >
+        {ver}
+        {podeOperar && !levado ? (
+          <button type="button" className={destacarLevar ? "btn amb" : "btn"} disabled={preparando} aria-busy={preparando} onClick={preparar}>
+            {preparando ? <Icone nome="loader" className="spin" tam={14} /> : null}
+            Levar para o orçamento…
+          </button>
+        ) : null}
+        {verOrcamento}
+      </Faixa>
+      {vendo ? (
+        <Drawer titulo="Materiais das pranchas" fechar={() => setVendo(false)}>
+          <ListaMateriais dados={dados} />
+        </Drawer>
+      ) : null}
+      {previa ? (
+        <Confirmar
+          titulo="Levar os materiais para o orçamento?"
+          confirmar={previa.tipo === "aditivo" ? `Lançar aditivo de ${fmtReais(previa.total)}` : "Levar para o orçamento"}
+          fechar={() => setPrevia(null)}
+          aoConfirmar={levar}
+        >
+          <div className="prev-resumo">
+            <div>
+              <span className="prev-n">{fmtReais(previa.total)}</span>
+              <span>{previa.tipo === "aditivo" ? "de aditivo" : "no orçamento inicial"}</span>
+            </div>
+            <div>
+              <span className="prev-n">{previa.n_itens.toLocaleString("pt-BR")}</span>
+              <span>{previa.n_itens === 1 ? "item" : "itens"}</span>
+            </div>
+          </div>
+          <p style={{ margin: "4px 0 0" }}>
+            {previa.tipo === "aditivo"
+              ? `Esta obra já tem orçamento inicial: os materiais entram como aditivo, na etapa ${ETAPA}, e somam ao orçado atual.`
+              : `Os materiais viram a etapa ${ETAPA} do orçamento inicial desta obra.`}
+            {situacao === "anterior" ? ` A ${ETAPA} de pranchas anteriores continua valendo: para trocar, desfaça a anterior antes.` : ""}
+          </p>
+          {semQuantidade || semPreco ? (
+            <p className="mut sm" style={{ margin: "8px 0 0" }}>
+              {[
+                semQuantidade ? `${plural(semQuantidade, "material sem quantidade fica", "materiais sem quantidade ficam")} de fora.` : "",
+                semPreco ? `${plural(semPreco, "material sem preço de referência entra", "materiais sem preço de referência entram")} com R$ 0,00.` : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </p>
+          ) : null}
+        </Confirmar>
+      ) : null}
     </>
   );
 }

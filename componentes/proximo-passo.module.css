@@ -1,0 +1,12 @@
+/* Faixa do fim da tela: frase à esquerda, ação à direita. No celular o botão desce e ocupa a largura. */
+.faixa{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding:16px 22px;margin-top:var(--s4)}
+.frase{margin:0;flex:1 1 280px;min-width:0;font-size:var(--t-sec);line-height:1.45}
+.acoes{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.acoes a{text-decoration:none}
+
+@media (max-width:760px){
+  .faixa{padding:16px}
+  /* a ação principal é a última no HTML (à direita no desktop): aqui ela sobe, senão fica atrás da barra inferior */
+  .acoes{flex-direction:column-reverse}
+  .acoes,.acoes :global(.btn){width:100%}
+}

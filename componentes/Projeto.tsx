@@ -14,7 +14,7 @@ import { useCasca } from "./contexto";
 import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
-import { Materiais } from "./projeto/Materiais";
+import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
 import s from "./projeto/projeto.module.css";
 
@@ -193,6 +193,10 @@ export function Projeto({ obra }: { obra: Obra }) {
     },
   };
 
+  const cobertas = projeto?.pacote.filter((p) => p.situacao === "coberto").length ?? 0;
+  // com folha ainda sendo lida, os materiais e a conta do pacote vão mudar: nada de sugerir o passo seguinte
+  const pranchasLidas = cobertas > 0 && !enviando.length && !projeto?.em_andamento.some((a) => a.status !== "falhou");
+
   const acao = (
     <>
       <input
@@ -209,7 +213,7 @@ export function Projeto({ obra }: { obra: Obra }) {
         }}
       />
       {podeOperar ? (
-      <button type="button" className="btn amb" disabled={enviando.length > 0} aria-busy={enviando.length > 0} onClick={escolherArquivos}>
+      <button type="button" className={pranchasLidas ? "btn" : "btn amb"} disabled={enviando.length > 0} aria-busy={enviando.length > 0} onClick={escolherArquivos}>
         <Icone nome={enviando.length ? "loader" : "arrowUp"} tam={15} className={enviando.length ? "spin" : undefined} />
         Enviar pranchas
       </button>
@@ -237,8 +241,10 @@ export function Projeto({ obra }: { obra: Obra }) {
     avisar(`Projeto apagado: ${n} prancha${n === 1 ? "" : "s"} removida${n === 1 ? "" : "s"}.`);
   }
 
+  const idsLidos = (projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id));
+  const materiais = useMateriais(idsLidos, obra.uf || "SP");
+
   const q = projeto?.quantitativos;
-  const cobertas = projeto?.pacote.filter((p) => p.situacao === "coberto").length ?? 0;
   const o = projeto?.obra;
   const sub = o?.cliente ? [o.cliente, o.responsavel && `cálculo: ${o.responsavel}`].filter(Boolean).join(" · ") : undefined;
 
@@ -425,6 +431,9 @@ export function Projeto({ obra }: { obra: Obra }) {
         </div>
       ) : null}
 
+      {/* No topo: abaixo da mesa (uma tela inteira de altura) a pessoa não via o próximo passo. */}
+      {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
+
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
         <section className={s.visor} aria-label="Estrutura">
           {projeto?.modelo3d ? (
@@ -500,7 +509,7 @@ export function Projeto({ obra }: { obra: Obra }) {
             {aba === "pacote" ? (
               painelPacote
             ) : aba === "materiais" ? (
-              <Materiais obra={obra} ids={(projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id))} />
+              <Materiais {...materiais} />
             ) : aba === "conferencias" ? (
               painelConferencias
             ) : (

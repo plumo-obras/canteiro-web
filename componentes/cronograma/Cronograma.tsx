@@ -14,6 +14,7 @@ import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
 import { useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
+import { ProximoPasso } from "../ProximoPasso";
 import { useCarregar } from "../useCarregar";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
@@ -146,6 +147,13 @@ export function Cronograma({ obra }: { obra: Obra }) {
           <Desembolso obra={obra} />
           <h3 className="sectit">Medições</h3>
           <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
+          <ProximoPasso
+            obraId={obra.id}
+            para="conversa"
+            acao="Ir para o mestre de obras"
+            titulo="A obra está montada."
+            texto="Daqui pra frente o mestre de obras acompanha compras, prazos e gastos com você, e avisa o que precisa de decisão."
+          />
         </>
       )}
       {modal === "medicao" && dado ? <ModalMedicao obra={obra} crono={dado} fechar={() => setModal(null)} /> : null}
