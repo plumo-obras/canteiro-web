@@ -143,7 +143,7 @@ function App({ usuario }: { usuario: Usuario }) {
   const [gaveta, setGaveta] = useState(false);
   const painel = useRef<HTMLElement>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
-  // No desktop o painel acompanha o Agente: nas outras telas o espaço é delas (o trilho reabre e leva ao Agente).
+  // No desktop o painel acompanha o Mestre de obras: nas outras telas o espaço é delas (o trilho reabre e leva a ele).
   const painelAberto = movel ? gaveta : painelDesk && tela === "conversa";
   // Conversas mais antigas, por obra. A 1ª lista é global (as 30 mais recentes de todas as obras): tudo o que é mais
   // novo que a última dela já está aqui, então o cursor de TODAS as obras começa nessa data.
@@ -687,7 +687,7 @@ function Topo(p: {
   // longo): a escolhida não pode ficar fora da vista. Rola só a barra, nunca a página.
   useEffect(() => mostrarEscolhida(nav.current), [tela]);
   // No computador, sobrando pílula, o topo aperta (menos espaço entre elas, seletor mais estreito); se nem assim
-  // couber, a borda esmaecida do lado que tem mais mostra que a barra rola. Antes, a 1ª aba ("Agente") ficava cortada
+  // couber, a borda esmaecida do lado que tem mais mostra que a barra rola. Antes, a 1ª aba ficava cortada
   // à esquerda sem nenhum sinal de que havia algo ali.
   useEffect(() => {
     const n = nav.current;

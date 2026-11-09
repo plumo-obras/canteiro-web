@@ -214,6 +214,15 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 /* teclado aberto (o dvh encolhe) e editor do cronograma: a altura é de quem está digitando */
 @media (max-width:899px) and (max-height:560px){ .placar{display:none} }
 @media (max-width:760px){ html:has(.crono-editor) .placar{display:none} }
+/* celular: a conversa precisa da altura. Com número, só rótulo e valor; a legenda fica onde ela explica o "—" */
+@media (max-width:760px){
+  .placar dl>div{padding:6px 10px}
+  .placar dt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+  /* quebra só no espaço: com a fonte mínima do WebKit o valor desce de linha em vez de invadir a célula ao lado */
+  .placar-v{overflow-wrap:normal;font-size:min(16px,4.2vw)}
+  .placar-s{display:none}
+  .placar-v.t-mut + .placar-s{display:block;min-height:0}
+}
 @keyframes mvGaveta{from{transform:translateX(-100%)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){ .app>.painel{animation:none} }
 
