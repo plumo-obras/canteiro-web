@@ -22,6 +22,8 @@ import { baixarCsv } from "@/lib/csv";
 import { MenuMais } from "./MenuMais";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
 import { Ajuda } from "./Ajuda";
+import { ProximoPasso } from "./ProximoPasso";
+import { situacao } from "./suprimentos/Itens";
 
 
 export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Contrato" : `${v.numero}º aditivo`);
@@ -44,6 +46,8 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const temContrato = !!dado?.versoes.some((v) => v.tipo === "contrato" && v.ativa);
   const emOrcamento = obra.status === "em_orcamento";
   const podeAprovar = emOrcamento && (temContrato || materiais.length > 0);
+  const nFalta = (ins.dado ?? []).filter((i) => situacao(i.conta) === "falta").length;
+  const primeiraEtapa = dado?.etapas.find((e) => e.descricao)?.descricao;
 
   const aprovar = async () => {
     const r = await api.aprovarOrcamento(obra.id);
@@ -136,6 +140,17 @@ export function Orcamento({ obra }: { obra: Obra }) {
             </p>
           ) : null}
         </>
+      ) : null}
+
+      {/* Antes de aprovar, o próximo passo é o Aprovar do cabeçalho: comprar só existe depois dele. */}
+      {dado && !emOrcamento && nFalta ? (
+        <ProximoPasso
+          obraId={obra.id}
+          para="suprimentos"
+          acao="Comprar o que vem primeiro"
+          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
+          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
+        />
       ) : null}
 
       {modal === "importar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} /> : null}

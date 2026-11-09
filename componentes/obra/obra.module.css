@@ -1,0 +1,8 @@
+/* A UF é uma lista: precisa de largura para a sigla e a seta (a .campos-cidade, de 64 px, foi feita para texto). */
+.cidadeUf{display:grid;grid-template-columns:minmax(0,1fr) 104px;gap:0 12px}
+
+.rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:24px}
+.rodape p{margin:0;max-width:40ch}
+@media (max-width:760px){
+  .rodape .criar{width:100%}
+}

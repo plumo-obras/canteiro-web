@@ -232,6 +232,15 @@ describe("enviar comprovante", () => {
     expect(screen.getByRole("button", { name: "Enviar e ler" })).toBeDisabled();
   });
 
+  it("não mostra um total de gastos próprio: o gasto da obra é o do placar", async () => {
+    rede({ "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 12000, a_revisar: 0, etapas: [] }) });
+    render(comCasca(<Gastos obra={OBRA} />));
+    // o outro número do resumo na tela prova que ele já carregou
+    expect(await screen.findByText("Pagamentos de pedidos")).toBeInTheDocument();
+    expect(screen.queryByText("Gasto na obra")).toBeNull();
+    expect(screen.queryByText("R$ 350,00")).toBeNull();
+  });
+
   it("a legenda digitada vai no envio", async () => {
     vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 800, height: 600, close: () => {} })));
     let form: FormData | null = null;

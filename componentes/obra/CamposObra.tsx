@@ -1,13 +1,14 @@
 "use client";
 /**
- * Os dados da obra, em três blocos que o cadastro mostra um por passo e a edição mostra juntos: onde (nome e
- * endereço), o que é (tipologia, área, padrão) e o contrato (regime, valor, nº, BDI, data-base, prazo). Só o nome é obrigatório: quem
- * ainda não sabe a área não pode travar no cadastro, e o que faltar se completa depois.
+ * Os dados da obra. A Nova obra pede só o básico (`CamposNovaObra`); Dados da obra mostra os três blocos completos:
+ * onde (nome e endereço), o que é (tipologia, área, padrão) e o contrato (regime, valor, nº, BDI, data-base, prazo).
+ * Só o nome é obrigatório: quem ainda não sabe a área não pode travar no cadastro, e o que faltar se completa depois.
  */
 import { useEffect, useRef, useState } from "react";
 import type { DadosObra, Obra, Padrao, Regime, Tipologia } from "@/lib/contrato";
 import { lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { Campo } from "../formularios/Campos";
+import s from "./obra.module.css";
 
 export const TIPOLOGIAS: { k: Tipologia; rotulo: string }[] = [
   { k: "casa", rotulo: "Casa térrea" },
@@ -167,6 +168,17 @@ export async function buscarCep(cep: string): Promise<{ cidade: string; uf: stri
   }
 }
 
+/** Os tipos da Nova obra: sobrado e comercial, mais específicos, ficam para Dados da obra. */
+export const TIPOS_NOVA_OBRA: { k: Tipologia; rotulo: string }[] = [
+  { k: "casa", rotulo: "Casa" },
+  { k: "predio", rotulo: "Prédio" },
+  { k: "galpao", rotulo: "Galpão" },
+  { k: "reforma", rotulo: "Reforma" },
+  { k: "outro", rotulo: "Outro" },
+];
+
+export const UFS = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"];
+
 type Props = { f: FormObra; mudar: (p: Partial<FormObra>) => void; erros: ErrosObra; nomeRef?: React.Ref<HTMLInputElement> };
 
 export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
@@ -245,6 +257,60 @@ export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
       <Campo rotulo="Endereço (opcional)" dica={dicaCep} alerta={!!dicaCep}>
         {(a) => <input {...a} className="f" autoComplete="street-address" value={f.endereco} onChange={(e) => mudar({ endereco: e.target.value })} />}
       </Campo>
+    </>
+  );
+}
+
+/** O básico para começar a obra numa tela só. Lista de UF em vez de texto: é ela que escolhe a tabela de preços. */
+export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
+  return (
+    <>
+      <Campo rotulo="Nome da obra" erro={erros.nome}>
+        {(a) => (
+          <input
+            {...a}
+            ref={nomeRef}
+            className="f"
+            autoComplete="off"
+            placeholder="Ex.: Casa Jardim Europa"
+            value={f.nome}
+            onChange={(e) => mudar({ nome: e.target.value })}
+          />
+        )}
+      </Campo>
+      <div className={s.cidadeUf}>
+        <Campo rotulo="Cidade" erro={erros.cidade}>
+          {(a) => <input {...a} className="f" autoComplete="address-level2" value={f.cidade} onChange={(e) => mudar({ cidade: e.target.value })} />}
+        </Campo>
+        <Campo rotulo="UF" erro={erros.uf}>
+          {(a) => (
+            <select {...a} className="f" autoComplete="address-level1" value={f.uf} onChange={(e) => mudar({ uf: e.target.value })}>
+              <option value="">—</option>
+              {UFS.map((uf) => (
+                <option key={uf} value={uf}>
+                  {uf}
+                </option>
+              ))}
+            </select>
+          )}
+        </Campo>
+      </div>
+      <div className="campo">
+        <span className="l">O que vai ser construído</span>
+        <Escolha rotulo="O que vai ser construído" grade opcoes={TIPOS_NOVA_OBRA} valor={f.tipologia} mudar={(k) => mudar({ tipologia: k })} />
+      </div>
+      <div className="campos2">
+        <Campo rotulo="Área construída (m²)" erro={erros.area}>
+          {(a) => (
+            <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 142,5" value={f.area} onChange={(e) => mudar({ area: e.target.value })} />
+          )}
+        </Campo>
+        <Campo rotulo="Valor fechado com o cliente (opcional)" erro={erros.verba} dica="Se já fechou. O orçamento é comparado com ele.">
+          {(a) => (
+            <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 850.000" value={f.verba} onChange={(e) => mudar({ verba: e.target.value })} />
+          )}
+        </Campo>
+      </div>
     </>
   );
 }

@@ -95,6 +95,28 @@ describe("Projeto 3D", () => {
     expect(screen.getByRole("button", { name: "Esconder o pacote" })).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("próximo passo só com pranchas lidas: nem no vazio, nem com folha sendo lida", async () => {
+    const passo = { name: "Próximo passo" };
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    const { unmount } = montar();
+    expect(screen.queryByRole("region", passo)).toBeNull();
+    unmount();
+
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/tradutor/projetos": () => json({ ...PROJETO, em_andamento: [{ id: "f2", status: "processando" }] }),
+    });
+    const lendo = montar();
+    await screen.findByText("vista 3d");
+    expect(screen.queryByRole("region", passo)).toBeNull();
+    lendo.unmount();
+
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    montar();
+    expect(within(await screen.findByRole("region", passo)).getByRole("link", { name: "Ver quanto a obra deve custar" })).toHaveAttribute("href", "/?obra=o-1&tela=orcamento");
+  });
+
   it("apagar o projeto pede confirmação, apaga cada leitura no tradutor e esvazia o pacote", async () => {
     localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS));
     const rede = criarRede({
