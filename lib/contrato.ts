@@ -336,6 +336,8 @@ export interface CorpoInsumo {
   tipo?: TipoInsumo;
   curva?: CurvaABC;
   precisa_ate_o_fim?: Milesimos;
+  /** Preço de referência (centavos); vem da tabela oficial quando o item é cadastrado a partir dela. */
+  valor_unitario?: Centavos;
 }
 
 /** `POST /obras/{id}/movimentos`. Ajuste leva o sinal na quantidade (+ achou, − sumiu); os outros tipos, > 0. */

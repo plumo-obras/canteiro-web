@@ -11,16 +11,27 @@ import { useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { UNIDADES } from "../formularios/CampoInsumo";
+import { BuscaProduto, type EscolhaProduto } from "./BuscaProduto";
+import { fmtReais } from "@/lib/formato";
 
-export function ModalNovoItem({ obraId, fechar }: { obraId: string; fechar: () => void }) {
+export function ModalNovoItem({ obraId, uf = "SP", fechar }: { obraId: string; uf?: string; fechar: () => void }) {
   const { avisarFeito, mudou } = useCasca();
   const [tipo, setTipo] = useState<TipoInsumo>("material");
   const [nome, setNome] = useState("");
   const [unidade, setUnidade] = useState("");
   const [curva, setCurva] = useState<CurvaABC>("C");
   const [prevista, setPrevista] = useState("");
+  const [refPreco, setRefPreco] = useState<{ valor: number | null; fonte: string } | null>(null);
   const q = prevista.trim() ? lerQtd(prevista) : 0;
   const primeiro = useRef<HTMLButtonElement>(null);
+
+  function aoEscolher(e: EscolhaProduto) {
+    setNome(e.nome);
+    setUnidade(e.unidade);
+    setRefPreco({ valor: e.valorCentavos, fonte: e.fonte });
+  }
+  // a unidade da tabela (ex.: "vb") pode não estar na lista: entra como opção para o cadastro não travar
+  const unidades = [...new Set([...UNIDADES, ...(tipo === "servico" ? ["vb", "h", "dia", "mês"] : []), ...(unidade ? [unidade] : [])])];
 
   const { erros, erroApi, ocupado, enviar } = useEnvio(
     () => ({
@@ -29,7 +40,7 @@ export function ModalNovoItem({ obraId, fechar }: { obraId: string; fechar: () =
       prevista: q === null ? "Digite a quantidade, ex.: 850 ou 2,5." : null,
     }),
     async () => {
-      const i = await api.criarInsumo(obraId, { nome: nome.replace(/\s+/g, " ").trim(), unidade, tipo, curva, precisa_ate_o_fim: q ?? 0 });
+      const i = await api.criarInsumo(obraId, { nome: nome.replace(/\s+/g, " ").trim(), unidade, tipo, curva, precisa_ate_o_fim: q ?? 0, valor_unitario: refPreco?.valor ?? undefined });
       mudou();
       fechar();
       avisarFeito(`${tipo === "servico" ? "Serviço" : "Material"} ${i.nome} cadastrado.`, i.registro_id);
@@ -73,15 +84,21 @@ export function ModalNovoItem({ obraId, fechar }: { obraId: string; fechar: () =
             ? "Tem estoque: entra pelo pedido ou pela entrada, sai para a obra."
             : "Sem estoque (terraplanagem, aterro, empreiteiro): é contratado no pedido e medido na entrega."}
         </p>
+        <BuscaProduto uf={uf} aoEscolher={aoEscolher} />
         <Campo rotulo="Nome" erro={erros.nome}>
-          {(a) => <input {...a} className="f" autoComplete="off" value={nome} onChange={(e) => setNome(e.target.value)} />}
+          {(a) => <input {...a} className="f" autoComplete="off" value={nome} onChange={(e) => { setNome(e.target.value); setRefPreco(null); }} />}
         </Campo>
+        {refPreco ? (
+          <p className="seg-dica mut sm">
+            Preço de referência: <b>{refPreco.valor != null ? fmtReais(refPreco.valor) : "sem preço nesta UF"}</b> · {refPreco.fonte}
+          </p>
+        ) : null}
         <div className="campos2">
           <Campo rotulo="Unidade" erro={erros.unidade}>
             {(a) => (
               <select {...a} className="f" value={unidade} onChange={(e) => setUnidade(e.target.value)}>
                 <option value="">Escolha…</option>
-                {[...UNIDADES, ...(tipo === "servico" ? ["vb", "h", "dia", "mês"] : [])].map((u) => (
+                {unidades.map((u) => (
                   <option key={u}>{u}</option>
                 ))}
               </select>
