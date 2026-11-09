@@ -288,6 +288,8 @@ export interface PedidoDemo {
   rastreio: string | null;
   quantidade_recebida?: number | null;
   nf?: string | null;
+  /** Com que chave de idempotência foi criado. */
+  chave?: string;
   /** As linhas depois da primeira. `valor` é o do pedido inteiro. */
   outras?: LinhaExtraDemo[];
 }
@@ -1437,6 +1439,9 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       }
       if (metodo === "POST" && b === "pedidos" && !id2) {
         exigirAdmin(u);
+        const chavePedido = typeof c.chave_idempotencia === "string" ? c.chave_idempotencia : undefined;
+        const repetido = chavePedido ? e.pedidos.find((p) => p.obra_id === id && p.chave === chavePedido) : undefined;
+        if (repetido) return ok({ ...pedidoApi(e, repetido), registro_id: null });
         // Corpo novo: um pedido só, com todas as linhas, e um registro só para o Desfazer cancelar tudo.
         const linhas = c.linhas as { insumo_id: string; quantidade: number; valor_unitario: number }[] | undefined;
         const totalDe = (l: { quantidade: number; valor_unitario: number }) => Math.round((l.quantidade * l.valor_unitario) / 1000);
@@ -1445,6 +1450,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           : c;
         const outras = (linhas ?? []).slice(1).map((l) => ({ insumo_id: l.insumo_id, quantidade: l.quantidade, valor: totalDe(l) }));
         const r = criarPedido(e, id, d as unknown as DadosCriarPedido, c.aprovado === true, outras);
+        r.pedido.chave = chavePedido;
         const reg = registrar(e, u, { obra_id: id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
         return ok({ ...pedidoApi(e, r.pedido), registro_id: reg.id }, 201);
       }

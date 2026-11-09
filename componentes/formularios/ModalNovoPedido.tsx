@@ -8,6 +8,7 @@
 import { useId, useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, TipoInsumo } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { criarPedidoComChave, type ChavePedido } from "../suprimentos/chavePedido";
 import { fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
 import { useCasca } from "../contexto";
@@ -50,6 +51,7 @@ export function ModalNovoPedido(props: {
   etapas: EtapaObra[];
   fornecedores: Fornecedor[];
   insumoInicial?: string;
+  chave: ChavePedido;
   fechar: () => void;
 }) {
   const { obraId, itens, etapas, fornecedores } = props;
@@ -120,7 +122,7 @@ export function ModalNovoPedido(props: {
         }
         corpoLinhas.push({ insumo_id: id!, quantidade: lidas[i]!.q!, valor_unitario: lidas[i]!.v!, etapa: l.etapa || null });
       }
-      const p = await api.criarPedido(obraId, {
+      const p = await criarPedidoComChave(props.chave, mudou, obraId, {
         fornecedor: forn?.nome ?? fornecedor.trim(),
         fornecedor_id: forn?.id ?? null,
         previsao: previsao || null,

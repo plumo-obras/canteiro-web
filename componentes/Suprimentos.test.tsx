@@ -91,6 +91,35 @@ describe("Compras", () => {
     });
   });
 
+  it("resposta perdida: fechar, reabrir e reenviar repete a chave; 409 ou sucesso trocam", async () => {
+    let n = 0;
+    const respostas = [json({ detail: "O servidor não respondeu." }, 502), json({ detail: "Esta chave de idempotência já foi usada para outro pedido." }, 409)];
+    const rede = montar({ "POST /srv/api/obras/o1/pedidos": () => respostas[n++] ?? json({ ...PEDIDO, numero: "PED-0005", registro_id: "r1" }, 201) });
+    const u = userEvent.setup();
+    const enviar = async () => {
+      await u.click(screen.getByRole("button", { name: "Fazer pedido do item" }));
+      const d = await screen.findByRole("dialog", { name: "Pedido de 1 item" });
+      await u.type(within(d).getByLabelText("Fornecedor"), "Madeireira Inventada");
+      await u.click(within(d).getByRole("button", { name: /Registrar pedido de/ }));
+      return d;
+    };
+    const chaves = () => rede.chamadas.filter((c) => c.metodo === "POST" && c.caminho.endsWith("/pedidos")).map((c) => (c.corpo as { chave_idempotencia: string }).chave_idempotencia);
+    await u.click(await screen.findByRole("checkbox", { name: /Tapume/ }));
+
+    let d = await enviar();
+    expect(await within(d).findByText("O servidor não respondeu.")).toBeInTheDocument();
+    await u.click(within(d).getByRole("button", { name: "Voltar" }));
+
+    d = await enviar();
+    expect(await within(d).findByText(/já foi usada para outro pedido/)).toBeInTheDocument();
+    expect(chaves()[1]).toBe(chaves()[0]);
+    await u.click(within(d).getByRole("button", { name: "Voltar" }));
+
+    await enviar();
+    await screen.findByText(/PED-0005: pedido feito/);
+    expect(chaves()[2]).not.toBe(chaves()[0]);
+  });
+
   it("Voltar no pedido mantém as marcações; criado o pedido, elas saem", async () => {
     montar({ "POST /srv/api/obras/o1/pedidos": () => json({ ...PEDIDO, numero: "PED-0004", registro_id: "r1" }, 201) });
     const u = userEvent.setup();

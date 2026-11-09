@@ -4,9 +4,10 @@
  * contagem) e fornecedores ficam no "⋯": são consulta, não o trabalho do dia. A tela carrega uma vez o que as seções
  * usam, e a "versão" da casca recarrega tudo depois de cada escrita.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { uuid7 } from "@/lib/ids";
 import { CabecalhoPagina } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
 import { Icone } from "./Icone";
@@ -34,6 +35,8 @@ export function Suprimentos({ obra }: { obra: Obra }) {
   // Sobe a cada pedido criado: as marcações só saem aí, e "Voltar" no pedido não perde nada.
   const [pedidosFeitos, setPedidosFeitos] = useState(0);
   const desfazendo = obra.status === "desfazendo_aprovacao";
+  // Aqui, e não no diálogo: fechar e reabrir depois de uma resposta perdida tem de repetir a mesma chave.
+  const chavePedido = useRef(uuid7());
   const [modal, setModal] = useState<{ k: "item" } | { k: "fornecedor"; f?: Fornecedor } | null>(null);
   const { dado, erro, carregando } = useCarregar(
     () =>
@@ -120,9 +123,10 @@ export function Suprimentos({ obra }: { obra: Obra }) {
         />
       ) : null}
 
-      {marcados ? <ModalPedidoMarcados obraId={obra.id} marcados={marcados} etapas={etapas} fornecedores={fornecedores} pedidos={pedidos} fechar={() => setMarcados(null)} criado={() => setPedidosFeitos((n) => n + 1)} /> : null}
+      {marcados ? <ModalPedidoMarcados obraId={obra.id} marcados={marcados} etapas={etapas} fornecedores={fornecedores} pedidos={pedidos} chave={chavePedido} fechar={() => setMarcados(null)} criado={() => setPedidosFeitos((n) => n + 1)} /> : null}
       {lancando?.tipo === "pedido" ? (
         <ModalNovoPedido
+          chave={chavePedido}
           obraId={obra.id}
           itens={itens}
           etapas={etapas}

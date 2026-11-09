@@ -447,6 +447,8 @@ export interface CorpoPedido {
   observacao?: string;
   aprovado: boolean;
   linhas: CorpoLinhaPedido[];
+  /** A mesma chave devolve o pedido já criado; com outro conteúdo, 409. */
+  chave_idempotencia?: string;
 }
 
 /** `PATCH /pedidos/{id}`. */

@@ -114,6 +114,18 @@ describe("demonstração: pedidos", () => {
     expect(saldo()).toBe(antes);
   });
 
+  it("a mesma chave não cria outro pedido", () => {
+    const [a] = insumos();
+    const corpo = { fornecedor: "Fulano", aprovado: true, chave_idempotencia: "chave-fixa-1", linhas: [{ insumo_id: a!.insumo.id, quantidade: 1000, valor_unitario: 100 }] };
+    const p1 = chamar("POST", `obras/${obraId()}/pedidos`, corpo);
+    const antes = e.pedidos.length;
+    const p2 = chamar("POST", `obras/${obraId()}/pedidos`, corpo);
+    expect(p1.status).toBe(201);
+    expect(p2.status).toBe(200);
+    expect((p2.corpo as Pedido).id).toBe((p1.corpo as Pedido).id);
+    expect(e.pedidos.length).toBe(antes);
+  });
+
   it("pedido em cotação não recebe entrega", () => {
     const ped = e.pedidos.find((x) => x.status === "em_cotacao")!;
     expect(chamar("POST", `pedidos/${ped.id}/recebimentos`, { linhas: [{ indice: 0, quantidade: 1 }], chave_idempotencia: "c2" }).status).toBe(422);

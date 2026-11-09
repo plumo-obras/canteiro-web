@@ -5,16 +5,16 @@
  */
 import { useId, useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, Pedido } from "@/lib/contrato";
-import { api } from "@/lib/cliente";
 import { fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { totalLinha } from "../formularios/ModalNovoPedido";
 import s from "./compras.module.css";
+import { criarPedidoComChave, type ChavePedido } from "./chavePedido";
 import { valorPeloOrcamento } from "./FaltaComprar";
 
-export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsumo[]; etapas: EtapaObra[]; fornecedores: Fornecedor[]; pedidos: Pedido[]; fechar: () => void; criado: () => void }) {
+export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsumo[]; etapas: EtapaObra[]; fornecedores: Fornecedor[]; pedidos: Pedido[]; chave: ChavePedido; fechar: () => void; criado: () => void }) {
   const { obraId, marcados, etapas, fornecedores, pedidos } = props;
   const { avisarFeito, mudou } = useCasca();
   const [fornecedor, setFornecedor] = useState("");
@@ -55,7 +55,7 @@ export function ModalPedidoMarcados(props: { obraId: string; marcados: ItemInsum
       linhas: errosLinhas.some(Boolean) ? "Corrija as linhas marcadas." : null,
     }),
     async () => {
-      const p = await api.criarPedido(obraId, {
+      const p = await criarPedidoComChave(props.chave, mudou, obraId, {
         fornecedor: forn?.nome ?? fornecedor.trim(),
         fornecedor_id: forn?.id ?? null,
         previsao: previsao || null,
