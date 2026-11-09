@@ -82,10 +82,10 @@ function AjustarCompra({ p, fechar }: { p: Proposta; fechar: () => void }) {
   return (
     <form id="form-ajustar" onSubmit={enviar} noValidate>
       <div className="campos2">
-        <Campo rotulo={`Quantidade${un ? ` (${un})` : ""}`} erro={erros.qtd} dica={q !== d.quantidade ? `O agente propôs ${fmtQtdUn(d.quantidade, un)}.` : undefined}>
+        <Campo rotulo={`Quantidade${un ? ` (${un})` : ""}`} erro={erros.qtd} dica={q !== d.quantidade ? `O mestre de obras propôs ${fmtQtdUn(d.quantidade, un)}.` : undefined}>
           {(a) => <input {...a} ref={campo} className="f" inputMode="decimal" autoComplete="off" value={qtd} onChange={(e) => setQtd(e.target.value)} />}
         </Campo>
-        <Campo rotulo="Valor total (R$)" erro={erros.valor} dica={v !== d.valor ? `O agente propôs ${fmtReais(d.valor)}.` : undefined}>
+        <Campo rotulo="Valor total (R$)" erro={erros.valor} dica={v !== d.valor ? `O mestre de obras propôs ${fmtReais(d.valor)}.` : undefined}>
           {(a) => <input {...a} className="f" inputMode="decimal" autoComplete="off" value={valor} onChange={(e) => setValor(e.target.value)} />}
         </Campo>
       </div>

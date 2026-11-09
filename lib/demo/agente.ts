@@ -38,7 +38,7 @@ export async function* roteiroDemo(
   }
 
   await espera(pausa * 6);
-  yield { evento: "ferramenta", dados: { nome: "consultar_estoque", nivel: "consulta", resumo: `usou almoxarifado · ${obra.nome}` } };
+  yield { evento: "ferramenta", dados: { nome: "consultar_estoque", nivel: "consulta", resumo: `consultou o estoque · ${obra.nome}` } };
   await espera(pausa * 8);
 
   const chave = PALAVRAS.find(([, re]) => re.test(texto))?.[0];
@@ -52,13 +52,13 @@ export async function* roteiroDemo(
     const pendente = e.propostas.find((p) => p.status === "pendente" && p.tipo === "criar_pedido" && p.dados.insumo_id === insumo.id);
     // Mesmo formato pedido ao agente de verdade (instrucao.py): parágrafos curtos, a conta numa linha própria,
     // negrito só no número que importa e na ação.
-    resposta = `Pelo almoxarifado da ${obra.nome}, ${insumo.nome} está assim:\n\n${linhaDeConta(c, insumo.unidade)}\n\n`;
+    resposta = `Pelo estoque da ${obra.nome}, ${insumo.nome} está assim:\n\n${linhaDeConta(c, insumo.unidade)}\n\n`;
     if (c.falta === 0) {
       resposta += "**Não precisa comprar**: o saldo, o que está a caminho e o que está em cotação cobrem até o fim da obra.";
     } else if (pendente) {
       resposta += `Faltam **${n(c.falta)}**, e já existe uma compra esperando aprovação em Aprovações.\n\nNão preparei outra para não comprar em dobro.`;
     } else {
-      proposta = propostaDeCompra(e, insumo, c, `almoxarifado · ${obra.nome}`);
+      proposta = propostaDeCompra(e, insumo, c, `estoque · ${obra.nome}`);
       resposta += `Faltam **${n(c.falta)}**. **Preparei a compra para você aprovar**; nada é pedido antes disso.`;
     }
   } else {
@@ -72,7 +72,7 @@ export async function* roteiroDemo(
       ? `Na ${obra.nome}, depois de descontar o que está a caminho e em cotação, ainda faltam:\n\n${
           itens.length >= 3 ? itens.map((t) => `- ${t}`).join("\n") : itens.join("\n\n")
         }\n\nPergunte por um item (ex.: "quanto falta de cimento?") e eu preparo a compra.`
-      : `Na ${obra.nome} nada falta: o que está no almoxarifado, a caminho e em cotação cobre a obra até o fim.`;
+      : `Na ${obra.nome} nada falta: o que está no estoque, a caminho e em cotação cobre a obra até o fim.`;
   }
 
   // Em pedaços de poucas palavras, como o modelo faz, para a tela exercitar o streaming de verdade.

@@ -33,7 +33,7 @@ describe("formatador do histórico da sessão", () => {
         papel: "agente",
         texto: "Vou olhar o almoxarifado.\n\nFalta **640 un**.\n\nPreparei a compra para você aprovar.",
         ferramentas: [
-          { nome: "consultar_estoque", nivel: "consulta", resumo: "usou almoxarifado" },
+          { nome: "consultar_estoque", nivel: "consulta", resumo: "consultou o estoque" },
           { nome: "propor_pedido", nivel: "propoe", resumo: "preparou uma proposta de pedido" },
         ],
         propostas: ["p1"],

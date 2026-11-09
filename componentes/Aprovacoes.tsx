@@ -91,7 +91,7 @@ export function Aprovacoes({ obra, obras }: { obra: Obra; obras: Obra[] }) {
         <div className="card vazio">
           <Icone nome="checkCircle" tam={24} />
           <h3>Nada esperando você{todas ? "" : " nesta obra"}</h3>
-          <p>Quando o agente preparar uma compra ou um ajuste, aparece aqui e na conversa.</p>
+          <p>Quando o mestre de obras preparar uma compra ou um ajuste, aparece aqui e na conversa.</p>
         </div>
       ) : (
         <div className="ld-lista">
