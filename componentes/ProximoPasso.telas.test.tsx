@@ -70,7 +70,7 @@ describe("faixa no Cronograma", () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/cronograma": () => json(CRONO) });
     noCasca(<Cronograma obra={OBRA} />);
     await screen.findByRole("region", PASSO);
-    expect(screen.getByRole("link", { name: "Ir para o mestre de obras" })).toHaveAttribute("href", "/?obra=o1");
+    expect(screen.getByRole("link", { name: "Ir para o mestre de obras" })).toHaveAttribute("href", "/?obra=o1&tela=conversa");
   });
 
   it("sem cronograma, o próximo passo é montá-lo", async () => {

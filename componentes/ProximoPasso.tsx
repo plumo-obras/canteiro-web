@@ -23,7 +23,7 @@ export function Faixa({ titulo, texto, rotulo, children }: { titulo: ReactNode; 
 
 export function ProximoPasso(props: { obraId: string; para: AbaAtiva; acao: string; titulo: ReactNode; texto?: ReactNode; secundario?: boolean }) {
   const { irParaTela } = useCasca();
-  const busca = new URLSearchParams({ obra: props.obraId, ...(props.para === "conversa" ? {} : { tela: props.para }) });
+  const busca = new URLSearchParams({ obra: props.obraId, tela: props.para });
   return (
     <Faixa titulo={props.titulo} texto={props.texto} rotulo="Próximo passo">
       {/* Link de verdade, para abrir em outra aba com Ctrl/⌘; o clique simples troca a tela sem recarregar. */}
