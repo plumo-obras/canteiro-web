@@ -251,7 +251,7 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
   const vd: VersaoDemo = {
     versao: {
       id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
-      data: hojeSP().slice(0, 10), arquivo: "materiais-do-projeto.csv", itens: limpos.length, etapas: 1,
+      data: hojeSP().slice(0, 10), arquivo: "", itens: limpos.length, etapas: 1,
       total: somaTotal, ativa: true, substitui: null, registro_id: null, criado_em: agoraISO(),
     },
     etapas: [{ descricao: etapaNome, itens: limpos }],
@@ -339,7 +339,7 @@ function semearVersoes(e: EstadoDemo): void {
     const itens = ins.map((i) => ({ nome: i.nome, unidade: i.unidade, quantidade: i.precisa_ate_o_fim, valor_unitario: i.valor_unitario }));
     const total = itens.reduce((s, i) => s + Math.round((i.quantidade * i.valor_unitario) / 1000), 0);
     e.versoes.push({
-      versao: { id: `demo-estrutura-${obraId}`, obra_id: obraId, tipo: "contrato", numero: 0, descricao: "Estrutura", data: diasAtras(60).slice(0, 10), arquivo: "materiais-do-projeto.csv", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(60) },
+      versao: { id: `demo-estrutura-${obraId}`, obra_id: obraId, tipo: "contrato", numero: 0, descricao: "Estrutura", data: diasAtras(60).slice(0, 10), arquivo: "", itens: itens.length, etapas: 1, total, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(60) },
       etapas: [{ descricao: "Estrutura", itens }],
       chave: null,
     });
@@ -1273,8 +1273,29 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         if (id2 === "aprovar") {
           const o = obraPorId(e, id);
           if (o.status !== "em_orcamento") return erro(409, "O orçamento já foi aprovado.");
+          // Aprovar o orçamento é o que cria as compras: cada item das versões vigentes (ex.: a etapa "Estrutura"
+          // vinda do projeto) vira um insumo da obra, com a quantidade do orçamento como o que precisa. Só aqui o
+          // material entra em Compras — antes de aprovar, o projeto fica só no orçamento.
+          for (const v of e.versoes.filter((x) => x.versao.obra_id === id && x.versao.ativa)) {
+            for (const et of v.etapas) {
+              for (const it of et.itens) {
+                if (it.quantidade <= 0) continue;
+                const ex = [...e.insumos.values()].find((i) => i.obra_id === id && nomeChave(i.nome) === nomeChave(it.nome));
+                if (ex) {
+                  ex.precisa_ate_o_fim = Math.max(ex.precisa_ate_o_fim, it.quantidade);
+                  if (!ex.valor_unitario) ex.valor_unitario = it.valor_unitario;
+                  continue;
+                }
+                const ins: ItemDemo = {
+                  id: uuid7(), tenant_id: TENANT, criado_em: agoraISO(), obra_id: id,
+                  nome: it.nome, unidade: it.unidade, precisa_ate_o_fim: it.quantidade, curva: "B", valor_unitario: it.valor_unitario,
+                };
+                e.insumos.set(`orc-${ins.id}`, ins);
+              }
+            }
+          }
           const its = [...e.insumos.values()].filter((i) => i.obra_id === id && i.precisa_ate_o_fim > 0);
-          if (!its.length) return erro(422, "Importe ou cadastre o orçamento antes de aprovar.");
+          if (!its.length) return erro(422, "Lance o projeto (ou importe o orçamento) antes de aprovar.");
           const total = its.reduce((t, i) => t + Math.round((i.precisa_ate_o_fim * i.valor_unitario) / 1000), 0);
           o.status = "em_andamento";
           const reg = registrar(e, u, {

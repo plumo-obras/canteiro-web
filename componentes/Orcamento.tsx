@@ -127,7 +127,9 @@ export function Orcamento({ obra }: { obra: Obra }) {
           {dado.etapas.length ? <ResumoOrcamento orc={dado} /> : null}
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
           <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
-          <Versoes versoes={dado.versoes} atual={dado.totais.atual} />
+          {/* Versão única (só o contrato, ex.: a Estrutura do projeto) não vira um bloco à parte — a etapa já a mostra.
+              O bloco aparece quando há aditivos, que é quando a comparação entre versões passa a importar. */}
+          {dado.versoes.length > 1 ? <Versoes versoes={dado.versoes} atual={dado.totais.atual} /> : null}
           {materiais.length ? (
             <p className="mut sm">
               A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Suprimentos.

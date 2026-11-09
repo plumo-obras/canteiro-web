@@ -410,6 +410,25 @@ describe("demonstração: cadastro de obra e orçamento por planilha", () => {
     chamar("POST", `registro/${r.registro_id}/desfazer`);
     expect(e.obras.find((x) => x.id === o.id)!.status).toBe("em_orcamento");
   });
+
+  it("a Estrutura do projeto fica só no orçamento até aprovar; aprovar gera as Compras (vira insumo da obra)", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, {
+      itens: [
+        { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220_300, valor_unitario: 669 },
+        { nome: "Concreto C25", unidade: "m³", quantidade: 3_960, valor_unitario: 49_610 },
+      ],
+      aplicar: true,
+    });
+    // antes de aprovar: está no orçamento (versão Estrutura), mas Compras está vazia
+    expect(chamar("GET", `obras/${o.id}/orcamento`).corpo as import("../contrato").Orcamento).toMatchObject({ versoes: [{ descricao: "Estrutura" }] });
+    expect(chamar("GET", `obras/${o.id}/insumos`).corpo as ItemInsumo[]).toHaveLength(0);
+    // aprovar passa para em andamento e cria os insumos a partir da Estrutura
+    expect((chamar("POST", `obras/${o.id}/orcamento/aprovar`).corpo as { status: string }).status).toBe("em_andamento");
+    const ins = chamar("GET", `obras/${o.id}/insumos`).corpo as ItemInsumo[];
+    expect(ins.map((i) => i.insumo.nome).sort()).toEqual(["Aço CA-50 Ø 10,0 mm (SINAPI 34)", "Concreto C25"]);
+    expect(ins.find((i) => i.insumo.nome.startsWith("Aço"))!.insumo.precisa_ate_o_fim).toBe(220_300);
+  });
 });
 
 describe("demonstração: paginação pelo cursor antes_de", () => {
