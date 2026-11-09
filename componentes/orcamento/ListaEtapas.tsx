@@ -6,13 +6,14 @@
  * as etapas que têm resultado; a ordem por desvio continua valendo. Os números vêm da API; a tela só agrupa.
  */
 import { useEffect, useMemo, useState } from "react";
-import type { CurvaABC, Obra, Orcamento, Pedido } from "@/lib/contrato";
+import type { CorpoEditarItem, CurvaABC, Obra, Orcamento, Pedido } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import { fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
+import { fmtQtd, fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { ROTULO_STATUS } from "../CartaoProposta";
-import { mensagemDe } from "../contexto";
+import { mensagemDe, useCasca } from "../contexto";
 import { BarraFiltros } from "../CabecalhoPagina";
 import { Icone } from "../Icone";
+import { CelulaEditavel } from "./CelulaEditavel";
 import { Barra, fmtPct, linhasAndamento, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
 
 export type ItemDaEtapa = Orcamento["itens"][number];
@@ -200,7 +201,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                     </dl>
                   )}
                   {semCompra ? null : <PedidosDaEtapa linha={l} etapas={orc.etapas.map((e) => e.etapa)} pedidos={pedidos} />}
-                  {itens.length ? <ItensDaEtapa itens={itens} versoes={versoes} nomeVersao={nomeVersao} /> : semCompra ? <p className="mut sm">Sem itens nesta etapa.</p> : null}
+                  {itens.length ? <ItensDaEtapa obra={obra} itens={itens} versoes={versoes} nomeVersao={nomeVersao} /> : semCompra ? <p className="mut sm">Sem itens nesta etapa.</p> : null}
                 </div>
               ) : null}
             </li>
@@ -259,15 +260,30 @@ function PedidosDaEtapa({ linha, etapas, pedidos }: { linha: LinhaAndamento; eta
 }
 
 function ItensDaEtapa({
+  obra,
   itens,
   versoes,
   nomeVersao,
 }: {
+  obra: Obra;
   itens: ItemDaEtapa[];
   versoes: Map<string, { tipo: "contrato" | "aditivo"; numero: number }>;
   nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string;
 }) {
+  const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
   const n = itens.filter((i) => i.tipo === "item").length;
+  // Depois de aprovado, mudar o preço mexe na referência de custo da obra: a regra ainda vai ser decidida.
+  const editavel = podeOperar && obra.status === "em_orcamento";
+  const editar = async (i: ItemDaEtapa, corpo: CorpoEditarItem, feito: string) => {
+    try {
+      const r = await api.editarItemOrcamento(obra.id, i.id, corpo);
+      mudou();
+      avisarFeito(feito, r.registro_id);
+    } catch (e) {
+      avisar(mensagemDe(e), true);
+      throw e;
+    }
+  };
   return (
     <>
       <h4 className="le-sub">
@@ -316,10 +332,40 @@ function ItensDaEtapa({
                   </td>
                   <td>{i.unidade}</td>
                   <td className="num">
-                    {fmtQtd(i.quantidade)}
-                    <span className="eap-un"> {i.unidade}</span>
+                    {editavel ? (
+                      <CelulaEditavel
+                        rotulo={`Quantidade de ${i.descricao}`}
+                        inicial={qtdParaCampo(i.quantidade)}
+                        ajuda="Quantidade, ex.: 120 ou 2,5."
+                        ler={(t) => lerQtd(t, { negativo: v?.tipo === "aditivo" }) || null}
+                        salvar={(q) => editar(i, { quantidade: q }, `Quantidade de ${i.descricao}: ${fmtQtd(q)} ${i.unidade}.`)}
+                      >
+                        {fmtQtd(i.quantidade)}
+                        <span className="eap-un"> {i.unidade}</span>
+                      </CelulaEditavel>
+                    ) : (
+                      <>
+                        {fmtQtd(i.quantidade)}
+                        <span className="eap-un"> {i.unidade}</span>
+                      </>
+                    )}
                   </td>
-                  <td className="num">{fmtReais(i.valor_unitario)}</td>
+                  <td className="num">
+                    {editavel ? (
+                      <CelulaEditavel
+                        rotulo={`Preço de ${i.descricao}`}
+                        inicial={i.valor_unitario ? reaisParaCampo(i.valor_unitario) : ""}
+                        ajuda="Preço em reais, ex.: 39,90."
+                        ler={lerReais}
+                        alerta={!i.valor_unitario}
+                        salvar={(v2) => editar(i, { valor_unitario: v2 }, `Preço de ${i.descricao}: ${fmtReais(v2)}.`)}
+                      >
+                        {i.valor_unitario ? fmtReais(i.valor_unitario) : "sem preço"}
+                      </CelulaEditavel>
+                    ) : (
+                      fmtReais(i.valor_unitario)
+                    )}
+                  </td>
                   <td className="num">
                     <b>{fmtReais(i.total)}</b>
                   </td>

@@ -324,6 +324,21 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
 
 const INDISPONIVEL = "Indisponível na demonstração.";
 
+/** PATCH de um item do orçamento. O id do item na demo é "<versão>-<posição>", a posição contando as etapas da versão. */
+function editarItemDemo(e: EstadoDemo, u: Usuario, o: Obra, itemId: string, c: Record<string, unknown>): RespostaDemo {
+  const corte = itemId.lastIndexOf("-");
+  const v = e.versoes.find((x) => x.versao.id === itemId.slice(0, corte) && x.versao.obra_id === o.id);
+  const it = v?.etapas.flatMap((et) => et.itens)[Number(itemId.slice(corte + 1)) - 1];
+  if (!v || !it) return erro(404, "Item não encontrado nesta obra.");
+  if (c.quantidade === 0 || (typeof c.valor_unitario === "number" && c.valor_unitario < 0)) return erro(422, "Quantidade ou preço inválido.");
+  if (typeof c.quantidade === "number") it.quantidade = c.quantidade;
+  if (typeof c.valor_unitario === "number") it.valor_unitario = c.valor_unitario;
+  v.versao.total = v.etapas.flatMap((et) => et.itens).reduce((s, x) => s + Math.round((x.quantidade * x.valor_unitario) / 1000), 0);
+  registrar(e, u, { obra_id: o.id, texto: `Editou no orçamento: ${it.nome}`, proposta_id: null, desfazer: null, origem: "tela" });
+  // sem registro_id: a demo não desfaz esta edição, e o aviso não pode oferecer um Desfazer que falharia
+  return ok({ item: it, total_versao: v.versao.total, registro_id: null });
+}
+
 /** As etapas das versões vigentes da obra, na ordem em que aparecem (a chave é a posição, como no orçamento dela). */
 function etapasDemo(e: EstadoDemo, obraId: string) {
   const v = e.versoes.find((x) => x.versao.obra_id === obraId && x.versao.ativa);
@@ -1022,6 +1037,7 @@ export function resumoObras(e: EstadoDemo) {
         valor_pedidos_abertos: ped.reduce((t, p) => t + p.valor, 0),
         nf_para_conferir: ped.filter((p) => p.status === "recebido").length,
         ultima_atividade: datas.sort().at(-1) ?? null,
+        tem_orcamento: e.versoes.some((v) => v.versao.obra_id === obra.id && v.versao.ativa) || insumos.some((i) => i.precisa_ate_o_fim > 0),
       };
     });
 }
@@ -1354,6 +1370,10 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           });
           return ok({ ...o, registro_id: reg.id });
         }
+      }
+      if (metodo === "PATCH" && b === "orcamento" && id2 === "itens" && c2) {
+        exigirAdmin(u);
+        return editarItemDemo(e, u, obraPorId(e, id), c2, c);
       }
       if (metodo === "GET" && b === "insumos" && !id2) {
         const etapa = etapaDoInsumo(e, id);

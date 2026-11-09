@@ -974,6 +974,11 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .tbl-eap{font-size:var(--t-meta)}
 .tbl-eap th{white-space:nowrap}
 .tbl-eap td{padding:7px 12px}
+.eap-edit{border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:6px;font:inherit;color:inherit;cursor:pointer;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.eap-edit.alerta{color:var(--amberInk);font-weight:600}
+@media (hover:hover){.eap-edit:hover{background:var(--hover)}}
+.eap-edit:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.eap-input{width:96px;text-align:right;padding:4px 8px}
 .tbl-eap .eap-n{font-family:var(--mono);color:var(--muted);white-space:nowrap}
 .tbl-eap .eap-d{min-width:260px}
 .tbl-eap .eap-cod{display:block;margin-top:2px;font:11px/1.4 var(--mono);color:var(--muted)}

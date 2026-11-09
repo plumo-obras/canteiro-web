@@ -8,7 +8,7 @@ import "server-only";
  * Rotas de dados do contrato que a web pode repassar, por método. /auth fica nas rotas próprias. A conta e o consumo só
  * se leem daqui; fora de GET/POST, só a chave própria da Anthropic (o papel master quem confere é a API) e o PATCH dos
  * dados de uma obra, de um pedido (previsão, observação), de um fornecedor, de uma etapa extra, de um tópico e a etapa
- * de um gasto (e a natureza fiscal dele, PATCH /gastos/{id}/fiscal); o PUT do
+ * de um gasto (e a natureza fiscal dele, PATCH /gastos/{id}/fiscal), e o de um item do orçamento; o PUT do
  * cronograma da obra. Os tributos da obra se leem por GET /obras/{id}/tributos. A leitura de comprovante pela IA (`/interno/...`) é do agente, nunca do navegador.
  */
 const PREFIXOS = new Set([
@@ -27,7 +27,11 @@ export function caminhoPermitido(seg: string[], metodo = "GET"): boolean {
   if (m === "PUT") return rota === CHAVE || (seg.length === 3 && seg[0] === "obras" && seg[2] === "cronograma");
   if (m === "DELETE") return rota === CHAVE;
   if (m === "PATCH") {
-    return (seg.length === 2 && EDITAVEIS.has(seg[0]!)) || (seg.length === 3 && seg[0] === "gastos" && seg[2] === "fiscal");
+    return (
+      (seg.length === 2 && EDITAVEIS.has(seg[0]!)) ||
+      (seg.length === 3 && seg[0] === "gastos" && seg[2] === "fiscal") ||
+      (seg.length === 5 && seg[0] === "obras" && seg[2] === "orcamento" && seg[3] === "itens")
+    );
   }
   if (SO_LEITURA.has(rota)) return m === "GET";
   return (m === "GET" || m === "POST") && PREFIXOS.has(seg[0]!);

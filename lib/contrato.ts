@@ -274,6 +274,18 @@ export interface Orcamento {
   };
 }
 
+/** `PATCH /obras/{id}/orcamento/itens/{item_id}`: ao menos um dos dois. */
+export interface CorpoEditarItem {
+  quantidade?: Milesimos;
+  valor_unitario?: Centavos;
+}
+
+export interface ItemEditado {
+  item: ItemOrcamento;
+  total_versao: Centavos;
+  registro_id: string;
+}
+
 /** O que acompanha a planilha no `POST …/orcamento/versoes`. */
 export interface CorpoVersao {
   mapeamento: Mapeamento;
@@ -607,6 +619,8 @@ export interface ResumoObra {
   /** Pedidos recebidos esperando a conferência da NF. */
   nf_para_conferir: number;
   ultima_atividade: DataISO | null;
+  /** Tem orçamento (versão vigente ou lista de materiais). Ausente em API antiga. */
+  tem_orcamento?: boolean;
   /** O prazo do cronograma (o mesmo do GET /obras/{id}/cronograma); null sem cronograma. */
   prazo?: PrazoCronograma | null;
 }

@@ -42,6 +42,8 @@ import type {
   GastoObra,
   RespostaLeitura,
   ResumoGastos,
+  CorpoEditarItem,
+  ItemEditado,
   TributosObra,
   CorpoFiscalGasto,
   StatusComprovante,
@@ -188,6 +190,9 @@ export const api = {
       aplicar,
       ...(chaveIdempotencia ? { chave_idempotencia: chaveIdempotencia } : {}),
     }),
+  /** Corrige quantidade ou preço de um item vigente; o total da linha e o da versão quem refaz é a API. */
+  editarItemOrcamento: (obraId: string, itemId: string, corpo: CorpoEditarItem) =>
+    semRota(chamar<ItemEditado>("PATCH", `/obras/${seg(obraId)}/orcamento/itens/${seg(itemId)}`, corpo), "Editar o item do orçamento ainda não está disponível."),
   /** O orçamento da obra (EAP): versões, itens vigentes com curva, totais por etapa. */
   orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
   /** Contrato ou aditivo. `aplicar: false` é a prévia; com `aplicar: true` a chave de idempotência é obrigatória. */
