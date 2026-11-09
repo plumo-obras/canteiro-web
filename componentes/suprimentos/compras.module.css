@@ -6,10 +6,10 @@
 
 .grupo{margin:0;padding:14px 20px 6px;font-size:var(--t-meta);font-weight:600;color:var(--muted)}
 .lista{list-style:none;margin:0;padding:0}
-.linha{display:grid;grid-template-columns:22px minmax(0,1fr) 110px 130px;gap:14px;align-items:center;padding:12px 20px;border-top:1px solid var(--line2);cursor:pointer}
+.linha{display:grid;grid-template-columns:22px minmax(0,1fr) 110px 150px;gap:14px;align-items:center;padding:12px 20px;border-top:1px solid var(--line2);cursor:pointer}
 .linha input{width:18px;height:18px;margin:0;accent-color:var(--accentInk)}
 .linha.marcada{background:var(--accentSoft)}
-.linha.leitura{grid-template-columns:minmax(0,1fr) 110px 130px;cursor:default}
+.linha.leitura{grid-template-columns:minmax(0,1fr) 110px 150px;cursor:default}
 .qtd{text-align:right;color:var(--muted)}
 .valor{text-align:right}
 
@@ -18,7 +18,7 @@
 .barra p{margin:0}
 
 .pedidos{list-style:none;margin:0;padding:0}
-.ped{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 130px minmax(170px,auto) 150px;gap:14px;align-items:center;padding:14px 20px;border-top:1px solid var(--line2)}
+.ped{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 140px minmax(170px,1fr) 150px;gap:14px;align-items:center;padding:14px 20px;border-top:1px solid var(--line2)}
 .pedItem{display:grid;gap:2px;min-width:0}
 .pedAbrir{border:0;background:none;padding:0;color:var(--ink);font:inherit;font-weight:600;text-align:left;cursor:pointer}
 @media (hover:hover){.pedAbrir:hover{color:var(--accentInk)}}
@@ -33,7 +33,7 @@
 /* o pedido dos itens marcados */
 .fornecedores{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
 .linhasPed{list-style:none;margin:8px 0 0;padding:0}
-.linhaPed{display:grid;grid-template-columns:minmax(0,1fr) 120px 130px 120px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line2)}
+.linhaPed{display:grid;grid-template-columns:minmax(0,1fr) 100px 110px minmax(130px,max-content);gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line2)}
 .linhaPed.cab{border-top:0;padding-top:0;font-size:var(--t-meta);color:var(--muted)}
 .linhaPed :global(.campo){margin:0}
 .nomePed{min-width:0}
