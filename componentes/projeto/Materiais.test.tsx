@@ -97,7 +97,7 @@ describe("Materiais das pranchas", () => {
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
 
     const dialogo = await screen.findByRole("dialog", { name: "Levar os materiais para o orçamento?" });
-    expect(dialogo).toHaveTextContent("viram a etapa Estrutura e o contrato");
+    expect(dialogo).toHaveTextContent("viram a etapa Estrutura do orçamento inicial");
     expect(dialogo).toHaveTextContent("1 material sem quantidade fica de fora.");
     expect(escritas(rede).map((c) => (c.corpo as { aplicar: boolean }).aplicar)).toEqual([false]);
 
@@ -108,7 +108,7 @@ describe("Materiais das pranchas", () => {
     await u.click(screen.getByRole("button", { name: "Levar para o orçamento…" }));
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento" }));
 
-    expect(await screen.findByText("Materiais das pranchas no orçamento, como contrato.")).toBeInTheDocument();
+    expect(await screen.findByText("Materiais das pranchas no orçamento, como orçamento inicial.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
     const gravou = escritas(rede).at(-1)!.corpo as { aplicar: boolean; chave_idempotencia: string; itens: { nome: string }[] };
     expect(gravou.aplicar).toBe(true);
@@ -148,7 +148,7 @@ describe("Materiais das pranchas", () => {
 
     // fechar e reabrir não troca a chave: se a primeira gravou, a API devolve a mesma versão
     await abrirEConfirmar();
-    await screen.findByText("Materiais das pranchas no orçamento, como contrato.");
+    await screen.findByText("Materiais das pranchas no orçamento, como orçamento inicial.");
     expect(chaves()).toHaveLength(2);
     expect(chaves()[1]).toBe(chaves()[0]);
 
@@ -176,13 +176,65 @@ describe("Materiais das pranchas", () => {
     expect(await screen.findByRole("button", { name: "Levar para o orçamento…" })).toBeInTheDocument();
   });
 
+  it("um passo por vez: primeiro levar, em destaque; levado, o foco vai para Ver o orçamento", async () => {
+    const LEVADO = {
+      ...VAZIO_ORC,
+      versoes: [{ id: "v1", tipo: "contrato", descricao: "Estrutura", ativa: true }],
+      itens: [
+        { versao_id: "v1", tipo: "item", descricao: NOME_ACO, quantidade: 220300, valor_unitario: 669 },
+        { versao_id: "v1", tipo: "item", descricao: "EPS B8/30/125", quantidade: 382000, valor_unitario: 0 },
+      ],
+    };
+    let gravou = false;
+    criarRede(
+      rotas({
+        "GET /srv/api/obras/o-1/orcamento": () => json(gravou ? LEVADO : VAZIO_ORC),
+        "POST /srv/api/obras/o-1/orcamento/estrutura": ({ corpo }: { corpo: unknown }) => {
+          gravou = (corpo as { aplicar: boolean }).aplicar;
+          return json(previa(gravou, "contrato"));
+        },
+      }),
+    );
+    const u = userEvent.setup();
+    montar();
+    const levar = await screen.findByRole("button", { name: "Levar para o orçamento…" });
+    expect(levar).toHaveClass("amb");
+    expect(screen.queryByRole("link", { name: "Ver o orçamento" })).toBeNull();
+
+    await u.click(levar);
+    await u.click(await screen.findByRole("button", { name: "Levar para o orçamento" }));
+    const ir = await screen.findByRole("link", { name: "Ver o orçamento" });
+    expect(ir).toHaveClass("amb");
+    await vi.waitFor(() => expect(ir).toHaveFocus());
+    expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull();
+  });
+
+  it("pranchas que mudaram depois de levar: o destaque é ver o orçamento, levar de novo fica sem destaque", async () => {
+    const orc = {
+      ...VAZIO_ORC,
+      versoes: [{ id: "v1", tipo: "contrato", descricao: "Estrutura", ativa: true }],
+      itens: [{ versao_id: "v1", tipo: "item", descricao: "Outro material", quantidade: 1000, valor_unitario: 100 }],
+    };
+    criarRede(rotas({ "GET /srv/api/obras/o-1/orcamento": () => json(orc) }));
+    montar();
+    expect(await screen.findByRole("button", { name: "Levar para o orçamento…" })).not.toHaveClass("amb");
+    expect(screen.getByRole("link", { name: "Ver o orçamento" })).toHaveClass("amb");
+  });
+
+  it("sem material com quantidade, o passo é ver o orçamento", async () => {
+    criarRede(rotas({ "GET /srv/tradutor/projetos/materiais": () => json({ ...MATERIAIS, itens: [MATERIAIS.itens[2]] }) }));
+    montar();
+    expect(await screen.findByRole("link", { name: "Ver o orçamento" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull();
+  });
+
   it("em obra com contrato, o diálogo avisa que entra como aditivo e diz o valor no botão", async () => {
     const rede = criarRede(rotas({ "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura("aditivo") }));
     const u = userEvent.setup();
     montar();
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
     const dialogo = await screen.findByRole("dialog", { name: "Levar os materiais para o orçamento?" });
-    expect(dialogo).toHaveTextContent("já tem contrato: os materiais entram como aditivo");
+    expect(dialogo).toHaveTextContent("já tem orçamento inicial: os materiais entram como aditivo");
     await u.click(within(dialogo).getByRole("button", { name: /Lançar aditivo de R\$\s1\.473,81/ }));
     expect(await screen.findByText("Materiais das pranchas no orçamento, como aditivo.")).toBeInTheDocument();
     expect((escritas(rede).at(-1)!.corpo as { aplicar: boolean }).aplicar).toBe(true);

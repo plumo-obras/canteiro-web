@@ -3,7 +3,7 @@
  * Os materiais que saem das pranchas: o que o projeto estrutural pede para sair do papel (aço por bitola, concreto,
  * forma, enchimento), cada um com o insumo do SINAPI que é o mesmo produto e o preço de referência na UF da obra.
  * Nada vai para o orçamento sozinho: o cartão mostra quantos saíram, e só o clique confirmado grava. Numa obra que já
- * tem contrato, a gravação vira aditivo, e isso não pode acontecer sem a pessoa ver.
+ * tem orçamento inicial, a gravação vira aditivo, e isso não pode acontecer sem a pessoa ver.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/cliente";
@@ -14,7 +14,7 @@ import { tradutor, type MateriaisProjeto, type MaterialProjeto } from "@/lib/tra
 import { mensagemDe, useCasca } from "../contexto";
 import { Confirmar, Drawer } from "../Dialogo";
 import { Icone } from "../Icone";
-import { Faixa } from "../ProximoPasso";
+import { Faixa, LinkTela, ProximoPasso } from "../ProximoPasso";
 import { useCarregar } from "../useCarregar";
 import s from "./projeto.module.css";
 
@@ -158,12 +158,25 @@ function ListaMateriais({ dados }: { dados: MateriaisProjeto }) {
   );
 }
 
-/** O cartão no fim do Projeto: quantos materiais saíram, ver a lista e, só com confirmação, levar para o orçamento. */
-export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisProjeto | null }) {
+/**
+ * O próximo passo do Projeto, um por vez e no topo da tela: primeiro levar os materiais; levados, ver o orçamento.
+ * Pranchas que mudaram depois de levar não empurram outro aditivo: levar de novo fica como opção, sem destaque.
+ */
+export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: MateriaisProjeto | null; erro?: string | null }) {
   const { podeOperar, versao, mudou, avisar, avisarFeito } = useCasca();
   const todos = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
   const tem = todos.length > 0;
   const orc = useCarregar(() => (tem ? api.orcamento(obra.id) : Promise.resolve(null)), [obra.id, versao, tem]);
+  const situacao = situacaoNoOrcamento(todos, orc.dado);
+  const levado = !!orc.dado && situacao === "igual";
+  // O botão clicado some ao levar: o foco e o olhar vão para o que entrou no lugar, em vez de ficar só o aviso.
+  const irAoOrcamento = useRef<HTMLAnchorElement>(null);
+  const acabouDeLevar = useRef(false);
+  useEffect(() => {
+    if (!levado || !acabouDeLevar.current) return;
+    acabouDeLevar.current = false;
+    irAoOrcamento.current?.focus({ preventScroll: true });
+  }, [levado]);
   const [vendo, setVendo] = useState(false);
   const [preparando, setPreparando] = useState(false);
   const [previa, setPrevia] = useState<PreviaVersao | null>(null);
@@ -172,12 +185,14 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
   // Materiais diferentes pedem outra: a API recusa a chave já usada para outro conteúdo.
   const chave = useRef<{ conteudo: string; valor: string } | null>(null);
 
-  if (!dados || !tem || (!orc.dado && !orc.erro)) return null;
-  const situacao = situacaoNoOrcamento(todos, orc.dado);
+  if (erro || (dados && !tem)) {
+    return <ProximoPasso obraId={obra.id} para="orcamento" acao="Ver o orçamento" titulo="As pranchas estão lidas." texto="Confira no orçamento o que já entrou e o que falta lançar." />;
+  }
+  if (!dados || (!orc.dado && !orc.erro)) return null;
   const semQuantidade = dados.itens.length - todos.length;
   const semPreco = todos.filter((m) => !m.valor_unitario).length;
 
-  // A prévia vem antes do diálogo: é a API que diz se entra como contrato ou aditivo, e por quanto.
+  // A prévia vem antes do diálogo: é a API que diz se entra como orçamento inicial ou aditivo, e por quanto.
   async function preparar() {
     setPreparando(true);
     try {
@@ -203,9 +218,10 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
     }
     if (!r.aplicado) throw new Error(r.erros[0]?.mensagem ?? "Os materiais não entraram no orçamento. Tente de novo.");
     chave.current = null;
+    acabouDeLevar.current = true;
     setPrevia(null);
     mudou();
-    avisarFeito(`Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "contrato"}.`, r.registro_id);
+    avisarFeito(`Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "orçamento inicial"}.`, r.registro_id);
   }
 
   const ver = (
@@ -213,27 +229,28 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
       Ver
     </button>
   );
+  const destacarLevar = situacao === "fora" && podeOperar;
+  const verOrcamento = destacarLevar ? null : (
+    <LinkTela obraId={obra.id} para="orcamento" ref={irAoOrcamento}>
+      Ver o orçamento
+    </LinkTela>
+  );
   return (
     <>
-      {situacao === "igual" ? (
-        <Faixa rotulo="Materiais das pranchas" titulo={`${plural(todos.length, "material das pranchas já está", "materiais das pranchas já estão")} no orçamento.`}>
-          {ver}
-        </Faixa>
-      ) : (
-        <Faixa
-          rotulo="Materiais das pranchas"
-          titulo={`${plural(todos.length, "material saiu das pranchas", "materiais saíram das pranchas")}.`}
-          texto={situacao === "anterior" ? "O orçamento ainda tem a Estrutura de pranchas anteriores." : "Só entram no orçamento se você levar."}
-        >
-          {ver}
-          {podeOperar ? (
-            <button type="button" className="btn" disabled={preparando} aria-busy={preparando} onClick={preparar}>
-              {preparando ? <Icone nome="loader" className="spin" tam={14} /> : null}
-              Levar para o orçamento…
-            </button>
-          ) : null}
-        </Faixa>
-      )}
+      <Faixa
+        rotulo="Próximo passo"
+        titulo={levado ? `${plural(todos.length, "material das pranchas já está", "materiais das pranchas já estão")} no orçamento.` : `${plural(todos.length, "material saiu das pranchas", "materiais saíram das pranchas")}.`}
+        texto={levado ? "Confira os preços e o que falta lançar." : situacao === "anterior" ? "O orçamento ainda tem a Estrutura de pranchas anteriores." : "Só entram no orçamento se você levar."}
+      >
+        {ver}
+        {podeOperar && !levado ? (
+          <button type="button" className={destacarLevar ? "btn amb" : "btn"} disabled={preparando} aria-busy={preparando} onClick={preparar}>
+            {preparando ? <Icone nome="loader" className="spin" tam={14} /> : null}
+            Levar para o orçamento…
+          </button>
+        ) : null}
+        {verOrcamento}
+      </Faixa>
       {vendo ? (
         <Drawer titulo="Materiais das pranchas" fechar={() => setVendo(false)}>
           <ListaMateriais dados={dados} />
@@ -249,7 +266,7 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
           <div className="prev-resumo">
             <div>
               <span className="prev-n">{fmtReais(previa.total)}</span>
-              <span>{previa.tipo === "aditivo" ? "de aditivo" : "no contrato"}</span>
+              <span>{previa.tipo === "aditivo" ? "de aditivo" : "no orçamento inicial"}</span>
             </div>
             <div>
               <span className="prev-n">{previa.n_itens.toLocaleString("pt-BR")}</span>
@@ -258,8 +275,8 @@ export function CartaoMateriais({ obra, dados }: { obra: Obra; dados: MateriaisP
           </div>
           <p style={{ margin: "4px 0 0" }}>
             {previa.tipo === "aditivo"
-              ? `Esta obra já tem contrato: os materiais entram como aditivo, na etapa ${ETAPA}, e somam ao orçado atual.`
-              : `Os materiais viram a etapa ${ETAPA} e o contrato desta obra.`}
+              ? `Esta obra já tem orçamento inicial: os materiais entram como aditivo, na etapa ${ETAPA}, e somam ao orçado atual.`
+              : `Os materiais viram a etapa ${ETAPA} do orçamento inicial desta obra.`}
             {situacao === "anterior" ? ` A ${ETAPA} de pranchas anteriores continua valendo: para trocar, desfaça a anterior antes.` : ""}
           </p>
           {semQuantidade || semPreco ? (

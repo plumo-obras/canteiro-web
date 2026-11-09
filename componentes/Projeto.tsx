@@ -15,7 +15,6 @@ import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
 import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
-import { ProximoPasso } from "./ProximoPasso";
 import { Vista3D } from "./projeto/Vista3D";
 import s from "./projeto/projeto.module.css";
 
@@ -194,6 +193,10 @@ export function Projeto({ obra }: { obra: Obra }) {
     },
   };
 
+  const cobertas = projeto?.pacote.filter((p) => p.situacao === "coberto").length ?? 0;
+  // com folha ainda sendo lida, os materiais e a conta do pacote vão mudar: nada de sugerir o passo seguinte
+  const pranchasLidas = cobertas > 0 && !enviando.length && !projeto?.em_andamento.some((a) => a.status !== "falhou");
+
   const acao = (
     <>
       <input
@@ -210,7 +213,7 @@ export function Projeto({ obra }: { obra: Obra }) {
         }}
       />
       {podeOperar ? (
-      <button type="button" className="btn amb" disabled={enviando.length > 0} aria-busy={enviando.length > 0} onClick={escolherArquivos}>
+      <button type="button" className={pranchasLidas ? "btn" : "btn amb"} disabled={enviando.length > 0} aria-busy={enviando.length > 0} onClick={escolherArquivos}>
         <Icone nome={enviando.length ? "loader" : "arrowUp"} tam={15} className={enviando.length ? "spin" : undefined} />
         Enviar pranchas
       </button>
@@ -242,7 +245,6 @@ export function Projeto({ obra }: { obra: Obra }) {
   const materiais = useMateriais(idsLidos, obra.uf || "SP");
 
   const q = projeto?.quantitativos;
-  const cobertas = projeto?.pacote.filter((p) => p.situacao === "coberto").length ?? 0;
   const o = projeto?.obra;
   const sub = o?.cliente ? [o.cliente, o.responsavel && `cálculo: ${o.responsavel}`].filter(Boolean).join(" · ") : undefined;
 
@@ -256,8 +258,6 @@ export function Projeto({ obra }: { obra: Obra }) {
   const verificar = (projeto?.conferencias.filter((c) => !c.ok).length ?? 0) + (projeto?.modelo3d?.avisos.length ?? 0);
   const temModelo = Boolean(projeto?.modelo3d);
   const painelVisivel = !temModelo || vista === "3d" || pacoteNo2d;
-  // com folha ainda sendo lida, os materiais e a conta do pacote vão mudar: nada de sugerir o passo seguinte
-  const pranchasLidas = cobertas > 0 && !enviando.length && !projeto?.em_andamento.some((a) => a.status !== "falhou");
 
   function abrir2d() {
     setCadMontado(true);
@@ -431,6 +431,9 @@ export function Projeto({ obra }: { obra: Obra }) {
         </div>
       ) : null}
 
+      {/* No topo: abaixo da mesa (uma tela inteira de altura) a pessoa não via o próximo passo. */}
+      {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
+
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
         <section className={s.visor} aria-label="Estrutura">
           {projeto?.modelo3d ? (
@@ -515,20 +518,6 @@ export function Projeto({ obra }: { obra: Obra }) {
           </div>
         </aside>
       </div>
-
-      {pranchasLidas ? (
-        <>
-          <CartaoMateriais obra={obra} dados={materiais.dados} />
-          {/* a frase do protótipo promete o que falta "estimado pela área": só vale com a tela Estimativa */}
-          <ProximoPasso
-            obraId={obra.id}
-            para="orcamento"
-            acao="Ver quanto a obra deve custar"
-            titulo="As pranchas estão lidas."
-            texto="Confira no orçamento o que já entrou e o que falta lançar."
-          />
-        </>
-      ) : null}
 
       {apagando ? (
         <Confirmar titulo="Apagar o projeto desta obra?" confirmar={`Apagar ${folhas.length} prancha${folhas.length === 1 ? "" : "s"}`} fechar={() => setApagando(false)} aoConfirmar={apagarProjeto}>
