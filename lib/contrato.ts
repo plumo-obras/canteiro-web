@@ -296,6 +296,8 @@ export interface Insumo extends Documento {
   valor_unitario: Centavos;
   /** Ausente nas respostas antigas = material. */
   tipo?: TipoInsumo;
+  /** A etapa do orçamento de onde o item saiu (chave de `GET …/etapas`); null ou ausente = sem etapa. */
+  etapa?: string | null;
 }
 
 /** Calculada por `regras.conta_de_falta` na API. O front só mostra; nunca refaz a conta. */
@@ -403,6 +405,8 @@ export interface Pedido {
   status: StatusPedido;
   /** Soma dos `total` das linhas. */
   valor: Centavos;
+  /** AAAA-MM-DD da última entrega; null sem entrega (ausente em API antiga). */
+  recebido_em?: string | null;
   /** Quantos recebimentos (entregas) o pedido já teve. */
   recebimentos: number;
   /** Soma dos gastos confirmados como pagamento deste pedido (só informa: o custo conta pela entrega). */

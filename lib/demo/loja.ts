@@ -324,6 +324,21 @@ function pedidoApi(e: EstadoDemo, p: PedidoDemo): Pedido {
 
 const INDISPONIVEL = "Indisponível na demonstração.";
 
+/** As etapas das versões vigentes da obra, na ordem em que aparecem (a chave é a posição, como no orçamento dela). */
+function etapasDemo(e: EstadoDemo, obraId: string) {
+  const v = e.versoes.find((x) => x.versao.obra_id === obraId && x.versao.ativa);
+  return (v?.etapas ?? []).map((et, i) => ({ etapa: String(i + 1), descricao: et.descricao }));
+}
+
+/** De que etapa saiu cada insumo: o item do orçamento com o mesmo nome (como ao aprovar, a chave é o nome). */
+function etapaDoInsumo(e: EstadoDemo, obraId: string) {
+  const v = e.versoes.find((x) => x.versao.obra_id === obraId && x.versao.ativa);
+  return (nome: string) => {
+    const i = (v?.etapas ?? []).findIndex((et) => et.itens.some((it) => nomeChave(it.nome) === nomeChave(nome)));
+    return i < 0 ? null : String(i + 1);
+  };
+}
+
 /**
  * O orçamento de cada obra nasce com uma versão de verdade: a estrutura do projeto lançada como contrato (etapa
  * "Estrutura"), montada dos insumos da obra — não um contrato fingido. Idempotente: não duplica se já houver. Serve
@@ -1146,7 +1161,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         });
         return ok({ ...o, registro_id: reg.id });
       }
-      if (metodo === "GET" && b === "etapas" && !id2) return ok([]);
+      if (metodo === "GET" && b === "etapas" && !id2) return ok(etapasDemo(e, id));
       // Fase 4 (cronograma e medição): a demo ganha no fim da fase. O GET vem vazio, com as etapas do orçamento dela.
       if (metodo === "GET" && b === "cronograma" && !id2) {
         const orc = orcamentoDemo(e, obraPorId(e, id));
@@ -1341,7 +1356,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         }
       }
       if (metodo === "GET" && b === "insumos" && !id2) {
-        const itens = [...e.insumos.values()].filter((i) => i.obra_id === id).map((insumo) => ({ insumo, conta: contaDoInsumo(e, insumo) }));
+        const etapa = etapaDoInsumo(e, id);
+        const itens = [...e.insumos.values()].filter((i) => i.obra_id === id).map((insumo) => ({ insumo: { ...insumo, etapa: etapa(insumo.nome) }, conta: contaDoInsumo(e, insumo) }));
         return ok(itens);
       }
       if (metodo === "GET" && b === "insumos" && id2 && c2 === "movimentos") {
@@ -1368,14 +1384,16 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       }
       if (metodo === "POST" && b === "pedidos" && !id2) {
         exigirAdmin(u);
-        // Corpo novo (várias linhas): a demo só aceita uma linha, que é o que o pedido dela sabe guardar.
+        // Corpo novo (várias linhas): o pedido da demo guarda uma linha só, então cada linha vira um pedido dela.
         const linhas = c.linhas as { insumo_id: string; quantidade: number; valor_unitario: number }[] | undefined;
-        if (linhas && linhas.length !== 1) return erro(422, "Na demonstração o pedido tem uma linha só.");
-        const d = linhas
-          ? { insumo_id: linhas[0]!.insumo_id, quantidade: linhas[0]!.quantidade, fornecedor: c.fornecedor, previsao: c.previsao ?? null,
-              valor: Math.round((linhas[0]!.quantidade * linhas[0]!.valor_unitario) / 1000) }
-          : c;
-        const r = criarPedido(e, id, d as unknown as DadosCriarPedido, c.aprovado === true);
+        const pedidoDe = (l: { insumo_id: string; quantidade: number; valor_unitario: number }) => ({
+          insumo_id: l.insumo_id, quantidade: l.quantidade, fornecedor: c.fornecedor, previsao: c.previsao ?? null, valor: Math.round((l.quantidade * l.valor_unitario) / 1000),
+        });
+        for (const l of (linhas ?? []).slice(1)) {
+          const extra = criarPedido(e, id, pedidoDe(l) as unknown as DadosCriarPedido, c.aprovado === true);
+          registrar(e, u, { obra_id: id, texto: extra.texto, proposta_id: null, desfazer: extra.desfazer, origem: "tela" });
+        }
+        const r = criarPedido(e, id, (linhas ? pedidoDe(linhas[0]!) : c) as unknown as DadosCriarPedido, c.aprovado === true);
         const reg = registrar(e, u, { obra_id: id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
         return ok({ ...pedidoApi(e, r.pedido), registro_id: reg.id }, 201);
       }
@@ -1428,7 +1446,17 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
     if (a === "fornecedores" && metodo === "GET" && !id) return ok([]);
     if (a === "fornecedores") return erro(422, INDISPONIVEL);
     if (a === "pedidos" && id && b === "recebimentos" && metodo === "GET") return ok([]);
-    if (a === "pedidos" && id && (b === "recebimentos" || (metodo === "PATCH" && !b))) return erro(422, INDISPONIVEL);
+    if (metodo === "POST" && a === "pedidos" && id && b === "recebimentos") {
+      exigirAdmin(u);
+      const p = pedidoPorId(e, id);
+      // O pedido da demo não tem entrega parcial: o que chegou o encerra, pelo caminho antigo de "recebido".
+      p.status = "recebido";
+      const q = (c.linhas as { quantidade: number }[] | undefined)?.[0]?.quantidade;
+      const r = avancar(e, u, p, "conferido", "tela", { quantidade_recebida: q });
+      const reg = registrar(e, u, { obra_id: p.obra_id, texto: r.texto, proposta_id: null, desfazer: r.desfazer, origem: "tela" });
+      return ok({ recebimento: {}, pedido: pedidoApi(e, p), registro_id: reg.id }, 201);
+    }
+    if (a === "pedidos" && id && metodo === "PATCH" && !b) return erro(422, INDISPONIVEL);
     if (a === "propostas") {
       if (metodo === "GET" && !id) {
         const st = params.get("status");
