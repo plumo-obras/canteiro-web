@@ -176,7 +176,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         const p = r.p;
         const texto =
           p.tipo === "contrato"
-            ? `Contrato importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
+            ? `Orçamento inicial importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
             : `Aditivo importado: ${comSinal(p.total)} em ${plural(p.n_itens, "item", "itens")}.`;
         avisarFeito(texto, p.registro_id);
       } else avisar(`Lista de materiais importada: ${plural(r.p.linhas.length, "insumo", "insumos")}, ${fmtReais(r.p.total)}.`);
@@ -190,8 +190,8 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       : p.k === "eap"
         ? p.p.tipo === "contrato"
           ? p.p.substitui
-            ? "Substituir o contrato"
-            : `Importar o contrato (${plural(p.p.n_itens, "item", "itens")})`
+            ? "Substituir o orçamento inicial"
+            : `Importar o orçamento inicial (${plural(p.p.n_itens, "item", "itens")})`
           : `Importar o aditivo (${comSinal(p.p.total)})`
         : `Importar ${plural(p.p.linhas.length, "insumo", "insumos")}`;
 
@@ -282,8 +282,8 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             <>
               {vigente ? (
                 <fieldset className="pergunta-versao">
-                  <legend>Esta planilha é um aditivo ou o contrato novo?</legend>
-                  <div className="portas" role="radiogroup" aria-label="Aditivo ou contrato novo">
+                  <legend>Esta planilha é um aditivo ou um novo orçamento inicial?</legend>
+                  <div className="portas" role="radiogroup" aria-label="Aditivo ou novo orçamento inicial">
                     <button
                       type="button"
                       role="radio"
@@ -294,7 +294,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
                       <Icone nome="plus" tam={20} />
                       <span>
                         <b>Um aditivo</b>
-                        <small>Soma ao contrato vigente ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é supressão.</small>
+                        <small>Soma ao orçamento inicial vigente ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é supressão.</small>
                       </span>
                       {versao === "aditivo" ? <Icone nome="checkCircle" tam={18} /> : null}
                     </button>
@@ -307,9 +307,9 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
                     >
                       <Icone nome="planilha" tam={20} />
                       <span>
-                        <b>O contrato novo</b>
+                        <b>Um novo orçamento inicial</b>
                         <small>
-                          Substitui por inteiro o contrato vigente ({fmtReais(vigente.total)}, {plural(vigente.itens, "item", "itens")}). Dá para desfazer.
+                          Substitui por inteiro o orçamento inicial vigente ({fmtReais(vigente.total)}, {plural(vigente.itens, "item", "itens")}). Dá para desfazer.
                         </small>
                       </span>
                       {versao === "contrato" ? <Icone nome="checkCircle" tam={18} /> : null}
@@ -317,7 +317,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
                   </div>
                 </fieldset>
               ) : orc.dado ? (
-                <p className="seg-dica mut sm">A obra ainda não tem contrato importado: esta planilha vira o contrato. Os aditivos vêm depois dele.</p>
+                <p className="seg-dica mut sm">A obra ainda não tem orçamento inicial importado: esta planilha vira o orçamento inicial. Os aditivos vêm depois dele.</p>
               ) : null}
               {versao === "aditivo" ? (
                 <div className="campos2">
@@ -552,7 +552,7 @@ function Ignoradas({ ignoradas }: { ignoradas: { linha: number; texto: string; m
 }
 
 const ORIGEM_ETAPA: Record<string, (i: ItemPrevia) => string> = {
-  codigo: () => "pelo código, igual ao contrato",
+  codigo: () => "pelo código, igual ao orçamento inicial",
   planilha: (i) => `da planilha do aditivo${i.etapa_planilha ? ` (etapa ${i.etapa_planilha})` : ""}`,
   escolhida: (i) => `escolhida por você${i.etapa_planilha ? ` (na planilha: ${i.etapa_planilha})` : ""}`,
 };
@@ -582,14 +582,14 @@ function PreviaEap(props: {
           <Icone nome="alert" tam={16} />
           <span>
             <b>
-              Esta planilha substitui o contrato atual ({fmtReais(previa.substitui.total)}, {plural(previa.substitui.itens, "item", "itens")}).
+              Esta planilha substitui o orçamento inicial atual ({fmtReais(previa.substitui.total)}, {plural(previa.substitui.itens, "item", "itens")}).
             </b>{" "}
-            O contrato atual sai de vigência; dá para voltar a ele com Desfazer.
+            O orçamento inicial atual sai de vigência; dá para voltar a ele com Desfazer.
             {fracao < 0.5 ? (
               <>
                 {" "}
                 <b>
-                  Parece um aditivo: o total é {(fracao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do contrato.
+                  Parece um aditivo: o total é {(fracao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçamento inicial.
                 </b>
               </>
             ) : null}
@@ -603,7 +603,7 @@ function PreviaEap(props: {
         <div>
           <span className="prev-n">{aditivo ? comSinal(previa.total) : fmtReais(previa.total)}</span>
           <span>
-            {aditivo ? "no aditivo" : "total do contrato"}
+            {aditivo ? "no aditivo" : "total do orçamento inicial"}
             {aditivo ? null : <ComparaVerba total={previa.total} verba={obra.verba} />}
           </span>
         </div>

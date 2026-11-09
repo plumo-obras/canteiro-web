@@ -29,7 +29,7 @@ afterEach(() => {
 
 describe("faixa no Orçamento", () => {
   const ORC = {
-    versoes: [{ id: "v1", tipo: "contrato", numero: 0, descricao: "Estrutura", ativa: true, itens: 1, etapas: 1, total: 100 }],
+    versoes: [{ id: "v1", tipo: "contrato", numero: 0, descricao: "Estrutura", arquivo: "planilha.xlsx", ativa: true, itens: 1, etapas: 1, total: 100 }],
     itens: [],
     etapas: [{ etapa: "1", descricao: "Estrutura", atual: 100 }],
     totais: { contratado: 100, aditivos: 0, atual: 100, saldo: 100, comprometido: 0, realizado: 0, aditivos_pct: 0, n_itens: 1, n_etapas: 1 },

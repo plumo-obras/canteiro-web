@@ -87,7 +87,7 @@ export function BlocoAditivos({ orc, nomeVersao, fmtData }: { orc: Orcamento; no
       <div className="adt-cab">
         <h3 id="adt-titulo">Aditivos</h3>
         <span className="adt-n">{sinal(t.aditivos)}</span>
-        <span className={`pill ${pct > LIMITE_ADITIVO ? "bad" : ""}`}>{(pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% sobre o contrato</span>
+        <span className={`pill ${pct > LIMITE_ADITIVO ? "bad" : ""}`}>{(pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% sobre o orçamento inicial</span>
       </div>
       {pct > LIMITE_ADITIVO ? (
         <div className="aviso-erro" role="alert">

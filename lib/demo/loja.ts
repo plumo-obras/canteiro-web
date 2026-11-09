@@ -251,7 +251,7 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
   const vd: VersaoDemo = {
     versao: {
       id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
-      data: hojeSP().slice(0, 10), arquivo: "", itens: limpos.length, etapas: 1,
+      data: hojeSP().slice(0, 10), arquivo: `${etapaNome} (projeto).csv`, itens: limpos.length, etapas: 1,
       total: somaTotal, ativa: true, substitui: null, registro_id: null, criado_em: agoraISO(),
     },
     etapas: [{ descricao: etapaNome, itens: limpos }],
