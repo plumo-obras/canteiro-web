@@ -19,8 +19,8 @@ import { Paginacao, usePaginas } from "../Paginacao";
 import s from "./inicio.module.css";
 import { haQuanto, primeiroNome } from "./tempo";
 
-const TXT_STATUS: Record<StatusObra, string> = { em_andamento: "Em andamento", em_orcamento: "Em orçamento", concluida: "Concluída" };
-const ORDEM_STATUS: Record<StatusObra, number> = { em_andamento: 0, em_orcamento: 1, concluida: 2 };
+const TXT_STATUS: Record<StatusObra, string> = { em_andamento: "Em andamento", em_orcamento: "Em orçamento", concluida: "Concluída", desfazendo_aprovacao: "Desfazendo a aprovação" };
+const ORDEM_STATUS: Record<StatusObra, number> = { em_andamento: 0, em_orcamento: 1, concluida: 2, desfazendo_aprovacao: 0 };
 
 const POR_PAGINA = 12;
 const normal = (t: string) =>

@@ -23,6 +23,7 @@
 .dot{width:8px;height:8px;border-radius:50%;background:var(--gray)}
 .status[data-st="em_andamento"] .dot{background:var(--green)}
 .status[data-st="concluida"] .dot{background:var(--blue)}
+.status[data-st="desfazendo_aprovacao"] .dot{background:var(--amber)}
 .cidade{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nome{font-size:var(--t-bloco);line-height:1.2;margin:0;overflow-wrap:anywhere}
 

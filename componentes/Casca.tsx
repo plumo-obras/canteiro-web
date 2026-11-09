@@ -49,8 +49,8 @@ const ABAS: AbaAtiva[] = ["projeto", "orcamento", "suprimentos", "cronograma", "
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
-const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "var(--gray)", concluida: "var(--blue)" };
-const TXT_STATUS: Record<Obra["status"], string> = { em_andamento: "em andamento", em_orcamento: "em orçamento", concluida: "concluída" };
+const COR_STATUS: Record<Obra["status"], string> = { em_andamento: "var(--green)", em_orcamento: "var(--gray)", concluida: "var(--blue)", desfazendo_aprovacao: "var(--amber)" };
+const TXT_STATUS: Record<Obra["status"], string> = { em_andamento: "em andamento", em_orcamento: "em orçamento", concluida: "concluída", desfazendo_aprovacao: "desfazendo" };
 /** O status da API nasce "em_orcamento": sem orçamento nenhum, chamar assim promete o que não existe. Sem saber, não afirma. */
 function statusDaObra(o: Obra, r: ResumoDaObra | null): string {
   if (o.status !== "em_orcamento") return TXT_STATUS[o.status];

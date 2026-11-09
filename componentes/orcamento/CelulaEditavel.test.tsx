@@ -88,6 +88,12 @@ describe("editar o item na linha", () => {
     expect(screen.queryByRole("button", { name: /Editar Quantidade/ })).toBeNull();
   });
 
+  it("com o Desfazer da aprovação pela metade, nada se edita", async () => {
+    montar({}, { ...OBRA, status: "desfazendo_aprovacao" });
+    await screen.findByText("Aço CA-50");
+    expect(screen.queryByRole("button", { name: /Editar/ })).toBeNull();
+  });
+
   it("viewer não edita", async () => {
     montar({}, OBRA, { ...USUARIO, papel: "viewer" });
     await screen.findByText("Aço CA-50");

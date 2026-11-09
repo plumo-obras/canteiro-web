@@ -53,6 +53,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const podeAprovar = emOrcamento && (temContrato || materiais.length > 0);
   const nFalta = (ins.dado ?? []).filter((i) => situacao(i.conta) === "falta").length;
   const primeiraEtapa = dado?.etapas.find((e) => e.descricao)?.descricao;
+  const desfazendo = obra.status === "desfazendo_aprovacao";
   const nSemPreco = temContrato
     ? (dado?.itens ?? []).filter((i) => i.tipo === "item" && !i.valor_unitario).length
     : materiais.filter((i) => !i.insumo.valor_unitario).length;
@@ -78,7 +79,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Orçamento"
-        selo={dado ? <span className={`pill ${emOrcamento ? "st-orc" : "st-ok"}`}>{!emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
+        selo={dado ? <span className={`pill ${emOrcamento || desfazendo ? "st-orc" : "st-ok"}`}>{desfazendo ? "desfazendo a aprovação" : !emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
         acao={
           podeOperar && podeAprovar ? (
             <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
@@ -96,6 +97,8 @@ export function Orcamento({ obra }: { obra: Obra }) {
           <Versoes versoes={dado.versoes} atual={dado.totais.atual} todas />
         </Drawer>
       ) : null}
+
+      {desfazendo ? <AvisoDesfazendo obra={obra} nItens={materiais.length} /> : null}
 
       {orc.erro ? (
         <div className="aviso-erro" role="alert">
@@ -176,7 +179,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
       ) : null}
 
       {/* Antes de aprovar, o próximo passo é o Aprovar do cabeçalho: comprar só existe depois dele. */}
-      {dado && !emOrcamento && nFalta ? (
+      {dado && !emOrcamento && !desfazendo && nFalta ? (
         <ProximoPasso
           obraId={obra.id}
           para="suprimentos"
@@ -212,6 +215,49 @@ export function Orcamento({ obra }: { obra: Obra }) {
           </p>
         </Confirmar>
       ) : null}
+    </div>
+  );
+}
+
+/** O Desfazer da aprovação ficou pela metade: Compras está incompleta até ele terminar, e é daqui que se continua. */
+function AvisoDesfazendo({ obra, nItens }: { obra: Obra; nItens: number }) {
+  const { podeOperar, mudou, avisar } = useCasca();
+  const [ocupado, setOcupado] = useState(false);
+  // fica no aviso, não num toast: é o que diz o que resolver (ex.: cancelar um pedido) antes de tentar de novo
+  const [erro, setErro] = useState<string | null>(null);
+  const continuar = async () => {
+    setOcupado(true);
+    setErro(null);
+    try {
+      await api.desfazerRegistro(obra.desfazendo_registro_id!);
+      mudou();
+      avisar("Aprovação desfeita. A obra voltou para em orçamento.");
+    } catch (e) {
+      setErro(mensagemDe(e));
+      mudou();
+    } finally {
+      setOcupado(false);
+    }
+  };
+  return (
+    <div className="aviso-atencao" role="note">
+      <Icone nome="alert" tam={15} />
+      <div>
+        <p>
+          <b>O Desfazer da aprovação parou no meio: {plural(nItens, "item ainda em Compras", "itens ainda em Compras")}.</b> Enquanto ele não terminar, não dá para fazer pedido nem editar o orçamento.
+        </p>
+        {erro ? (
+          <p className="campo-erro" role="alert">
+            {erro}
+          </p>
+        ) : null}
+        {podeOperar && obra.desfazendo_registro_id ? (
+          <button type="button" className="btn sm" disabled={ocupado} aria-busy={ocupado} onClick={continuar}>
+            {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
+            Continuar o Desfazer
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

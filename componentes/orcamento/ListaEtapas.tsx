@@ -275,7 +275,8 @@ function ItensDaEtapa({
   // Aprovado, o orçamento é a referência de custo da obra e fica travado; só o item sem preço ainda pode recebê-lo.
   const emOrcamento = obra.status === "em_orcamento";
   const qtdEditavel = podeOperar && emOrcamento;
-  const precoEditavel = (i: ItemDaEtapa) => podeOperar && (emOrcamento || !i.valor_unitario);
+  // Com o Desfazer da aprovação pela metade, a API recusa qualquer edição: nem oferece.
+  const precoEditavel = (i: ItemDaEtapa) => podeOperar && obra.status !== "desfazendo_aprovacao" && (emOrcamento || !i.valor_unitario);
   const editar = async (i: ItemDaEtapa, corpo: CorpoEditarItem, feito: string) => {
     try {
       const r = await api.editarItemOrcamento(obra.id, i.id, corpo);

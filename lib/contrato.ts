@@ -23,7 +23,8 @@ interface Documento {
   criado_em: DataISO;
 }
 
-export type StatusObra = "em_andamento" | "em_orcamento" | "concluida";
+/** `desfazendo_aprovacao`: o Desfazer da aprovação parou no meio; a API recusa o que mexe em Compras (409) até terminar. */
+export type StatusObra = "em_andamento" | "em_orcamento" | "concluida" | "desfazendo_aprovacao";
 
 export type Tipologia = "casa" | "sobrado" | "predio" | "galpao" | "reforma" | "comercial" | "outro";
 export type Padrao = "baixo" | "normal" | "alto";
@@ -48,6 +49,8 @@ export interface Obra extends Documento {
   cep: string;
   verba: Centavos;
   status: StatusObra;
+  /** O registro a desfazer de novo para continuar, quando `status` é `desfazendo_aprovacao`. */
+  desfazendo_registro_id?: string | null;
   endereco: string;
   uf: string;
   tipologia: Tipologia | null;
