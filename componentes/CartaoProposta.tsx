@@ -1,8 +1,9 @@
 "use client";
 /**
- * Linha de decisão de uma proposta do agente: prazo | título · conta · fonte | valor | [Aprovar] ⋯ (Recusar).
+ * Linha de decisão de uma proposta do agente: prazo | título · conta · fonte | valor | [Recusar…] [Aprovar] ⋯ (Ajustar).
  * Depois de decidir, o cartão fica no lugar ("Aprovado 10:32 por Rizzi · Desfazer") em vez de sumir e fazer a lista
- * pular. Aprovar é o único caminho de execução do que o agente propôs.
+ * pular. Aprovar é o único caminho de execução do que o agente propôs. Recusar fica à vista, ao lado: num cartão de
+ * dinheiro, dizer não pesa tanto quanto dizer sim, e no "⋯" o testador não o achava.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Proposta, StatusPedido } from "@/lib/contrato";
@@ -149,16 +150,14 @@ export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco
   if (p.status === "pendente") {
     acoes = podeOperar ? (
       <>
+        <button type="button" className="btn" disabled={ocupado} onClick={() => setRecusando(true)}>
+          Recusar…
+        </button>
         <button type="button" className={`btn${foco ? " amb" : ""}`} disabled={ocupado} aria-busy={ocupado} onClick={() => executar(() => aprovar(p.id))}>
           {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
           {rotuloAprovar(p)}
         </button>
-        <MenuMais
-          itens={[
-            ...(podeAjustar(p) ? [{ rotulo: "Ajustar e aprovar…", acao: () => setAjustando(true) }] : []),
-            { rotulo: "Recusar…", acao: () => setRecusando(true) },
-          ]}
-        />
+        {podeAjustar(p) ? <MenuMais itens={[{ rotulo: "Ajustar e aprovar…", acao: () => setAjustando(true) }]} /> : null}
       </>
     ) : (
       <span className="pill warn">Espera um admin aprovar</span>

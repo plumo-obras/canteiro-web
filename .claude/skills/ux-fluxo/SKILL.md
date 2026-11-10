@@ -28,7 +28,8 @@ Quem usa: **engenheiro/gerente de obra** (escritório ou carro, decide o dia e v
   pessoa, em `CartaoProposta` (na conversa e nas Aprovações, o mesmo estado em `cartoes`).
 - O agente nunca abre aba sozinho, nunca grava, nunca "auto-aprova". Se o pedido for "o agente faz X direto", a
   resposta é: o agente prepara a proposta, a pessoa aprova.
-- Recusar pede motivo (`ModalRecusar`) e fica no "⋯", não ao lado do Aprovar.
+- Recusar pede motivo (`ModalRecusar`) e fica à vista, ao lado do Aprovar e como botão secundário (no "⋯" o
+  testador não achava). O "⋯" do cartão guarda só o "Ajustar e aprovar…".
 
 ## Toda escrita: aviso + Desfazer
 
