@@ -294,6 +294,8 @@ export interface Orcamento {
 export interface CorpoOrdemEtapas {
   ordem: string[];
   chave_idempotencia: string;
+  /** O contrato vigente sobre o qual a tela montou a ordem; outro vigente = 409 (a numeração mudou). */
+  versao_id?: string;
 }
 
 /** Um contrato novo no lugar do vigente, com as etapas renumeradas 1..N; o Desfazer religa o anterior. */

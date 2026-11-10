@@ -117,8 +117,11 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
   const podeOrdenar =
     podeOperar && obra.status === "em_orcamento" && !filtrando && filtro.ordem === "planilha" && etapasDaOrdem.length > 1 && !orc.versoes.some((v) => v.ativa && v.tipo === "aditivo");
   const [ordenando, setOrdenando] = useState(false);
-  // A mesma ordem pedida de novo (a resposta se perdeu) reaproveita a chave: a API não grava duas versões.
-  const chaveOrdem = useRef<{ conteudo: string; valor: string } | null>(null);
+  // A ordem é montada sobre a numeração que a tela vê, e a API renumera: até o orçamento novo chegar, outro toque
+  // mandaria a numeração velha e moveria outra etapa. Por isso as setas esperam um `orc` diferente do do toque.
+  const [travadoEm, setTravadoEm] = useState<Orcamento | null>(null);
+  const ocupado = ordenando || travadoEm === orc;
+  const vigente = orc.versoes.find((v) => v.ativa && v.tipo === "contrato")?.id;
   // As etapas são renumeradas: o foco volta para o mesmo botão na posição nova, não fica perdido no topo da página.
   const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer" } | null>(null);
   const refLista = useRef<HTMLUListElement>(null);
@@ -137,12 +140,11 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
     if (de < 0 || para < 0 || para >= etapasDaOrdem.length) return;
     const ordem = [...etapasDaOrdem];
     [ordem[de], ordem[para]] = [ordem[para]!, ordem[de]!];
-    const conteudo = JSON.stringify(ordem);
-    if (chaveOrdem.current?.conteudo !== conteudo) chaveOrdem.current = { conteudo, valor: uuid7() };
     setOrdenando(true);
     try {
-      const r = await api.ordenarEtapas(obra.id, { ordem, chave_idempotencia: chaveOrdem.current.valor });
-      chaveOrdem.current = null;
+      // Chave nova a cada toque: reaproveitar a de um toque que deu erro podia achar uma versão já gravada e desfeita
+      // (200, "subiu", e nada muda). Resposta perdida não grava duas vezes: o `versao_id` já não é o vigente (409).
+      const r = await api.ordenarEtapas(obra.id, { ordem, chave_idempotencia: uuid7(), ...(vigente ? { versao_id: vigente } : {}) });
       focoDepois.current = { posicao: para + 1, dir };
       mudou();
       // fixo, como o do somar: mudar a ordem sem querer é fácil e o caminho de volta tem de esperar a pessoa
@@ -151,6 +153,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
       mudou();
       avisar(mensagemDe(e), true);
     } finally {
+      setTravadoEm(orc);
       setOrdenando(false);
     }
   };
@@ -223,7 +226,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                   posicao={etapasDaOrdem.indexOf(l.etapa) + 1}
                   total={etapasDaOrdem.length}
                   descricao={l.descricao}
-                  ocupado={ordenando}
+                  ocupado={ocupado}
                   mover={(dir) => mover(l.etapa, l.descricao, dir)}
                 />
               ) : null}

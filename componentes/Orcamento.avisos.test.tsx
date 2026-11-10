@@ -184,14 +184,19 @@ describe("ordem das etapas antes de aprovar", () => {
     itens: [],
     etapas: nomes.map((d, i) => etapa(String(i + 1), d)),
   });
-  const montarOrdem = (obra: Obra, usuario: Usuario = USUARIO, recusa?: string) => {
+  const montarOrdem = (obra: Obra, usuario: Usuario = USUARIO, recusa?: string, segurar?: Promise<void>) => {
     let atual = ["Estrutura", "Serviços preliminares", "Fundação"];
+    let gravou = false;
     const rede = criarRede({
       "POST /srv/auth/renovar": renovarOk,
-      "GET /srv/api/obras/o1/orcamento": () => json(dados(atual)),
+      "GET /srv/api/obras/o1/orcamento": async () => {
+        if (gravou && segurar) await segurar;
+        return json(dados(atual));
+      },
       "GET /srv/api/obras/o1/insumos": () => json([]),
       "POST /srv/api/obras/o1/orcamento/etapas/ordem": ({ corpo }) => {
         if (recusa) return json({ detail: recusa }, 409);
+        gravou = true;
         const ordem = (corpo as { ordem: string[] }).ordem;
         atual = ordem.map((k) => atual[Number(k) - 1]!);
         return json({ versao_id: "v9", registro_id: "r9", etapas: atual.map((d, i) => ({ etapa: String(i + 1), descricao: d })) }, 201);
@@ -224,6 +229,33 @@ describe("ordem das etapas antes de aprovar", () => {
     await userEvent.setup().click(await screen.findByRole("button", { name: "Descer Estrutura" }));
     expect(await screen.findByText(DETAIL)).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 1 de 3" })).toBeInTheDocument();
+  });
+
+  it("até o orçamento renumerado chegar, as setas ficam desligadas; a ordem vai com a versão que a tela via", async () => {
+    let soltar!: () => void;
+    const rede = montarOrdem(OBRA, USUARIO, undefined, new Promise<void>((r) => (soltar = r)));
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    await screen.findByText("Estrutura desceu: agora é a etapa 2.");
+    // a tela ainda mostra a numeração velha: um 2º toque moveria a etapa errada
+    expect(screen.getByRole("button", { name: "Descer Serviços preliminares" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Subir Fundação" })).toBeDisabled();
+    expect(rede.chamadas.find((c) => c.caminho.endsWith("/etapas/ordem"))!.corpo).toMatchObject({ versao_id: "v1" });
+    soltar();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Subir Fundação" })).toBeEnabled());
+    expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument();
+  });
+
+  it("depois de um erro, repetir a mesma ordem vai com chave nova", async () => {
+    const rede = montarOrdem(OBRA, USUARIO, "O orçamento mudou enquanto você mexia na ordem; recarregue e tente de novo.");
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    await screen.findByText(/O orçamento mudou/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Descer Estrutura" })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: "Descer Estrutura" }));
+    await waitFor(() => expect(rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem"))).toHaveLength(2));
+    const [a, b] = rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem")).map((c) => (c.corpo as { chave_idempotencia: string }).chave_idempotencia);
+    expect(a).not.toBe(b);
   });
 
   it("aprovado: sem as setas", async () => {

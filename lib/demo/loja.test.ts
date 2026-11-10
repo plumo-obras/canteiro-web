@@ -568,6 +568,28 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     expect(final.etapas.map((et) => et.descricao)).toEqual(["Estrutura", "Serviços preliminares"]);
   });
 
+  it("ordem das etapas, como a API: chave repetida com outra ordem, versão que não é a vigente e etapa em uso dão 409", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "w1", etapa: "Estrutura" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [ACO], aplicar: true, chave_idempotencia: "w2", etapa: "Fundação" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [{ ...ACO, nome: "Tapume" }], aplicar: true, chave_idempotencia: "w3", etapa: "Preliminares" });
+    const vista = (chamar("GET", `obras/${o.id}/orcamento`).corpo as O).versoes.find((v) => v.ativa)!.id;
+
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-001", versao_id: vista }).status).toBe(200);
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-001", versao_id: vista }).status).toBe(200);
+    const outra = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1", "3", "2"], chave_idempotencia: "chave-001" });
+    expect(outra.status).toBe(409);
+    // a ordem montada sobre a numeração de antes moveria a etapa errada
+    const velha = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1", "3", "2"], chave_idempotencia: "chave-002", versao_id: vista });
+    expect(velha).toMatchObject({ status: 409, corpo: { detail: expect.stringMatching(/orçamento mudou/) } });
+
+    // um insumo na etapa 2 (a Estrutura, depois da troca): só passa a ordem que a mantém no número 2
+    e.insumos.set("orc-x", { id: "x", obra_id: o.id, nome: "Aço", unidade: "kg", precisa_ate_o_fim: 1000, curva: "A", valor_unitario: 0, etapa: "2" } as never);
+    const presa = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-003" });
+    expect(presa).toMatchObject({ status: 409, corpo: { detail: "Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa 2 Estrutura: renumerar levaria o lançamento para outra etapa." } });
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["3", "2", "1"], chave_idempotencia: "chave-004" }).status).toBe(200);
+  });
+
   it("o preço editado no orçamento somado continua achando o item (id pela posição na versão)", () => {
     const o = criar().corpo as { id: string };
     chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "q1" });

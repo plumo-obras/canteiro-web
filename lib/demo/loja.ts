@@ -58,6 +58,8 @@ interface VersaoDemo {
   etapas: { descricao: string; itens: { nome: string; unidade: string; quantidade: number; valor_unitario: number }[] }[];
   /** A chave de idempotência da gravação: repetir o POST com a mesma chave devolve esta versão, não cria outra. */
   chave: string | null;
+  /** Só na versão gravada pela ordem das etapas: a ordem pedida, para recusar a mesma chave com outra ordem. */
+  ordem?: string[];
 }
 
 interface EstadoDemo {
@@ -339,18 +341,32 @@ function ordenarEtapas(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string,
     registro_id: vd.versao.registro_id!,
     etapas: vd.etapas.map((et, i) => ({ etapa: String(i + 1), descricao: et.descricao })),
   });
+  const ordem = Array.isArray(corpo.ordem) ? corpo.ordem.map(String) : [];
   const ja = e.versoes.find((v) => v.versao.obra_id === o.id && v.chave === chave);
-  if (ja) return saida(ja);
+  if (ja) {
+    if (JSON.stringify(ja.ordem) !== JSON.stringify(ordem)) throw new Conflito("Esta chave de idempotência já foi usada para outra mudança do orçamento.");
+    return saida(ja);
+  }
   if (o.status !== "em_orcamento") throw new Conflito("O orçamento já foi aprovado: a ordem das etapas não muda mais.");
   const ativas = e.versoes.filter((v) => v.versao.obra_id === o.id && v.versao.ativa);
   const vigente = ativas.find((v) => v.versao.tipo === "contrato");
   if (!vigente) throw new RegraViolada("Ainda não há orçamento nesta obra para ordenar as etapas.");
   if (ativas.length > 1) throw new Conflito("Há aditivo valendo sobre este orçamento; desfaça o aditivo antes de mudar a ordem.");
+  // a ordem foi montada sobre a numeração que a tela via: se o vigente é outro, ela moveria a etapa errada
+  if (typeof corpo.versao_id === "string" && corpo.versao_id !== vigente.versao.id)
+    throw new Conflito("O orçamento mudou enquanto você mexia na ordem; recarregue e tente de novo.");
   const atual = vigente.etapas.map((_, i) => String(i + 1));
-  const ordem = Array.isArray(corpo.ordem) ? corpo.ordem.map(String) : [];
   if (ordem.length !== atual.length || new Set(ordem).size !== ordem.length || !ordem.every((k) => atual.includes(k)))
     throw new RegraViolada(`Mande todas as etapas do orçamento, cada uma uma vez: ${atual.join(", ")}.`);
   if (ordem.every((k, i) => k === atual[i])) throw new RegraViolada("Nada mudou: as etapas já estão nesta ordem.");
+  // como a API: renumerar uma etapa que já tem lançamento levaria o lançamento, calado, para outra etapa
+  // na demo só o insumo guarda a etapa (as linhas de pedido saem com etapa null)
+  const usadas = new Set([...e.insumos.values()].filter((i) => i.obra_id === o.id && i.etapa).map((i) => i.etapa!));
+  const presas = ordem.filter((k, i) => k !== String(i + 1) && usadas.has(k));
+  if (presas.length) {
+    const nome = (k: string) => `${k} ${vigente.etapas[Number(k) - 1]?.descricao ?? ""}`.trim();
+    throw new Conflito(`Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa ${presas.sort().map(nome).join(", ")}: renumerar levaria o lançamento para outra etapa.`);
+  }
 
   const versaoId = uuid7();
   const vd: VersaoDemo = {
@@ -360,6 +376,7 @@ function ordenarEtapas(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string,
       return { descricao: et.descricao, itens: et.itens.map((x) => ({ ...x })) };
     }),
     chave,
+    ordem,
   };
   vigente.versao.ativa = false;
   e.versoes.push(vd);
