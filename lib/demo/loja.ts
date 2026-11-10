@@ -354,7 +354,7 @@ function ordenarEtapas(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string,
   if (ativas.length > 1) throw new Conflito("Há aditivo valendo sobre este orçamento; desfaça o aditivo antes de mudar a ordem.");
   // a ordem foi montada sobre a numeração que a tela via: se o vigente é outro, ela moveria a etapa errada
   if (typeof corpo.versao_id === "string" && corpo.versao_id !== vigente.versao.id)
-    throw new Conflito("O orçamento mudou enquanto você mexia na ordem; recarregue e tente de novo.");
+    throw new Conflito("O orçamento mudou desde que você abriu a tela; recarregue e confira a ordem.");
   const atual = vigente.etapas.map((_, i) => String(i + 1));
   if (ordem.length !== atual.length || new Set(ordem).size !== ordem.length || !ordem.every((k) => atual.includes(k)))
     throw new RegraViolada(`Mande todas as etapas do orçamento, cada uma uma vez: ${atual.join(", ")}.`);

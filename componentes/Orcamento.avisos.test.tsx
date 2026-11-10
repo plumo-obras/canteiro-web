@@ -247,7 +247,7 @@ describe("ordem das etapas antes de aprovar", () => {
   });
 
   it("depois de um erro, repetir a mesma ordem vai com chave nova", async () => {
-    const rede = montarOrdem(OBRA, USUARIO, "O orçamento mudou enquanto você mexia na ordem; recarregue e tente de novo.");
+    const rede = montarOrdem(OBRA, USUARIO, "O orçamento mudou desde que você abriu a tela; recarregue e confira a ordem.");
     const u = userEvent.setup();
     await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
     await screen.findByText(/O orçamento mudou/);
