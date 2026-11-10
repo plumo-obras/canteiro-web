@@ -64,7 +64,7 @@ export function Gastos({ obra }: { obra: Obra }) {
     // sem isto, quem compara com o placar não acha o que foi entregue e não pago ("onde foram parar os 25 mil?")
     if (resumo.entregue_a_pagar) numeros.push({ rotulo: "Entregue, ainda a pagar", valor: fmtReais(resumo.entregue_a_pagar), sub: "já conta no gasto" });
     // só marca: o vidro comprado sem pedido conta na etapa como qualquer gasto, mas não estava no que se orçou
-    if (resumo.fora_do_orcado) numeros.push({ rotulo: "Fora do orçado", valor: fmtReais(resumo.fora_do_orcado), sub: "lançado fora de pedido" });
+    if (resumo.fora_do_orcado) numeros.push({ rotulo: "Fora de pedido", valor: fmtReais(resumo.fora_do_orcado), sub: "lançado sem pedido de compra" });
   }
 
   const abas = (
@@ -125,7 +125,7 @@ export function Gastos({ obra }: { obra: Obra }) {
                       <span className={s.valor}>{fmtReais(e.total)}</span>
                     </div>
                     {e.entregue_a_pagar ? <div className="mut sm">+ {fmtReais(e.entregue_a_pagar)} entregue, ainda a pagar</div> : null}
-                    {e.fora_do_orcado ? <div className="mut sm">{fmtReais(e.fora_do_orcado)} fora do orçado (lançado fora de pedido)</div> : null}
+                    {e.fora_do_orcado ? <div className="mut sm">{fmtReais(e.fora_do_orcado)} fora de pedido</div> : null}
                     {e.topicos.length > 1 || e.topicos[0]?.topico_id ? (
                       <ul className={s.sublista} role="list">
                         {e.topicos.map((t) => (
@@ -344,7 +344,7 @@ function Lancados(p: {
                   ) : g.fora_do_orcado ? (
                     <>
                       {" "}
-                      · <span className="pill">fora do orçado</span>
+                      · <span className="pill">fora de pedido</span>
                     </>
                   ) : null}
                   {g.comprovante_id ? (
