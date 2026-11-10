@@ -410,6 +410,22 @@ function ResumoOrcamento({ orc }: { orc: DadosOrcamento }) {
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */
 
 /**
+ * A situação vem da API (`situacao`). Sem ela (API antiga), segue a cadeia: fora de vigência, a versão foi substituída
+ * se outra que não foi desfeita a substituiu (pranchas → somar → reordenar: as duas primeiras), senão foi desfeita.
+ */
+export function situacaoDe(
+  v: Pick<VersaoOrcamento, "id" | "ativa" | "situacao">,
+  versoes: Pick<VersaoOrcamento, "id" | "ativa" | "situacao" | "substitui">[],
+  vistas: Set<string> = new Set(),
+): NonNullable<VersaoOrcamento["situacao"]> {
+  if (v.situacao) return v.situacao;
+  if (v.ativa) return "vigente";
+  if (vistas.has(v.id)) return "desfeita";
+  vistas.add(v.id);
+  return versoes.some((o) => o.substitui === v.id && situacaoDe(o, versoes, vistas) !== "desfeita") ? "substituida" : "desfeita";
+}
+
+/**
  * À vista só o que vale hoje para conferir: o contrato vigente e o último aditivo vigente. Os aditivos vigentes mais
  * antigos, os desfeitos e os substituídos ficam no histórico recolhido (com o mesmo Desfazer, quando couber).
  */
@@ -424,14 +440,7 @@ export function separarVersoes<T extends Pick<VersaoOrcamento, "id" | "tipo" | "
 function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]; atual: number; todas?: boolean }) {
   const { podeOperar, mudou, avisarFeito } = useCasca();
   const [confirmando, setConfirmando] = useState<VersaoOrcamento | null>(null);
-  const situacao = (v: VersaoOrcamento) =>
-    v.situacao
-      ? ({ vigente: "vigente", substituida: "substituída", desfeita: "desfeita" } as const)[v.situacao]
-      : v.ativa
-        ? "vigente"
-        : versoes.some((o) => o.substitui === v.id && o.ativa)
-          ? "substituída"
-          : "desfeita";
+  const situacao = (v: VersaoOrcamento) => ({ vigente: "vigente", substituida: "substituída", desfeita: "desfeita" } as const)[situacaoDe(v, versoes)];
 
   /** O que muda de fato ao desfazer: com um clique só, a pessoa tirava o contrato de vigência sem saber. */
   const consequencia = (v: VersaoOrcamento) => {

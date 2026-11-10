@@ -5,7 +5,8 @@ import type { Obra, Usuario, VersaoOrcamento } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "./contexto";
-import { Orcamento, soDasPranchas } from "./Orcamento";
+import { Orcamento, situacaoDe, soDasPranchas } from "./Orcamento";
+import { rolador } from "./orcamento/ListaEtapas";
 
 const OBRA = { id: "o1", nome: "Casa Inventada", status: "em_orcamento", verba: 62000000 } as Obra;
 const orc = (arquivo: string, precos: number[]) => ({
@@ -305,5 +306,35 @@ describe("ordem das etapas antes de aprovar", () => {
     montarOrdem(OBRA, { ...USUARIO, papel: "viewer" });
     expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
+  });
+});
+
+describe("situacaoDe (sem o campo da API)", () => {
+  const v = (id: string, ativa: boolean, substitui: string | null = null) => ({ id, ativa, substitui });
+  it("pranchas → somar → reordenar: substituída, substituída, vigente", () => {
+    const vs = [v("p", false), v("s", false, "p"), v("r", true, "s")];
+    expect(vs.map((x) => situacaoDe(x, vs))).toEqual(["substituida", "substituida", "vigente"]);
+  });
+  it("desfeita a reordenação: substituída, vigente, desfeita", () => {
+    const vs = [v("p", false), v("s", true, "p"), v("r", false, "s")];
+    expect(vs.map((x) => situacaoDe(x, vs))).toEqual(["substituida", "vigente", "desfeita"]);
+  });
+  it("o campo da API manda", () => {
+    expect(situacaoDe({ id: "x", ativa: false, situacao: "substituida" }, [])).toBe("substituida");
+  });
+});
+
+describe("rolador", () => {
+  it("é o ancestral que rola de fato, não a janela", () => {
+    const palco = document.createElement("div");
+    palco.style.overflowY = "auto";
+    Object.defineProperty(palco, "scrollHeight", { value: 2000 });
+    Object.defineProperty(palco, "clientHeight", { value: 800 });
+    const li = document.createElement("li");
+    palco.appendChild(document.createElement("ul")).appendChild(li);
+    document.body.appendChild(palco);
+    expect(rolador(li)).toBe(palco);
+    expect(rolador(document.createElement("li"))).toBe(window);
+    palco.remove();
   });
 });

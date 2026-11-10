@@ -139,7 +139,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
     const li = alvo.closest("li");
     if (li && f.topo != null) {
       const andou = li.getBoundingClientRect().top - f.topo;
-      if (andou) window.scrollBy(0, andou);
+      if (andou) rolador(li).scrollBy(0, andou);
     }
     alvo.focus({ preventScroll: true });
   }, [orc]);
@@ -281,6 +281,18 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
       </ul>
     </section>
   );
+}
+
+/**
+ * Quem rola a tela: a casca rola o `.palco-tela`, não a janela (o scrollBy na janela não mexia em nada). O primeiro
+ * ancestral que rola de fato; sem nenhum, a janela.
+ */
+export function rolador(el: Element): { scrollBy: (x: number, y: number) => void } {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowY } = getComputedStyle(p);
+    if ((overflowY === "auto" || overflowY === "scroll") && p.scrollHeight > p.clientHeight) return p;
+  }
+  return window;
 }
 
 /** Subir e descer uma etapa: botões e não arrastar, para dar com o teclado e o dedo (e o leitor dizer a posição). */
