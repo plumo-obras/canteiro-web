@@ -666,6 +666,25 @@ const ORIGEM_ETAPA: Record<string, (i: ItemPrevia) => string> = {
   escolhida: (i) => `escolhida por você${i.etapa_planilha ? ` (na planilha: ${i.etapa_planilha})` : ""}`,
 };
 
+/**
+ * O número que a etapa (ou o item, pelo prefixo: "2.1" da etapa que vira a 1 fica "1.1") terá no orçamento gravado.
+ * No somar que põe a Estrutura das pranchas depois das fundações a API renumera ao gravar, mas a prévia segue com as
+ * chaves de antes, porque são elas que valem na escolha de etapa; mostrar a chave faria a tela contradizer o orçamento.
+ */
+function numeroFinal(previa: PreviaVersao, numero: string, etapa: string): string {
+  const n = previa.numeracao?.[etapa];
+  if (!n) return numero;
+  const [primeiro, ...resto] = numero.split(".");
+  return primeiro === etapa ? [n, ...resto].join(".") : numero;
+}
+
+/** As etapas na ordem em que ficam gravadas (só muda alguma coisa quando a API renumera). */
+function naOrdemFinal<T extends { etapa: string }>(previa: PreviaVersao, etapas: T[]): T[] {
+  if (!previa.numeracao || !Object.keys(previa.numeracao).length) return etapas;
+  const n = (e: T) => Number(numeroFinal(previa, e.etapa, e.etapa));
+  return [...etapas].sort((a, b) => (Number.isNaN(n(a)) || Number.isNaN(n(b)) ? 0 : n(a) - n(b)));
+}
+
 function PreviaEap(props: {
   previa: PreviaVersao;
   obra: Obra;
@@ -775,12 +794,12 @@ function PreviaEap(props: {
       {aditivo && previa.etapas.length ? <h3 className="sectit">Por etapa</h3> : null}
       {previa.etapas.length ? (
         <div className="tbl-rola prev-etapas">
-          {previa.etapas.map((e) => {
+          {naOrdemFinal(previa, previa.etapas).map((e) => {
             const its = porEtapa.get(e.etapa) ?? [];
             return (
               <details key={e.etapa}>
                 <summary>
-                  <span className="eap-num">{e.etapa}</span>
+                  <span className="eap-num">{numeroFinal(previa, e.etapa, e.etapa)}</span>
                   <span className="eap-desc">{e.descricao}</span>
                   <span className="mut sm">{plural(its.filter((i) => i.tipo === "item").length, "item", "itens")}</span>
                   <span className="num">
@@ -792,12 +811,12 @@ function PreviaEap(props: {
                     {its.slice(0, MAX_LINHAS_PREVIA).map((i) =>
                       i.tipo === "etapa" ? (
                         <tr key={i.ordem} className="eap-sub">
-                          <td className="eap-n">{i.numero}</td>
+                          <td className="eap-n">{numeroFinal(previa, i.numero, i.etapa)}</td>
                           <td colSpan={4}>{i.descricao}</td>
                         </tr>
                       ) : (
                         <tr key={i.ordem}>
-                          <td className="eap-n">{i.numero}</td>
+                          <td className="eap-n">{numeroFinal(previa, i.numero, i.etapa)}</td>
                           <td className="eap-d">
                             {i.descricao}
                             {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
@@ -857,7 +876,7 @@ function ItensComDestino(props: {
   const { previa, etapasContrato, ignorados } = props;
   const doContrato = new Set(etapasContrato.map((e) => e.etapa));
   const proprias = previa.itens.filter((i) => i.tipo === "etapa" && i.nivel <= 1 && !doContrato.has(i.etapa)).map((i) => ({ etapa: i.etapa, descricao: i.descricao }));
-  const opcoes = [...etapasContrato, ...proprias];
+  const opcoes = naOrdemFinal(previa, [...etapasContrato, ...proprias]);
   const itens = [...previa.itens.filter((i) => i.tipo === "item"), ...Object.values(ignorados)].sort((a, b) => a.ordem - b.ordem);
   return (
     <>
@@ -879,7 +898,7 @@ function ItensComDestino(props: {
               const fora = String(i.ordem) in ignorados;
               return (
               <tr key={i.ordem} className={fora ? "adt-fora" : undefined}>
-                <td className="eap-n">{fora ? "" : i.numero}</td>
+                <td className="eap-n">{fora ? "" : numeroFinal(previa, i.numero, i.etapa)}</td>
                 <td className="eap-d">
                   {i.descricao}
                   {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
@@ -905,10 +924,10 @@ function ItensComDestino(props: {
                     disabled={props.ocupado}
                     onChange={(e) => props.mudarEtapa(i.ordem, e.target.value)}
                   >
-                    {opcoes.some((o) => o.etapa === i.etapa) ? null : <option value={i.etapa}>{i.etapa}</option>}
+                    {opcoes.some((o) => o.etapa === i.etapa) ? null : <option value={i.etapa}>{numeroFinal(previa, i.etapa, i.etapa)}</option>}
                     {opcoes.map((o) => (
                       <option key={o.etapa} value={o.etapa}>
-                        {o.etapa} · {o.descricao}
+                        {numeroFinal(previa, o.etapa, o.etapa)} · {o.descricao}
                         {doContrato.has(o.etapa) ? "" : " (da planilha)"}
                       </option>
                     ))}

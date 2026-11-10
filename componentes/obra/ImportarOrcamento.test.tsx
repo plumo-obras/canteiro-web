@@ -146,6 +146,25 @@ describe("importar antes de aprovar: somar ao orçamento", () => {
     expect(screen.getByText("1 aviso (grava mesmo assim)")).toBeInTheDocument();
   });
 
+  it("no somar que renumera, a prévia mostra os números do orçamento gravado e a escolha manda a chave de antes", async () => {
+    const u = userEvent.setup();
+    // a Estrutura das pranchas (1) vai para depois dos preliminares da planilha (2): gravadas, viram 2 e 1
+    const { rede } = montar(EM_ORCAMENTO, {
+      "POST /srv/api/obras/o1/orcamento/versoes": () => json({ ...previaSomar([]), numeracao: { "1": "2", "2": "1" } }),
+    }, "somar");
+    await ateAPrevia(u);
+    const destino = await screen.findByRole("combobox", { name: "Etapa de destino de Locação da obra" });
+    const linha = destino.closest("tr")!;
+    expect(within(linha).getByText("1.1")).toBeInTheDocument();
+    expect(within(destino).getAllByRole("option").map((o) => o.textContent)).toEqual(["1", "2 · Estrutura"]);
+    const concreto = screen.getByRole("combobox", { name: "Etapa de destino de Concreto fck 25 sapatas" }).closest("tr")!;
+    expect(within(concreto).getByText("2.20")).toBeInTheDocument();
+    expect(screen.queryByText("2.1")).toBeNull();
+
+    await u.selectOptions(destino, "2 · Estrutura");
+    await waitFor(() => expect(versoes(rede).at(-1)!.get("etapas_itens")).toBe(JSON.stringify({ "1": "1" })));
+  });
+
   it("desmarcar 'não importar' devolve o item à prévia", async () => {
     const u = userEvent.setup();
     const { rede } = montar(EM_ORCAMENTO, {}, "somar");
