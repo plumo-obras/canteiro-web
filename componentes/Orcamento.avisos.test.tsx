@@ -56,13 +56,32 @@ describe("avisos do Orçamento", () => {
     montar(orc(PRANCHAS, [500]));
     expect(await screen.findByText(/só o que as pranchas trazem/)).toBeInTheDocument();
     expect(screen.getByRole("note")).toHaveTextContent("Cobertura, piso, instalações e mão de obra ainda não estão nele.");
-    expect(within(screen.getByRole("note")).getByRole("button", { name: "Importar planilha" })).toBeInTheDocument();
+    expect(within(screen.getByRole("note")).getByRole("button", { name: "Somar a planilha da obra" })).toBeInTheDocument();
   });
 
   it("viewer lê o aviso, sem o botão de importar", async () => {
     montar(orc(PRANCHAS, [500]), { ...USUARIO, papel: "viewer" });
     expect(await screen.findByText(/só o que as pranchas trazem/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Importar planilha" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Somar a planilha da obra" })).toBeNull();
+  });
+
+  it("aditivo de verdade: % neutro sobre o orçamento aprovado, sem citar lei nem pintar de vermelho", async () => {
+    const base = orc("planilha.xlsx", [500]);
+    montar({
+      ...base,
+      versoes: [...base.versoes, { ...base.versoes[0], id: "v2", tipo: "aditivo", numero: 1, total: 50_000 }],
+      totais: { ...base.totais, contratado: 5_000_000, aditivos: 5_000_000, atual: 10_000_000, aditivos_pct: 10_000 },
+    });
+    expect(await screen.findByText("+100% sobre o orçamento aprovado")).not.toHaveClass("bad");
+    expect(screen.getByRole("button", { name: "+100% aditivo" })).not.toHaveClass("t-acima");
+    expect(screen.queryByText(/8\.666|limite legal|obra pública/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("sem aditivo, sem selo de aditivo", async () => {
+    montar(orc("planilha.xlsx", [500]));
+    await screen.findByText(/maior etapa/);
+    expect(screen.queryByText(/aditivo/)).toBeNull();
   });
 
   it("a versão inicial aparece como orçamento inicial, nunca contrato", async () => {

@@ -15,6 +15,8 @@ export interface Celula {
   valor: string;
   sub: string;
   tom?: Tom;
+  /** O sub continua à vista no celular, onde os outros somem para caber. */
+  fixo?: boolean;
 }
 
 /** "2027-03" → "03/2027" (o cronograma é mensal: a API não tem o dia da entrega). */
@@ -43,7 +45,15 @@ export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null,
   }
   const f = r.financeiro;
   const pct = f.tem_orcamento && f.realizado_pct != null ? `${(f.realizado_pct / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "";
-  const gasto: Celula = { rotulo: "Gasto até hoje", valor: fmtReais(f.realizado), sub: !f.realizado ? "nenhum gasto lançado" : f.tem_orcamento ? pct : "sem orçamento para comparar" };
+  // Com entregue a pagar, o gasto não é só o que saiu do caixa: a soma à vista responde "onde foram parar os 25 mil"
+  // de quem compara com o Já pago do Cronograma. A soma vem pronta da API.
+  const partes = f.entregue_a_pagar && f.pago != null ? `${fmtReais(f.pago)} pago + ${fmtReais(f.entregue_a_pagar)} entregue a pagar` : null;
+  const gasto: Celula = {
+    rotulo: "Gasto até hoje",
+    valor: fmtReais(f.realizado),
+    sub: !f.realizado ? "nenhum gasto lançado" : (partes ?? (f.tem_orcamento ? pct : "sem orçamento para comparar")),
+    ...(partes ? { fixo: true } : {}),
+  };
   const falta: Celula = !f.tem_orcamento
     ? { rotulo: "Falta gastar", valor: "—", sub: "aparece com o orçamento", tom: "mut" }
     : f.falta_gastar == null
@@ -81,7 +91,7 @@ export function Placar(p: { obra: Obra; resumo: ResumoDaObra | null; falhou: boo
         <div key={c.rotulo}>
           <dt>{c.rotulo}</dt>
           <dd className={`placar-v${c.tom ? ` t-${c.tom}` : ""}`}>{c.valor}</dd>
-          <dd className="placar-s">{c.sub}</dd>
+          <dd className={`placar-s${c.fixo ? " fixo" : ""}`}>{c.sub}</dd>
         </div>
       ))}
     </dl>

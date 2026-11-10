@@ -17,7 +17,7 @@ import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
 import { ImportarOrcamento } from "./obra/ImportarOrcamento";
 import { MARGEM_CENTAVOS, tagVerba } from "./obra/verba";
-import { BlocoAditivos, csvAndamento } from "./orcamento/Andamento";
+import { BlocoAditivos, csvAndamento, fmtPctAditivo } from "./orcamento/Andamento";
 import { baixarCsv } from "@/lib/csv";
 import { MenuMais } from "./MenuMais";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
@@ -43,7 +43,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const { versao, podeOperar, avisarFeito, mudou, avisar } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
-  const [modal, setModal] = useState<"importar" | "aprovar" | null>(null);
+  const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(null);
 
   const dado = orc.dado;
   const materiais = (ins.dado ?? []).filter((i) => i.insumo.precisa_ate_o_fim > 0);
@@ -100,6 +100,18 @@ export function Orcamento({ obra }: { obra: Obra }) {
 
       {desfazendo ? <AvisoDesfazendo obra={obra} nItens={materiais.length} /> : null}
 
+      {/* Logo abaixo do cabeçalho, onde estava o Aprovar: no fim da tela ficava a 1.800 px e quem aprovava não via.
+          Antes de aprovar, o próximo passo é o próprio Aprovar; comprar só existe depois dele. */}
+      {dado && !emOrcamento && !desfazendo && nFalta ? (
+        <ProximoPasso
+          obraId={obra.id}
+          para="suprimentos"
+          acao="Comprar o que vem primeiro"
+          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
+          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
+        />
+      ) : null}
+
       {orc.erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -140,11 +152,12 @@ export function Orcamento({ obra }: { obra: Obra }) {
               <div>
                 <p>
                   <b>Este orçamento tem só o que as pranchas trazem: estrutura e fundações.</b> Cobertura, piso, instalações e mão de obra ainda não estão nele.
-                  {podeOperar ? " Para completar, importe a planilha da obra (também fica no ⋯)." : ""}
+                  {podeOperar && emOrcamento ? " Para completar, some a planilha da obra a ele." : ""}
                 </p>
-                {podeOperar ? (
-                  <button type="button" className="btn sm" onClick={() => setModal("importar")}>
-                    Importar planilha
+                {/* direto ao somar: é o caminho de quem quer completar, sem a pergunta "o que é esta planilha" */}
+                {podeOperar && emOrcamento ? (
+                  <button type="button" className="btn sm" onClick={() => setModal("somar")}>
+                    Somar a planilha da obra
                   </button>
                 ) : null}
               </div>
@@ -178,18 +191,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </>
       ) : null}
 
-      {/* Antes de aprovar, o próximo passo é o Aprovar do cabeçalho: comprar só existe depois dele. */}
-      {dado && !emOrcamento && !desfazendo && nFalta ? (
-        <ProximoPasso
-          obraId={obra.id}
-          para="suprimentos"
-          acao="Comprar o que vem primeiro"
-          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
-          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
-        />
-      ) : null}
-
-      {modal === "importar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} /> : null}
+      {modal === "importar" || modal === "somar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} inicio={modal === "somar" ? "somar" : undefined} /> : null}
       {modal === "aprovar" ? (
         <Confirmar titulo="Aprovar o orçamento?" confirmar={nSemPreco ? "Aprovar mesmo assim" : "Aprovar orçamento"} fechar={() => setModal(null)} aoConfirmar={aprovar}>
           <div className="prev-resumo">
@@ -301,19 +303,17 @@ function Valor({ c, classe = "" }: { c: number; classe?: string }) {
 function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros" | "rodapeNumeros"> {
   const saldo = t.saldo;
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
-  const pctAdt = (t.aditivos_pct ?? 0) / 100;
   const verba = tagVerba(t.atual, obra.verba);
-  const pilula = t.aditivos
-    ? `${pctAdt < 0 ? "−" : "+"}${Math.abs(pctAdt).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% aditivo`
-    : verba && verba.texto !== "bate com o contrato"
-      ? verba.texto
-      : null;
+  // Só há aditivo depois de aprovar (antes, a planilha soma ao orçamento): o selo não aparece sem um de verdade.
+  const pilula = t.aditivos ? `${fmtPctAditivo(t.aditivos_pct)} aditivo` : verba && verba.texto !== "bate com o contrato" ? verba.texto : null;
+  // O vermelho é da comparação com o valor fechado; no selo de aditivo, o % é só informação.
+  const acima = !t.aditivos && verba?.tom === "acima";
   return {
     principal: {
       rotulo: "Orçado atual",
       valor: fmtReais(t.atual),
       tag: pilula ? (
-        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${verba?.tom === "acima" ? " t-acima" : ""}`}>
+        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${acima ? " t-acima" : ""}`}>
           Orçamento inicial {fmtReais(t.contratado)}
           {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
           {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}

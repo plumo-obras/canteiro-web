@@ -3,13 +3,16 @@
  * Importar uma planilha em quatro passos: dizer o que ela é, escolher o arquivo, dizer qual coluna é qual (a API sugere
  * pelo cabeçalho) e conferir a prévia antes de gravar. A pergunta do 1º passo existe porque as duas planilhas que a
  * construtora tem parecem iguais e significam coisas diferentes:
- * - o **orçamento da obra** (serviços por etapa) vira uma versão — o contrato ou um aditivo — e cada linha é um item,
- *   sem juntar repetidos, para o total fechar no centavo com a planilha (`POST …/orcamento/versoes`);
+ * - o **orçamento da obra** (serviços por etapa) vira uma versão e cada linha é um item, sem juntar repetidos, para o
+ *   total fechar no centavo com a planilha (`POST …/orcamento/versoes`). Antes de aprovar, com orçamento já lançado
+ *   (ex.: o das pranchas), a planilha SOMA a ele: aditivo é documento com o cliente depois do contrato fechado, e o
+ *   testador que só queria completar o orçamento teve de inventar um. Trocar o orçamento inteiro fica como opção
+ *   discreta, com confirmação. Depois de aprovar, só o aditivo soma;
  * - a **lista de materiais** (insumos para comprar e estocar) junta os repetidos e alimenta o almoxarifado
  *   (`POST …/orcamento/importar`).
  */
 import { useRef, useState } from "react";
-import type { EtapaObra, ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao } from "@/lib/contrato";
+import type { EtapaObra, ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao, VersaoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
@@ -46,16 +49,24 @@ const MAX_LINHAS_PREVIA = 60;
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
 
-export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar: () => void; feito?: () => void }) {
+/**
+ * `inicio="somar"`: veio do aviso "este orçamento tem só o que as pranchas trazem" e já sabe o que a planilha é; abre
+ * direto na escolha do arquivo.
+ */
+export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra; fechar: () => void; feito?: () => void; inicio?: "somar" }) {
   const { mudou, avisar, avisarFeito } = useCasca();
-  const [passo, setPasso] = useState<Passo>({ k: "tipo" });
-  const [tipo, setTipo] = useState<Tipo | null>(null);
-  // Com contrato vigente, nada vem marcado: o testador passou pelo seletor sem ver e substituiu o contrato por um
-  // aditivo. Sem contrato, só pode ser o contrato (aditivo sem contrato a API recusa).
-  const [versaoEscolhida, setVersao] = useState<TipoVersao | null>(null);
+  const [passo, setPasso] = useState<Passo>({ k: inicio ? "arquivo" : "tipo" });
+  const [tipo, setTipo] = useState<Tipo | null>(inicio ? "eap" : null);
   const orc = useCarregar(() => api.orcamento(obra.id).catch(() => null), [obra.id]);
   const vigente = orc.dado?.versoes.find((v) => v.tipo === "contrato" && v.ativa) ?? null;
-  const versao: TipoVersao | null = versaoEscolhida ?? (orc.dado && !vigente ? "contrato" : null);
+  const antesDeAprovar = obra.status === "em_orcamento";
+  // Sem contrato, ou antes de aprovar, é sempre o orçamento (o contrato); depois de aprovar, só o aditivo. Sem o
+  // orçamento carregado não se sabe qual dos dois: fica nulo e segura o "Continuar" e o "Ver a prévia".
+  const versao: TipoVersao | null = !orc.dado ? null : vigente && !antesDeAprovar ? "aditivo" : "contrato";
+  // Trocar o orçamento inteiro apaga o que já está nele (as pranchas, os preços editados): só com confirmação.
+  const [trocar, setTrocar] = useState(false);
+  const [confirmandoTroca, setConfirmandoTroca] = useState(false);
+  const somar = !!vigente && antesDeAprovar && !trocar;
   const [descricao, setDescricao] = useState("");
   const [data, setData] = useState("");
   const [errosTipo, setErrosTipo] = useState<{ descricao?: string | null; data?: string | null }>({});
@@ -105,6 +116,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     rodar(async () => {
       const leitura = await api.lerPlanilha(obra.id, arq, planilha);
       setEscolhas({}); // outra planilha, outras ordens: as escolhas de etapa da anterior não valem
+      setIgnorados({});
       setArquivo(arq);
       setMapa(leitura.sugestao);
       setPasso({ k: "colunas", leitura });
@@ -117,12 +129,19 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     return m;
   };
 
-  // No aditivo, a etapa de destino que a pessoa trocou item a item (ordem → etapa). Vai na prévia e no importar.
+  // No aditivo e no somar, a etapa de destino que a pessoa trocou item a item (ordem → etapa). Vai na prévia e no importar.
   const [escolhas, setEscolhas] = useState<Record<string, string>>({});
+  // Os itens marcados "não importar". A API os tira da prévia; a cópia fica aqui para a linha continuar à vista e
+  // poder ser desmarcada.
+  const [ignorados, setIgnorados] = useState<Record<string, ItemPrevia>>({});
   const etapasContrato = useCarregar(() => api.etapas(obra.id).catch(() => []), [obra.id]);
 
-  const importar = (aplicar: boolean, chave: string, tv: TipoVersao = versao ?? "contrato", esc: Record<string, string> = escolhas): Promise<Previa> =>
-    tipo === "eap"
+  type Opcoes = { tv?: TipoVersao; soma?: boolean; esc?: Record<string, string>; ign?: Record<string, ItemPrevia> };
+  const importar = (aplicar: boolean, chave: string, o: Opcoes = {}): Promise<Previa> => {
+    const { tv = versao ?? "contrato", soma = somar, esc = escolhas, ign = ignorados } = o;
+    const comDestino = tv === "aditivo" || soma;
+    const ignorar = Object.keys(ign).map(Number);
+    return tipo === "eap"
       ? api
           .versaoOrcamento(obra.id, arquivo!, {
             mapeamento: mapaDoTipo(),
@@ -131,10 +150,13 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             data: tv === "aditivo" && data ? data : undefined,
             aplicar,
             chave_idempotencia: aplicar ? chave : undefined,
-            ...(tv === "aditivo" && Object.keys(esc).length ? { etapas_itens: esc } : {}),
+            ...(comDestino && Object.keys(esc).length ? { etapas_itens: esc } : {}),
+            ...(soma ? { somar: true } : {}),
+            ...(comDestino && ignorar.length ? { ignorar_itens: ignorar } : {}),
           })
           .then((p) => ({ k: "eap", p }))
       : api.importarOrcamento(obra.id, arquivo!, mapaDoTipo(), aplicar).then((p) => ({ k: "materiais", p }));
+  };
 
   const faltando = mapa ? campos.filter((c) => c.obrigatorio && mapa[c.k] === null) : [];
   const verPrevia = (leitura: LeituraPlanilha) =>
@@ -144,21 +166,34 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       setPasso({ k: "previa", leitura, previa: await importar(false, chave), chave });
     });
 
-  /** "Não, é um aditivo": troca o tipo e refaz a prévia com a mesma planilha e as mesmas colunas. */
-  const virarAditivo = (passoAtual: Extract<Passo, { k: "previa" }>) =>
+  /** "Não, somar ao orçamento": desiste de trocar e refaz a prévia com a mesma planilha e as mesmas colunas. */
+  const somarEmVez = (passoAtual: Extract<Passo, { k: "previa" }>) =>
     rodar(async () => {
-      setVersao("aditivo");
+      setTrocar(false);
+      setIgnorados({});
       const chave = uuid7();
-      setPasso({ ...passoAtual, previa: await importar(false, chave, "aditivo"), chave });
+      setPasso({ ...passoAtual, previa: await importar(false, chave, { soma: true, ign: {} }), chave });
     });
 
-  /** Trocar a etapa de um item do aditivo refaz a prévia (os totais por etapa mudam) com uma chave nova. */
+  /** Trocar a etapa de um item refaz a prévia (os totais por etapa mudam) com uma chave nova. */
   const mudarEtapaItem = (passoAtual: Extract<Passo, { k: "previa" }>, ordem: number, etapa: string) =>
     rodar(async () => {
       const novas = { ...escolhas, [String(ordem)]: etapa };
       setEscolhas(novas);
       const chave = uuid7();
-      setPasso({ ...passoAtual, previa: await importar(false, chave, "aditivo", novas), chave });
+      setPasso({ ...passoAtual, previa: await importar(false, chave, { esc: novas }), chave });
+    });
+
+  /** "Não importar" (ou desfazer isso) refaz a prévia sem o item: o total e as etapas mudam. */
+  const alternarIgnorar = (passoAtual: Extract<Passo, { k: "previa" }>, item: ItemPrevia) =>
+    rodar(async () => {
+      const k = String(item.ordem);
+      const { [k]: tirado, ...resto } = ignorados;
+      const novos = tirado ? resto : { ...ignorados, [k]: item };
+      const chave = uuid7();
+      const previa = await importar(false, chave, { ign: novos });
+      setIgnorados(novos);
+      setPasso({ ...passoAtual, previa, chave });
     });
 
   const aplicar = (passoAtual: Extract<Passo, { k: "previa" }>) =>
@@ -174,10 +209,14 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       fechar();
       if (r.k === "eap") {
         const p = r.p;
+        // a resposta gravada traz o orçamento somado inteiro: o que foi somado é o da prévia
+        const visto = passoAtual.previa.p as PreviaVersao;
         const texto =
-          p.tipo === "contrato"
-            ? `Orçamento inicial importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
-            : `Aditivo importado: ${comSinal(p.total)} em ${plural(p.n_itens, "item", "itens")}.`;
+          visto.total_apos != null
+            ? `Somado ao orçamento: ${plural(visto.n_itens, "item", "itens")}, ${comSinal(visto.total)}.`
+            : p.tipo === "contrato"
+              ? `Orçamento inicial importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
+              : `Aditivo importado: ${comSinal(p.total)} em ${plural(p.n_itens, "item", "itens")}.`;
         avisarFeito(texto, p.registro_id);
       } else avisar(`Lista de materiais importada: ${plural(r.p.linhas.length, "insumo", "insumos")}, ${fmtReais(r.p.total)}.`);
       feito?.();
@@ -188,9 +227,11 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
     p.p.erros.length
       ? "Corrija os erros para importar"
       : p.k === "eap"
-        ? p.p.tipo === "contrato"
+        ? p.p.total_apos != null
+          ? `Somar ao orçamento (${comSinal(p.p.total)})`
+          : p.p.tipo === "contrato"
           ? p.p.substitui
-            ? "Substituir o orçamento inicial"
+            ? "Trocar o orçamento inteiro"
             : `Importar o orçamento inicial (${plural(p.p.n_itens, "item", "itens")})`
           : `Importar o aditivo (${comSinal(p.p.total)})`
         : `Importar ${plural(p.p.linhas.length, "insumo", "insumos")}`;
@@ -201,7 +242,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         <button type="button" className="btn" onClick={fechar}>
           Voltar
         </button>
-        <button type="button" className="btn amb" disabled={!tipo || (tipo === "eap" && !versao)} onClick={seguirDoTipo}>
+        <button type="button" className="btn amb" disabled={!tipo || (tipo === "eap" && !versao) || confirmandoTroca} onClick={seguirDoTipo}>
           Continuar
         </button>
       </>
@@ -214,13 +255,30 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
         <button type="button" className="btn" onClick={() => setPasso({ k: "arquivo" })}>
           Outro arquivo
         </button>
-        <button type="button" className="btn amb" disabled={ocupado || faltando.length > 0} aria-busy={ocupado} onClick={() => verPrevia(passo.leitura)}>
+        <button
+          type="button"
+          className="btn amb"
+          // sem o orçamento carregado não se sabe se a planilha soma ou é o primeiro orçamento
+          disabled={ocupado || faltando.length > 0 || (tipo === "eap" && !versao)}
+          aria-busy={ocupado}
+          onClick={() => verPrevia(passo.leitura)}
+        >
           Ver a prévia
         </button>
       </>
     ) : (
       <>
-        <button type="button" className="btn" onClick={() => setPasso({ k: "colunas", leitura: passo.leitura })}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            // Outra coluna ou outra linha de cabeçalho dá outras ordens: as escolhas e os "não importar" desta prévia
+            // apontariam linhas erradas, e a API as tiraria em silêncio.
+            setEscolhas({});
+            setIgnorados({});
+            setPasso({ k: "colunas", leitura: passo.leitura });
+          }}
+        >
           Corrigir as colunas
         </button>
         <button
@@ -280,42 +338,29 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
           </div>
           {tipo === "eap" ? (
             <>
-              {vigente ? (
-                <fieldset className="pergunta-versao">
-                  <legend>Esta planilha é um aditivo ou um novo orçamento inicial?</legend>
-                  <div className="portas" role="radiogroup" aria-label="Aditivo ou novo orçamento inicial">
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={versao === "aditivo"}
-                      className={`porta${versao === "aditivo" ? "" : " porta-sec"}`}
-                      onClick={() => setVersao("aditivo")}
-                    >
-                      <Icone nome="plus" tam={20} />
-                      <span>
-                        <b>Um aditivo</b>
-                        <small>Soma ao orçamento inicial vigente ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é supressão.</small>
-                      </span>
-                      {versao === "aditivo" ? <Icone nome="checkCircle" tam={18} /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={versao === "contrato"}
-                      className={`porta${versao === "contrato" ? "" : " porta-sec"}`}
-                      onClick={() => setVersao("contrato")}
-                    >
-                      <Icone nome="planilha" tam={20} />
-                      <span>
-                        <b>Um novo orçamento inicial</b>
-                        <small>
-                          Substitui por inteiro o orçamento inicial vigente ({fmtReais(vigente.total)}, {plural(vigente.itens, "item", "itens")}). Dá para desfazer.
-                        </small>
-                      </span>
-                      {versao === "contrato" ? <Icone nome="checkCircle" tam={18} /> : null}
-                    </button>
-                  </div>
-                </fieldset>
+              {vigente && antesDeAprovar ? (
+                <EscolhaSomar
+                  vigente={vigente}
+                  trocar={trocar}
+                  confirmando={confirmandoTroca}
+                  pedirTroca={() => setConfirmandoTroca(true)}
+                  confirmarTroca={(sim) => {
+                    setConfirmandoTroca(false);
+                    if (sim) setTrocar(true);
+                  }}
+                  somarEmVez={() => setTrocar(false)}
+                />
+              ) : vigente ? (
+                // Aprovado, Compras já saiu do orçamento: a API recusa um orçamento novo, então não se oferece.
+                <div className="pergunta-versao">
+                  <p style={{ margin: 0 }}>
+                    <b>Esta planilha entra como aditivo</b>: soma ao orçamento aprovado ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é
+                    supressão.
+                  </p>
+                  <p className="mut sm" style={{ margin: "6px 0 0" }}>
+                    Para trocar o orçamento inteiro, desfaça antes a aprovação pelo Histórico.
+                  </p>
+                </div>
               ) : orc.dado ? (
                 <p className="seg-dica mut sm">A obra ainda não tem orçamento inicial importado: esta planilha vira o orçamento inicial. Os aditivos vêm depois dele.</p>
               ) : null}
@@ -343,6 +388,12 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
           ) : null}
         </>
       ) : passo.k === "arquivo" ? (
+        <>
+        {inicio && vigente && somar ? (
+          <p className="mut" style={{ margin: "0 0 4px" }}>
+            Os itens da planilha somam ao orçamento de agora ({fmtReais(vigente.total)}). Você confere a prévia antes de gravar.
+          </p>
+        ) : null}
         <div
           className="solta"
           onDragOver={(e) => e.preventDefault()}
@@ -374,6 +425,7 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             }}
           />
         </div>
+        </>
       ) : passo.k === "colunas" && mapa ? (
         <Colunas
           leitura={passo.leitura}
@@ -390,10 +442,12 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
             <PreviaEap
               previa={passo.previa.p}
               obra={obra}
-              virarAditivo={() => virarAditivo(passo)}
+              somarEmVez={antesDeAprovar ? () => somarEmVez(passo) : undefined}
               ocupado={ocupado}
               etapasContrato={etapasContrato.dado ?? []}
               mudarEtapa={(ordem, etapa) => mudarEtapaItem(passo, ordem, etapa)}
+              ignorados={ignorados}
+              alternarIgnorar={(i) => alternarIgnorar(passo, i)}
             />
             {passo.previa.p.tipo === "aditivo" ? (
               <div className="campos2">
@@ -422,6 +476,59 @@ export function ImportarOrcamento({ obra, fechar, feito }: { obra: Obra; fechar:
       ) : null}
       <ErroApi texto={erro} />
     </Modal>
+  );
+}
+
+/**
+ * Antes de aprovar, com orçamento já lançado: sem pergunta. A planilha soma; trocar o orçamento inteiro é a saída
+ * discreta, e só depois de dizer o que se perde.
+ */
+function EscolhaSomar(props: {
+  vigente: VersaoOrcamento;
+  trocar: boolean;
+  confirmando: boolean;
+  pedirTroca: () => void;
+  confirmarTroca: (sim: boolean) => void;
+  somarEmVez: () => void;
+}) {
+  const { vigente } = props;
+  const agora = `${fmtReais(vigente.total)}, ${plural(vigente.itens, "item", "itens")}`;
+  if (props.confirmando)
+    return (
+      <div className="prev-subst" role="alert">
+        <Icone nome="alert" tam={16} />
+        <span>
+          <b>Trocar o orçamento inteiro?</b> Tudo o que está nele hoje ({agora}), inclusive o que veio das pranchas e os preços editados, sai de
+          vigência e só esta planilha passa a valer. Dá para voltar com Desfazer.
+          <span className="botoes-linha">
+            <button type="button" className="btn sm" onClick={() => props.confirmarTroca(false)}>
+              Não, somar
+            </button>
+            <button type="button" className="btn sm" onClick={() => props.confirmarTroca(true)}>
+              Trocar o orçamento inteiro
+            </button>
+          </span>
+        </span>
+      </div>
+    );
+  return (
+    <div className="pergunta-versao">
+      {props.trocar ? (
+        <p style={{ margin: 0 }}>
+          <b>Esta planilha troca o orçamento inteiro</b> ({agora} saem de vigência).{" "}
+          <button type="button" className="link" onClick={props.somarEmVez}>
+            Somar em vez de trocar
+          </button>
+        </p>
+      ) : (
+        <p style={{ margin: 0 }}>
+          <b>Os itens desta planilha somam ao orçamento</b> de agora ({agora}). Na prévia você confere a etapa de cada item e o que parece repetido.{" "}
+          <button type="button" className="link" onClick={props.pedirTroca}>
+            Trocar o orçamento inteiro
+          </button>
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -552,23 +659,29 @@ function Ignoradas({ ignoradas }: { ignoradas: { linha: number; texto: string; m
 }
 
 const ORIGEM_ETAPA: Record<string, (i: ItemPrevia) => string> = {
+  nome: () => "pelo nome, a mesma etapa do orçamento",
   codigo: () => "pelo código, igual ao orçamento inicial",
-  planilha: (i) => `da planilha do aditivo${i.etapa_planilha ? ` (etapa ${i.etapa_planilha})` : ""}`,
+  planilha: (i) => `da planilha${i.etapa_planilha ? ` (etapa ${i.etapa_planilha})` : ""}`,
   escolhida: (i) => `escolhida por você${i.etapa_planilha ? ` (na planilha: ${i.etapa_planilha})` : ""}`,
 };
 
 function PreviaEap(props: {
   previa: PreviaVersao;
   obra: Obra;
-  virarAditivo: () => void;
+  /** Antes de aprovar: desistir de trocar o orçamento inteiro e somar a planilha a ele. */
+  somarEmVez?: () => void;
   ocupado: boolean;
   etapasContrato: EtapaObra[];
   mudarEtapa: (ordem: number, etapa: string) => void;
+  ignorados: Record<string, ItemPrevia>;
+  alternarIgnorar: (i: ItemPrevia) => void;
 }) {
-  const { previa, obra, virarAditivo, ocupado } = props;
-  // Um contrato novo de verdade raramente custa menos da metade do vigente; uma planilha de aditivo, quase sempre.
+  const { previa, obra, somarEmVez, ocupado } = props;
+  // Um orçamento novo de verdade raramente custa menos da metade do vigente; um complemento, quase sempre.
   const fracao = previa.substitui?.total ? previa.total / previa.substitui.total : 1;
-  const aditivo = previa.tipo === "aditivo";
+  const somando = previa.total_apos != null;
+  // no aditivo e no somar, cada linha é um acréscimo e vai para uma etapa do orçamento: o sinal e o destino importam
+  const aditivo = previa.tipo === "aditivo" || somando;
   const porEtapa = new Map<string, ItemPrevia[]>();
   for (const i of previa.itens) {
     if (i.tipo === "etapa" && i.nivel <= 1) continue;
@@ -577,36 +690,46 @@ function PreviaEap(props: {
   return (
     <>
       <ErrosDaPrevia erros={previa.erros} />
-      {previa.substitui ? (
+      {previa.substitui && !somando ? (
         <div className="prev-subst" role="alert">
           <Icone nome="alert" tam={16} />
           <span>
             <b>
-              Esta planilha substitui o orçamento inicial atual ({fmtReais(previa.substitui.total)}, {plural(previa.substitui.itens, "item", "itens")}).
+              Esta planilha troca o orçamento inteiro ({fmtReais(previa.substitui.total)}, {plural(previa.substitui.itens, "item", "itens")}).
             </b>{" "}
-            O orçamento inicial atual sai de vigência; dá para voltar a ele com Desfazer.
+            O orçamento de agora sai de vigência; dá para voltar a ele com Desfazer.
             {fracao < 0.5 ? (
               <>
                 {" "}
-                <b>
-                  Parece um aditivo: o total é {(fracao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçamento inicial.
-                </b>
+                <b>Parece um complemento: o total é {(fracao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçamento de agora.</b>
               </>
             ) : null}
           </span>
-          <button type="button" className="btn sm" disabled={ocupado} onClick={virarAditivo}>
-            Não, é um aditivo
-          </button>
+          {somarEmVez ? (
+            <button type="button" className="btn sm" disabled={ocupado} onClick={somarEmVez}>
+              Não, somar ao orçamento
+            </button>
+          ) : null}
         </div>
       ) : null}
+      <Repetidos previa={previa} ignorados={props.ignorados} />
       <div className="prev-resumo">
         <div>
           <span className="prev-n">{aditivo ? comSinal(previa.total) : fmtReais(previa.total)}</span>
           <span>
-            {aditivo ? "no aditivo" : "total do orçamento inicial"}
+            {somando ? "a somar" : aditivo ? "no aditivo" : "total do orçamento inicial"}
             {aditivo ? null : <ComparaVerba total={previa.total} verba={obra.verba} />}
           </span>
         </div>
+        {somando ? (
+          <div>
+            <span className="prev-n">{fmtReais(previa.total_apos!)}</span>
+            <span>
+              o orçamento depois de somar
+              <ComparaVerba total={previa.total_apos!} verba={obra.verba} />
+            </span>
+          </div>
+        ) : null}
         <div>
           <span className="prev-n">{previa.n_etapas.toLocaleString("pt-BR")}</span>
           <span>{previa.n_etapas === 1 ? "etapa" : "etapas"}</span>
@@ -629,7 +752,16 @@ function PreviaEap(props: {
         </details>
       ) : null}
       <Ignoradas ignoradas={previa.ignoradas} />
-      {aditivo ? <ItensDoAditivo previa={previa} etapasContrato={props.etapasContrato} mudarEtapa={props.mudarEtapa} ocupado={ocupado} /> : null}
+      {aditivo ? (
+        <ItensComDestino
+          previa={previa}
+          etapasContrato={props.etapasContrato}
+          mudarEtapa={props.mudarEtapa}
+          ocupado={ocupado}
+          ignorados={props.ignorados}
+          alternarIgnorar={props.alternarIgnorar}
+        />
+      ) : null}
       {aditivo && previa.etapas.length ? <h3 className="sectit">Por etapa</h3> : null}
       {previa.etapas.length ? (
         <div className="tbl-rola prev-etapas">
@@ -679,16 +811,44 @@ function PreviaEap(props: {
 }
 
 /**
- * Itens do aditivo com a etapa de destino. A API já põe cada item na etapa do contrato que tem o mesmo fonte|código;
- * aqui a pessoa confere e troca o que precisar (vai em `etapas_itens`). As opções são as etapas do contrato mais as
- * que só existem no próprio aditivo (os títulos de etapa da planilha dele).
+ * "2 itens parecem já estar no orçamento": o concreto e o aço da planilha somados aos das pranchas contavam em dobro
+ * sem ninguém avisar. Quem decide é a pessoa, na caixa "não importar" de cada linha.
  */
-function ItensDoAditivo(props: { previa: PreviaVersao; etapasContrato: EtapaObra[]; mudarEtapa: (ordem: number, etapa: string) => void; ocupado: boolean }) {
-  const { previa, etapasContrato } = props;
+function Repetidos({ previa, ignorados }: { previa: PreviaVersao; ignorados: Record<string, ItemPrevia> }) {
+  const n = previa.itens.filter((i) => i.tipo === "item" && i.repetido_de).length + Object.keys(ignorados).length;
+  if (!n) return null;
+  const fora = Object.keys(ignorados).length;
+  return (
+    <div className="aviso-atencao" role="note">
+      <Icone nome="alert" tam={15} />
+      <p>
+        <b>{n === 1 ? "1 item parece já estar no orçamento." : `${n.toLocaleString("pt-BR")} itens parecem já estar no orçamento.`}</b>{" "}
+        {fora ? `${plural(fora, "fica", "ficam")} de fora. ` : ""}
+        Somar o que já está nele conta em dobro: marque “não importar” na linha do que for repetido.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Itens a somar (aditivo ou somar) com a etapa de destino. A API já põe cada item na etapa de mesmo nome do orçamento
+ * (ou na que tem o mesmo fonte|código); aqui a pessoa confere e troca o que precisar (vai em `etapas_itens`). As
+ * opções são as etapas do orçamento mais as que só existem na planilha. O item que parece repetir um do orçamento
+ * ganha o selo e a caixa "não importar" (vai em `ignorar_itens`); o tirado continua na lista, riscado, para voltar.
+ */
+function ItensComDestino(props: {
+  previa: PreviaVersao;
+  etapasContrato: EtapaObra[];
+  mudarEtapa: (ordem: number, etapa: string) => void;
+  ocupado: boolean;
+  ignorados: Record<string, ItemPrevia>;
+  alternarIgnorar: (i: ItemPrevia) => void;
+}) {
+  const { previa, etapasContrato, ignorados } = props;
   const doContrato = new Set(etapasContrato.map((e) => e.etapa));
   const proprias = previa.itens.filter((i) => i.tipo === "etapa" && i.nivel <= 1 && !doContrato.has(i.etapa)).map((i) => ({ etapa: i.etapa, descricao: i.descricao }));
   const opcoes = [...etapasContrato, ...proprias];
-  const itens = previa.itens.filter((i) => i.tipo === "item");
+  const itens = [...previa.itens.filter((i) => i.tipo === "item"), ...Object.values(ignorados)].sort((a, b) => a.ordem - b.ordem);
   return (
     <>
       <h3 className="sectit">Itens e etapa de destino</h3>
@@ -705,15 +865,29 @@ function ItensDoAditivo(props: { previa: PreviaVersao; etapasContrato: EtapaObra
             </tr>
           </thead>
           <tbody>
-            {itens.slice(0, 200).map((i) => (
-              <tr key={i.ordem}>
-                <td className="eap-n">{i.numero}</td>
+            {itens.slice(0, 200).map((i) => {
+              const fora = String(i.ordem) in ignorados;
+              return (
+              <tr key={i.ordem} className={fora ? "adt-fora" : undefined}>
+                <td className="eap-n">{fora ? "" : i.numero}</td>
                 <td className="eap-d">
                   {i.descricao}
                   {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
+                  {i.repetido_de ? (
+                    <>
+                      <span className="pill warn adt-rep">parece repetir: {i.repetido_de.descricao}</span>
+                      <label className="adt-ignorar">
+                        <input type="checkbox" checked={fora} disabled={props.ocupado} onChange={() => props.alternarIgnorar(i)} />
+                        não importar
+                      </label>
+                    </>
+                  ) : null}
                 </td>
                 <td className="num">{comSinal(i.total)}</td>
                 <td>
+                  {fora ? (
+                    <span className="mut sm">fica de fora</span>
+                  ) : (
                   <select
                     className="f"
                     aria-label={`Etapa de destino de ${i.descricao}`}
@@ -725,14 +899,16 @@ function ItensDoAditivo(props: { previa: PreviaVersao; etapasContrato: EtapaObra
                     {opcoes.map((o) => (
                       <option key={o.etapa} value={o.etapa}>
                         {o.etapa} · {o.descricao}
-                        {doContrato.has(o.etapa) ? "" : " (do aditivo)"}
+                        {doContrato.has(o.etapa) ? "" : " (da planilha)"}
                       </option>
                     ))}
                   </select>
-                  {i.etapa_origem ? <small className={`adt-origem o-${i.etapa_origem}`}>{ORIGEM_ETAPA[i.etapa_origem]?.(i)}</small> : null}
+                  )}
+                  {!fora && i.etapa_origem ? <small className={`adt-origem o-${i.etapa_origem}`}>{ORIGEM_ETAPA[i.etapa_origem]?.(i)}</small> : null}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {itens.length > 200 ? <p className="mut sm prev-mais">e mais {itens.length - 200} itens.</p> : null}

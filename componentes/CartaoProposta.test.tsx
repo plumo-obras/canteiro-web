@@ -99,15 +99,20 @@ describe("cartão de proposta", () => {
     expect(screen.getByRole("button", { name: /Aprovar/ })).toBeEnabled();
   });
 
-  it("⋯ Recusar pede o motivo num modal e manda para a API", async () => {
+  it("Recusar fica à vista ao lado do Aprovar, pede o motivo num modal e manda para a API", async () => {
     const rede = criarRede({
       "POST /srv/auth/renovar": renovarOk,
       "POST /srv/api/propostas/p1/recusar": ({ corpo }) =>
         json({ ...PROPOSTA, status: "recusada", decidido_por: "u-1", decidido_em: "2026-10-30T13:40:00Z", motivo_recusa: (corpo as { motivo: string }).motivo }),
     });
     montar();
+    const recusar = screen.getByRole("button", { name: "Recusar…" });
+    // secundário: sem o dourado do Aprovar
+    expect(recusar).not.toHaveClass("amb");
     await userEvent.click(screen.getByRole("button", { name: "Mais ações" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Recusar…" }));
+    expect(screen.queryByRole("menuitem", { name: "Recusar…" })).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(recusar);
     const dlg = screen.getByRole("dialog", { name: "Recusar a proposta" });
     expect(within(dlg).getByLabelText("Motivo")).toHaveFocus();
 
@@ -126,6 +131,7 @@ describe("cartão de proposta", () => {
     criarRede({});
     montar({ ...USUARIO, papel: "viewer" });
     expect(screen.queryByRole("button", { name: /Aprovar/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Recusar/ })).toBeNull();
     expect(screen.getByText("Espera um admin aprovar")).toBeInTheDocument();
   });
 });
@@ -176,9 +182,9 @@ describe("o botão diz o que aprovar faz", () => {
     expect(within(linha).getByText(/recebido 18 m³ \+ esta entrega 7 m³ = 25 de 25 m³/)).toBeInTheDocument();
     expect(within(linha).getByText("NF 4410 · 05/11/2026 · R$ 910,00")).toBeInTheDocument();
     expect(within(linha).getByRole("button", { name: "Aprovar entrada" })).toBeInTheDocument();
-    await userEvent.click(within(linha).getByRole("button", { name: "Mais ações" }));
-    expect(screen.queryByRole("menuitem", { name: "Ajustar e aprovar…" })).toBeNull();
-    expect(screen.getByRole("menuitem", { name: "Recusar…" })).toBeInTheDocument();
+    // sem ajuste, o "⋯" ficaria com nada dentro: some, e Recusar continua à vista
+    expect(within(linha).queryByRole("button", { name: "Mais ações" })).toBeNull();
+    expect(within(linha).getByRole("button", { name: "Recusar…" })).toBeInTheDocument();
   });
 
   it("encerramento não oferece ajuste (não há quantidade nem NF para mudar)", async () => {
@@ -189,7 +195,7 @@ describe("o botão diz o que aprovar faz", () => {
       </ProvedorCasca>,
     );
     expect(screen.getByRole("button", { name: "Aprovar encerramento" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Mais ações" }));
-    expect(screen.queryByRole("menuitem", { name: "Ajustar e aprovar…" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mais ações" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Recusar…" })).toBeInTheDocument();
   });
 });

@@ -228,7 +228,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   /* quebra só no espaço: com a fonte mínima do WebKit o valor desce de linha em vez de invadir a célula ao lado */
   .placar-v{overflow-wrap:normal;font-size:min(16px,4.2vw)}
   .placar-s{display:none}
-  .placar-v.t-mut + .placar-s{display:block;min-height:0}
+  .placar-v.t-mut + .placar-s,.placar-s.fixo{display:block;min-height:0}
 }
 @keyframes mvGaveta{from{transform:translateX(-100%)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){ .app>.painel{animation:none} }

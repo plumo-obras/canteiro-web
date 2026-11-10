@@ -49,6 +49,9 @@ describe("faixa no Orçamento", () => {
     const faixa = await screen.findByRole("region", PASSO);
     expect(faixa).toHaveTextContent("2 itens ainda não foram comprados.");
     expect(screen.getByRole("link", { name: "Comprar o que vem primeiro" })).toHaveAttribute("href", "/?obra=o1&tela=suprimentos");
+    // no topo, antes das etapas: no fim da tela ficava a 1.800 px e quem acabava de aprovar não via
+    const etapa = screen.getByText("Estrutura", { selector: "b" });
+    expect(faixa.compareDocumentPosition(etapa) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("antes de aprovar não sugere comprar", async () => {

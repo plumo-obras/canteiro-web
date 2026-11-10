@@ -201,10 +201,15 @@ export interface ItemPrevia {
   valor_unitario: Centavos;
   total: Centavos;
   linha: number;
-  /** No aditivo: de onde veio a etapa do item. "codigo" = a do contrato com o mesmo fonte|código. */
-  etapa_origem?: "planilha" | "codigo" | "escolhida" | null;
+  /**
+   * No aditivo e no somar: de onde veio a etapa do item. "nome" = a etapa de mesmo nome no orçamento; "codigo" = a do
+   * contrato com o mesmo fonte|código.
+   */
+  etapa_origem?: "planilha" | "nome" | "codigo" | "escolhida" | null;
   /** A etapa que estava na planilha do aditivo. */
   etapa_planilha?: string | null;
+  /** No aditivo e no somar: o item do orçamento vigente que este parece repetir (quem decide é a pessoa). */
+  repetido_de?: { item_id: string; descricao: string; quantidade: Milesimos; unidade: string } | null;
 }
 
 export interface ItemOrcamento extends ItemPrevia {
@@ -231,6 +236,8 @@ export interface PreviaVersao {
   n_etapas: number;
   etapas: EtapaPrevia[];
   substitui: { versao_id: string; total: Centavos; itens: number } | null;
+  /** Só na prévia do somar: o orçamento depois de somar (o vigente + `total`). */
+  total_apos?: Centavos | null;
   versao_id: string | null;
   registro_id: string | null;
 }
@@ -297,8 +304,12 @@ export interface CorpoVersao {
   data?: string | null;
   aplicar: boolean;
   chave_idempotencia?: string;
-  /** No aditivo: `{ordem: etapa}` dos itens que a pessoa mudou de etapa na prévia. */
+  /** No aditivo e no somar: `{ordem: etapa}` dos itens que a pessoa mudou de etapa na prévia. */
   etapas_itens?: Record<string, string>;
+  /** Antes de aprovar, com orçamento vigente: grava o vigente + a planilha como o novo orçamento (não é aditivo). */
+  somar?: boolean;
+  /** `ordem` dos itens da planilha que não entram (ex.: os que repetem o que já está no orçamento). */
+  ignorar_itens?: number[];
 }
 
 export interface Insumo extends Documento {
@@ -785,6 +796,10 @@ export interface ResumoDaObra {
     saldo: Centavos;
     /** Orçado atual − realizado, nunca negativo. Opcional: a API de antes não manda. */
     falta_gastar?: Centavos;
+    /** O que já saiu do caixa (gastos confirmados). realizado = pago + entregue_a_pagar. Ausente em API antiga. */
+    pago?: Centavos;
+    /** Pedidos entregues sem pagamento registrado: já contam no realizado. Ausente em API antiga. */
+    entregue_a_pagar?: Centavos;
     /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
     realizado_pct?: number | null;
     etapas_estouradas?: unknown[];
@@ -1165,8 +1180,17 @@ export interface ResumoGastos {
   a_revisar: number;
   /** Gastos em "Ver depois": contam na obra e em nenhuma etapa. Ausente em API antiga. */
   a_definir?: Centavos;
+  /** Pedidos entregues sem pagamento registrado: contam no realizado sem estar em `total`. Ausente em API antiga. */
+  entregue_a_pagar?: Centavos;
   /** A linha com `etapa` null é a dos gastos sem etapa. */
-  etapas: { etapa: string | null; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
+  etapas: {
+    etapa: string | null;
+    nome: string;
+    total: Centavos;
+    /** O entregue e ainda a pagar desta etapa (fora de `total`). Ausente em API antiga. */
+    entregue_a_pagar?: Centavos;
+    topicos: { topico_id: string | null; nome: string; total: Centavos }[];
+  }[];
 }
 
 /** O que o agente responde em `POST /leituras/comprovante` (a leitura, ou o erro, já está gravada no comprovante). */
