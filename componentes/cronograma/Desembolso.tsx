@@ -41,8 +41,8 @@ export function avisos(d: DadosDesembolso): string[] {
   const a: string[] = [];
   if (d.base === "gastos")
     a.push("Ainda sem medição: o avanço de cada etapa sai do que já foi gasto. Com as medições lançadas, a projeção passa a usar o executado e o ritmo da obra.");
-  if (t.entregue_sem_pagamento > 0)
-    a.push(`${fmtReais(t.entregue_sem_pagamento)} de pedidos entregues sem pagamento registrado entram como devidos neste mês.`);
+  // o valor já aparece junto do "Já pago"; aqui fica só o efeito na projeção
+  if (t.entregue_sem_pagamento > 0) a.push(`Os ${fmtReais(t.entregue_sem_pagamento)} entregues e ainda a pagar entram como devidos neste mês.`);
   const devido = d.etapas.reduce((s, e) => s + e.devido_agora, 0);
   // devido_agora = executado na medição e ainda sem gasto lançado (o entregue e não pago é o aviso de cima)
   if (devido > 0) a.push(`${fmtReais(devido)} já medidos ainda sem gasto lançado: entram como devidos neste mês.`);
@@ -51,6 +51,9 @@ export function avisos(d: DadosDesembolso): string[] {
     a.push(`O resto do cronograma foi empurrado ${d.atraso_meses} ${d.atraso_meses === 1 ? "mês" : "meses"}, o atraso medido em ${fmtMesLongo(d.mes_referencia)}.`);
   return a;
 }
+
+/** "R$ 249,74 entregue, ainda a pagar": o que entrou no gasto pela entrega e ainda não saiu do caixa. */
+export const entreguePagar = (c: number | null | undefined) => (c ? `${fmtReais(c)} entregue, ainda a pagar` : undefined);
 
 export function csvDesembolso(d: DadosDesembolso): string {
   const dois = temDoisCenarios(d);
@@ -65,6 +68,7 @@ export function csvDesembolso(d: DadosDesembolso): string {
   const fim = [
     [],
     ["Já pago", centavosCsv(t.pago)],
+    ...(t.entregue_sem_pagamento ? [["Entregue, ainda a pagar", centavosCsv(t.entregue_sem_pagamento)]] : []),
     ["Falta sair", centavosCsv(t.falta)],
     ["Custo final projetado", centavosCsv(t.custo_final)],
     ["Orçado atual", centavosCsv(t.orcado)],
@@ -110,7 +114,8 @@ export function Desembolso({ obra }: { obra: Obra }) {
       <FaixaNumeros
         principal={{ rotulo: "Falta sair", valor: fmtReais(t.falta) }}
         itens={[
-          { rotulo: "Já pago", valor: fmtReais(t.pago) },
+          // Junto do número, não no rodapé: sem isso "Já pago" e o "Gasto até hoje" do placar pareciam não bater.
+          { rotulo: "Já pago", valor: fmtReais(t.pago), sub: entreguePagar(t.entregue_sem_pagamento) },
           {
             rotulo: "Custo final projetado",
             valor: fmtReais(t.custo_final),

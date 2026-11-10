@@ -54,7 +54,7 @@ describe("desembolso: textos", () => {
     const sem = { ...D, base: "gastos" as const, atraso_meses: 0, etapas: [], totais: { ...D.totais, entregue_sem_pagamento: 5_000, sem_mes: 9_000 } };
     expect(avisos(sem)).toEqual([
       "Ainda sem medição: o avanço de cada etapa sai do que já foi gasto. Com as medições lançadas, a projeção passa a usar o executado e o ritmo da obra.",
-      "R$ 50,00 de pedidos entregues sem pagamento registrado entram como devidos neste mês.",
+      "Os R$ 50,00 entregues e ainda a pagar entram como devidos neste mês.",
       'R$ 90,00 de etapas fora do cronograma estão no "falta sair", mas sem mês.',
     ]);
   });
@@ -97,6 +97,28 @@ describe("desembolso: a seção", () => {
     expect(within(linhaMar()).getByText("R$ 1.000,00")).toBeTruthy();         // no ritmo de hoje, o padrão
     await userEvent.click(screen.getByRole("radio", { name: "Se voltar ao cronograma" }));
     expect(within(linhaMar()).getByText("R$ 1.500,00")).toBeTruthy();
+  });
+
+  it("o entregue e ainda a pagar aparece junto do Já pago, não só no rodapé", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/desembolso": () => json({ ...D, totais: { ...D.totais, entregue_sem_pagamento: 2_497_440 } }) });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Desembolso obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    const pago = (await screen.findByText("Já pago")).closest("div")!;
+    expect(pago).toHaveTextContent("R$ 24.974,40 entregue, ainda a pagar");
+  });
+
+  it("sem entregue a pagar, o Já pago vem sozinho", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/desembolso": () => json(D) });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Desembolso obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    await screen.findByText("Já pago");
+    expect(screen.queryByText(/a pagar/)).toBeNull();
   });
 
   it("erro da API aparece como alerta", async () => {
