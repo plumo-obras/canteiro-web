@@ -181,11 +181,29 @@ describe("importar antes de aprovar: somar ao orçamento", () => {
 });
 
 describe("importar depois de aprovar", () => {
-  it("continua o fluxo do aditivo, com a pergunta", async () => {
+  it("só o aditivo, sem oferecer o orçamento novo que a API recusa", async () => {
     const u = userEvent.setup();
-    montar(APROVADA);
+    const { rede } = montar(APROVADA, {
+      "POST /srv/api/obras/o1/orcamento/versoes": () => json({ ...previaSomar([]), tipo: "aditivo", substitui: null, total_apos: null }),
+    });
     await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
-    expect(await screen.findByRole("radiogroup", { name: "Aditivo ou novo orçamento inicial" })).toBeInTheDocument();
+    expect(await screen.findByText(/Esta planilha entra como aditivo/)).toBeInTheDocument();
+    expect(screen.getByText("Para trocar o orçamento inteiro, desfaça antes a aprovação pelo Histórico.")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Aditivo ou novo orçamento inicial" })).toBeNull();
+    expect(screen.queryByText(/novo orçamento inicial/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Trocar o orçamento inteiro" })).toBeNull();
     expect(screen.queryByText(/somam ao orçamento/)).toBeNull();
+
+    // os dados do aditivo continuam pedidos antes de seguir
+    await u.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText("Diga do que é o aditivo, ex.: ampliação do refeitório.")).toBeInTheDocument();
+    await u.type(screen.getByLabelText("Do que é o aditivo"), "Ampliação do depósito");
+    await u.type(screen.getByLabelText("Data do aditivo"), "2026-11-09");
+    await u.click(screen.getByRole("button", { name: "Continuar" }));
+    await ateAPrevia(u);
+    expect(await screen.findByRole("button", { name: "Importar o aditivo (+R$ 22.840,00)" })).toBeInTheDocument();
+    const f = versoes(rede).at(-1)!;
+    expect(f.get("tipo")).toBe("aditivo");
+    expect(f.get("somar")).toBeNull();
   });
 });

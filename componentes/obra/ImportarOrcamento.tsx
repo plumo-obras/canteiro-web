@@ -57,13 +57,12 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
   const { mudou, avisar, avisarFeito } = useCasca();
   const [passo, setPasso] = useState<Passo>({ k: inicio ? "arquivo" : "tipo" });
   const [tipo, setTipo] = useState<Tipo | null>(inicio ? "eap" : null);
-  // Depois de aprovar, com contrato vigente, nada vem marcado: o testador passou pelo seletor sem ver e substituiu o
-  // contrato por um aditivo. Sem contrato, ou antes de aprovar, é sempre o orçamento (o contrato).
-  const [versaoEscolhida, setVersao] = useState<TipoVersao | null>(null);
   const orc = useCarregar(() => api.orcamento(obra.id).catch(() => null), [obra.id]);
   const vigente = orc.dado?.versoes.find((v) => v.tipo === "contrato" && v.ativa) ?? null;
   const antesDeAprovar = obra.status === "em_orcamento";
-  const versao: TipoVersao | null = versaoEscolhida ?? (orc.dado && (!vigente || antesDeAprovar) ? "contrato" : null);
+  // Sem contrato, ou antes de aprovar, é sempre o orçamento (o contrato); depois de aprovar, só o aditivo. Sem o
+  // orçamento carregado não se sabe qual dos dois: fica nulo e segura o "Continuar" e o "Ver a prévia".
+  const versao: TipoVersao | null = !orc.dado ? null : vigente && !antesDeAprovar ? "aditivo" : "contrato";
   // Trocar o orçamento inteiro apaga o que já está nele (as pranchas, os preços editados): só com confirmação.
   const [trocar, setTrocar] = useState(false);
   const [confirmandoTroca, setConfirmandoTroca] = useState(false);
@@ -342,41 +341,16 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
                   somarEmVez={() => setTrocar(false)}
                 />
               ) : vigente ? (
-                <fieldset className="pergunta-versao">
-                  <legend>Esta planilha é um aditivo ou um novo orçamento inicial?</legend>
-                  <div className="portas" role="radiogroup" aria-label="Aditivo ou novo orçamento inicial">
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={versao === "aditivo"}
-                      className={`porta${versao === "aditivo" ? "" : " porta-sec"}`}
-                      onClick={() => setVersao("aditivo")}
-                    >
-                      <Icone nome="plus" tam={20} />
-                      <span>
-                        <b>Um aditivo</b>
-                        <small>Soma ao orçamento inicial vigente ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é supressão.</small>
-                      </span>
-                      {versao === "aditivo" ? <Icone nome="checkCircle" tam={18} /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={versao === "contrato"}
-                      className={`porta${versao === "contrato" ? "" : " porta-sec"}`}
-                      onClick={() => setVersao("contrato")}
-                    >
-                      <Icone nome="planilha" tam={20} />
-                      <span>
-                        <b>Um novo orçamento inicial</b>
-                        <small>
-                          Substitui por inteiro o orçamento inicial vigente ({fmtReais(vigente.total)}, {plural(vigente.itens, "item", "itens")}). Dá para desfazer.
-                        </small>
-                      </span>
-                      {versao === "contrato" ? <Icone nome="checkCircle" tam={18} /> : null}
-                    </button>
-                  </div>
-                </fieldset>
+                // Aprovado, Compras já saiu do orçamento: a API recusa um orçamento novo, então não se oferece.
+                <div className="pergunta-versao">
+                  <p style={{ margin: 0 }}>
+                    <b>Esta planilha entra como aditivo</b>: soma ao orçamento aprovado ({fmtReais(vigente.total)}), que fica intacto. Quantidade negativa é
+                    supressão.
+                  </p>
+                  <p className="mut sm" style={{ margin: "6px 0 0" }}>
+                    Para trocar o orçamento inteiro, desfaça antes a aprovação pelo Histórico.
+                  </p>
+                </div>
               ) : orc.dado ? (
                 <p className="seg-dica mut sm">A obra ainda não tem orçamento inicial importado: esta planilha vira o orçamento inicial. Os aditivos vêm depois dele.</p>
               ) : null}
