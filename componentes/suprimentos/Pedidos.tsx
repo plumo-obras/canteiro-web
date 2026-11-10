@@ -91,7 +91,7 @@ export function useChegou(p: Pedido, depois?: (atualizado: Pedido) => void) {
       chave.current = null;
       depois?.(r.pedido);
       mudou();
-      avisarFeito(p.linhas.every((l) => l.tipo === "servico") ? `Medição do ${p.numero} registrada.` : `${p.numero} chegou.`, r.registro_id);
+      avisarFeito(p.linhas.every((l) => l.tipo === "servico") ? `${p.numero} entregue.` : `${p.numero} chegou.`, r.registro_id);
     } catch (e) {
       mudou();
       avisar(mensagemDe(e), true);
