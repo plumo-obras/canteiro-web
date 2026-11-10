@@ -242,6 +242,22 @@ describe("enviar comprovante", () => {
     expect(screen.queryByText("R$ 350,00")).toBeNull();
   });
 
+  it("Por etapa mostra o entregue e ainda a pagar junto do pago, e o total dele no topo", async () => {
+    rede({
+      "GET /srv/api/obras/o1/gastos/resumo": () =>
+        json({
+          total: 201_090, pagamentos_de_pedidos: 0, a_revisar: 0, entregue_a_pagar: 2_497_440,
+          etapas: [{ etapa: "1", nome: "Fundações", total: 201_090, entregue_a_pagar: 2_497_440, topicos: [] }],
+        }),
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    expect(await screen.findByText("Entregue, ainda a pagar")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
+    const linha = screen.getByText("Fundações").closest("li")!;
+    expect(linha).toHaveTextContent("R$ 2.010,90");
+    expect(linha).toHaveTextContent("+ R$ 24.974,40 entregue, ainda a pagar");
+  });
+
   it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, etapa: null, etapa_nome: "Sem etapa", etapa_origem: "a_definir", topico_id: null }]),

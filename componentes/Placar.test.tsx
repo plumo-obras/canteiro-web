@@ -36,6 +36,13 @@ describe("o placar da obra", () => {
     expect(c[2]).toEqual(["—", ""]);
   });
 
+  it("com entregue a pagar, o gasto diz de que é feito (pago + entregue a pagar)", () => {
+    const c = valores({ verba: 1 }, r({ realizado: 2_698_530, pago: 201_090, entregue_a_pagar: 2_497_440 }), false);
+    expect(c[1]).toEqual(["R$ 26.985,30", "R$ 2.010,90 pago + R$ 24.974,40 entregue a pagar"]);
+    // tudo pago: volta ao % do orçado
+    expect(valores({ verba: 1 }, r({ pago: 2133730, entregue_a_pagar: 0 }), false)[1]).toEqual(["R$ 21.337,30", "4,8% do orçado"]);
+  });
+
   it("medição define o prazo; só ela diz se está no prazo", () => {
     expect(valores({ verba: 1 }, r({}, { atraso_decimos: 0 }), false)[3]).toEqual(["No prazo", "entrega 03/2027"]);
     expect(valores({ verba: 1 }, r({}, { atraso_decimos: 14, termino_projetado: "2027-05" }), false)[3]).toEqual(["Atrasada 1,4 mês", "previsão entrega 05/2027"]);

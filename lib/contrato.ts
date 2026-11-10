@@ -785,6 +785,10 @@ export interface ResumoDaObra {
     saldo: Centavos;
     /** Orçado atual − realizado, nunca negativo. Opcional: a API de antes não manda. */
     falta_gastar?: Centavos;
+    /** O que já saiu do caixa (gastos confirmados). realizado = pago + entregue_a_pagar. Ausente em API antiga. */
+    pago?: Centavos;
+    /** Pedidos entregues sem pagamento registrado: já contam no realizado. Ausente em API antiga. */
+    entregue_a_pagar?: Centavos;
     /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
     realizado_pct?: number | null;
     etapas_estouradas?: unknown[];
@@ -1165,8 +1169,17 @@ export interface ResumoGastos {
   a_revisar: number;
   /** Gastos em "Ver depois": contam na obra e em nenhuma etapa. Ausente em API antiga. */
   a_definir?: Centavos;
+  /** Pedidos entregues sem pagamento registrado: contam no realizado sem estar em `total`. Ausente em API antiga. */
+  entregue_a_pagar?: Centavos;
   /** A linha com `etapa` null é a dos gastos sem etapa. */
-  etapas: { etapa: string | null; nome: string; total: Centavos; topicos: { topico_id: string | null; nome: string; total: Centavos }[] }[];
+  etapas: {
+    etapa: string | null;
+    nome: string;
+    total: Centavos;
+    /** O entregue e ainda a pagar desta etapa (fora de `total`). Ausente em API antiga. */
+    entregue_a_pagar?: Centavos;
+    topicos: { topico_id: string | null; nome: string; total: Centavos }[];
+  }[];
 }
 
 /** O que o agente responde em `POST /leituras/comprovante` (a leitura, ou o erro, já está gravada no comprovante). */

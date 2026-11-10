@@ -1273,7 +1273,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           termino_no_ritmo: null,
           meses: [],
           etapas: [],
-          totais: { orcado: orc.totais.atual, realizado, pago: 0, falta: 0, custo_final: realizado, desvio: 0, entregue_sem_pagamento: 0, sem_mes: 0 },
+          // a demo não lança pagamento: todo o realizado é entregue e ainda a pagar, como o resumo diz
+          totais: { orcado: orc.totais.atual, realizado, pago: 0, falta: 0, custo_final: realizado, desvio: 0, entregue_sem_pagamento: realizado, sem_mes: 0 },
         });
       }
       if (metodo === "GET" && b === "resumo" && !id2) {
@@ -1297,6 +1298,9 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             cotando: t.cotando,
             comprometido: t.comprometido,
             realizado: t.realizado,
+            // sem pagamento lançado na demo: o realizado inteiro é entrega ainda a pagar
+            pago: 0,
+            entregue_a_pagar: t.realizado,
             saldo: t.saldo,
             falta_gastar: Math.max(0, t.atual - t.realizado),
             realizado_pct: t.atual ? Math.round((t.realizado * 10000) / t.atual) : null,

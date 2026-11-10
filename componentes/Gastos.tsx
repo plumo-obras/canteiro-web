@@ -61,6 +61,8 @@ export function Gastos({ obra }: { obra: Obra }) {
     // Sem total aqui: o gasto da obra é um número só, o "Gasto até hoje" do placar. resumo.total é só o avulso.
     if (resumo.a_revisar) numeros.push({ rotulo: "A revisar", valor: `${resumo.a_revisar}`, tag: "não contam ainda", tom: "atencao" });
     if (resumo.pagamentos_de_pedidos) numeros.push({ rotulo: "Pagamentos de pedidos", valor: fmtReais(resumo.pagamentos_de_pedidos), sub: "já contam pela entrega" });
+    // sem isto, quem compara com o placar não acha o que foi entregue e não pago ("onde foram parar os 25 mil?")
+    if (resumo.entregue_a_pagar) numeros.push({ rotulo: "Entregue, ainda a pagar", valor: fmtReais(resumo.entregue_a_pagar), sub: "já conta no gasto" });
   }
 
   const abas = (
@@ -120,6 +122,7 @@ export function Gastos({ obra }: { obra: Obra }) {
                       <strong>{e.nome}</strong>
                       <span className={s.valor}>{fmtReais(e.total)}</span>
                     </div>
+                    {e.entregue_a_pagar ? <div className="mut sm">+ {fmtReais(e.entregue_a_pagar)} entregue, ainda a pagar</div> : null}
                     {e.topicos.length > 1 || e.topicos[0]?.topico_id ? (
                       <ul className={s.sublista} role="list">
                         {e.topicos.map((t) => (

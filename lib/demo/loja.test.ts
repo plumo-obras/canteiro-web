@@ -34,6 +34,13 @@ describe("demonstração: resumo da obra (o placar e a abertura)", () => {
     expect(r.corpo).toMatchObject({ obra: { id: obraId() }, cronograma: { cadastrado: false }, financeiro: { tem_orcamento: expect.any(Boolean), falta_gastar: expect.any(Number) } });
   });
 
+  it("gasto = pago + entregue a pagar, igual ao desembolso (a demo não lança pagamento)", () => {
+    const f = (chamar("GET", `obras/${obraId()}/resumo`).corpo as import("../contrato").ResumoDaObra).financeiro;
+    expect(f.pago! + f.entregue_a_pagar!).toBe(f.realizado);
+    const d = chamar("GET", `obras/${obraId()}/desembolso`).corpo as import("../contrato").Desembolso;
+    expect(d.totais.entregue_sem_pagamento).toBe(f.entregue_a_pagar);
+  });
+
   it("obra sem versão de contrato não tem orçamento", () => {
     const sem = e.obras.find((o) => !e.versoes.some((v) => v.versao.obra_id === o.id))!;
     expect((chamar("GET", `obras/${sem.id}/resumo`).corpo as { financeiro: { tem_orcamento: boolean } }).financeiro.tem_orcamento).toBe(false);
