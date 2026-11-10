@@ -129,7 +129,7 @@ function useMenu() {
 }
 
 function App({ usuario }: { usuario: Usuario }) {
-  const { demo, versao, cartoes, receberPropostas, registrarNavegacao, podeOperar } = useCasca();
+  const { demo, versao, cartoes, receberPropostas, registrarNavegacao, podeOperar, fecharAvisoFixo } = useCasca();
   const router = useRouter();
   const [obras, setObras] = useState<Obra[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -277,6 +277,8 @@ function App({ usuario }: { usuario: Usuario }) {
 
   const sessaoAberta = sessoes.find((s) => s.id === atual);
   const obraAberta = obras?.find((o) => o.id === sessaoAberta?.obraId)?.id;
+  // O Desfazer fixo (somar, reordenar) fala da tela onde a pessoa mexeu: em outra tela ou obra, ele confundiria.
+  useEffect(() => fecharAvisoFixo(), [tela, obraAberta, fecharAvisoFixo]);
   // A conversa também vai para a URL: recarregar (o portal recarrega a página ao trocar desktop ↔ celular) voltava em
   // "Nova conversa". Só a que já tem mensagem: a vazia ainda não existe no servidor e não teria como ser reaberta.
   const sessaoNaUrl = sessaoAberta && (sessaoAberta.mensagens.length || !sessaoAberta.carregada) ? sessaoAberta.servidorId : null;

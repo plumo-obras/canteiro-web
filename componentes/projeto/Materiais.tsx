@@ -233,6 +233,7 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
     avisarFeito(
       somou ? "Materiais das pranchas somados ao orçamento." : `Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "orçamento inicial"}.`,
       r.registro_id,
+      { fixo: somou },
     );
   }
 

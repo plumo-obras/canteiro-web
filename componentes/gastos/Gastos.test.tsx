@@ -202,6 +202,33 @@ describe("confirmar e desfazer pelo aviso", () => {
     act(() => void vi.advanceTimersByTime(1500));
     expect(screen.queryByRole("button", { name: "Desfazer" })).toBeNull();
   });
+
+  it("o aviso fixo (somar) não some com o tempo: sai no Fechar ou quando a casca troca de tela", () => {
+    vi.useFakeTimers();
+    let casca!: ReturnType<typeof useCasca>;
+    function Pega() {
+      casca = useCasca();
+      return null;
+    }
+    render(comCasca(<Pega />));
+    act(() => casca.avisarFeito("Somado ao orçamento: 3 itens, +R$ 1,00.", "reg-1", { fixo: true }));
+    const aviso = screen.getByText(/Somado ao orçamento/).parentElement!;
+    fireEvent.pointerEnter(aviso);
+    fireEvent.pointerLeave(aviso);
+    act(() => void vi.advanceTimersByTime(10 * 60_000));
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar aviso" }));
+    expect(screen.queryByText(/Somado ao orçamento/)).toBeNull();
+
+    act(() => casca.avisarFeito("Somado ao orçamento: 3 itens, +R$ 1,00.", "reg-1", { fixo: true }));
+    act(() => casca.fecharAvisoFixo());
+    expect(screen.queryByText(/Somado ao orçamento/)).toBeNull();
+    // o comum segue com o relógio e não é tocado pela troca de tela
+    act(() => casca.avisarFeito("Gasto de R$ 1,00 lançado.", "reg-2"));
+    act(() => casca.fecharAvisoFixo());
+    expect(screen.getByText("Gasto de R$ 1,00 lançado.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fechar aviso" })).toBeNull();
+  });
 });
 
 

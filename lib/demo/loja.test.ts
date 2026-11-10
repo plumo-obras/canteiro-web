@@ -527,6 +527,7 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     expect(depois.totais).toMatchObject({ aditivos: 0, aditivos_pct: 0, n_etapas: 1, atual: antes.totais.atual + Math.round((ACO.quantidade * ACO.valor_unitario) / 1000) });
     expect(depois.itens.filter((i) => i.tipo === "item").map((i) => i.descricao)).toEqual(["Concreto C25", ACO.nome]);
     expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
+    expect(depois.versoes.find((v) => v.ativa)!.somou).toBe(true);
     expect(e.registro.at(-1)!.texto).toMatch(/^Somou 1 item ao orçamento de Casa Teste \(\+R\$/);
 
     chamar("POST", `registro/${gravou.registro_id}/desfazer`);

@@ -184,6 +184,8 @@ export interface VersaoOrcamento {
   /** A EntradaRegistro da importação: o Desfazer da versão usa este ID. */
   registro_id: string | null;
   criado_em: DataISO;
+  /** Contrato gravado pelo somar (o vigente + a planilha). Ausente na API antiga. */
+  somou?: boolean;
 }
 
 export interface ItemPrevia {

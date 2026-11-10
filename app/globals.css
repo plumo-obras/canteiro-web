@@ -511,6 +511,10 @@ input.f[aria-invalid=true],select.f[aria-invalid=true]{border-color:var(--red)}
 .toast:has(.toast-acao){display:flex;align-items:center;gap:14px;padding-right:8px}
 .toast-acao{flex:none;min-height:32px;padding:0 12px;border:1px solid rgba(255,255,255,.22);border-radius:var(--rp);background:rgba(255,255,255,.08);color:var(--accentHi);font-weight:600}
 .toast-acao:disabled{opacity:.6}
+/* o aviso fixo (somar, reordenar) só sai pela mão de quem o leu */
+.toast:has(.toast-fechar){display:flex;align-items:center;gap:8px;padding-right:6px}
+.toast-fechar{flex:none;display:inline-grid;place-items:center;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75}
+.toast-fechar:hover,.toast-fechar:focus-visible{opacity:1;background:rgba(255,255,255,.1)}
 /* no celular o texto quebra: a pílula vira uma bolha oval que cobre a lista. Cantos de cartão e no máximo 2 linhas */
 @media (max-width:760px){
   .toast{border-radius:14px;width:calc(100vw - 24px);max-width:none}

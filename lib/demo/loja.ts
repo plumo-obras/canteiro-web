@@ -289,7 +289,7 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
       id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
       data: hojeSP().slice(0, 10), arquivo: `${etapaNome} (projeto).csv`, itens: todos.length, etapas: etapas.length,
       total: todos.reduce((s, x) => s + total(x.quantidade, x.valor_unitario), 0), ativa: true, substitui: somar ? vigente!.versao.id : null,
-      registro_id: null, criado_em: agoraISO(),
+      registro_id: null, criado_em: agoraISO(), ...(somar ? { somou: true } : {}),
     },
     etapas,
     chave,

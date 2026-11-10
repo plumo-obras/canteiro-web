@@ -217,7 +217,8 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
             : p.tipo === "contrato"
               ? `Orçamento inicial importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
               : `Aditivo importado: ${comSinal(p.total)} em ${plural(p.n_itens, "item", "itens")}.`;
-        avisarFeito(texto, p.registro_id);
+        // o Desfazer do somar é o jeito de voltar atrás se a soma não era o que se queria: não pode sumir sozinho
+        avisarFeito(texto, p.registro_id, { fixo: visto.total_apos != null });
       } else avisar(`Lista de materiais importada: ${plural(r.p.linhas.length, "insumo", "insumos")}, ${fmtReais(r.p.total)}.`);
       feito?.();
     });
