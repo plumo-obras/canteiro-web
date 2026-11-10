@@ -286,6 +286,19 @@ export interface Orcamento {
   };
 }
 
+/** `POST /obras/{id}/orcamento/etapas/ordem`: todas as etapas do vigente (pela chave, "1", "2"…), na ordem nova. */
+export interface CorpoOrdemEtapas {
+  ordem: string[];
+  chave_idempotencia: string;
+}
+
+/** Um contrato novo no lugar do vigente, com as etapas renumeradas 1..N; o Desfazer religa o anterior. */
+export interface OrdemEtapasGravada {
+  versao_id: string;
+  registro_id: string;
+  etapas: { etapa: string; descricao: string }[];
+}
+
 /** `PATCH /obras/{id}/orcamento/itens/{item_id}`: ao menos um dos dois. */
 export interface CorpoEditarItem {
   quantidade?: Milesimos;

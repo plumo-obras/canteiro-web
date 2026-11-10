@@ -1062,6 +1062,12 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .le-cab{background:var(--sunk);font-size:12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line2)}
 .le-l{border-bottom:1px solid var(--line2)}
 .le-l:last-child{border-bottom:0}
+/* antes de aprovar, as setas de ordem ficam ao lado da linha (botão dentro de botão não pode) */
+.le-l.ordenando{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.le-l.ordenando>.le-corpo{grid-column:1/-1}
+.le-ordem{display:flex;gap:2px;padding-right:10px}
+.le-ordem .iconbtn:disabled{opacity:.35;cursor:default}
+@media (pointer:coarse){ .le-ordem .iconbtn{min-width:40px;min-height:40px} }
 .le-linha{width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:var(--t-meta);text-align:left;cursor:pointer;min-height:52px}
 @media (hover:hover){ .le-linha:hover{background:var(--sunk)} }
 .le-linha:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}

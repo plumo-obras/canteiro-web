@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Obra, Usuario } from "@/lib/contrato";
@@ -174,5 +174,58 @@ describe("versões depois de somar a planilha", () => {
     montar(somado());
     await userEvent.setup().click(await screen.findByRole("button", { name: "Desfazer Orçamento inicial" }));
     expect(await screen.findByText("Volta o orçamento para antes de somar a planilha (R$ 500,00, 1 item).")).toBeInTheDocument();
+  });
+});
+
+describe("ordem das etapas antes de aprovar", () => {
+  const etapa = (n: string, descricao: string) => ({ etapa: n, descricao, contratado: 0, aditivos: 0, atual: 1000, cotando: 0, comprometido: 0, realizado: 0, saldo: 1000, estourou: false });
+  const dados = (nomes: string[]) => ({
+    ...orc("planilha.xlsx", []),
+    itens: [],
+    etapas: nomes.map((d, i) => etapa(String(i + 1), d)),
+  });
+  const montarOrdem = (obra: Obra, usuario: Usuario = USUARIO) => {
+    let atual = ["Estrutura", "Serviços preliminares", "Fundação"];
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/orcamento": () => json(dados(atual)),
+      "GET /srv/api/obras/o1/insumos": () => json([]),
+      "POST /srv/api/obras/o1/orcamento/etapas/ordem": ({ corpo }) => {
+        const ordem = (corpo as { ordem: string[] }).ordem;
+        atual = ordem.map((k) => atual[Number(k) - 1]!);
+        return json({ versao_id: "v9", registro_id: "r9", etapas: atual.map((d, i) => ({ etapa: String(i + 1), descricao: d })) }, 201);
+      },
+    });
+    render(
+      <ProvedorCasca usuario={usuario} demo={false}>
+        <Orcamento obra={obra} />
+      </ProvedorCasca>,
+    );
+    return rede;
+  };
+
+  it("descer manda a ordem inteira com uma chave, avisa com Desfazer e o foco segue a etapa", async () => {
+    const rede = montarOrdem(OBRA);
+    const u = userEvent.setup();
+    expect(await screen.findByRole("button", { name: "Subir Estrutura" })).toBeDisabled();
+    await u.click(screen.getByRole("button", { name: "Descer Estrutura" }));
+    expect(await screen.findByText("Estrutura desceu: agora é a etapa 2.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    const post = rede.chamadas.find((c) => c.metodo === "POST" && c.caminho.endsWith("/etapas/ordem"))!;
+    expect(post.corpo).toMatchObject({ ordem: ["2", "1", "3"], chave_idempotencia: expect.any(String) });
+    await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Descer Estrutura" })).toHaveFocus());
+  });
+
+  it("aprovado: sem as setas", async () => {
+    montarOrdem({ ...OBRA, status: "em_andamento" } as Obra);
+    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
+  });
+
+  it("viewer não vê as setas", async () => {
+    montarOrdem(OBRA, { ...USUARIO, papel: "viewer" });
+    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
   });
 });

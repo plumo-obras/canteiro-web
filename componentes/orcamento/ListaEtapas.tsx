@@ -5,9 +5,10 @@
  * ali mesmo com o gasto rotulado, os pedidos da etapa e os itens da planilha. Busca e curva filtram os itens e abrem
  * as etapas que têm resultado; a ordem por desvio continua valendo. Os números vêm da API; a tela só agrupa.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CorpoEditarItem, CurvaABC, Obra, Orcamento, Pedido } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { uuid7 } from "@/lib/ids";
 import { fmtQtd, fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { ROTULO_STATUS } from "../CartaoProposta";
 import { mensagemDe, useCasca } from "../contexto";
@@ -81,7 +82,9 @@ const ORDENS: { k: "desvio" | "planilha"; rotulo: string }[] = [
 ];
 
 export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
-  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: "desvio" });
+  const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
+  // Antes de aprovar não há gasto para dar desvio: a ordem que importa é a da obra, e é ela que se arruma aqui.
+  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: obra.status === "em_orcamento" ? "planilha" : "desvio" });
   // Com uma etapa só (ex.: a Estrutura do projeto), já abre: a quantidade e o unitário de cada item ficam à vista
   // sem precisar clicar para expandir.
   const [abertas, setAbertas] = useState<Set<string>>(() => {
@@ -109,6 +112,49 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
     };
   }, [precisaPedidos, obra.id]);
 
+  // Subir/descer só na ordem da planilha e sem filtro (é a lista inteira que se ordena), antes de aprovar e sem aditivo.
+  const etapasDaOrdem = orc.etapas.map((e) => e.etapa).filter(Boolean);
+  const podeOrdenar =
+    podeOperar && obra.status === "em_orcamento" && !filtrando && filtro.ordem === "planilha" && etapasDaOrdem.length > 1 && !orc.versoes.some((v) => v.ativa && v.tipo === "aditivo");
+  const [ordenando, setOrdenando] = useState(false);
+  // A mesma ordem pedida de novo (a resposta se perdeu) reaproveita a chave: a API não grava duas versões.
+  const chaveOrdem = useRef<{ conteudo: string; valor: string } | null>(null);
+  // As etapas são renumeradas: o foco volta para o mesmo botão na posição nova, não fica perdido no topo da página.
+  const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer" } | null>(null);
+  const refLista = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const f = focoDepois.current;
+    if (!f || !refLista.current) return;
+    const botoes = refLista.current.querySelectorAll<HTMLButtonElement>(`[data-posicao="${f.posicao}"]`);
+    const alvo = [...botoes].find((b) => b.dataset.dir === f.dir && !b.disabled) ?? [...botoes].find((b) => !b.disabled);
+    if (!alvo) return;
+    focoDepois.current = null;
+    alvo.focus();
+  }, [orc]);
+  const mover = async (etapa: string, descricao: string, dir: "subir" | "descer") => {
+    const de = etapasDaOrdem.indexOf(etapa);
+    const para = dir === "subir" ? de - 1 : de + 1;
+    if (de < 0 || para < 0 || para >= etapasDaOrdem.length) return;
+    const ordem = [...etapasDaOrdem];
+    [ordem[de], ordem[para]] = [ordem[para]!, ordem[de]!];
+    const conteudo = JSON.stringify(ordem);
+    if (chaveOrdem.current?.conteudo !== conteudo) chaveOrdem.current = { conteudo, valor: uuid7() };
+    setOrdenando(true);
+    try {
+      const r = await api.ordenarEtapas(obra.id, { ordem, chave_idempotencia: chaveOrdem.current.valor });
+      chaveOrdem.current = null;
+      focoDepois.current = { posicao: para + 1, dir };
+      mudou();
+      // fixo, como o do somar: mudar a ordem sem querer é fácil e o caminho de volta tem de esperar a pessoa
+      avisarFeito(`${descricao} ${dir === "subir" ? "subiu" : "desceu"}: agora é a etapa ${para + 1}.`, r.registro_id, { fixo: true });
+    } catch (e) {
+      mudou();
+      avisar(mensagemDe(e), true);
+    } finally {
+      setOrdenando(false);
+    }
+  };
+
   const alternar = (k: string) =>
     setAbertas((s) => {
       const n = new Set(s);
@@ -133,7 +179,8 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         </p>
       ) : null}
 
-      <ul className="le" aria-label="Etapas do orçamento">
+      {podeOrdenar ? <p className="mut sm">Use as setas para pôr as etapas na ordem em que a obra acontece: as compras seguem essa ordem.</p> : null}
+      <ul className="le" aria-label="Etapas do orçamento" ref={refLista}>
         <li className="le-cab" aria-hidden="true">
           <span>Etapa</span>
           <span className="num">Orçado atual</span>
@@ -147,7 +194,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
           const semCompra = !l.comprometido && !l.cotando && !l.realizado;
           const estouro = l.comprometido > l.atual;
           return (
-            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}`}>
+            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}`}>
               <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
                 <span className="le-nome">
                   <Icone nome="chevRight" tam={14} className="le-seta" />
@@ -171,6 +218,15 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                   {semCompra ? `${reaisInteiros(l.atual)} orçado` : `${reaisInteiros(l.comprometido)} de ${reaisInteiros(l.atual)} · ${fmtPct(l.pct)}`}
                 </span>
               </button>
+              {podeOrdenar && !l.semEtapa ? (
+                <OrdemEtapa
+                  posicao={etapasDaOrdem.indexOf(l.etapa) + 1}
+                  total={etapasDaOrdem.length}
+                  descricao={l.descricao}
+                  ocupado={ordenando}
+                  mover={(dir) => mover(l.etapa, l.descricao, dir)}
+                />
+              ) : null}
               {aberta ? (
                 <div className="le-corpo" id={`le-${k}`}>
                   {semCompra ? null : (
@@ -210,6 +266,20 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         {!lista.length && !filtrando ? <li className="mut sm le-vazio">Nenhuma etapa vigente.</li> : null}
       </ul>
     </section>
+  );
+}
+
+/** Subir e descer uma etapa: botões e não arrastar, para dar com o teclado e o dedo (e o leitor dizer a posição). */
+function OrdemEtapa({ posicao, total, descricao, ocupado, mover }: { posicao: number; total: number; descricao: string; ocupado: boolean; mover: (dir: "subir" | "descer") => void }) {
+  return (
+    <span className="le-ordem" role="group" aria-label={`Ordem de ${descricao}: etapa ${posicao} de ${total}`}>
+      <button type="button" className="iconbtn" data-posicao={posicao} data-dir="subir" disabled={ocupado || posicao === 1} aria-label={`Subir ${descricao}`} onClick={() => mover("subir")}>
+        <Icone nome="arrowUp" tam={14} />
+      </button>
+      <button type="button" className="iconbtn" data-posicao={posicao} data-dir="descer" disabled={ocupado || posicao === total} aria-label={`Descer ${descricao}`} onClick={() => mover("descer")}>
+        <Icone nome="arrowDown" tam={14} />
+      </button>
+    </span>
   );
 }
 

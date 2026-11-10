@@ -312,6 +312,53 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
 }
 
 /**
+ * POST /obras/{id}/orcamento/etapas/ordem, como a API: antes de aprovar, um contrato novo no lugar do vigente com as
+ * etapas na ordem pedida (a numeração sai da posição, então renumera sozinha). O Desfazer religa o anterior.
+ */
+function ordenarEtapas(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string, unknown>) {
+  const chave = typeof corpo.chave_idempotencia === "string" ? corpo.chave_idempotencia : "";
+  if (chave.length < 8) throw new RegraViolada("chave_idempotencia é obrigatória.");
+  const saida = (vd: VersaoDemo) => ({
+    versao_id: vd.versao.id,
+    registro_id: vd.versao.registro_id!,
+    etapas: vd.etapas.map((et, i) => ({ etapa: String(i + 1), descricao: et.descricao })),
+  });
+  const ja = e.versoes.find((v) => v.versao.obra_id === o.id && v.chave === chave);
+  if (ja) return saida(ja);
+  if (o.status !== "em_orcamento") throw new Conflito("O orçamento já foi aprovado: a ordem das etapas não muda mais.");
+  const ativas = e.versoes.filter((v) => v.versao.obra_id === o.id && v.versao.ativa);
+  const vigente = ativas.find((v) => v.versao.tipo === "contrato");
+  if (!vigente) throw new RegraViolada("Ainda não há orçamento nesta obra para ordenar as etapas.");
+  if (ativas.length > 1) throw new Conflito("Há aditivo valendo sobre este orçamento; desfaça o aditivo antes de mudar a ordem.");
+  const atual = vigente.etapas.map((_, i) => String(i + 1));
+  const ordem = Array.isArray(corpo.ordem) ? corpo.ordem.map(String) : [];
+  if (ordem.length !== atual.length || new Set(ordem).size !== ordem.length || !ordem.every((k) => atual.includes(k)))
+    throw new RegraViolada(`Mande todas as etapas do orçamento, cada uma uma vez: ${atual.join(", ")}.`);
+  if (ordem.every((k, i) => k === atual[i])) throw new RegraViolada("Nada mudou: as etapas já estão nesta ordem.");
+
+  const versaoId = uuid7();
+  const vd: VersaoDemo = {
+    versao: { ...vigente.versao, id: versaoId, substitui: vigente.versao.id, registro_id: null, criado_em: agoraISO(), somou: undefined },
+    etapas: ordem.map((k) => {
+      const et = vigente.etapas[Number(k) - 1]!;
+      return { descricao: et.descricao, itens: et.itens.map((x) => ({ ...x })) };
+    }),
+    chave,
+  };
+  vigente.versao.ativa = false;
+  e.versoes.push(vd);
+  const reg = registrar(e, u, {
+    obra_id: o.id,
+    texto: `Reordenou as etapas do orçamento de ${o.nome}`,
+    proposta_id: null,
+    desfazer: { op: "desfazer_versao", versao_id: versaoId, reativar: vigente.versao.id },
+    origem: "tela",
+  });
+  vd.versao.registro_id = reg.id;
+  return saida(vd);
+}
+
+/**
  * A demonstração guarda o pedido no formato antigo (a primeira linha nos campos do pedido) e as demais em `outras`;
  * entrega pela metade ela não tem. Na saída ele vira o pedido do contrato novo.
  */
@@ -1080,7 +1127,9 @@ export function desfazer(registroId: string, u: Usuario) {
     vd.versao.ativa = false;
     if (anterior) {
       anterior.versao.ativa = true;
-      texto = `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`;
+      texto = vd.versao.somou
+        ? `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`
+        : `Desfeito: as etapas voltaram à ordem de antes`;
     } else texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
   } else if (d.op === "reabrir_orcamento") {
     const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);
@@ -1362,6 +1411,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         exigirAdmin(u);
         if (id2 === "versoes") return erro(422, "Na demonstração a importação do orçamento por etapas não está disponível.");
         if (id2 === "estrutura") return ok(lancarEstrutura(e, u, obraPorId(e, id), c as Record<string, unknown>));
+        if (id2 === "etapas" && c2 === "ordem") return ok(ordenarEtapas(e, u, obraPorId(e, id), c as Record<string, unknown>));
         const existentes = () =>
           [...e.insumos.values()]
             .filter((i) => i.obra_id === id)

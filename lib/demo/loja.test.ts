@@ -536,6 +536,32 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     expect(final.versoes.filter((v) => v.ativa).map((v) => v.id)).toEqual(antes.versoes.map((v) => v.id));
   });
 
+  it("muda a ordem das etapas antes de aprovar: renumera, guarda o preço editado e o Desfazer volta a ordem", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "o1", etapa: "Estrutura" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [ACO], aplicar: true, chave_idempotencia: "o2", etapa: "Serviços preliminares" });
+    const aco = (chamar("GET", `obras/${o.id}/orcamento`).corpo as O).itens.find((i) => i.descricao === ACO.nome)!;
+    chamar("PATCH", `obras/${o.id}/orcamento/itens/${aco.id}`, { valor_unitario: 700 });
+    const antes = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(antes.etapas.map((et) => et.descricao)).toEqual(["Estrutura", "Serviços preliminares"]);
+
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1"], chave_idempotencia: "ordem-0001" }).status).toBe(422);
+    const r = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1"], chave_idempotencia: "ordem-0002" });
+    expect(r.corpo).toMatchObject({ etapas: [{ etapa: "1", descricao: "Serviços preliminares" }, { etapa: "2", descricao: "Estrutura" }] });
+    // a mesma chave não grava outra versão
+    chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1"], chave_idempotencia: "ordem-0002" });
+    const depois = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(depois.etapas.map((et) => et.descricao)).toEqual(["Serviços preliminares", "Estrutura"]);
+    expect(depois.itens.find((i) => i.descricao === ACO.nome)).toMatchObject({ numero: "1.1", valor_unitario: 700 });
+    expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
+    expect(depois.totais.atual).toBe(antes.totais.atual);
+    expect(e.registro.at(-1)!.texto).toBe("Reordenou as etapas do orçamento de Casa Teste");
+
+    chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`);
+    const final = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(final.etapas.map((et) => et.descricao)).toEqual(["Estrutura", "Serviços preliminares"]);
+  });
+
   it("o preço editado no orçamento somado continua achando o item (id pela posição na versão)", () => {
     const o = criar().corpo as { id: string };
     chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "q1" });
