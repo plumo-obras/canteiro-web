@@ -100,6 +100,18 @@ export function Orcamento({ obra }: { obra: Obra }) {
 
       {desfazendo ? <AvisoDesfazendo obra={obra} nItens={materiais.length} /> : null}
 
+      {/* Logo abaixo do cabeçalho, onde estava o Aprovar: no fim da tela ficava a 1.800 px e quem aprovava não via.
+          Antes de aprovar, o próximo passo é o próprio Aprovar; comprar só existe depois dele. */}
+      {dado && !emOrcamento && !desfazendo && nFalta ? (
+        <ProximoPasso
+          obraId={obra.id}
+          para="suprimentos"
+          acao="Comprar o que vem primeiro"
+          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
+          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
+        />
+      ) : null}
+
       {orc.erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -176,17 +188,6 @@ export function Orcamento({ obra }: { obra: Obra }) {
             </p>
           ) : null}
         </>
-      ) : null}
-
-      {/* Antes de aprovar, o próximo passo é o Aprovar do cabeçalho: comprar só existe depois dele. */}
-      {dado && !emOrcamento && !desfazendo && nFalta ? (
-        <ProximoPasso
-          obraId={obra.id}
-          para="suprimentos"
-          acao="Comprar o que vem primeiro"
-          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
-          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
-        />
       ) : null}
 
       {modal === "importar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} /> : null}
