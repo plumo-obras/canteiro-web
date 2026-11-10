@@ -663,11 +663,10 @@ describe("demonstração: orçamento por etapas", () => {
 });
 
 describe("demonstração: cronograma (Fase 4)", () => {
-  it("GET vem vazio com as etapas; PUT e medição respondem 422", () => {
+  it("GET vem vazio com as etapas; a medição ainda responde 422 (fora do escopo da demo)", () => {
     const c = chamar("GET", `obras/${obraId()}/cronograma`).corpo as import("../contrato").Cronograma;
     expect(c).toMatchObject({ inicio: null, meses: 0, mensal: [], medicoes: [] });
     expect(c.etapas.length).toBeGreaterThan(0);
-    expect(chamar("PUT", `obras/${obraId()}/cronograma`, { inicio: "2026-11", meses: 1, etapas: [] }).status).toBe(422);
     expect(chamar("POST", `obras/${obraId()}/medicoes`, {}).status).toBe(422);
   });
 
@@ -675,5 +674,97 @@ describe("demonstração: cronograma (Fase 4)", () => {
     const r = chamar("GET", `obras/${obraId()}/desembolso`);
     expect(r.status).toBe(200);
     expect(r.corpo).toMatchObject({ base: "sem_cronograma", meses: [], termino_projetado: null });
+  });
+});
+
+describe("demonstração: cronograma (motor + grava e desfaz)", () => {
+  const criarEmOrcamento = () => {
+    const o = chamar("POST", "obras", { nome: "Casa Cronograma", chave_idempotencia: "cronograma-1", verba: 1_000_000 }).corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, {
+      itens: [
+        { nome: "Fundação em sapata", unidade: "m³", quantidade: 10_000, valor_unitario: 50_000 },
+        { nome: "Estrutura de concreto", unidade: "m³", quantidade: 20_000, valor_unitario: 60_000 },
+      ],
+      aplicar: true,
+    });
+    return o;
+  };
+
+  it("sem cronograma: GET traz as etapas do orçamento, sem meses", () => {
+    const o = criarEmOrcamento();
+    const cr = chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma;
+    expect(cr.inicio).toBeNull();
+    expect(cr.meses).toBe(0);
+    expect(cr.etapas.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("PUT grava a grade, o GET devolve mensal/prazo calculados, e o desfazer apaga", () => {
+    const o = criarEmOrcamento();
+    const etapas = (chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma).etapas;
+    const corpo = {
+      inicio: "2026-01",
+      meses: 4,
+      etapas: etapas.map((et, i) => ({ etapa: et.etapa, percentuais: i === 0 ? [5000, 5000, 0, 0] : [0, 0, 5000, 5000] })),
+    };
+    const salvo = chamar("PUT", `obras/${o.id}/cronograma`, corpo).corpo as import("../contrato").Cronograma & { registro_id: string };
+    expect(salvo.inicio).toBe("2026-01");
+    expect(salvo.meses).toBe(4);
+    expect(salvo.mensal).toHaveLength(4);
+    // o previsto acumulado fecha no orçado da obra
+    const total = salvo.etapas.reduce((s, et) => s + et.atual, 0);
+    expect(salvo.mensal.at(-1)!.previsto_acumulado).toBe(total);
+    expect(salvo.prazo.termino_contratual).toBe("2026-04");
+    // desfazer apaga o cronograma
+    chamar("POST", `registro/${salvo.registro_id}/desfazer`);
+    expect((chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma).meses).toBe(0);
+  });
+
+  it("PUT recusa etapa que não fecha 100%", () => {
+    const o = criarEmOrcamento();
+    const etapas = (chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma).etapas;
+    const r = chamar("PUT", `obras/${o.id}/cronograma`, { inicio: "2026-01", meses: 2, etapas: [{ etapa: etapas[0]!.etapa, percentuais: [3000, 3000] }] });
+    expect(r.status).toBe(422);
+  });
+});
+
+describe("demonstração: IA propõe o cronograma e a aprovação o cria", () => {
+  const criarEmOrcamento = () => {
+    const o = chamar("POST", "obras", { nome: "Casa IA Cronograma", chave_idempotencia: "ia-cronograma-1", verba: 1_000_000 }).corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, {
+      itens: [
+        { nome: "Fundação em sapata", unidade: "m³", quantidade: 10_000, valor_unitario: 50_000 },
+        { nome: "Estrutura de concreto", unidade: "m³", quantidade: 20_000, valor_unitario: 60_000 },
+      ],
+      aplicar: true,
+    });
+    return o;
+  };
+
+  it("propor cria uma Proposta pendente de tipo cronograma; aprovar grava o cronograma; desfazer apaga", () => {
+    const o = criarEmOrcamento();
+    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as Proposta;
+    expect(prop.tipo).toBe("cronograma");
+    expect(prop.status).toBe("pendente");
+    expect((prop.dados as { meses: number }).meses).toBeGreaterThan(0);
+    // antes de aprovar, Cronograma ainda vazio
+    expect((chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma).meses).toBe(0);
+    // aprova a proposta → cria o cronograma
+    const r = chamar("POST", `propostas/${prop.id}/aprovar`).corpo as { proposta: Proposta; registro: { id: string } };
+    expect(r.proposta.status).toBe("aprovada");
+    const cr = chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma;
+    expect(cr.meses).toBeGreaterThan(0);
+    expect(cr.inicio).toBe((prop.dados as { inicio: string }).inicio);
+    expect(cr.mensal.length).toBe(cr.meses);
+    // desfazer a aprovação volta a ficar sem cronograma
+    chamar("POST", `registro/${r.registro.id}/desfazer`);
+    expect((chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma).meses).toBe(0);
+  });
+
+  it("propor recusa obra que já tem cronograma", () => {
+    const o = criarEmOrcamento();
+    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as Proposta;
+    chamar("POST", `propostas/${prop.id}/aprovar`);
+    const r = chamar("POST", `obras/${o.id}/cronograma/propor`);
+    expect(r.status).toBe(409);
   });
 });

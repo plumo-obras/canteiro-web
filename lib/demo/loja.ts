@@ -12,6 +12,9 @@ import type {
   Mapeamento,
   DadosAvancarPedido,
   CurvaABC,
+  Cronograma,
+  CorpoCronograma,
+  PrazoCronograma,
   DadosCriarPedido,
   EntradaRegistro,
   ItemInsumo,
@@ -33,6 +36,7 @@ import type {
   Usuario,
 } from "../contrato";
 import { fmtQtdUn, fmtReais } from "../formato";
+import { CEM, gerarCronograma, listaMeses, previsaoMensal, redimensionar, somarMes } from "../cronograma";
 import type { MensagemSessao, SessaoApi } from "../historico";
 import { uuid7 } from "../ids";
 import { PlanilhaInvalida, lerPlanilhaDemo, nomeChave, previaDemo } from "./orcamento";
@@ -62,6 +66,14 @@ interface VersaoDemo {
   ordem?: string[];
 }
 
+/** O cronograma guardado na demo (o que o PUT grava): início, meses e o % de cada etapa por mês. */
+interface CronogramaDemo {
+  inicio: string;
+  meses: number;
+  etapas: { etapa: string; percentuais: number[] }[];
+  registro_id: string | null;
+}
+
 interface EstadoDemo {
   usuarios: Usuario[];
   acessos: Map<string, { usuario: Usuario; vence: number }>;
@@ -74,6 +86,8 @@ interface EstadoDemo {
   registro: EntradaRegistro[];
   /** As versões do orçamento (contrato e aditivos), como a API as guarda. Uma versão desfeita fica com `ativa: false`. */
   versoes: VersaoDemo[];
+  /** O cronograma de cada obra (grade etapa × mês), gravado pelo editor ou pela proposta da IA. */
+  cronogramas: Map<string, CronogramaDemo>;
   contadorPedido: number;
   /** chave_idempotencia → movimento lançado pela tela (o ID na API é derivado da chave; aqui, um mapa). */
   idempotencia: Map<string, Movimento>;
@@ -225,6 +239,100 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
 const normal = (t: string) => nomeChave(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 /** "concreto": o termo principal de uma descrição, para achar o mesmo material com outro nome. */
 const termoPrincipal = (d: string) => normal(d).split(" ").find((p) => p.length >= 3) ?? "";
+
+/**
+
+/** Monta o GET /cronograma como a API: etapas do orçamento + a grade guardada, com mensal e prazo calculados. */
+function montarCronogramaDemo(e: EstadoDemo, o: Obra): Cronograma {
+  const orc = orcamentoDemo(e, o);
+  const g = e.cronogramas.get(o.id);
+  const semPrazo: PrazoCronograma = { termino_contratual: null, termino_projetado: null, atraso_meses: null, atraso_decimos: null, pct_previsto_na_medicao: null, pct_medido: null, mes_referencia: null };
+  if (!g || g.meses <= 0 || !/^\d{4}-\d{2}$/.test(g.inicio)) {
+    return {
+      inicio: null,
+      meses: 0,
+      etapas: orc.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, percentuais: [], medido_acumulado: 0 })),
+      mensal: [],
+      medicoes: [],
+      prazo: semPrazo,
+    };
+  }
+  const porEtapa = new Map(g.etapas.map((et) => [et.etapa, et.percentuais]));
+  const etapas = orc.etapas.map((x) => ({
+    etapa: x.etapa,
+    descricao: x.descricao,
+    atual: x.atual,
+    percentuais: redimensionar(porEtapa.get(x.etapa) ?? [], g.meses),
+    medido_acumulado: 0,
+  }));
+  const { previsto, acumulado } = previsaoMensal(etapas.map((et) => ({ atual: et.atual, percentuais: et.percentuais })), g.meses);
+  const totalObra = etapas.reduce((s, et) => s + et.atual, 0) || 1;
+  const mensal = listaMeses(g.inicio, g.meses).map((mes, i) => ({
+    mes,
+    previsto: previsto[i] ?? 0,
+    previsto_acumulado: acumulado[i] ?? 0,
+    pct_previsto_acumulado: Math.round(((acumulado[i] ?? 0) / totalObra) * CEM),
+    medido: null,
+    medido_acumulado: null,
+    pct_medido_acumulado: null,
+  }));
+  const termino = somarMes(g.inicio, g.meses - 1);
+  const prazo: PrazoCronograma = { termino_contratual: termino, termino_projetado: termino, atraso_meses: 0, atraso_decimos: 0, pct_previsto_na_medicao: null, pct_medido: null, mes_referencia: null };
+  return { inicio: g.inicio, meses: g.meses, base: { inicio: g.inicio, meses: g.meses }, revisoes: 0, etapas, mensal, medicoes: [], prazo, registro_id: g.registro_id };
+}
+
+/** Grava a grade do cronograma (cada etapa fecha 100% ou zera). Devolve o snapshot anterior, para o desfazer. NÃO
+ *  registra: quem chama cria o EntradaRegistro (o editor, no PUT; a aprovação, na proposta da IA). */
+function gravarCronograma(e: EstadoDemo, o: Obra, corpo: Record<string, unknown>): { anterior: CronogramaDemo | null; meses: number } {
+  const inicio = String(corpo.inicio ?? "").slice(0, 7);
+  const meses = Number(corpo.meses) || 0;
+  if (!/^\d{4}-\d{2}$/.test(inicio) || meses < 1 || meses > 60) throw new RegraViolada("Informe início (AAAA-MM) e um prazo de 1 a 60 meses.");
+  const etapasCorpo = Array.isArray(corpo.etapas) ? (corpo.etapas as { etapa: string; percentuais: number[] }[]) : [];
+  for (const et of etapasCorpo) {
+    const soma = (et.percentuais ?? []).reduce((s, x) => s + (Number(x) || 0), 0);
+    if (soma !== 0 && soma !== CEM) throw new RegraViolada(`A etapa ${et.etapa} não fecha em 100%.`);
+  }
+  const anterior = e.cronogramas.get(o.id) ?? null;
+  e.cronogramas.set(o.id, {
+    inicio,
+    meses,
+    etapas: etapasCorpo.map((et) => ({ etapa: String(et.etapa), percentuais: (et.percentuais ?? []).map((x) => Number(x) || 0) })),
+    registro_id: null,
+  });
+  return { anterior, meses };
+}
+
+/** A IA propõe o cronograma a partir do orçamento: sequencia as etapas por fase de obra e cria uma Proposta pendente,
+ *  que uma pessoa aprova (como qualquer escrita do agente). Na demo o sequenciamento é o gerador determinístico; o
+ *  agente de verdade usa o LLM. */
+function proporCronogramaDemo(e: EstadoDemo, o: Obra): Proposta {
+  const orc = orcamentoDemo(e, o);
+  if (!orc.etapas.length) throw new RegraViolada("Esta obra ainda não tem orçamento para a IA montar o cronograma.");
+  if (e.cronogramas.get(o.id)) throw new Conflito("Esta obra já tem cronograma. Edite pelo próprio cronograma.");
+  const meses = o.prazo_meses || 12;
+  const inicio = o.inicio ? o.inicio.slice(0, 7) : new Date().toISOString().slice(0, 7);
+  const etapas = gerarCronograma(orc.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual })), meses);
+  const proposta: Proposta = {
+    id: uuid7(),
+    tenant_id: TENANT,
+    criado_em: agoraISO(),
+    obra_id: o.id,
+    tipo: "cronograma",
+    titulo: `Cronograma de ${o.nome}`,
+    conta: `${orc.etapas.length} ${orc.etapas.length === 1 ? "etapa" : "etapas"} · ${meses} ${meses === 1 ? "mês" : "meses"} · término ${somarMes(inicio, meses - 1)}`,
+    justificativa: "Sequenciei as etapas por fase de obra, com a duração proporcional ao valor.",
+    fonte: "agente",
+    dados: { inicio, meses, etapas },
+    sugerido_por: "Agente",
+    status: "pendente",
+    decidido_por: null,
+    decidido_em: null,
+    motivo_recusa: null,
+    decidido_por_nome: null,
+  };
+  e.propostas.push(proposta);
+  return proposta;
+}
 
 /**
  * Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, se a obra ainda não tem um;
@@ -636,6 +744,7 @@ function semear(): EstadoDemo {
     movimentos,
     pedidos,
     propostas: [],
+    cronogramas: new Map(),
     registro: [],
     versoes: [],
     contadorPedido: 167,
@@ -1027,6 +1136,7 @@ const AJUSTAVEIS: Record<Proposta["tipo"], string[]> = {
   avancar_pedido: ["quantidade_recebida", "nf"],
   ajuste_estoque: ["quantidade", "motivo"],
   registrar_entrega: ["linhas", "nf_numero", "nf_data", "nf_valor", "confirmar_excesso"],
+  cronograma: [],
 };
 
 function descreverAjuste(antes: Record<string, unknown>, depois: Record<string, unknown>, un: string) {
@@ -1071,6 +1181,11 @@ export function aprovar(id: string, u: Usuario, ajustes: Record<string, unknown>
   } else if (pr.tipo === "avancar_pedido") {
     const d = dados as unknown as DadosAvancarPedido;
     ({ texto, desfazer } = avancar(e, u, pedidoPorId(e, d.pedido_id), d.para, "agente", d));
+  } else if (pr.tipo === "cronograma") {
+    const o = obraPorId(e, pr.obra_id);
+    const { anterior, meses } = gravarCronograma(e, o, dados as Record<string, unknown>);
+    desfazer = { op: "cronograma_restaurar", obra_id: o.id, anterior };
+    texto = `Montou o cronograma de ${o.nome} (${meses} ${meses === 1 ? "mês" : "meses"}) pela proposta da IA`;
   } else {
     const d = dados as unknown as DadosAjusteEstoque;
     const m = movimentar(e, u, { obra_id: pr.obra_id, insumo_id: d.insumo_id, tipo: "ajuste", quantidade: d.quantidade, destino: d.motivo, origem: "agente" });
@@ -1090,6 +1205,7 @@ export function aprovar(id: string, u: Usuario, ajustes: Record<string, unknown>
   pr.decidido_em = agoraISO();
   const registro = registrar(e, u, { obra_id: pr.obra_id, texto, proposta_id: pr.id, desfazer, origem: "agente" });
   pr.registro_id = registro.id;
+  if (pr.tipo === "cronograma") { const g = e.cronogramas.get(pr.obra_id); if (g) g.registro_id = registro.id; }
   return { proposta: pr, registro };
 }
 
@@ -1170,6 +1286,11 @@ export function desfazer(registroId: string, u: Usuario) {
         ? `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`
         : `Desfeito: as etapas do orçamento de ${e.obras.find((x) => x.id === vd.versao.obra_id)?.nome ?? "a obra"} voltaram à ordem de antes`;
     } else texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
+  } else if (d.op === "cronograma_restaurar") {
+    const dd = ent.desfazer as unknown as { obra_id: string; anterior: CronogramaDemo | null };
+    if (dd.anterior) e.cronogramas.set(dd.obra_id, dd.anterior);
+    else e.cronogramas.delete(dd.obra_id);
+    texto = `Desfeito: cronograma ${dd.anterior ? "reprogramado" : "montado"} em ${obraPorId(e, dd.obra_id).nome}`;
   } else if (d.op === "reabrir_orcamento") {
     const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);
     if (o.status !== "em_andamento") throw new Conflito("A obra já mudou de status; não dá para reabrir o orçamento.");
@@ -1381,17 +1502,20 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "GET" && b === "etapas" && !id2) return ok(etapasDemo(e, id));
       // Fase 4 (cronograma e medição): a demo ganha no fim da fase. O GET vem vazio, com as etapas do orçamento dela.
       if (metodo === "GET" && b === "cronograma" && !id2) {
-        const orc = orcamentoDemo(e, obraPorId(e, id));
-        return ok({
-          inicio: null,
-          meses: 0,
-          etapas: orc.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, percentuais: [], medido_acumulado: 0 })),
-          mensal: [],
-          medicoes: [],
-          prazo: { termino_contratual: null, termino_projetado: null, atraso_meses: null, pct_previsto_na_medicao: null, pct_medido: null, mes_referencia: null },
-        });
+        return ok(montarCronogramaDemo(e, obraPorId(e, id)));
       }
-      if ((metodo === "PUT" && b === "cronograma") || (metodo === "POST" && b === "medicoes")) return erro(422, INDISPONIVEL);
+      if (metodo === "POST" && b === "cronograma" && id2 === "propor") {
+        return ok(proporCronogramaDemo(e, obraPorId(e, id)));
+      }
+      if (metodo === "PUT" && b === "cronograma") {
+        const o = obraPorId(e, id);
+        const { anterior, meses } = gravarCronograma(e, o, c as Record<string, unknown>);
+        const reg = registrar(e, u, { obra_id: o.id, texto: `${anterior ? "Reprogramou" : "Montou"} o cronograma de ${o.nome} (${meses} ${meses === 1 ? "mês" : "meses"})`, proposta_id: null, desfazer: { op: "cronograma_restaurar", obra_id: o.id, anterior }, origem: "tela" });
+        const g = e.cronogramas.get(o.id);
+        if (g) g.registro_id = reg.id;
+        return ok(montarCronogramaDemo(e, o));
+      }
+      if (metodo === "POST" && b === "medicoes") return erro(422, INDISPONIVEL);
       // a seção nem monta enquanto a demo não tem cronograma; quando ganhar, o desembolso vem vazio em vez de 404
       if (metodo === "GET" && b === "desembolso" && !id2) {
         const orc = orcamentoDemo(e, obraPorId(e, id));

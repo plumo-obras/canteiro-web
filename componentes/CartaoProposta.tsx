@@ -66,6 +66,7 @@ export function efeitoDe(p: Proposta): string | null {
   if (p.tipo === "ajuste_estoque") return "ajuste";
   if (p.tipo === "avancar_pedido" && p.dados.para === "conferido") return p.dados.quantidade_recebida != null || p.dados.nf ? "entrada" : null;
   if (p.tipo === "avancar_pedido" && p.dados.para === "cancelado") return "cancelamento";
+  if (p.tipo === "cronograma") return "cronograma";
   return null;
 }
 
@@ -89,6 +90,8 @@ export function rotuloAprovar(p: Proposta) {
       return "Aprovar cancelamento";
     case "ajuste":
       return "Aprovar ajuste";
+    case "cronograma":
+      return "Aprovar cronograma";
     default:
       return "Aprovar";
   }

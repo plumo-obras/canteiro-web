@@ -234,6 +234,8 @@ export const api = {
   desembolso: (obraId: string) => chamar<Desembolso>("GET", `/obras/${seg(obraId)}/desembolso`),
   /** Substitui o cronograma inteiro (o Desfazer volta o anterior). */
   salvarCronograma: (obraId: string, corpo: CorpoCronograma) => chamar<ComRegistro<Cronograma>>("PUT", `/obras/${seg(obraId)}/cronograma`, corpo),
+  /** A IA propõe o cronograma a partir do orçamento: devolve a Proposta pendente, que uma pessoa aprova. */
+  proporCronograma: (obraId: string) => chamar<Proposta>("POST", `/obras/${seg(obraId)}/cronograma/propor`, {}),
   criarMedicao: (obraId: string, corpo: CorpoMedicao) => chamar<RespostaMedicao>("POST", `/obras/${seg(obraId)}/medicoes`, corpo),
   aprovarOrcamento: (obraId: string) => chamar<ComRegistro<Obra>>("POST", `/obras/${seg(obraId)}/orcamento/aprovar`),
   listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),

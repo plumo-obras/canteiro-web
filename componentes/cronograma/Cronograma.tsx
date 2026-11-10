@@ -8,10 +8,11 @@
 import { useState } from "react";
 import type { Cronograma as DadosCronograma, Obra, PrazoCronograma } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import { fmtMes, fmtMesLongo, fmtPct, gerarCronograma, listaMeses } from "@/lib/cronograma";
+import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
-import { useCasca } from "../contexto";
+import { mensagemDe, useCasca } from "../contexto";
+import { CartaoProposta } from "../CartaoProposta";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { ProximoPasso } from "../ProximoPasso";
@@ -73,26 +74,31 @@ function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagin
 }
 
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, podeOperar } = useCasca();
+  const { versao, podeOperar, receberPropostas } = useCasca();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
   const [tabela, setTabela] = useState(false);
+  const [iaProp, setIaProp] = useState<string | null>(null);
+  const [gerando, setGerando] = useState(false);
+  const [erroIA, setErroIA] = useState<string | null>(null);
   const tem = !!dado?.inicio && dado.meses > 0;
   const editando = modo.k === "editar" && dado;
 
-  // A "intermediária": propõe a distribuição das etapas do orçamento pelos meses (por fase de obra) e abre o editor
-  // pré-preenchido para a pessoa revisar e aprovar ao salvar. A geração é determinística aqui; o LLM entra no agente.
-  const gerarDoOrcamento = () => {
-    if (!dado) return;
-    const meses = obra.prazo_meses || dado.meses || 12;
-    const prop = gerarCronograma(
-      dado.etapas.map((e) => ({ etapa: e.etapa, descricao: e.descricao, atual: e.atual })),
-      meses,
-    );
-    const pct = new Map(prop.map((p) => [p.etapa, p.percentuais]));
-    const etapas = dado.etapas.map((e) => ({ ...e, percentuais: pct.get(e.etapa) ?? e.percentuais }));
-    setModo({ k: "editar", proposta: { ...dado, meses, etapas } });
+  // A IA intermediária: propõe o cronograma a partir do orçamento (sequência por fase de obra, duração pelo valor) e
+  // vira uma Proposta pendente. A pessoa aprova — como qualquer escrita do agente — e aí o cronograma é criado.
+  const gerarComIA = async () => {
+    setGerando(true);
+    setErroIA(null);
+    try {
+      const prop = await api.proporCronograma(obra.id);
+      receberPropostas([prop]);
+      setIaProp(prop.id);
+    } catch (e) {
+      setErroIA(mensagemDe(e));
+    } finally {
+      setGerando(false);
+    }
   };
 
   return (
@@ -143,21 +149,35 @@ export function Cronograma({ obra }: { obra: Obra }) {
           <h3>Sem cronograma ainda</h3>
           {dado.etapas.length ? (
             <p>
-              O <b>Gerar do orçamento</b> propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a duração proporcional ao valor — você revisa e ajusta. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
+              O <b>Gerar com IA</b> lê o orçamento e propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a duração proporcional ao valor. Você <b>revisa e aprova</b> — como qualquer proposta do agente. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
             </p>
           ) : (
             <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
           )}
           {podeOperar && dado.etapas.length ? (
-            <div className="row" style={{ marginTop: 16, gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-              <button type="button" className="btn amb" onClick={gerarDoOrcamento}>
-                <Icone nome="spark" tam={15} />
-                Gerar do orçamento
-              </button>
-              <button type="button" className="btn" onClick={() => setModo({ k: "editar" })}>
-                Montar à mão
-              </button>
-            </div>
+            iaProp ? (
+              <div style={{ marginTop: 16, width: "100%", maxWidth: 560 }}>
+                <CartaoProposta id={iaProp} />
+              </div>
+            ) : (
+              <>
+                <div className="row" style={{ marginTop: 16, gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                  <button type="button" className="btn amb" disabled={gerando} aria-busy={gerando} onClick={() => void gerarComIA()}>
+                    <Icone nome={gerando ? "loader" : "spark"} tam={15} className={gerando ? "spin" : undefined} />
+                    Gerar com IA
+                  </button>
+                  <button type="button" className="btn" onClick={() => setModo({ k: "editar" })}>
+                    Montar à mão
+                  </button>
+                </div>
+                {erroIA ? (
+                  <div className="aviso-erro" role="alert" style={{ marginTop: 12 }}>
+                    <Icone nome="alert" tam={15} />
+                    <span>{erroIA}</span>
+                  </div>
+                ) : null}
+              </>
+            )
           ) : null}
         </div>
       ) : (
