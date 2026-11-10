@@ -8,7 +8,7 @@
 import { useState } from "react";
 import type { Cronograma as DadosCronograma, Obra, PrazoCronograma } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
+import { fmtMes, fmtMesLongo, fmtPct, gerarCronograma, listaMeses } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
 import { useCasca } from "../contexto";
@@ -75,11 +75,25 @@ function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagin
 export function Cronograma({ obra }: { obra: Obra }) {
   const { versao, podeOperar } = useCasca();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
-  const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean }>({ k: "ver" });
+  const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
   const [tabela, setTabela] = useState(false);
   const tem = !!dado?.inicio && dado.meses > 0;
   const editando = modo.k === "editar" && dado;
+
+  // A "intermediária": propõe a distribuição das etapas do orçamento pelos meses (por fase de obra) e abre o editor
+  // pré-preenchido para a pessoa revisar e aprovar ao salvar. A geração é determinística aqui; o LLM entra no agente.
+  const gerarDoOrcamento = () => {
+    if (!dado) return;
+    const meses = obra.prazo_meses || dado.meses || 12;
+    const prop = gerarCronograma(
+      dado.etapas.map((e) => ({ etapa: e.etapa, descricao: e.descricao, atual: e.atual })),
+      meses,
+    );
+    const pct = new Map(prop.map((p) => [p.etapa, p.percentuais]));
+    const etapas = dado.etapas.map((e) => ({ ...e, percentuais: pct.get(e.etapa) ?? e.percentuais }));
+    setModo({ k: "editar", proposta: { ...dado, meses, etapas } });
+  };
 
   return (
     <div className="page">
@@ -122,22 +136,28 @@ export function Cronograma({ obra }: { obra: Obra }) {
           Carregando o cronograma…
         </div>
       ) : !dado ? null : editando ? (
-        <EditorCronograma obra={obra} crono={dado} meses={modo.meses} aditivoPrazo={modo.aditivoPrazo} fechar={() => setModo({ k: "ver" })} />
+        <EditorCronograma obra={obra} crono={modo.k === "editar" && modo.proposta ? modo.proposta : dado} meses={modo.meses} aditivoPrazo={modo.aditivoPrazo} fechar={() => setModo({ k: "ver" })} />
       ) : !tem ? (
         <div className="card vazio">
           <Icone nome="calendario" tam={24} />
           <h3>Sem cronograma ainda</h3>
           {dado.etapas.length ? (
             <p>
-              Distribua cada etapa do orçamento pelos meses da obra, em %. Com ele, cada medição mostra o previsto × executado e projeta o término.
+              O <b>Gerar do orçamento</b> propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a duração proporcional ao valor — você revisa e ajusta. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
             </p>
           ) : (
             <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
           )}
           {podeOperar && dado.etapas.length ? (
-            <button type="button" className="btn amb" style={{ marginTop: 16 }} onClick={() => setModo({ k: "editar" })}>
-              Montar cronograma
-            </button>
+            <div className="row" style={{ marginTop: 16, gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+              <button type="button" className="btn amb" onClick={gerarDoOrcamento}>
+                <Icone nome="spark" tam={15} />
+                Gerar do orçamento
+              </button>
+              <button type="button" className="btn" onClick={() => setModo({ k: "editar" })}>
+                Montar à mão
+              </button>
+            </div>
           ) : null}
         </div>
       ) : (
