@@ -1066,7 +1066,13 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .le-l.ordenando{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center}
 .le-l.ordenando>.le-corpo{grid-column:1/-1}
 .le-ordem{display:flex;gap:2px;padding-right:10px}
+.le-ordem .iconbtn{min-width:36px;min-height:36px}
 .le-ordem .iconbtn:disabled{opacity:.35;cursor:default}
+/* as setas da etapa movida, no aviso fixo: o aviso não sai do lugar, então tocar de novo move a mesma etapa */
+.toast-setas{display:flex;gap:4px;flex:none}
+.toast-seta{display:inline-grid;place-items:center;width:44px;height:44px;border:1px solid rgba(255,255,255,.22);border-radius:var(--rp);background:rgba(255,255,255,.08);color:inherit}
+.toast-seta:disabled{opacity:.35}
+.toast-seta:focus-visible,.toast-fechar:focus-visible{outline:2px solid var(--accentHi);outline-offset:2px}
 /* a etapa que acabou de mudar de lugar: dá para ver para onde ela foi */
 .le-l.movida{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
 @media (pointer:coarse){ .le-ordem .iconbtn{min-width:40px;min-height:40px} }

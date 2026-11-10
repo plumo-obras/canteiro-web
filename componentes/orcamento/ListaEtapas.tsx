@@ -82,7 +82,7 @@ const ORDENS: { k: "desvio" | "planilha"; rotulo: string }[] = [
 ];
 
 export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
-  const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
+  const { podeOperar, mudou, avisar } = useCasca();
   // Antes de aprovar não há gasto para dar desvio: a ordem que importa é a da obra, e é ela que se arruma aqui.
   const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: obra.status === "em_orcamento" ? "planilha" : "desvio" });
   // Com uma etapa só (ex.: a Estrutura do projeto), já abre: a quantidade e o unitário de cada item ficam à vista
@@ -122,13 +122,16 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
   const [travadoEm, setTravadoEm] = useState<Orcamento | null>(null);
   const ocupado = ordenando || travadoEm === orc;
   const vigente = orc.versoes.find((v) => v.ativa && v.tipo === "contrato")?.id;
-  // As etapas são renumeradas: o foco volta para o mesmo botão na posição nova, não fica perdido no topo da página.
-  // E a página rola o quanto a linha andou: a etapa movida fica sob o ponteiro. Sem isso, o 2º toque no mesmo lugar
-  // caía na etapa que subiu para o lugar dela e desfazia a troca (na tela, "o Descer não faz nada").
-  const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer"; topo: number | null } | null>(null);
-  const [movida, setMovida] = useState<number | null>(null);
+  // Depois de mover, a linha sob o ponteiro passa a ser a vizinha: o 2º toque no mesmo lugar desfazia a troca. Por isso
+  // o aviso fixo traz as setas da etapa movida: ele não sai do lugar, e tocar de novo move a mesma etapa. Rolar a
+  // página para compensar falhava no fim da lista (sem o que rolar).
+  const [ultimo, setUltimo] = useState<{ posicao: number; descricao: string; dir: "subir" | "descer"; registroId: string } | null>(null);
+  // A etapa do aviso no orçamento que a tela vê: some se outra mudança a tirou daquela posição.
+  const etapaUltimo = ultimo && orc.etapas.filter((e) => e.etapa)[ultimo.posicao - 1];
+  const doAviso = etapaUltimo && etapaUltimo.descricao === ultimo.descricao ? etapaUltimo : null;
+  // Pelo teclado, o foco segue a etapa na posição nova (os botões da linha são outros depois da renumeração).
+  const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer" } | null>(null);
   const refLista = useRef<HTMLUListElement>(null);
-  const linhaNa = (posicao: number) => refLista.current?.querySelector(`[data-posicao="${posicao}"]`)?.closest("li") ?? null;
   useEffect(() => {
     const f = focoDepois.current;
     if (!f || !refLista.current) return;
@@ -136,18 +139,25 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
     const alvo = [...botoes].find((b) => b.dataset.dir === f.dir && !b.disabled) ?? [...botoes].find((b) => !b.disabled);
     if (!alvo) return;
     focoDepois.current = null;
-    const li = alvo.closest("li");
-    if (li && f.topo != null) {
-      const andou = li.getBoundingClientRect().top - f.topo;
-      if (andou) rolador(li).scrollBy(0, andou);
-    }
-    alvo.focus({ preventScroll: true });
+    alvo.focus();
   }, [orc]);
-  const mover = async (etapa: string, descricao: string, dir: "subir" | "descer") => {
+  const desfazerUltimo = async () => {
+    if (!ultimo) return;
+    const { registroId } = ultimo;
+    setUltimo(null);
+    try {
+      await api.desfazerRegistro(registroId);
+      mudou();
+      avisar("Desfeito.");
+    } catch (e) {
+      mudou();
+      avisar(mensagemDe(e), true);
+    }
+  };
+  const mover = async (etapa: string, descricao: string, dir: "subir" | "descer", origem: "linha" | "aviso" = "linha") => {
     const de = etapasDaOrdem.indexOf(etapa);
     const para = dir === "subir" ? de - 1 : de + 1;
     if (de < 0 || para < 0 || para >= etapasDaOrdem.length) return;
-    setMovida(null);
     const ordem = [...etapasDaOrdem];
     [ordem[de], ordem[para]] = [ordem[para]!, ordem[de]!];
     setOrdenando(true);
@@ -155,12 +165,11 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
       // Chave nova a cada toque: reaproveitar a de um toque que deu erro podia achar uma versão já gravada e desfeita
       // (200, "subiu", e nada muda). Resposta perdida não grava duas vezes: o `versao_id` já não é o vigente (409).
       const r = await api.ordenarEtapas(obra.id, { ordem, chave_idempotencia: uuid7(), ...(vigente ? { versao_id: vigente } : {}) });
-      focoDepois.current = { posicao: para + 1, dir, topo: linhaNa(de + 1)?.getBoundingClientRect().top ?? null };
-      setMovida(para + 1);
+      if (origem === "linha") focoDepois.current = { posicao: para + 1, dir };
+      setUltimo({ posicao: para + 1, descricao, dir, registroId: r.registro_id });
       mudou();
-      // fixo, como o do somar: mudar a ordem sem querer é fácil e o caminho de volta tem de esperar a pessoa
-      avisarFeito(`${descricao} ${dir === "subir" ? "subiu" : "desceu"}: agora é a etapa ${para + 1}.`, r.registro_id, { fixo: true });
     } catch (e) {
+      setUltimo(null);
       mudou();
       avisar(mensagemDe(e), true);
     } finally {
@@ -208,7 +217,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
           const semCompra = !l.comprometido && !l.cotando && !l.realizado;
           const estouro = l.comprometido > l.atual;
           return (
-            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}${podeOrdenar && movida === etapasDaOrdem.indexOf(l.etapa) + 1 ? " movida" : ""}`}>
+            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}${podeOrdenar && doAviso?.etapa === l.etapa ? " movida" : ""}`}>
               <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
                 <span className="le-nome">
                   <Icone nome="chevRight" tam={14} className="le-seta" />
@@ -279,20 +288,33 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         })}
         {!lista.length && !filtrando ? <li className="mut sm le-vazio">Nenhuma etapa vigente.</li> : null}
       </ul>
+      {/* fixo, como o do somar: mudar a ordem sem querer é fácil e o caminho de volta tem de esperar a pessoa */}
+      {ultimo && podeOrdenar ? (
+        <div className="toast toast-ordem" role="group" aria-label="Etapa movida">
+          <span className="toast-texto" role="status">
+            {ultimo.descricao} {ultimo.dir === "subir" ? "subiu" : "desceu"}: agora é a etapa {ultimo.posicao}.
+          </span>
+          {/* esperando o orçamento novo, as setas ficam (desligadas): sumir faria o aviso mudar de tamanho sob o dedo */}
+          {doAviso || ocupado ? (
+            <span className="toast-setas">
+              <button type="button" className="toast-seta" aria-label={`Subir ${ultimo.descricao}`} disabled={ocupado || !doAviso || ultimo.posicao === 1} onClick={() => doAviso && mover(doAviso.etapa, ultimo.descricao, "subir", "aviso")}>
+                <Icone nome="arrowUp" tam={16} />
+              </button>
+              <button type="button" className="toast-seta" aria-label={`Descer ${ultimo.descricao}`} disabled={ocupado || !doAviso || ultimo.posicao === etapasDaOrdem.length} onClick={() => doAviso && mover(doAviso.etapa, ultimo.descricao, "descer", "aviso")}>
+                <Icone nome="arrowDown" tam={16} />
+              </button>
+            </span>
+          ) : null}
+          <button type="button" className="toast-acao" onClick={desfazerUltimo}>
+            Desfazer
+          </button>
+          <button type="button" className="toast-fechar" aria-label="Fechar aviso" onClick={() => setUltimo(null)}>
+            <Icone nome="x" tam={14} />
+          </button>
+        </div>
+      ) : null}
     </section>
   );
-}
-
-/**
- * Quem rola a tela: a casca rola o `.palco-tela`, não a janela (o scrollBy na janela não mexia em nada). O primeiro
- * ancestral que rola de fato; sem nenhum, a janela.
- */
-export function rolador(el: Element): { scrollBy: (x: number, y: number) => void } {
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    const { overflowY } = getComputedStyle(p);
-    if ((overflowY === "auto" || overflowY === "scroll") && p.scrollHeight > p.clientHeight) return p;
-  }
-  return window;
 }
 
 /** Subir e descer uma etapa: botões e não arrastar, para dar com o teclado e o dedo (e o leitor dizer a posição). */

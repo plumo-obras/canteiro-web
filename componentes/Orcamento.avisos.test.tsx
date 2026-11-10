@@ -6,7 +6,6 @@ import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "./contexto";
 import { Orcamento, situacaoDe, soDasPranchas } from "./Orcamento";
-import { rolador } from "./orcamento/ListaEtapas";
 
 const OBRA = { id: "o1", nome: "Casa Inventada", status: "em_orcamento", verba: 62000000 } as Obra;
 const orc = (arquivo: string, precos: number[]) => ({
@@ -235,7 +234,8 @@ describe("ordem das etapas antes de aprovar", () => {
     const post = rede.chamadas.find((c) => c.metodo === "POST" && c.caminho.endsWith("/etapas/ordem"))!;
     expect(post.corpo).toMatchObject({ ordem: ["2", "1", "3"], chave_idempotencia: expect.any(String) });
     await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByRole("button", { name: "Descer Estrutura" })).toHaveFocus());
+    const lista = within(screen.getByRole("list", { name: "Etapas do orçamento" }));
+    await waitFor(() => expect(lista.getByRole("button", { name: "Descer Estrutura" })).toHaveFocus());
   });
 
   it("etapa com lançamento: o 409 da API aparece como veio, e a ordem não muda", async () => {
@@ -255,6 +255,10 @@ describe("ordem das etapas antes de aprovar", () => {
     // a tela ainda mostra a numeração velha: um 2º toque moveria a etapa errada
     expect(screen.getByRole("button", { name: "Descer Serviços preliminares" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Subir Fundação" })).toBeDisabled();
+    // a trava vale para as setas do aviso também
+    const aviso = within(screen.getByRole("group", { name: "Etapa movida" }));
+    expect(aviso.getByRole("button", { name: "Descer Estrutura" })).toBeDisabled();
+    expect(aviso.getByRole("button", { name: "Subir Estrutura" })).toBeDisabled();
     expect(rede.chamadas.find((c) => c.caminho.endsWith("/etapas/ordem"))!.corpo).toMatchObject({ versao_id: "v1" });
     soltar();
     await waitFor(() => expect(screen.getByRole("button", { name: "Subir Fundação" })).toBeEnabled());
@@ -273,27 +277,49 @@ describe("ordem das etapas antes de aprovar", () => {
     expect(a).not.toBe(b);
   });
 
-  it("Descer da 1ª de 3: manda [2, 1, 3], a tela mostra a ordem nova, o aviso fixo tem Fechar, e a etapa movida fica sob o ponteiro", async () => {
-    // a altura de cada linha vem da posição dela na lista: 60 px por etapa
-    const topo = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-      const lis = [...(this.parentElement?.children ?? [])].filter((x) => x.classList.contains("le-l"));
-      const i = lis.indexOf(this);
-      return { top: i < 0 ? 0 : 100 + i * 60 } as DOMRect;
-    });
-    const rolar = vi.fn();
-    vi.stubGlobal("scrollBy", rolar);
+  it("Descer da 1ª de 3: manda [2, 1, 3], a tela mostra a ordem nova e o aviso fixo traz as setas da etapa movida", async () => {
     const rede = montarOrdem(OBRA);
     const u = userEvent.setup();
     await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
-    expect(rede.chamadas.find((c) => c.caminho.endsWith("/etapas/ordem"))!.corpo).toMatchObject({ ordem: ["2", "1", "3"] });
-    await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
-    const nomes = within(screen.getByRole("list", { name: "Etapas do orçamento" })).getAllByRole("group").map((g) => g.getAttribute("aria-label"));
-    expect(nomes).toEqual(["Ordem de Serviços preliminares: etapa 1 de 3", "Ordem de Estrutura: etapa 2 de 3", "Ordem de Fundação: etapa 3 de 3"]);
-    expect(screen.getByRole("button", { name: "Fechar aviso" })).toBeInTheDocument();
-    // a Estrutura desceu uma linha (60 px): a página rola junto, e o próximo toque no mesmo lugar cai nela de novo
-    await waitFor(() => expect(rolar).toHaveBeenCalledWith(0, 60));
-    expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" }).closest("li")).toHaveClass("movida");
-    topo.mockRestore();
+    const ordens = () => rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem")).map((c) => (c.corpo as { ordem: string[] }).ordem);
+    expect(ordens()).toEqual([["2", "1", "3"]]);
+    const lista = within(screen.getByRole("list", { name: "Etapas do orçamento" }));
+    await waitFor(() => expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
+    expect(lista.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Ordem de Serviços preliminares: etapa 1 de 3",
+      "Ordem de Estrutura: etapa 2 de 3",
+      "Ordem de Fundação: etapa 3 de 3",
+    ]);
+    expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" }).closest("li")).toHaveClass("movida");
+
+    // o aviso não sai do lugar: o 2º toque nele move a mesma etapa, não a vizinha que subiu para a linha dela
+    const aviso = within(screen.getByRole("group", { name: "Etapa movida" }));
+    expect(aviso.getByText("Estrutura desceu: agora é a etapa 2.")).toBeInTheDocument();
+    expect(aviso.getByRole("button", { name: "Fechar aviso" })).toBeInTheDocument();
+    await waitFor(() => expect(aviso.getByRole("button", { name: "Descer Estrutura" })).toBeEnabled());
+    await u.click(aviso.getByRole("button", { name: "Descer Estrutura" }));
+    await screen.findByText("Estrutura desceu: agora é a etapa 3.");
+    expect(ordens()).toEqual([["2", "1", "3"], ["1", "3", "2"]]);
+    const aviso2 = within(screen.getByRole("group", { name: "Etapa movida" }));
+    await waitFor(() => expect(aviso2.getByRole("button", { name: "Subir Estrutura" })).toBeEnabled());
+    expect(aviso2.getByRole("button", { name: "Descer Estrutura" })).toBeDisabled();
+
+    await u.click(aviso2.getByRole("button", { name: "Fechar aviso" }));
+    expect(screen.queryByRole("group", { name: "Etapa movida" })).toBeNull();
+  });
+
+  it("o Desfazer do aviso desfaz pelo registro da mudança", async () => {
+    const rede = montarOrdem(OBRA);
+    const desfez = vi.fn(() => json({ texto: "Desfeito" }));
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    const aviso = within(await screen.findByRole("group", { name: "Etapa movida" }));
+    const original = rede.fetch.getMockImplementation()!;
+    rede.fetch.mockImplementation(async (e, i) => (String(e).endsWith("/registro/r9/desfazer") ? desfez() : original(e, i)));
+    await u.click(aviso.getByRole("button", { name: "Desfazer" }));
+    expect(await screen.findByText("Desfeito.")).toBeInTheDocument();
+    expect(desfez).toHaveBeenCalled();
+    expect(screen.queryByRole("group", { name: "Etapa movida" })).toBeNull();
   });
 
   it("aprovado: sem as setas", async () => {
@@ -321,20 +347,5 @@ describe("situacaoDe (sem o campo da API)", () => {
   });
   it("o campo da API manda", () => {
     expect(situacaoDe({ id: "x", ativa: false, situacao: "substituida" }, [])).toBe("substituida");
-  });
-});
-
-describe("rolador", () => {
-  it("é o ancestral que rola de fato, não a janela", () => {
-    const palco = document.createElement("div");
-    palco.style.overflowY = "auto";
-    Object.defineProperty(palco, "scrollHeight", { value: 2000 });
-    Object.defineProperty(palco, "clientHeight", { value: 800 });
-    const li = document.createElement("li");
-    palco.appendChild(document.createElement("ul")).appendChild(li);
-    document.body.appendChild(palco);
-    expect(rolador(li)).toBe(palco);
-    expect(rolador(document.createElement("li"))).toBe(window);
-    palco.remove();
   });
 });
