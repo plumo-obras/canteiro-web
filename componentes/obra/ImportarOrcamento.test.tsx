@@ -143,6 +143,22 @@ describe("importar antes de aprovar: somar ao orçamento", () => {
     expect(screen.queryByText("fica de fora")).toBeNull();
   });
 
+  it("voltar para corrigir as colunas esquece os 'não importar' da prévia anterior (as ordens mudam)", async () => {
+    const u = userEvent.setup();
+    const { rede } = montar(EM_ORCAMENTO, {}, "somar");
+    await ateAPrevia(u);
+    await u.click(await screen.findByRole("checkbox", { name: "não importar" }));
+    await screen.findByText("fica de fora");
+    expect(versoes(rede).at(-1)!.get("ignorar_itens")).toBe("[2]");
+
+    await u.click(screen.getByRole("button", { name: "Corrigir as colunas" }));
+    await u.click(await screen.findByRole("button", { name: "Ver a prévia" }));
+    expect(await screen.findByRole("button", { name: "Somar ao orçamento (+R$ 22.840,00)" })).toBeInTheDocument();
+    expect(versoes(rede).at(-1)!.get("ignorar_itens")).toBeNull();
+    expect(versoes(rede).at(-1)!.get("etapas_itens")).toBeNull();
+    expect(screen.queryByText("fica de fora")).toBeNull();
+  });
+
   it("vindo do aviso do Orçamento, abre direto no arquivo", async () => {
     montar(EM_ORCAMENTO, {}, "somar");
     expect(screen.getByLabelText("Arquivo da planilha")).toBeInTheDocument();

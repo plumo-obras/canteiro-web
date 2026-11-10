@@ -268,7 +268,17 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
       </>
     ) : (
       <>
-        <button type="button" className="btn" onClick={() => setPasso({ k: "colunas", leitura: passo.leitura })}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            // Outra coluna ou outra linha de cabeçalho dá outras ordens: as escolhas e os "não importar" desta prévia
+            // apontariam linhas erradas, e a API as tiraria em silêncio.
+            setEscolhas({});
+            setIgnorados({});
+            setPasso({ k: "colunas", leitura: passo.leitura });
+          }}
+        >
           Corrigir as colunas
         </button>
         <button
