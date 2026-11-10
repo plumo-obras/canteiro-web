@@ -1064,6 +1064,8 @@ export interface GastoObra {
   nf_cno?: boolean | null;
   /** Retenção de 11% destacada na nota. */
   retencao?: Centavos;
+  /** Lançado fora de pedido numa obra com orçamento (derivado pela API, só marca). Ausente em API antiga. */
+  fora_do_orcado?: boolean;
 }
 
 // --- tributos da obra (estimativa: INSS da aferição e IBS/CBS) ---
@@ -1201,6 +1203,8 @@ export interface ResumoGastos {
   a_definir?: Centavos;
   /** Pedidos entregues sem pagamento registrado: contam no realizado sem estar em `total`. Ausente em API antiga. */
   entregue_a_pagar?: Centavos;
+  /** Parte de `total` lançada fora de pedido, com orçamento. Só marca, não abate nada. Ausente em API antiga. */
+  fora_do_orcado?: Centavos;
   /** A linha com `etapa` null é a dos gastos sem etapa. */
   etapas: {
     etapa: string | null;
@@ -1208,6 +1212,8 @@ export interface ResumoGastos {
     total: Centavos;
     /** O entregue e ainda a pagar desta etapa (fora de `total`). Ausente em API antiga. */
     entregue_a_pagar?: Centavos;
+    /** A parte de `total` desta etapa lançada fora de pedido. Ausente em API antiga. */
+    fora_do_orcado?: Centavos;
     topicos: { topico_id: string | null; nome: string; total: Centavos }[];
   }[];
 }

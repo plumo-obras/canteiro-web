@@ -285,6 +285,24 @@ describe("enviar comprovante", () => {
     expect(linha).toHaveTextContent("+ R$ 24.974,40 entregue, ainda a pagar");
   });
 
+  it("gasto fora de pedido: selo 'fora do orçado' no lançamento, a soma no topo e na etapa (só marca, o total não muda)", async () => {
+    rede({
+      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala", fora_do_orcado: true }, { ...GASTO, id: "g2", descricao: "Cimento", pedido_id: "p1" }]),
+      "GET /srv/api/obras/o1/gastos/resumo": () =>
+        json({ total: 35000, pagamentos_de_pedidos: 35000, a_revisar: 0, fora_do_orcado: 35000, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, fora_do_orcado: 35000, topicos: [] }] }),
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    expect(await screen.findByText("Fora do orçado")).toBeInTheDocument();
+    expect(screen.getByText("lançado fora de pedido")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
+    const etapa = screen.getByText("Fundações").closest("li")!;
+    expect(etapa).toHaveTextContent("R$ 350,00 fora do orçado (lançado fora de pedido)");
+    await userEvent.click(screen.getByRole("tab", { name: /Lançados/ }));
+    const vidro = (await screen.findByText("Vidros da sala")).closest("li")!;
+    expect(within(vidro).getByText("fora do orçado")).toBeInTheDocument();
+    expect(within(screen.getByText("Cimento").closest("li")!).queryByText("fora do orçado")).toBeNull();
+  });
+
   it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, etapa: null, etapa_nome: "Sem etapa", etapa_origem: "a_definir", topico_id: null }]),
