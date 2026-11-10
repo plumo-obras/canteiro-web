@@ -159,7 +159,13 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   const zero = { cotando: 0, comprometido: 0, realizado: 0 };
   const versoesDaObra = e.versoes.filter((v) => v.versao.obra_id === o.id);
   const ativas = versoesDaObra.filter((v) => v.versao.ativa);
-  const metas = versoesDaObra.map((v) => ({ ...v.versao, ...textosDaVersao(v.versao, versoesDaObra.map((x) => x.versao)) }));
+  // como a API: fora de vigência, foi desfeita se o registro dela foi desfeito; senão, outra a substituiu
+  const desfeita = (v: VersaoOrcamento) => !!e.registro.find((r) => r.id === v.registro_id)?.desfeito;
+  const metas = versoesDaObra.map((v) => ({
+    ...v.versao,
+    ...textosDaVersao(v.versao, versoesDaObra.map((x) => x.versao)),
+    situacao: v.versao.ativa ? ("vigente" as const) : desfeita(v.versao) ? ("desfeita" as const) : ("substituida" as const),
+  }));
   if (!ativas.length)
     return { versoes: metas, itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
 

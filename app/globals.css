@@ -1067,6 +1067,8 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .le-l.ordenando>.le-corpo{grid-column:1/-1}
 .le-ordem{display:flex;gap:2px;padding-right:10px}
 .le-ordem .iconbtn:disabled{opacity:.35;cursor:default}
+/* a etapa que acabou de mudar de lugar: dá para ver para onde ela foi */
+.le-l.movida{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
 @media (pointer:coarse){ .le-ordem .iconbtn{min-width:40px;min-height:40px} }
 .le-linha{width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:var(--t-meta);text-align:left;cursor:pointer;min-height:52px}
 @media (hover:hover){ .le-linha:hover{background:var(--sunk)} }

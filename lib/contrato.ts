@@ -190,6 +190,8 @@ export interface VersaoOrcamento {
   rotulo?: string;
   /** O que o Desfazer desta versão faz, pronto; null = a tela diz o dela. */
   desfazer_texto?: string | null;
+  /** A API resolve a cadeia (somar e reordenar substituem; o Desfazer desfaz). Ausente na API antiga. */
+  situacao?: "vigente" | "substituida" | "desfeita";
 }
 
 export interface ItemPrevia {

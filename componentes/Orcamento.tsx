@@ -425,7 +425,13 @@ function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]
   const { podeOperar, mudou, avisarFeito } = useCasca();
   const [confirmando, setConfirmando] = useState<VersaoOrcamento | null>(null);
   const situacao = (v: VersaoOrcamento) =>
-    v.ativa ? "vigente" : versoes.some((o) => o.substitui === v.id && o.ativa) ? "substituída" : "desfeita";
+    v.situacao
+      ? ({ vigente: "vigente", substituida: "substituída", desfeita: "desfeita" } as const)[v.situacao]
+      : v.ativa
+        ? "vigente"
+        : versoes.some((o) => o.substitui === v.id && o.ativa)
+          ? "substituída"
+          : "desfeita";
 
   /** O que muda de fato ao desfazer: com um clique só, a pessoa tirava o contrato de vigência sem saber. */
   const consequencia = (v: VersaoOrcamento) => {

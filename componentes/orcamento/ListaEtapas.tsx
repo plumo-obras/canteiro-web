@@ -123,8 +123,12 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
   const ocupado = ordenando || travadoEm === orc;
   const vigente = orc.versoes.find((v) => v.ativa && v.tipo === "contrato")?.id;
   // As etapas são renumeradas: o foco volta para o mesmo botão na posição nova, não fica perdido no topo da página.
-  const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer" } | null>(null);
+  // E a página rola o quanto a linha andou: a etapa movida fica sob o ponteiro. Sem isso, o 2º toque no mesmo lugar
+  // caía na etapa que subiu para o lugar dela e desfazia a troca (na tela, "o Descer não faz nada").
+  const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer"; topo: number | null } | null>(null);
+  const [movida, setMovida] = useState<number | null>(null);
   const refLista = useRef<HTMLUListElement>(null);
+  const linhaNa = (posicao: number) => refLista.current?.querySelector(`[data-posicao="${posicao}"]`)?.closest("li") ?? null;
   useEffect(() => {
     const f = focoDepois.current;
     if (!f || !refLista.current) return;
@@ -132,12 +136,18 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
     const alvo = [...botoes].find((b) => b.dataset.dir === f.dir && !b.disabled) ?? [...botoes].find((b) => !b.disabled);
     if (!alvo) return;
     focoDepois.current = null;
-    alvo.focus();
+    const li = alvo.closest("li");
+    if (li && f.topo != null) {
+      const andou = li.getBoundingClientRect().top - f.topo;
+      if (andou) window.scrollBy(0, andou);
+    }
+    alvo.focus({ preventScroll: true });
   }, [orc]);
   const mover = async (etapa: string, descricao: string, dir: "subir" | "descer") => {
     const de = etapasDaOrdem.indexOf(etapa);
     const para = dir === "subir" ? de - 1 : de + 1;
     if (de < 0 || para < 0 || para >= etapasDaOrdem.length) return;
+    setMovida(null);
     const ordem = [...etapasDaOrdem];
     [ordem[de], ordem[para]] = [ordem[para]!, ordem[de]!];
     setOrdenando(true);
@@ -145,7 +155,8 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
       // Chave nova a cada toque: reaproveitar a de um toque que deu erro podia achar uma versão já gravada e desfeita
       // (200, "subiu", e nada muda). Resposta perdida não grava duas vezes: o `versao_id` já não é o vigente (409).
       const r = await api.ordenarEtapas(obra.id, { ordem, chave_idempotencia: uuid7(), ...(vigente ? { versao_id: vigente } : {}) });
-      focoDepois.current = { posicao: para + 1, dir };
+      focoDepois.current = { posicao: para + 1, dir, topo: linhaNa(de + 1)?.getBoundingClientRect().top ?? null };
+      setMovida(para + 1);
       mudou();
       // fixo, como o do somar: mudar a ordem sem querer é fácil e o caminho de volta tem de esperar a pessoa
       avisarFeito(`${descricao} ${dir === "subir" ? "subiu" : "desceu"}: agora é a etapa ${para + 1}.`, r.registro_id, { fixo: true });
@@ -197,7 +208,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
           const semCompra = !l.comprometido && !l.cotando && !l.realizado;
           const estouro = l.comprometido > l.atual;
           return (
-            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}`}>
+            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}${podeOrdenar && movida === etapasDaOrdem.indexOf(l.etapa) + 1 ? " movida" : ""}`}>
               <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
                 <span className="le-nome">
                   <Icone nome="chevRight" tam={14} className="le-seta" />

@@ -566,6 +566,7 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`);
     const final = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
     expect(final.etapas.map((et) => et.descricao)).toEqual(["Estrutura", "Serviços preliminares"]);
+    expect(final.versoes.map((v) => v.situacao)).toEqual(["substituida", "vigente", "desfeita"]);
   });
 
   it("ordem das etapas, como a API: chave repetida com outra ordem, versão que não é a vigente e etapa em uso dão 409", () => {

@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Obra, Usuario } from "@/lib/contrato";
+import type { Obra, Usuario, VersaoOrcamento } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "./contexto";
@@ -170,6 +170,20 @@ describe("versões depois de somar a planilha", () => {
     expect(within(versoes).queryByText(/\(projeto\)\.csv/)).toBeNull();
   });
 
+  it("a situação vem da API: a versão trocada pela reordenação é 'substituída', não 'desfeita'", async () => {
+    const d = somado();
+    const [somada, pranchas] = d.versoes as (VersaoOrcamento & Record<string, unknown>)[];
+    d.versoes = [
+      { ...somada!, id: "v3", ativa: true, substitui: "v2", situacao: "vigente" },
+      { ...somada!, ativa: false, situacao: "substituida" },
+      { ...pranchas!, situacao: "substituida" },
+    ] as unknown as typeof d.versoes;
+    montar(d);
+    const versoes = await screen.findByRole("region", { name: "Versões do orçamento" });
+    expect(within(versoes).getAllByText("substituída")).toHaveLength(2);
+    expect(within(versoes).queryByText("desfeita")).toBeNull();
+  });
+
   it("o Desfazer do somar mostra o texto que a API mandou", async () => {
     montar(somado());
     await userEvent.setup().click(await screen.findByRole("button", { name: "Desfazer Orçamento inicial" }));
@@ -256,6 +270,29 @@ describe("ordem das etapas antes de aprovar", () => {
     await waitFor(() => expect(rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem"))).toHaveLength(2));
     const [a, b] = rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem")).map((c) => (c.corpo as { chave_idempotencia: string }).chave_idempotencia);
     expect(a).not.toBe(b);
+  });
+
+  it("Descer da 1ª de 3: manda [2, 1, 3], a tela mostra a ordem nova, o aviso fixo tem Fechar, e a etapa movida fica sob o ponteiro", async () => {
+    // a altura de cada linha vem da posição dela na lista: 60 px por etapa
+    const topo = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const lis = [...(this.parentElement?.children ?? [])].filter((x) => x.classList.contains("le-l"));
+      const i = lis.indexOf(this);
+      return { top: i < 0 ? 0 : 100 + i * 60 } as DOMRect;
+    });
+    const rolar = vi.fn();
+    vi.stubGlobal("scrollBy", rolar);
+    const rede = montarOrdem(OBRA);
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    expect(rede.chamadas.find((c) => c.caminho.endsWith("/etapas/ordem"))!.corpo).toMatchObject({ ordem: ["2", "1", "3"] });
+    await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
+    const nomes = within(screen.getByRole("list", { name: "Etapas do orçamento" })).getAllByRole("group").map((g) => g.getAttribute("aria-label"));
+    expect(nomes).toEqual(["Ordem de Serviços preliminares: etapa 1 de 3", "Ordem de Estrutura: etapa 2 de 3", "Ordem de Fundação: etapa 3 de 3"]);
+    expect(screen.getByRole("button", { name: "Fechar aviso" })).toBeInTheDocument();
+    // a Estrutura desceu uma linha (60 px): a página rola junto, e o próximo toque no mesmo lugar cai nela de novo
+    await waitFor(() => expect(rolar).toHaveBeenCalledWith(0, 60));
+    expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" }).closest("li")).toHaveClass("movida");
+    topo.mockRestore();
   });
 
   it("aprovado: sem as setas", async () => {
