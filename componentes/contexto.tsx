@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useMemo, useReducer, useRef, us
 import type { AjustesProposta, Proposta, Usuario } from "@/lib/contrato";
 import { api, ErroApi } from "@/lib/cliente";
 import type { AbaAtiva } from "./sessoes";
+import { Icone } from "./Icone";
 
 /** Recorte que uma tela leva à outra: a etapa em Compras, o status em Gastos. */
 export interface FiltroTela {
@@ -61,6 +62,8 @@ interface Aviso {
   texto: string;
   erro: boolean;
   acao?: AcaoAviso;
+  /** Sem relógio: só some no Fechar, no Desfazer ou ao sair da tela. */
+  fixo?: boolean;
 }
 
 interface Valor {
@@ -71,7 +74,9 @@ interface Valor {
   mudou: () => void;
   avisar: (texto: string, erro?: boolean, acao?: AcaoAviso) => void;
   /** Aviso de sucesso com "Desfazer" quando a escrita devolveu o registro. */
-  avisarFeito: (texto: string, registroId: string | null | undefined) => void;
+  avisarFeito: (texto: string, registroId: string | null | undefined, opcoes?: { fixo?: boolean }) => void;
+  /** A casca chama ao trocar de tela ou de obra: o aviso fixo vale para a tela onde a pessoa fez a mudança. */
+  fecharAvisoFixo: () => void;
   cartoes: Record<string, CartaoEstado>;
   receberPropostas: (ps: Proposta[]) => void;
   aprovar: (id: string, ajustes?: AjustesProposta) => Promise<void>;
@@ -109,24 +114,37 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
   const cartoesRef = useRef(cartoes);
   cartoesRef.current = cartoes;
 
-  const avisar = useCallback((texto: string, erro = false, acao?: AcaoAviso) => {
+  const avisoFixo = useRef(false);
+  const mostrar = useCallback((texto: string, erro: boolean, acao: AcaoAviso | undefined, fixo: boolean) => {
     clearTimeout(relogio.current);
-    setAviso({ id: ++seq.current, texto, erro, acao });
+    avisoFixo.current = fixo;
+    setAviso({ id: ++seq.current, texto, erro, acao, fixo });
+    if (fixo) return;
     // Com botão, o aviso fica mais tempo: 4 s não dá para ler, entender que errou e alcançar o Desfazer.
     relogio.current = setTimeout(() => setAviso(null), erro ? 6000 : acao ? DURA_COM_ACAO : 4000);
   }, []);
+  const avisar = useCallback((texto: string, erro = false, acao?: AcaoAviso) => mostrar(texto, erro, acao, false), [mostrar]);
+  const fecharAviso = useCallback(() => {
+    clearTimeout(relogio.current);
+    avisoFixo.current = false;
+    setAviso(null);
+  }, []);
+  const fecharAvisoFixo = useCallback(() => {
+    if (avisoFixo.current) fecharAviso();
+  }, [fecharAviso]);
   // Com o ponteiro ou o foco no aviso, ele não some: o Desfazer do "Gasto lançado" sumia no meio do caminho até ele
   // (9 s corridos, sem pausa), e o clique caía no vazio. Saiu de cima, ele ainda fica uns segundos.
   const segurarAviso = useCallback(() => clearTimeout(relogio.current), []);
   const soltarAviso = useCallback(() => {
     clearTimeout(relogio.current);
+    if (avisoFixo.current) return;
     relogio.current = setTimeout(() => setAviso(null), DEPOIS_DE_SOLTAR);
   }, []);
   const mudou = useCallback(() => setVersao((v) => v + 1), []);
   const avisarFeito = useCallback(
-    (texto: string, registroId: string | null | undefined) => {
+    (texto: string, registroId: string | null | undefined, opcoes?: { fixo?: boolean }) => {
       if (!registroId) return avisar(texto);
-      avisar(texto, false, {
+      mostrar(texto, false, {
         rotulo: "Desfazer",
         fazer: async () => {
           try {
@@ -137,9 +155,9 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
             avisar(mensagemDe(e), true);
           }
         },
-      });
+      }, !!opcoes?.fixo);
     },
-    [avisar, mudou],
+    [avisar, mostrar, mudou],
   );
   const receberPropostas = useCallback((ps: Proposta[]) => despachar({ tipo: "receber", propostas: ps }), []);
 
@@ -198,6 +216,7 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       mudou,
       avisar,
       avisarFeito,
+      fecharAvisoFixo,
       cartoes,
       receberPropostas,
       aprovar,
@@ -208,7 +227,7 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       limparFiltroTela,
       registrarNavegacao,
     }),
-    [usuario, demo, versao, mudou, avisar, avisarFeito, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, lerFiltroTela, limparFiltroTela, registrarNavegacao],
+    [usuario, demo, versao, mudou, avisar, avisarFeito, fecharAvisoFixo, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, lerFiltroTela, limparFiltroTela, registrarNavegacao],
   );
 
   return (
@@ -227,7 +246,12 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
             }}
           >
             <span className="toast-texto">{aviso.texto}</span>
-            {aviso.acao ? <BotaoAviso acao={aviso.acao} fechar={() => setAviso(null)} /> : null}
+            {aviso.acao ? <BotaoAviso acao={aviso.acao} fechar={fecharAviso} /> : null}
+            {aviso.fixo ? (
+              <button type="button" className="toast-fechar" aria-label="Fechar aviso" onClick={fecharAviso}>
+                <Icone nome="x" tam={14} />
+              </button>
+            ) : null}
           </div>
         )}
       </div>

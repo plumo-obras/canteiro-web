@@ -511,6 +511,10 @@ input.f[aria-invalid=true],select.f[aria-invalid=true]{border-color:var(--red)}
 .toast:has(.toast-acao){display:flex;align-items:center;gap:14px;padding-right:8px}
 .toast-acao{flex:none;min-height:32px;padding:0 12px;border:1px solid rgba(255,255,255,.22);border-radius:var(--rp);background:rgba(255,255,255,.08);color:var(--accentHi);font-weight:600}
 .toast-acao:disabled{opacity:.6}
+/* o aviso fixo (somar, reordenar) só sai pela mão de quem o leu */
+.toast:has(.toast-fechar){display:flex;align-items:center;gap:8px;padding-right:6px}
+.toast-fechar{flex:none;display:inline-grid;place-items:center;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.75}
+.toast-fechar:hover,.toast-fechar:focus-visible{opacity:1;background:rgba(255,255,255,.1)}
 /* no celular o texto quebra: a pílula vira uma bolha oval que cobre a lista. Cantos de cartão e no máximo 2 linhas */
 @media (max-width:760px){
   .toast{border-radius:14px;width:calc(100vw - 24px);max-width:none}
@@ -1058,6 +1062,20 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .le-cab{background:var(--sunk);font-size:12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line2)}
 .le-l{border-bottom:1px solid var(--line2)}
 .le-l:last-child{border-bottom:0}
+/* antes de aprovar, as setas de ordem ficam ao lado da linha (botão dentro de botão não pode) */
+.le-l.ordenando{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.le-l.ordenando>.le-corpo{grid-column:1/-1}
+.le-ordem{display:flex;gap:2px;padding-right:10px}
+.le-ordem .iconbtn{min-width:36px;min-height:36px}
+.le-ordem .iconbtn:disabled{opacity:.35;cursor:default}
+/* as setas da etapa movida, no aviso fixo: o aviso não sai do lugar, então tocar de novo move a mesma etapa */
+.toast-setas{display:flex;gap:4px;flex:none}
+.toast-seta{display:inline-grid;place-items:center;width:44px;height:44px;border:1px solid rgba(255,255,255,.22);border-radius:var(--rp);background:rgba(255,255,255,.08);color:inherit}
+.toast-seta:disabled{opacity:.35}
+.toast-seta:focus-visible,.toast-fechar:focus-visible{outline:2px solid var(--accentHi);outline-offset:2px}
+/* a etapa que acabou de mudar de lugar: dá para ver para onde ela foi */
+.le-l.movida{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
+@media (pointer:coarse){ .le-ordem .iconbtn{min-width:40px;min-height:40px} }
 .le-linha{width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:var(--t-meta);text-align:left;cursor:pointer;min-height:52px}
 @media (hover:hover){ .le-linha:hover{background:var(--sunk)} }
 .le-linha:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}

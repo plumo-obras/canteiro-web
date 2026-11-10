@@ -184,6 +184,14 @@ export interface VersaoOrcamento {
   /** A EntradaRegistro da importação: o Desfazer da versão usa este ID. */
   registro_id: string | null;
   criado_em: DataISO;
+  /** Contrato gravado pelo somar (planilha ou pranchas) ou pela ordem das etapas. Ausente na API antiga. */
+  origem?: "somar" | "reordenar" | null;
+  /** O nome da versão para a pessoa ("Materiais das pranchas", "Etapas reordenadas"). Ausente na API antiga. */
+  rotulo?: string;
+  /** O que o Desfazer desta versão faz, pronto; null = a tela diz o dela. */
+  desfazer_texto?: string | null;
+  /** A API resolve a cadeia (somar e reordenar substituem; o Desfazer desfaz). Ausente na API antiga. */
+  situacao?: "vigente" | "substituida" | "desfeita";
 }
 
 export interface ItemPrevia {
@@ -282,6 +290,21 @@ export interface Orcamento {
     n_etapas: number;
     sem_etapa: Gasto;
   };
+}
+
+/** `POST /obras/{id}/orcamento/etapas/ordem`: todas as etapas do vigente (pela chave, "1", "2"…), na ordem nova. */
+export interface CorpoOrdemEtapas {
+  ordem: string[];
+  chave_idempotencia: string;
+  /** O contrato vigente sobre o qual a tela montou a ordem; outro vigente = 409 (a numeração mudou). */
+  versao_id?: string;
+}
+
+/** Um contrato novo no lugar do vigente, com as etapas renumeradas 1..N; o Desfazer religa o anterior. */
+export interface OrdemEtapasGravada {
+  versao_id: string;
+  registro_id: string;
+  etapas: { etapa: string; descricao: string }[];
 }
 
 /** `PATCH /obras/{id}/orcamento/itens/{item_id}`: ao menos um dos dois. */
@@ -1045,6 +1068,8 @@ export interface GastoObra {
   nf_cno?: boolean | null;
   /** Retenção de 11% destacada na nota. */
   retencao?: Centavos;
+  /** Lançado fora de pedido numa obra com orçamento (derivado pela API, só marca). Ausente em API antiga. */
+  fora_do_orcado?: boolean;
 }
 
 // --- tributos da obra (estimativa: INSS da aferição e IBS/CBS) ---
@@ -1182,6 +1207,8 @@ export interface ResumoGastos {
   a_definir?: Centavos;
   /** Pedidos entregues sem pagamento registrado: contam no realizado sem estar em `total`. Ausente em API antiga. */
   entregue_a_pagar?: Centavos;
+  /** Parte de `total` lançada fora de pedido, com orçamento. Só marca, não abate nada. Ausente em API antiga. */
+  fora_do_orcado?: Centavos;
   /** A linha com `etapa` null é a dos gastos sem etapa. */
   etapas: {
     etapa: string | null;
@@ -1189,6 +1216,8 @@ export interface ResumoGastos {
     total: Centavos;
     /** O entregue e ainda a pagar desta etapa (fora de `total`). Ausente em API antiga. */
     entregue_a_pagar?: Centavos;
+    /** A parte de `total` desta etapa lançada fora de pedido. Ausente em API antiga. */
+    fora_do_orcado?: Centavos;
     topicos: { topico_id: string | null; nome: string; total: Centavos }[];
   }[];
 }

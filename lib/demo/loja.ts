@@ -58,6 +58,8 @@ interface VersaoDemo {
   etapas: { descricao: string; itens: { nome: string; unidade: string; quantidade: number; valor_unitario: number }[] }[];
   /** A chave de idempotência da gravação: repetir o POST com a mesma chave devolve esta versão, não cria outra. */
   chave: string | null;
+  /** Só na versão gravada pela ordem das etapas: a ordem pedida, para recusar a mesma chave com outra ordem. */
+  ordem?: string[];
 }
 
 interface EstadoDemo {
@@ -157,7 +159,13 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   const zero = { cotando: 0, comprometido: 0, realizado: 0 };
   const versoesDaObra = e.versoes.filter((v) => v.versao.obra_id === o.id);
   const ativas = versoesDaObra.filter((v) => v.versao.ativa);
-  const metas = versoesDaObra.map((v) => v.versao);
+  // como a API: fora de vigência, foi desfeita se o registro dela foi desfeito; senão, outra a substituiu
+  const desfeita = (v: VersaoOrcamento) => !!e.registro.find((r) => r.id === v.registro_id)?.desfeito;
+  const metas = versoesDaObra.map((v) => ({
+    ...v.versao,
+    ...textosDaVersao(v.versao, versoesDaObra.map((x) => x.versao)),
+    situacao: v.versao.ativa ? ("vigente" as const) : desfeita(v.versao) ? ("desfeita" as const) : ("substituida" as const),
+  }));
   if (!ativas.length)
     return { versoes: metas, itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
 
@@ -289,7 +297,7 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
       id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
       data: hojeSP().slice(0, 10), arquivo: `${etapaNome} (projeto).csv`, itens: todos.length, etapas: etapas.length,
       total: todos.reduce((s, x) => s + total(x.quantidade, x.valor_unitario), 0), ativa: true, substitui: somar ? vigente!.versao.id : null,
-      registro_id: null, criado_em: agoraISO(),
+      registro_id: null, criado_em: agoraISO(), ...(somar ? { origem: "somar" as const } : {}),
     },
     etapas,
     chave,
@@ -309,6 +317,84 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
   });
   vd.versao.registro_id = reg.id;
   return { ...base, aplicado: true, versao_id: versaoId, registro_id: reg.id };
+}
+
+/** O nome da versão e o que o Desfazer dela faz, como a API (`_textos_da_versao`): sem o nome interno das pranchas. */
+function textosDaVersao(v: VersaoOrcamento, versoes: VersaoOrcamento[]): Pick<VersaoOrcamento, "rotulo" | "desfazer_texto"> {
+  const dasPranchas = v.arquivo.endsWith(" (projeto).csv");
+  const anterior = versoes.find((x) => x.id === v.substitui);
+  const nItens = (n: number) => `${n} ${n === 1 ? "item" : "itens"}`;
+  if (v.origem === "reordenar") return { rotulo: "Etapas reordenadas", desfazer_texto: "Volta as etapas do orçamento para a ordem de antes." };
+  if (v.origem === "somar") {
+    const oQue = dasPranchas ? "os materiais das pranchas" : "a planilha";
+    return {
+      rotulo: `Orçamento com ${oQue} somad${dasPranchas ? "os" : "a"}`,
+      desfazer_texto: anterior ? `Volta o orçamento para antes de somar ${oQue} (${fmtReais(anterior.total)}, ${nItens(anterior.itens)}).` : null,
+    };
+  }
+  return { rotulo: dasPranchas ? "Materiais das pranchas" : v.descricao || v.arquivo || "Orçamento", desfazer_texto: null };
+}
+
+/**
+ * POST /obras/{id}/orcamento/etapas/ordem, como a API: antes de aprovar, um contrato novo no lugar do vigente com as
+ * etapas na ordem pedida (a numeração sai da posição, então renumera sozinha). O Desfazer religa o anterior.
+ */
+function ordenarEtapas(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string, unknown>) {
+  const chave = typeof corpo.chave_idempotencia === "string" ? corpo.chave_idempotencia : "";
+  if (chave.length < 8) throw new RegraViolada("chave_idempotencia é obrigatória.");
+  const saida = (vd: VersaoDemo) => ({
+    versao_id: vd.versao.id,
+    registro_id: vd.versao.registro_id!,
+    etapas: vd.etapas.map((et, i) => ({ etapa: String(i + 1), descricao: et.descricao })),
+  });
+  const ordem = Array.isArray(corpo.ordem) ? corpo.ordem.map(String) : [];
+  const ja = e.versoes.find((v) => v.versao.obra_id === o.id && v.chave === chave);
+  if (ja) {
+    if (JSON.stringify(ja.ordem) !== JSON.stringify(ordem)) throw new Conflito("Esta chave de idempotência já foi usada para outra mudança do orçamento.");
+    return saida(ja);
+  }
+  if (o.status !== "em_orcamento") throw new Conflito("O orçamento já foi aprovado: a ordem das etapas não muda mais.");
+  const ativas = e.versoes.filter((v) => v.versao.obra_id === o.id && v.versao.ativa);
+  const vigente = ativas.find((v) => v.versao.tipo === "contrato");
+  if (!vigente) throw new RegraViolada("Ainda não há orçamento nesta obra para ordenar as etapas.");
+  if (ativas.length > 1) throw new Conflito("Há aditivo valendo sobre este orçamento; desfaça o aditivo antes de mudar a ordem.");
+  // a ordem foi montada sobre a numeração que a tela via: se o vigente é outro, ela moveria a etapa errada
+  if (typeof corpo.versao_id === "string" && corpo.versao_id !== vigente.versao.id)
+    throw new Conflito("O orçamento mudou desde que você abriu a tela; recarregue e confira a ordem.");
+  const atual = vigente.etapas.map((_, i) => String(i + 1));
+  if (ordem.length !== atual.length || new Set(ordem).size !== ordem.length || !ordem.every((k) => atual.includes(k)))
+    throw new RegraViolada(`Mande todas as etapas do orçamento, cada uma uma vez: ${atual.join(", ")}.`);
+  if (ordem.every((k, i) => k === atual[i])) throw new RegraViolada("Nada mudou: as etapas já estão nesta ordem.");
+  // como a API: renumerar uma etapa que já tem lançamento levaria o lançamento, calado, para outra etapa
+  // na demo só o insumo guarda a etapa (as linhas de pedido saem com etapa null)
+  const usadas = new Set([...e.insumos.values()].filter((i) => i.obra_id === o.id && i.etapa).map((i) => i.etapa!));
+  const presas = ordem.filter((k, i) => k !== String(i + 1) && usadas.has(k));
+  if (presas.length) {
+    const nome = (k: string) => `${k} ${vigente.etapas[Number(k) - 1]?.descricao ?? ""}`.trim();
+    throw new Conflito(`Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa ${presas.sort().map(nome).join(", ")}: renumerar levaria o lançamento para outra etapa.`);
+  }
+
+  const versaoId = uuid7();
+  const vd: VersaoDemo = {
+    versao: { ...vigente.versao, id: versaoId, substitui: vigente.versao.id, registro_id: null, criado_em: agoraISO(), origem: "reordenar" },
+    etapas: ordem.map((k) => {
+      const et = vigente.etapas[Number(k) - 1]!;
+      return { descricao: et.descricao, itens: et.itens.map((x) => ({ ...x })) };
+    }),
+    chave,
+    ordem,
+  };
+  vigente.versao.ativa = false;
+  e.versoes.push(vd);
+  const reg = registrar(e, u, {
+    obra_id: o.id,
+    texto: `Reordenou as etapas do orçamento de ${o.nome}`,
+    proposta_id: null,
+    desfazer: { op: "desfazer_versao", versao_id: versaoId, reativar: vigente.versao.id },
+    origem: "tela",
+  });
+  vd.versao.registro_id = reg.id;
+  return saida(vd);
 }
 
 /**
@@ -1080,7 +1166,9 @@ export function desfazer(registroId: string, u: Usuario) {
     vd.versao.ativa = false;
     if (anterior) {
       anterior.versao.ativa = true;
-      texto = `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`;
+      texto = vd.versao.origem === "somar"
+        ? `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`
+        : `Desfeito: as etapas do orçamento de ${e.obras.find((x) => x.id === vd.versao.obra_id)?.nome ?? "a obra"} voltaram à ordem de antes`;
     } else texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
   } else if (d.op === "reabrir_orcamento") {
     const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);
@@ -1362,6 +1450,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         exigirAdmin(u);
         if (id2 === "versoes") return erro(422, "Na demonstração a importação do orçamento por etapas não está disponível.");
         if (id2 === "estrutura") return ok(lancarEstrutura(e, u, obraPorId(e, id), c as Record<string, unknown>));
+        if (id2 === "etapas" && c2 === "ordem") return ok(ordenarEtapas(e, u, obraPorId(e, id), c as Record<string, unknown>));
         const existentes = () =>
           [...e.insumos.values()]
             .filter((i) => i.obra_id === id)

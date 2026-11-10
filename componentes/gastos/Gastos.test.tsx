@@ -202,6 +202,33 @@ describe("confirmar e desfazer pelo aviso", () => {
     act(() => void vi.advanceTimersByTime(1500));
     expect(screen.queryByRole("button", { name: "Desfazer" })).toBeNull();
   });
+
+  it("o aviso fixo (somar) não some com o tempo: sai no Fechar ou quando a casca troca de tela", () => {
+    vi.useFakeTimers();
+    let casca!: ReturnType<typeof useCasca>;
+    function Pega() {
+      casca = useCasca();
+      return null;
+    }
+    render(comCasca(<Pega />));
+    act(() => casca.avisarFeito("Somado ao orçamento: 3 itens, +R$ 1,00.", "reg-1", { fixo: true }));
+    const aviso = screen.getByText(/Somado ao orçamento/).parentElement!;
+    fireEvent.pointerEnter(aviso);
+    fireEvent.pointerLeave(aviso);
+    act(() => void vi.advanceTimersByTime(10 * 60_000));
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar aviso" }));
+    expect(screen.queryByText(/Somado ao orçamento/)).toBeNull();
+
+    act(() => casca.avisarFeito("Somado ao orçamento: 3 itens, +R$ 1,00.", "reg-1", { fixo: true }));
+    act(() => casca.fecharAvisoFixo());
+    expect(screen.queryByText(/Somado ao orçamento/)).toBeNull();
+    // o comum segue com o relógio e não é tocado pela troca de tela
+    act(() => casca.avisarFeito("Gasto de R$ 1,00 lançado.", "reg-2"));
+    act(() => casca.fecharAvisoFixo());
+    expect(screen.getByText("Gasto de R$ 1,00 lançado.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fechar aviso" })).toBeNull();
+  });
 });
 
 
@@ -256,6 +283,24 @@ describe("enviar comprovante", () => {
     const linha = screen.getByText("Fundações").closest("li")!;
     expect(linha).toHaveTextContent("R$ 2.010,90");
     expect(linha).toHaveTextContent("+ R$ 24.974,40 entregue, ainda a pagar");
+  });
+
+  it("gasto fora de pedido: selo 'fora do orçado' no lançamento, a soma no topo e na etapa (só marca, o total não muda)", async () => {
+    rede({
+      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala", fora_do_orcado: true }, { ...GASTO, id: "g2", descricao: "Cimento", pedido_id: "p1" }]),
+      "GET /srv/api/obras/o1/gastos/resumo": () =>
+        json({ total: 35000, pagamentos_de_pedidos: 35000, a_revisar: 0, fora_do_orcado: 35000, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, fora_do_orcado: 35000, topicos: [] }] }),
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    expect(await screen.findByText("Fora do orçado")).toBeInTheDocument();
+    expect(screen.getByText("lançado fora de pedido")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
+    const etapa = screen.getByText("Fundações").closest("li")!;
+    expect(etapa).toHaveTextContent("R$ 350,00 fora do orçado (lançado fora de pedido)");
+    await userEvent.click(screen.getByRole("tab", { name: /Lançados/ }));
+    const vidro = (await screen.findByText("Vidros da sala")).closest("li")!;
+    expect(within(vidro).getByText("fora do orçado")).toBeInTheDocument();
+    expect(within(screen.getByText("Cimento").closest("li")!).queryByText("fora do orçado")).toBeNull();
   });
 
   it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {

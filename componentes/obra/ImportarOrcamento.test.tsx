@@ -131,6 +131,21 @@ describe("importar antes de aprovar: somar ao orçamento", () => {
     expect(await screen.findByText("Somado ao orçamento: 1 item, +R$ 3.000,00.")).toBeInTheDocument();
   });
 
+  it("aviso da linha 0 (a etapa das pranchas muda de lugar) fica à vista, sem 'Linha 0'", async () => {
+    const u = userEvent.setup();
+    const GERAL = "Ao somar, Estrutura (das pranchas) vai para depois de SERVIÇOS PRELIMINARES, e as etapas são renumeradas nessa ordem.";
+    montar(EM_ORCAMENTO, {
+      "POST /srv/api/obras/o1/orcamento/versoes": () => {
+        const p = previaSomar([]);
+        return json({ ...p, avisos: [{ linha: 0, mensagem: GERAL }, ...p.avisos] });
+      },
+    }, "somar");
+    await ateAPrevia(u);
+    expect(await screen.findByText(GERAL)).toBeInTheDocument();
+    expect(screen.queryByText(/Linha 0/)).toBeNull();
+    expect(screen.getByText("1 aviso (grava mesmo assim)")).toBeInTheDocument();
+  });
+
   it("desmarcar 'não importar' devolve o item à prévia", async () => {
     const u = userEvent.setup();
     const { rede } = montar(EM_ORCAMENTO, {}, "somar");

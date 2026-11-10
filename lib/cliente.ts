@@ -44,7 +44,9 @@ import type {
   ResumoGastos,
   HojeNaObra,
   CorpoEditarItem,
+  CorpoOrdemEtapas,
   ItemEditado,
+  OrdemEtapasGravada,
   TributosObra,
   CorpoFiscalGasto,
   StatusComprovante,
@@ -202,6 +204,15 @@ export const api = {
       if (e instanceof ErroApi && e.status === 404) return null;
       throw e;
     }),
+  /**
+   * Antes de aprovar: grava a ordem nova das etapas (um contrato que substitui o vigente, com Desfazer). Idempotente
+   * pela chave. A API de antes não tem a rota: 404/405 vira `RotaAusente`.
+   */
+  ordenarEtapas: (obraId: string, corpo: CorpoOrdemEtapas) =>
+    semRota(
+      chamar<OrdemEtapasGravada>("POST", `/obras/${seg(obraId)}/orcamento/etapas/ordem`, corpo),
+      "Mudar a ordem das etapas ainda não está disponível. A atualização da API chega em breve.",
+    ),
   /** O orçamento da obra (EAP): versões, itens vigentes com curva, totais por etapa. */
   orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
   /** Contrato ou aditivo. `aplicar: false` é a prévia; com `aplicar: true` a chave de idempotência é obrigatória. */

@@ -1,11 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Obra, Usuario } from "@/lib/contrato";
+import type { Obra, Usuario, VersaoOrcamento } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { ProvedorCasca } from "./contexto";
-import { Orcamento, soDasPranchas } from "./Orcamento";
+import { Orcamento, situacaoDe, soDasPranchas } from "./Orcamento";
 
 const OBRA = { id: "o1", nome: "Casa Inventada", status: "em_orcamento", verba: 62000000 } as Obra;
 const orc = (arquivo: string, precos: number[]) => ({
@@ -150,5 +150,202 @@ describe("soDasPranchas", () => {
     expect(soDasPranchas([v(PRANCHAS)])).toBe(true);
     expect(soDasPranchas([v(PRANCHAS), v("planilha.xlsx")])).toBe(false);
     expect(soDasPranchas([v(PRANCHAS), v("planilha.xlsx", false)])).toBe(true);
+  });
+});
+
+describe("versões depois de somar a planilha", () => {
+  const somado = () => {
+    const d = orc("planilha.xlsx", [500, 700]);
+    d.versoes = [
+      { ...d.versoes[0]!, id: "v2", total: 120000, itens: 2, registro_id: "r2", substitui: "v1", origem: "somar", rotulo: "Orçamento com a planilha somada", desfazer_texto: "Volta o orçamento para antes de somar a planilha (R$ 500,00, 1 item)." } as (typeof d.versoes)[number],
+      { ...d.versoes[0]!, arquivo: PRANCHAS, ativa: false, total: 50000, itens: 1, registro_id: "r1" },
+    ];
+    return d;
+  };
+
+  it("a versão das pranchas aparece como Materiais das pranchas, sem o nome interno do arquivo (mesmo na API antiga, sem rótulo)", async () => {
+    montar(somado());
+    const versoes = await screen.findByRole("region", { name: "Versões do orçamento" });
+    expect(within(versoes).getAllByText(/Materiais das pranchas/).length).toBeGreaterThan(0);
+    expect(within(versoes).queryByText(/\(projeto\)\.csv/)).toBeNull();
+  });
+
+  it("a situação vem da API: a versão trocada pela reordenação é 'substituída', não 'desfeita'", async () => {
+    const d = somado();
+    const [somada, pranchas] = d.versoes as (VersaoOrcamento & Record<string, unknown>)[];
+    d.versoes = [
+      { ...somada!, id: "v3", ativa: true, substitui: "v2", situacao: "vigente" },
+      { ...somada!, ativa: false, situacao: "substituida" },
+      { ...pranchas!, situacao: "substituida" },
+    ] as unknown as typeof d.versoes;
+    montar(d);
+    const versoes = await screen.findByRole("region", { name: "Versões do orçamento" });
+    expect(within(versoes).getAllByText("substituída")).toHaveLength(2);
+    expect(within(versoes).queryByText("desfeita")).toBeNull();
+  });
+
+  it("o Desfazer do somar mostra o texto que a API mandou", async () => {
+    montar(somado());
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Desfazer Orçamento inicial" }));
+    expect(await screen.findByText("Volta o orçamento para antes de somar a planilha (R$ 500,00, 1 item).")).toBeInTheDocument();
+  });
+});
+
+describe("ordem das etapas antes de aprovar", () => {
+  const etapa = (n: string, descricao: string) => ({ etapa: n, descricao, contratado: 0, aditivos: 0, atual: 1000, cotando: 0, comprometido: 0, realizado: 0, saldo: 1000, estourou: false });
+  const dados = (nomes: string[]) => ({
+    ...orc("planilha.xlsx", []),
+    itens: [],
+    etapas: nomes.map((d, i) => etapa(String(i + 1), d)),
+  });
+  const montarOrdem = (obra: Obra, usuario: Usuario = USUARIO, recusa?: string, segurar?: Promise<void>) => {
+    let atual = ["Estrutura", "Serviços preliminares", "Fundação"];
+    let gravou = false;
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/orcamento": async () => {
+        if (gravou && segurar) await segurar;
+        return json(dados(atual));
+      },
+      "GET /srv/api/obras/o1/insumos": () => json([]),
+      "POST /srv/api/obras/o1/orcamento/etapas/ordem": ({ corpo }) => {
+        if (recusa) return json({ detail: recusa }, 409);
+        gravou = true;
+        const ordem = (corpo as { ordem: string[] }).ordem;
+        atual = ordem.map((k) => atual[Number(k) - 1]!);
+        return json({ versao_id: "v9", registro_id: "r9", etapas: atual.map((d, i) => ({ etapa: String(i + 1), descricao: d })) }, 201);
+      },
+    });
+    render(
+      <ProvedorCasca usuario={usuario} demo={false}>
+        <Orcamento obra={obra} />
+      </ProvedorCasca>,
+    );
+    return rede;
+  };
+
+  it("descer manda a ordem inteira com uma chave, avisa com Desfazer e o foco segue a etapa", async () => {
+    const rede = montarOrdem(OBRA);
+    const u = userEvent.setup();
+    expect(await screen.findByRole("button", { name: "Subir Estrutura" })).toBeDisabled();
+    await u.click(screen.getByRole("button", { name: "Descer Estrutura" }));
+    expect(await screen.findByText("Estrutura desceu: agora é a etapa 2.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    const post = rede.chamadas.find((c) => c.metodo === "POST" && c.caminho.endsWith("/etapas/ordem"))!;
+    expect(post.corpo).toMatchObject({ ordem: ["2", "1", "3"], chave_idempotencia: expect.any(String) });
+    await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
+    const lista = within(screen.getByRole("list", { name: "Etapas do orçamento" }));
+    await waitFor(() => expect(lista.getByRole("button", { name: "Descer Estrutura" })).toHaveFocus());
+  });
+
+  it("etapa com lançamento: o 409 da API aparece como veio, e a ordem não muda", async () => {
+    const DETAIL = "Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa 1 Estrutura: renumerar levaria o lançamento para outra etapa.";
+    montarOrdem(OBRA, USUARIO, DETAIL);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    expect(await screen.findByText(DETAIL)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 1 de 3" })).toBeInTheDocument();
+  });
+
+  it("até o orçamento renumerado chegar, as setas ficam desligadas; a ordem vai com a versão que a tela via", async () => {
+    let soltar!: () => void;
+    const rede = montarOrdem(OBRA, USUARIO, undefined, new Promise<void>((r) => (soltar = r)));
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    await screen.findByText("Estrutura desceu: agora é a etapa 2.");
+    // a tela ainda mostra a numeração velha: um 2º toque moveria a etapa errada
+    expect(screen.getByRole("button", { name: "Descer Serviços preliminares" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Subir Fundação" })).toBeDisabled();
+    // a trava vale para as setas do aviso também
+    const aviso = within(screen.getByRole("group", { name: "Etapa movida" }));
+    expect(aviso.getByRole("button", { name: "Descer Estrutura" })).toBeDisabled();
+    expect(aviso.getByRole("button", { name: "Subir Estrutura" })).toBeDisabled();
+    expect(rede.chamadas.find((c) => c.caminho.endsWith("/etapas/ordem"))!.corpo).toMatchObject({ versao_id: "v1" });
+    soltar();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Subir Fundação" })).toBeEnabled());
+    expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument();
+  });
+
+  it("depois de um erro, repetir a mesma ordem vai com chave nova", async () => {
+    const rede = montarOrdem(OBRA, USUARIO, "O orçamento mudou desde que você abriu a tela; recarregue e confira a ordem.");
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    await screen.findByText(/O orçamento mudou/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Descer Estrutura" })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: "Descer Estrutura" }));
+    await waitFor(() => expect(rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem"))).toHaveLength(2));
+    const [a, b] = rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem")).map((c) => (c.corpo as { chave_idempotencia: string }).chave_idempotencia);
+    expect(a).not.toBe(b);
+  });
+
+  it("Descer da 1ª de 3: manda [2, 1, 3], a tela mostra a ordem nova e o aviso fixo traz as setas da etapa movida", async () => {
+    const rede = montarOrdem(OBRA);
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    const ordens = () => rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem")).map((c) => (c.corpo as { ordem: string[] }).ordem);
+    expect(ordens()).toEqual([["2", "1", "3"]]);
+    const lista = within(screen.getByRole("list", { name: "Etapas do orçamento" }));
+    await waitFor(() => expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
+    expect(lista.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Ordem de Serviços preliminares: etapa 1 de 3",
+      "Ordem de Estrutura: etapa 2 de 3",
+      "Ordem de Fundação: etapa 3 de 3",
+    ]);
+    expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" }).closest("li")).toHaveClass("movida");
+
+    // o aviso não sai do lugar: o 2º toque nele move a mesma etapa, não a vizinha que subiu para a linha dela
+    const aviso = within(screen.getByRole("group", { name: "Etapa movida" }));
+    expect(aviso.getByText("Estrutura desceu: agora é a etapa 2.")).toBeInTheDocument();
+    expect(aviso.getByRole("button", { name: "Fechar aviso" })).toBeInTheDocument();
+    await waitFor(() => expect(aviso.getByRole("button", { name: "Descer Estrutura" })).toBeEnabled());
+    await u.click(aviso.getByRole("button", { name: "Descer Estrutura" }));
+    await screen.findByText("Estrutura desceu: agora é a etapa 3.");
+    expect(ordens()).toEqual([["2", "1", "3"], ["1", "3", "2"]]);
+    const aviso2 = within(screen.getByRole("group", { name: "Etapa movida" }));
+    await waitFor(() => expect(aviso2.getByRole("button", { name: "Subir Estrutura" })).toBeEnabled());
+    expect(aviso2.getByRole("button", { name: "Descer Estrutura" })).toBeDisabled();
+
+    await u.click(aviso2.getByRole("button", { name: "Fechar aviso" }));
+    expect(screen.queryByRole("group", { name: "Etapa movida" })).toBeNull();
+  });
+
+  it("o Desfazer do aviso desfaz pelo registro da mudança", async () => {
+    const rede = montarOrdem(OBRA);
+    const desfez = vi.fn(() => json({ texto: "Desfeito" }));
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    const aviso = within(await screen.findByRole("group", { name: "Etapa movida" }));
+    const original = rede.fetch.getMockImplementation()!;
+    rede.fetch.mockImplementation(async (e, i) => (String(e).endsWith("/registro/r9/desfazer") ? desfez() : original(e, i)));
+    await u.click(aviso.getByRole("button", { name: "Desfazer" }));
+    expect(await screen.findByText("Desfeito.")).toBeInTheDocument();
+    expect(desfez).toHaveBeenCalled();
+    expect(screen.queryByRole("group", { name: "Etapa movida" })).toBeNull();
+  });
+
+  it("aprovado: sem as setas", async () => {
+    montarOrdem({ ...OBRA, status: "em_andamento" } as Obra);
+    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
+  });
+
+  it("viewer não vê as setas", async () => {
+    montarOrdem(OBRA, { ...USUARIO, papel: "viewer" });
+    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
+  });
+});
+
+describe("situacaoDe (sem o campo da API)", () => {
+  const v = (id: string, ativa: boolean, substitui: string | null = null) => ({ id, ativa, substitui });
+  it("pranchas → somar → reordenar: substituída, substituída, vigente", () => {
+    const vs = [v("p", false), v("s", false, "p"), v("r", true, "s")];
+    expect(vs.map((x) => situacaoDe(x, vs))).toEqual(["substituida", "substituida", "vigente"]);
+  });
+  it("desfeita a reordenação: substituída, vigente, desfeita", () => {
+    const vs = [v("p", false), v("s", true, "p"), v("r", false, "s")];
+    expect(vs.map((x) => situacaoDe(x, vs))).toEqual(["substituida", "vigente", "desfeita"]);
+  });
+  it("o campo da API manda", () => {
+    expect(situacaoDe({ id: "x", ativa: false, situacao: "substituida" }, [])).toBe("substituida");
   });
 });

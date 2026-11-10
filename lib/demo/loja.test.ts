@@ -527,12 +527,68 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     expect(depois.totais).toMatchObject({ aditivos: 0, aditivos_pct: 0, n_etapas: 1, atual: antes.totais.atual + Math.round((ACO.quantidade * ACO.valor_unitario) / 1000) });
     expect(depois.itens.filter((i) => i.tipo === "item").map((i) => i.descricao)).toEqual(["Concreto C25", ACO.nome]);
     expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
+    expect(depois.versoes.find((v) => v.ativa)).toMatchObject({
+      origem: "somar",
+      rotulo: "Orçamento com os materiais das pranchas somados",
+      desfazer_texto: expect.stringMatching(/^Volta o orçamento para antes de somar os materiais das pranchas \(R\$ [\d.,]+, 1 item\)\.$/),
+    });
+    expect(depois.versoes.find((v) => !v.ativa)).toMatchObject({ rotulo: "Materiais das pranchas", desfazer_texto: null });
     expect(e.registro.at(-1)!.texto).toMatch(/^Somou 1 item ao orçamento de Casa Teste \(\+R\$/);
 
     chamar("POST", `registro/${gravou.registro_id}/desfazer`);
     const final = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
     expect(final.totais.atual).toBe(antes.totais.atual);
     expect(final.versoes.filter((v) => v.ativa).map((v) => v.id)).toEqual(antes.versoes.map((v) => v.id));
+  });
+
+  it("muda a ordem das etapas antes de aprovar: renumera, guarda o preço editado e o Desfazer volta a ordem", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "o1", etapa: "Estrutura" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [ACO], aplicar: true, chave_idempotencia: "o2", etapa: "Serviços preliminares" });
+    const aco = (chamar("GET", `obras/${o.id}/orcamento`).corpo as O).itens.find((i) => i.descricao === ACO.nome)!;
+    chamar("PATCH", `obras/${o.id}/orcamento/itens/${aco.id}`, { valor_unitario: 700 });
+    const antes = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(antes.etapas.map((et) => et.descricao)).toEqual(["Estrutura", "Serviços preliminares"]);
+
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1"], chave_idempotencia: "ordem-0001" }).status).toBe(422);
+    const r = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1"], chave_idempotencia: "ordem-0002" });
+    expect(r.corpo).toMatchObject({ etapas: [{ etapa: "1", descricao: "Serviços preliminares" }, { etapa: "2", descricao: "Estrutura" }] });
+    // a mesma chave não grava outra versão
+    chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1"], chave_idempotencia: "ordem-0002" });
+    const depois = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(depois.etapas.map((et) => et.descricao)).toEqual(["Serviços preliminares", "Estrutura"]);
+    expect(depois.itens.find((i) => i.descricao === ACO.nome)).toMatchObject({ numero: "1.1", valor_unitario: 700 });
+    expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
+    expect(depois.totais.atual).toBe(antes.totais.atual);
+    expect(e.registro.at(-1)!.texto).toBe("Reordenou as etapas do orçamento de Casa Teste");
+    expect(depois.versoes.find((v) => v.ativa)).toMatchObject({ origem: "reordenar", rotulo: "Etapas reordenadas" });
+
+    chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`);
+    const final = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(final.etapas.map((et) => et.descricao)).toEqual(["Estrutura", "Serviços preliminares"]);
+    expect(final.versoes.map((v) => v.situacao)).toEqual(["substituida", "vigente", "desfeita"]);
+  });
+
+  it("ordem das etapas, como a API: chave repetida com outra ordem, versão que não é a vigente e etapa em uso dão 409", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "w1", etapa: "Estrutura" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [ACO], aplicar: true, chave_idempotencia: "w2", etapa: "Fundação" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [{ ...ACO, nome: "Tapume" }], aplicar: true, chave_idempotencia: "w3", etapa: "Preliminares" });
+    const vista = (chamar("GET", `obras/${o.id}/orcamento`).corpo as O).versoes.find((v) => v.ativa)!.id;
+
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-001", versao_id: vista }).status).toBe(200);
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-001", versao_id: vista }).status).toBe(200);
+    const outra = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1", "3", "2"], chave_idempotencia: "chave-001" });
+    expect(outra.status).toBe(409);
+    // a ordem montada sobre a numeração de antes moveria a etapa errada
+    const velha = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1", "3", "2"], chave_idempotencia: "chave-002", versao_id: vista });
+    expect(velha).toMatchObject({ status: 409, corpo: { detail: expect.stringMatching(/orçamento mudou/) } });
+
+    // um insumo na etapa 2 (a Estrutura, depois da troca): só passa a ordem que a mantém no número 2
+    e.insumos.set("orc-x", { id: "x", obra_id: o.id, nome: "Aço", unidade: "kg", precisa_ate_o_fim: 1000, curva: "A", valor_unitario: 0, etapa: "2" } as never);
+    const presa = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-003" });
+    expect(presa).toMatchObject({ status: 409, corpo: { detail: "Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa 2 Estrutura: renumerar levaria o lançamento para outra etapa." } });
+    expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["3", "2", "1"], chave_idempotencia: "chave-004" }).status).toBe(200);
   });
 
   it("o preço editado no orçamento somado continua achando o item (id pela posição na versão)", () => {

@@ -27,11 +27,20 @@ import { situacao } from "./suprimentos/Itens";
 
 
 export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Orçamento inicial" : `${v.numero}º aditivo`);
+const SUFIXO_PROJETO = "(projeto).csv";
 /** Só veio das pranchas: toda versão vigente é a Estrutura lançada pelo Projeto (a API dá esse nome ao arquivo). */
 export const soDasPranchas = (versoes: Pick<VersaoOrcamento, "ativa" | "arquivo">[]) => {
   const vigentes = versoes.filter((v) => v.ativa);
-  return vigentes.length > 0 && vigentes.every((v) => v.arquivo.endsWith("(projeto).csv"));
+  return vigentes.length > 0 && vigentes.every((v) => v.arquivo.endsWith(SUFIXO_PROJETO));
 };
+/**
+ * O nome da versão para a pessoa. A API manda pronto (`rotulo`); a de antes não, e aí o "Estrutura (projeto).csv",
+ * que é o nome interno das pranchas, não pode aparecer.
+ */
+export const rotuloVersao = (v: Pick<VersaoOrcamento, "rotulo" | "descricao" | "arquivo">) =>
+  v.rotulo || (v.arquivo.endsWith(SUFIXO_PROJETO) ? "Materiais das pranchas" : v.descricao);
+/** O arquivo enviado; o das pranchas não é arquivo de ninguém (o rótulo já diz de onde veio). */
+const arquivoEnviado = (arquivo: string) => (arquivo.endsWith(SUFIXO_PROJETO) ? "" : arquivo);
 export const fmtData = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
@@ -401,6 +410,22 @@ function ResumoOrcamento({ orc }: { orc: DadosOrcamento }) {
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */
 
 /**
+ * A situação vem da API (`situacao`). Sem ela (API antiga), segue a cadeia: fora de vigência, a versão foi substituída
+ * se outra que não foi desfeita a substituiu (pranchas → somar → reordenar: as duas primeiras), senão foi desfeita.
+ */
+export function situacaoDe(
+  v: Pick<VersaoOrcamento, "id" | "ativa" | "situacao">,
+  versoes: Pick<VersaoOrcamento, "id" | "ativa" | "situacao" | "substitui">[],
+  vistas: Set<string> = new Set(),
+): NonNullable<VersaoOrcamento["situacao"]> {
+  if (v.situacao) return v.situacao;
+  if (v.ativa) return "vigente";
+  if (vistas.has(v.id)) return "desfeita";
+  vistas.add(v.id);
+  return versoes.some((o) => o.substitui === v.id && situacaoDe(o, versoes, vistas) !== "desfeita") ? "substituida" : "desfeita";
+}
+
+/**
  * À vista só o que vale hoje para conferir: o contrato vigente e o último aditivo vigente. Os aditivos vigentes mais
  * antigos, os desfeitos e os substituídos ficam no histórico recolhido (com o mesmo Desfazer, quando couber).
  */
@@ -415,15 +440,16 @@ export function separarVersoes<T extends Pick<VersaoOrcamento, "id" | "tipo" | "
 function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]; atual: number; todas?: boolean }) {
   const { podeOperar, mudou, avisarFeito } = useCasca();
   const [confirmando, setConfirmando] = useState<VersaoOrcamento | null>(null);
-  const situacao = (v: VersaoOrcamento) =>
-    v.ativa ? "vigente" : versoes.some((o) => o.substitui === v.id && o.ativa) ? "substituída" : "desfeita";
+  const situacao = (v: VersaoOrcamento) => ({ vigente: "vigente", substituida: "substituída", desfeita: "desfeita" } as const)[situacaoDe(v, versoes)];
 
   /** O que muda de fato ao desfazer: com um clique só, a pessoa tirava o contrato de vigência sem saber. */
   const consequencia = (v: VersaoOrcamento) => {
+    if (v.desfazer_texto) return v.desfazer_texto;
     if (v.tipo === "aditivo") return `O ${nomeVersao(v)} sai de vigência e o orçado atual volta para ${fmtReais(atual - v.total)}.`;
     const anterior = versoes.find((o) => o.id === v.substitui);
+    const nomeAnterior = anterior ? rotuloVersao(anterior) : "";
     return anterior
-      ? `O orçamento inicial sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${anterior.arquivo ? ` (${anterior.arquivo})` : ""}.`
+      ? `O orçamento inicial sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${nomeAnterior ? ` (${nomeAnterior})` : ""}.`
       : "O orçamento inicial sai de vigência e a obra fica sem orçamento: os pedidos e saídas perdem a lista de etapas até importar de novo.";
   };
 
@@ -442,11 +468,11 @@ function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]
         <div className="orc-v-t">
           <div>
             <b>{nomeVersao(v)}</b>
-            {v.descricao ? <span>: {v.descricao}</span> : null}
+            {rotuloVersao(v) ? <span>: {rotuloVersao(v)}</span> : null}
             <span className={`pill ${st === "vigente" ? "st-ok" : "st-orc"}`}>{st}</span>
           </div>
           <div className="mut sm">
-            {[fmtData(v.data), plural(v.itens, "item", "itens"), plural(v.etapas, "etapa", "etapas"), v.arquivo].filter(Boolean).join(" · ")}
+            {[fmtData(v.data), plural(v.itens, "item", "itens"), plural(v.etapas, "etapa", "etapas"), arquivoEnviado(v.arquivo)].filter(Boolean).join(" · ")}
           </div>
         </div>
         <span className="num orc-v-n">{v.tipo === "aditivo" ? comSinal(v.total) : fmtReais(v.total)}</span>

@@ -5,9 +5,10 @@
  * ali mesmo com o gasto rotulado, os pedidos da etapa e os itens da planilha. Busca e curva filtram os itens e abrem
  * as etapas que têm resultado; a ordem por desvio continua valendo. Os números vêm da API; a tela só agrupa.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CorpoEditarItem, CurvaABC, Obra, Orcamento, Pedido } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { uuid7 } from "@/lib/ids";
 import { fmtQtd, fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { ROTULO_STATUS } from "../CartaoProposta";
 import { mensagemDe, useCasca } from "../contexto";
@@ -81,7 +82,9 @@ const ORDENS: { k: "desvio" | "planilha"; rotulo: string }[] = [
 ];
 
 export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
-  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: "desvio" });
+  const { podeOperar, mudou, avisar } = useCasca();
+  // Antes de aprovar não há gasto para dar desvio: a ordem que importa é a da obra, e é ela que se arruma aqui.
+  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: obra.status === "em_orcamento" ? "planilha" : "desvio" });
   // Com uma etapa só (ex.: a Estrutura do projeto), já abre: a quantidade e o unitário de cada item ficam à vista
   // sem precisar clicar para expandir.
   const [abertas, setAbertas] = useState<Set<string>>(() => {
@@ -109,6 +112,72 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
     };
   }, [precisaPedidos, obra.id]);
 
+  // Subir/descer só na ordem da planilha e sem filtro (é a lista inteira que se ordena), antes de aprovar e sem aditivo.
+  const etapasDaOrdem = orc.etapas.map((e) => e.etapa).filter(Boolean);
+  const podeOrdenar =
+    podeOperar && obra.status === "em_orcamento" && !filtrando && filtro.ordem === "planilha" && etapasDaOrdem.length > 1 && !orc.versoes.some((v) => v.ativa && v.tipo === "aditivo");
+  const [ordenando, setOrdenando] = useState(false);
+  // A ordem é montada sobre a numeração que a tela vê, e a API renumera: até o orçamento novo chegar, outro toque
+  // mandaria a numeração velha e moveria outra etapa. Por isso as setas esperam um `orc` diferente do do toque.
+  const [travadoEm, setTravadoEm] = useState<Orcamento | null>(null);
+  const ocupado = ordenando || travadoEm === orc;
+  const vigente = orc.versoes.find((v) => v.ativa && v.tipo === "contrato")?.id;
+  // Depois de mover, a linha sob o ponteiro passa a ser a vizinha: o 2º toque no mesmo lugar desfazia a troca. Por isso
+  // o aviso fixo traz as setas da etapa movida: ele não sai do lugar, e tocar de novo move a mesma etapa. Rolar a
+  // página para compensar falhava no fim da lista (sem o que rolar).
+  const [ultimo, setUltimo] = useState<{ posicao: number; descricao: string; dir: "subir" | "descer"; registroId: string } | null>(null);
+  // A etapa do aviso no orçamento que a tela vê: some se outra mudança a tirou daquela posição.
+  const etapaUltimo = ultimo && orc.etapas.filter((e) => e.etapa)[ultimo.posicao - 1];
+  const doAviso = etapaUltimo && etapaUltimo.descricao === ultimo.descricao ? etapaUltimo : null;
+  // Pelo teclado, o foco segue a etapa na posição nova (os botões da linha são outros depois da renumeração).
+  const focoDepois = useRef<{ posicao: number; dir: "subir" | "descer" } | null>(null);
+  const refLista = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const f = focoDepois.current;
+    if (!f || !refLista.current) return;
+    const botoes = refLista.current.querySelectorAll<HTMLButtonElement>(`[data-posicao="${f.posicao}"]`);
+    const alvo = [...botoes].find((b) => b.dataset.dir === f.dir && !b.disabled) ?? [...botoes].find((b) => !b.disabled);
+    if (!alvo) return;
+    focoDepois.current = null;
+    alvo.focus();
+  }, [orc]);
+  const desfazerUltimo = async () => {
+    if (!ultimo) return;
+    const { registroId } = ultimo;
+    setUltimo(null);
+    try {
+      await api.desfazerRegistro(registroId);
+      mudou();
+      avisar("Desfeito.");
+    } catch (e) {
+      mudou();
+      avisar(mensagemDe(e), true);
+    }
+  };
+  const mover = async (etapa: string, descricao: string, dir: "subir" | "descer", origem: "linha" | "aviso" = "linha") => {
+    const de = etapasDaOrdem.indexOf(etapa);
+    const para = dir === "subir" ? de - 1 : de + 1;
+    if (de < 0 || para < 0 || para >= etapasDaOrdem.length) return;
+    const ordem = [...etapasDaOrdem];
+    [ordem[de], ordem[para]] = [ordem[para]!, ordem[de]!];
+    setOrdenando(true);
+    try {
+      // Chave nova a cada toque: reaproveitar a de um toque que deu erro podia achar uma versão já gravada e desfeita
+      // (200, "subiu", e nada muda). Resposta perdida não grava duas vezes: o `versao_id` já não é o vigente (409).
+      const r = await api.ordenarEtapas(obra.id, { ordem, chave_idempotencia: uuid7(), ...(vigente ? { versao_id: vigente } : {}) });
+      if (origem === "linha") focoDepois.current = { posicao: para + 1, dir };
+      setUltimo({ posicao: para + 1, descricao, dir, registroId: r.registro_id });
+      mudou();
+    } catch (e) {
+      setUltimo(null);
+      mudou();
+      avisar(mensagemDe(e), true);
+    } finally {
+      setTravadoEm(orc);
+      setOrdenando(false);
+    }
+  };
+
   const alternar = (k: string) =>
     setAbertas((s) => {
       const n = new Set(s);
@@ -133,7 +202,8 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         </p>
       ) : null}
 
-      <ul className="le" aria-label="Etapas do orçamento">
+      {podeOrdenar ? <p className="mut sm">Use as setas para pôr as etapas na ordem em que a obra acontece: as compras seguem essa ordem.</p> : null}
+      <ul className="le" aria-label="Etapas do orçamento" ref={refLista}>
         <li className="le-cab" aria-hidden="true">
           <span>Etapa</span>
           <span className="num">Orçado atual</span>
@@ -147,7 +217,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
           const semCompra = !l.comprometido && !l.cotando && !l.realizado;
           const estouro = l.comprometido > l.atual;
           return (
-            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}`}>
+            <li key={k} className={`le-l${semCompra ? " sem-compra" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}${podeOrdenar && doAviso?.etapa === l.etapa ? " movida" : ""}`}>
               <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
                 <span className="le-nome">
                   <Icone nome="chevRight" tam={14} className="le-seta" />
@@ -171,6 +241,15 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                   {semCompra ? `${reaisInteiros(l.atual)} orçado` : `${reaisInteiros(l.comprometido)} de ${reaisInteiros(l.atual)} · ${fmtPct(l.pct)}`}
                 </span>
               </button>
+              {podeOrdenar && !l.semEtapa ? (
+                <OrdemEtapa
+                  posicao={etapasDaOrdem.indexOf(l.etapa) + 1}
+                  total={etapasDaOrdem.length}
+                  descricao={l.descricao}
+                  ocupado={ocupado}
+                  mover={(dir) => mover(l.etapa, l.descricao, dir)}
+                />
+              ) : null}
               {aberta ? (
                 <div className="le-corpo" id={`le-${k}`}>
                   {semCompra ? null : (
@@ -209,7 +288,46 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         })}
         {!lista.length && !filtrando ? <li className="mut sm le-vazio">Nenhuma etapa vigente.</li> : null}
       </ul>
+      {/* fixo, como o do somar: mudar a ordem sem querer é fácil e o caminho de volta tem de esperar a pessoa */}
+      {ultimo && podeOrdenar ? (
+        <div className="toast toast-ordem" role="group" aria-label="Etapa movida">
+          <span className="toast-texto" role="status">
+            {ultimo.descricao} {ultimo.dir === "subir" ? "subiu" : "desceu"}: agora é a etapa {ultimo.posicao}.
+          </span>
+          {/* esperando o orçamento novo, as setas ficam (desligadas): sumir faria o aviso mudar de tamanho sob o dedo */}
+          {doAviso || ocupado ? (
+            <span className="toast-setas">
+              <button type="button" className="toast-seta" aria-label={`Subir ${ultimo.descricao}`} disabled={ocupado || !doAviso || ultimo.posicao === 1} onClick={() => doAviso && mover(doAviso.etapa, ultimo.descricao, "subir", "aviso")}>
+                <Icone nome="arrowUp" tam={16} />
+              </button>
+              <button type="button" className="toast-seta" aria-label={`Descer ${ultimo.descricao}`} disabled={ocupado || !doAviso || ultimo.posicao === etapasDaOrdem.length} onClick={() => doAviso && mover(doAviso.etapa, ultimo.descricao, "descer", "aviso")}>
+                <Icone nome="arrowDown" tam={16} />
+              </button>
+            </span>
+          ) : null}
+          <button type="button" className="toast-acao" onClick={desfazerUltimo}>
+            Desfazer
+          </button>
+          <button type="button" className="toast-fechar" aria-label="Fechar aviso" onClick={() => setUltimo(null)}>
+            <Icone nome="x" tam={14} />
+          </button>
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/** Subir e descer uma etapa: botões e não arrastar, para dar com o teclado e o dedo (e o leitor dizer a posição). */
+function OrdemEtapa({ posicao, total, descricao, ocupado, mover }: { posicao: number; total: number; descricao: string; ocupado: boolean; mover: (dir: "subir" | "descer") => void }) {
+  return (
+    <span className="le-ordem" role="group" aria-label={`Ordem de ${descricao}: etapa ${posicao} de ${total}`}>
+      <button type="button" className="iconbtn" data-posicao={posicao} data-dir="subir" disabled={ocupado || posicao === 1} aria-label={`Subir ${descricao}`} onClick={() => mover("subir")}>
+        <Icone nome="arrowUp" tam={14} />
+      </button>
+      <button type="button" className="iconbtn" data-posicao={posicao} data-dir="descer" disabled={ocupado || posicao === total} aria-label={`Descer ${descricao}`} onClick={() => mover("descer")}>
+        <Icone nome="arrowDown" tam={14} />
+      </button>
+    </span>
   );
 }
 

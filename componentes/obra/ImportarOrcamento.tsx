@@ -217,7 +217,8 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
             : p.tipo === "contrato"
               ? `Orçamento inicial importado: ${plural(p.n_itens, "item", "itens")} em ${plural(p.n_etapas, "etapa", "etapas")}, ${fmtReais(p.total)}.`
               : `Aditivo importado: ${comSinal(p.total)} em ${plural(p.n_itens, "item", "itens")}.`;
-        avisarFeito(texto, p.registro_id);
+        // o Desfazer do somar é o jeito de voltar atrás se a soma não era o que se queria: não pode sumir sozinho
+        avisarFeito(texto, p.registro_id, { fixo: visto.total_apos != null });
       } else avisar(`Lista de materiais importada: ${plural(r.p.linhas.length, "insumo", "insumos")}, ${fmtReais(r.p.total)}.`);
       feito?.();
     });
@@ -682,6 +683,8 @@ function PreviaEap(props: {
   const somando = previa.total_apos != null;
   // no aditivo e no somar, cada linha é um acréscimo e vai para uma etapa do orçamento: o sinal e o destino importam
   const aditivo = previa.tipo === "aditivo" || somando;
+  const gerais = previa.avisos.filter((a) => a.linha <= 0);
+  const porLinha = previa.avisos.filter((a) => a.linha > 0);
   const porEtapa = new Map<string, ItemPrevia[]>();
   for (const i of previa.itens) {
     if (i.tipo === "etapa" && i.nivel <= 1) continue;
@@ -739,11 +742,18 @@ function PreviaEap(props: {
           <span>{previa.n_itens === 1 ? "item" : "itens"}</span>
         </div>
       </div>
-      {previa.avisos.length ? (
-        <details className="prev-ign prev-avisos" open={previa.avisos.length <= 3}>
-          <summary>{previa.avisos.length === 1 ? "1 aviso (grava mesmo assim)" : `${previa.avisos.length} avisos (grava mesmo assim)`}</summary>
+      {/* linha 0 é aviso do orçamento inteiro (ex.: a etapa das pranchas vai para depois dos preliminares): à vista */}
+      {gerais.map((a, i) => (
+        <div key={i} className="aviso-atencao" role="note">
+          <Icone nome="info" tam={15} />
+          <p>{a.mensagem}</p>
+        </div>
+      ))}
+      {porLinha.length ? (
+        <details className="prev-ign prev-avisos" open={porLinha.length <= 3}>
+          <summary>{porLinha.length === 1 ? "1 aviso (grava mesmo assim)" : `${porLinha.length} avisos (grava mesmo assim)`}</summary>
           <ul>
-            {previa.avisos.map((a, i) => (
+            {porLinha.map((a, i) => (
               <li key={i}>
                 Linha {a.linha}: {a.mensagem}
               </li>
