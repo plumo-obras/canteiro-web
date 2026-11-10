@@ -7,10 +7,15 @@
 import type { EtapaOrcamento, Gasto, Orcamento, VersaoOrcamento } from "@/lib/contrato";
 import { centavosCsv, gerarCsv } from "@/lib/csv";
 import { fmtReais } from "@/lib/formato";
-import { Icone } from "../Icone";
 
-/** Limite de acréscimo por aditivo em obra pública (art. 65, § 1º, da Lei 8.666/93). */
-export const LIMITE_ADITIVO = 0.25;
+/**
+ * "+2,9%": o % de aditivo com sinal (`aditivos_pct` em centésimos de %). Neutro de propósito: a obra é privada, e o
+ * limite de 25% da lei de licitações citado aqui antes pintava de vermelho o que não é infração nenhuma.
+ */
+export const fmtPctAditivo = (centesimos: number | null) => {
+  const p = (centesimos ?? 0) / 100;
+  return `${p < 0 ? "−" : "+"}${Math.abs(p).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+};
 
 export interface LinhaAndamento extends Gasto {
   etapa: string;
@@ -74,12 +79,11 @@ export function Barra({ l }: { l: LinhaAndamento }) {
 }
 
 // A versão na chave faz a nota reaparecer quando o texto muda (quem já tinha dito "Entendi" lê a nova).
-/** Aditivos para o diretor: quanto somou ao contrato, o % e o alerta do limite legal, por aditivo e por etapa. */
+/** Aditivos para o diretor: quanto somou ao orçamento aprovado e o %, por aditivo e por etapa. */
 export function BlocoAditivos({ orc, nomeVersao, fmtData }: { orc: Orcamento; nomeVersao: (v: VersaoOrcamento) => string; fmtData: (d: string | null) => string }) {
   const aditivos = orc.versoes.filter((v) => v.tipo === "aditivo" && v.ativa).sort((a, b) => a.numero - b.numero);
   if (!aditivos.length) return null;
   const t = orc.totais;
-  const pct = (t.aditivos_pct ?? 0) / 10000;
   const porEtapa = orc.etapas.filter((e) => e.aditivos);
   const sinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
   return (
@@ -87,19 +91,8 @@ export function BlocoAditivos({ orc, nomeVersao, fmtData }: { orc: Orcamento; no
       <div className="adt-cab">
         <h3 id="adt-titulo">Aditivos</h3>
         <span className="adt-n">{sinal(t.aditivos)}</span>
-        <span className={`pill ${pct > LIMITE_ADITIVO ? "bad" : ""}`}>{(pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% sobre o orçamento inicial</span>
+        <span className="pill">{fmtPctAditivo(t.aditivos_pct)} sobre o orçamento aprovado</span>
       </div>
-      {pct > LIMITE_ADITIVO ? (
-        <div className="aviso-erro" role="alert">
-          <Icone nome="alert" tam={15} />
-          Os aditivos passam de 25% do contrato ({fmtReais(t.contratado)}): limite legal de acréscimo em obra pública, art. 65 da Lei 8.666.
-        </div>
-      ) : (
-        <p className="mut sm" style={{ margin: "0 0 10px" }}>
-          Limite legal de acréscimo em obra pública: 25% do contrato (art. 65 da Lei 8.666). Usado: {(pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%
-          de 25%.
-        </p>
-      )}
       <ul className="adt-lista">
         {aditivos.map((v) => (
           <li key={v.id}>

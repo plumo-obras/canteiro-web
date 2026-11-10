@@ -17,7 +17,7 @@ import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
 import { ImportarOrcamento } from "./obra/ImportarOrcamento";
 import { MARGEM_CENTAVOS, tagVerba } from "./obra/verba";
-import { BlocoAditivos, csvAndamento } from "./orcamento/Andamento";
+import { BlocoAditivos, csvAndamento, fmtPctAditivo } from "./orcamento/Andamento";
 import { baixarCsv } from "@/lib/csv";
 import { MenuMais } from "./MenuMais";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
@@ -301,19 +301,17 @@ function Valor({ c, classe = "" }: { c: number; classe?: string }) {
 function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros" | "rodapeNumeros"> {
   const saldo = t.saldo;
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
-  const pctAdt = (t.aditivos_pct ?? 0) / 100;
   const verba = tagVerba(t.atual, obra.verba);
-  const pilula = t.aditivos
-    ? `${pctAdt < 0 ? "−" : "+"}${Math.abs(pctAdt).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% aditivo`
-    : verba && verba.texto !== "bate com o contrato"
-      ? verba.texto
-      : null;
+  // Só há aditivo depois de aprovar (antes, a planilha soma ao orçamento): o selo não aparece sem um de verdade.
+  const pilula = t.aditivos ? `${fmtPctAditivo(t.aditivos_pct)} aditivo` : verba && verba.texto !== "bate com o contrato" ? verba.texto : null;
+  // O vermelho é da comparação com o valor fechado; no selo de aditivo, o % é só informação.
+  const acima = !t.aditivos && verba?.tom === "acima";
   return {
     principal: {
       rotulo: "Orçado atual",
       valor: fmtReais(t.atual),
       tag: pilula ? (
-        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${verba?.tom === "acima" ? " t-acima" : ""}`}>
+        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${acima ? " t-acima" : ""}`}>
           Orçamento inicial {fmtReais(t.contratado)}
           {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
           {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}
