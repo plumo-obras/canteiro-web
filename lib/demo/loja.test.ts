@@ -500,6 +500,51 @@ describe("demonstração: cadastro de obra e orçamento por planilha", () => {
   });
 });
 
+describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
+  type O = import("../contrato").Orcamento;
+  type PV = import("../contrato").PreviaVersao;
+  const ACO = { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220_300, valor_unitario: 669 };
+  const LAJE = { nome: "Concreto C25", unidade: "m³", quantidade: 3_960, valor_unitario: 49_610 };
+  // obra nova, ainda em orçamento: a da demo já foi aprovada
+  const criar = () => chamar("POST", "obras", { nome: "Casa Teste", chave_idempotencia: crypto.randomUUID(), verba: 1_000_000 });
+
+  it("soma ao orçamento (não é aditivo), na mesma etapa pelo nome; marca o repetido; o Desfazer volta o anterior", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "p1" });
+    const antes = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+
+    const previa = chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [ACO, { ...LAJE, nome: "Concreto usinado fck 25" }], aplicar: false }).corpo as PV;
+    expect(previa).toMatchObject({ tipo: "contrato", substitui: { total: antes.totais.atual } });
+    expect(previa.total_apos).toBe(antes.totais.atual + previa.total);
+    expect(previa.itens.find((i) => i.ordem === 2)!.repetido_de).toMatchObject({ descricao: "Concreto C25" });
+    expect(previa.itens.find((i) => i.ordem === 1)!.repetido_de).toBeNull();
+    expect(previa.avisos).toHaveLength(1);
+
+    // o concreto repetido fica de fora
+    const gravou = chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [ACO, { ...LAJE, nome: "Concreto usinado fck 25" }], aplicar: true, chave_idempotencia: "p2", ignorar_itens: [2] }).corpo as PV;
+    expect(gravou).toMatchObject({ aplicado: true, tipo: "contrato", n_itens: 1 });
+    const depois = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(depois.totais).toMatchObject({ aditivos: 0, aditivos_pct: 0, n_etapas: 1, atual: antes.totais.atual + Math.round((ACO.quantidade * ACO.valor_unitario) / 1000) });
+    expect(depois.itens.filter((i) => i.tipo === "item").map((i) => i.descricao)).toEqual(["Concreto C25", ACO.nome]);
+    expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
+    expect(e.registro.at(-1)!.texto).toMatch(/^Somou 1 item ao orçamento de Casa Teste \(\+R\$/);
+
+    chamar("POST", `registro/${gravou.registro_id}/desfazer`);
+    const final = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;
+    expect(final.totais.atual).toBe(antes.totais.atual);
+    expect(final.versoes.filter((v) => v.ativa).map((v) => v.id)).toEqual(antes.versoes.map((v) => v.id));
+  });
+
+  it("o preço editado no orçamento somado continua achando o item (id pela posição na versão)", () => {
+    const o = criar().corpo as { id: string };
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [LAJE], aplicar: true, chave_idempotencia: "q1" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [{ ...ACO, valor_unitario: 0 }], aplicar: true, chave_idempotencia: "q2" });
+    const aco = (chamar("GET", `obras/${o.id}/orcamento`).corpo as O).itens.find((i) => i.descricao === ACO.nome)!;
+    expect(chamar("PATCH", `obras/${o.id}/orcamento/itens/${aco.id}`, { valor_unitario: 700 }).status).toBe(200);
+    expect((chamar("GET", `obras/${o.id}/orcamento`).corpo as O).itens.find((i) => i.descricao === ACO.nome)!.valor_unitario).toBe(700);
+  });
+});
+
 describe("demonstração: paginação pelo cursor antes_de", () => {
   it("o quadro pede vários status de uma vez", () => {
     const ps = chamar("GET", `obras/${obraId()}/pedidos?status=em_cotacao&status=em_transito`).corpo as Pedido[];

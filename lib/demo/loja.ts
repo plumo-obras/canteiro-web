@@ -161,14 +161,13 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   if (!ativas.length)
     return { versoes: metas, itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
 
-  // Uma etapa por versão de estrutura; o número da etapa segue a ordem das versões ativas.
-  type Linha = { vid: string; etapa: string; nome: string; unidade: string; quantidade: number; valor_unitario: number; total: number };
+  // Uma etapa por etapa de cada versão ativa (o somar junta várias numa versão), numeradas na ordem em que aparecem.
+  const blocos = ativas.flatMap((v) => v.etapas.map((et) => ({ v, et })));
+  type Linha = { bloco: number; nome: string; unidade: string; quantidade: number; valor_unitario: number; total: number };
   const planas: Linha[] = [];
-  ativas.forEach((v, vi) => {
-    const num = String(vi + 1);
-    for (const et of v.etapas)
-      for (const it of et.itens)
-        planas.push({ vid: v.versao.id, etapa: num, nome: it.nome, unidade: it.unidade, quantidade: it.quantidade, valor_unitario: it.valor_unitario, total: Math.round((it.quantidade * it.valor_unitario) / 1000) });
+  blocos.forEach(({ et }, bi) => {
+    for (const it of et.itens)
+      planas.push({ bloco: bi, nome: it.nome, unidade: it.unidade, quantidade: it.quantidade, valor_unitario: it.valor_unitario, total: Math.round((it.quantidade * it.valor_unitario) / 1000) });
   });
 
   // Curva ABC sobre o vigente inteiro: ordena por total e corta em 80% / 95% do acumulado.
@@ -185,15 +184,19 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   const etapas: Orcamento["etapas"] = [];
   let ordem = 0;
   let linha = 2;
-  ativas.forEach((v, vi) => {
-    const num = String(vi + 1);
-    const desc = v.etapas[0]?.descricao ?? "Estrutura";
-    const desta = planas.filter((l) => l.vid === v.versao.id);
+  // o id do item é "<versão>-<posição na versão>", contando as etapas dela (é o que o editar item decifra)
+  const posicao = new Map<string, number>();
+  blocos.forEach(({ v, et }, bi) => {
+    const num = String(bi + 1);
+    const desc = et.descricao || "Estrutura";
+    const desta = planas.filter((l) => l.bloco === bi);
     const totalEtapa = desta.reduce((s, l) => s + l.total, 0);
     const base = { obra_id: o.id, versao_id: v.versao.id, etapa: num, codigo: "", fonte: "" };
-    itens.push({ ...base, id: `${v.versao.id}-0`, ordem: ordem++, tipo: "etapa", numero: num, nivel: 1, descricao: desc, unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: linha++, curva: null });
+    itens.push({ ...base, id: `${v.versao.id}-e${bi}`, ordem: ordem++, tipo: "etapa", numero: num, nivel: 1, descricao: desc, unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: linha++, curva: null });
     desta.forEach((l, k) => {
-      itens.push({ ...base, id: `${v.versao.id}-${k + 1}`, ordem: ordem++, tipo: "item", numero: `${num}.${k + 1}`, nivel: 2, descricao: l.nome, unidade: l.unidade, quantidade: l.quantidade, valor_unitario: l.valor_unitario, total: l.total, linha: linha++, curva: curvaDe.get(l) ?? null });
+      const pos = (posicao.get(v.versao.id) ?? 0) + 1;
+      posicao.set(v.versao.id, pos);
+      itens.push({ ...base, id: `${v.versao.id}-${pos}`, ordem: ordem++, tipo: "item", numero: `${num}.${k + 1}`, nivel: 2, descricao: l.nome, unidade: l.unidade, quantidade: l.quantidade, valor_unitario: l.valor_unitario, total: l.total, linha: linha++, curva: curvaDe.get(l) ?? null });
     });
     const aditivo = v.versao.tipo === "aditivo";
     etapas.push({ etapa: num, descricao: desc, contratado: aditivo ? 0 : totalEtapa, aditivos: aditivo ? totalEtapa : 0, atual: totalEtapa, saldo: totalEtapa, estourou: false, ...zero });
@@ -210,9 +213,16 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   };
 }
 
+/** Como a API compara nomes de etapa e de item: sem caixa, sem acento, sem espaço sobrando. */
+const normal = (t: string) => nomeChave(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+/** "concreto": o termo principal de uma descrição, para achar o mesmo material com outro nome. */
+const termoPrincipal = (d: string) => normal(d).split(" ").find((p) => p.length >= 3) ?? "";
+
 /**
- * Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, se a obra ainda não tem um, ou
- * aditivo, se já tem. Espelha o POST /obras/{id}/orcamento/estrutura da API. `aplicar: false` é a prévia.
+ * Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, se a obra ainda não tem um;
+ * somados ao contrato (um contrato novo no lugar dele, não aditivo), se ele ainda não foi aprovado; aditivo depois de
+ * aprovado. Espelha o POST /obras/{id}/orcamento/estrutura da API. `aplicar: false` é a prévia. O "parece repetir" é
+ * mais simples que o da API (mesma unidade e o mesmo termo principal): basta para a demo mostrar o aviso.
  */
 function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string, unknown>): PreviaVersao {
   const itens = (corpo.itens as MaterialDoProjeto[] | undefined) ?? [];
@@ -221,27 +231,45 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
   const aplicar = corpo.aplicar === true;
   const unidade = (x: string) => ({ m3: "m³", m2: "m²" })[x.trim().toLowerCase()] ?? x.trim();
 
-  const limpos = itens.map((x) => ({
+  const ignorar = new Set(Array.isArray(corpo.ignorar_itens) ? (corpo.ignorar_itens as unknown[]).map(Number) : []);
+  // a `ordem` de cada material é a posição dele no pedido (a etapa é a 0): é o que `ignorar_itens` aponta
+  const lidos = itens.map((x, i) => ({
+    ordem: i + 1,
     nome: String(x.nome ?? "").trim(),
     unidade: unidade(String(x.unidade ?? "")),
     quantidade: Number(x.quantidade) || 0,
     valor_unitario: Number(x.valor_unitario) || 0,
   }));
-  const temContrato = e.versoes.some((v) => v.versao.obra_id === o.id && v.versao.ativa && v.versao.tipo === "contrato");
-  const tipo: VersaoOrcamento["tipo"] = temContrato ? "aditivo" : "contrato";
+  const comOrdem = lidos.filter((x) => !ignorar.has(x.ordem));
+  const limpos = comOrdem.map(({ ordem: _ordem, ...x }) => x);
+  const vigente = e.versoes.find((v) => v.versao.obra_id === o.id && v.versao.ativa && v.versao.tipo === "contrato");
+  const somar = !!vigente && o.status === "em_orcamento";
+  const tipo: VersaoOrcamento["tipo"] = vigente && !somar ? "aditivo" : "contrato";
   const numero = tipo === "contrato" ? 0 : e.versoes.filter((v) => v.versao.obra_id === o.id && v.versao.ativa && v.versao.tipo === "aditivo").length + 1;
 
   const total = (q: number, val: number) => Math.round((q * val) / 1000);
   const somaTotal = limpos.reduce((s, x) => s + total(x.quantidade, x.valor_unitario), 0);
-  const previaItens = [
+  const existentes = somar ? vigente!.etapas.flatMap((et) => et.itens) : [];
+  const avisos: PreviaVersao["avisos"] = [];
+  const previaItens: PreviaVersao["itens"] = [
     { ordem: 0, tipo: "etapa" as const, numero: "1", nivel: 1, etapa: "1", codigo: "", fonte: "", descricao: etapaNome, unidade: "", quantidade: 0, valor_unitario: 0, total: 0, linha: 1 },
-    ...limpos.map((x, i) => ({ ordem: i + 1, tipo: "item" as const, numero: `1.${i + 1}`, nivel: 2, etapa: "1", codigo: "", fonte: "", descricao: x.nome, unidade: x.unidade, quantidade: x.quantidade, valor_unitario: x.valor_unitario, total: total(x.quantidade, x.valor_unitario), linha: i + 2 })),
+    ...comOrdem.map((x, i) => {
+      const igual = existentes.find((y) => y.unidade === x.unidade && termoPrincipal(y.nome) && termoPrincipal(y.nome) === termoPrincipal(x.nome));
+      if (igual) avisos.push({ linha: x.ordem + 1, mensagem: `${x.nome} parece repetir ${igual.nome}, que já está no orçamento.` });
+      return {
+        ordem: x.ordem, tipo: "item" as const, numero: `1.${i + 1}`, nivel: 2, etapa: "1", codigo: "", fonte: "", descricao: x.nome, unidade: x.unidade,
+        quantidade: x.quantidade, valor_unitario: x.valor_unitario, total: total(x.quantidade, x.valor_unitario), linha: x.ordem + 1,
+        repetido_de: igual ? { item_id: "", descricao: igual.nome, quantidade: igual.quantidade, unidade: igual.unidade } : null,
+      };
+    }),
   ];
   const base: PreviaVersao = {
-    aplicado: false, tipo, itens: previaItens, ignoradas: [], erros: [], avisos: [],
+    aplicado: false, tipo, itens: previaItens, ignoradas: [], erros: [], avisos,
     total: somaTotal, n_itens: limpos.length, n_etapas: 1,
     etapas: [{ etapa: "1", descricao: etapaNome, total: somaTotal }],
-    substitui: null, versao_id: null, registro_id: null,
+    substitui: somar ? { versao_id: vigente!.versao.id, total: vigente!.versao.total, itens: vigente!.versao.itens } : null,
+    ...(somar ? { total_apos: vigente!.versao.total + somaTotal } : {}),
+    versao_id: null, registro_id: null,
   };
   if (!aplicar) return base;
 
@@ -250,21 +278,33 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
   if (ja) return { ...base, aplicado: true, versao_id: ja.versao.id, registro_id: ja.versao.registro_id };
 
   const versaoId = uuid7();
+  // No somar, a etapa casa pelo nome (nunca pelo número): "Estrutura" de novo entra na Estrutura que já está lá.
+  const etapas: VersaoDemo["etapas"] = somar ? vigente!.etapas.map((et) => ({ descricao: et.descricao, itens: [...et.itens] })) : [];
+  const mesma = etapas.find((et) => normal(et.descricao) === normal(etapaNome));
+  if (mesma) mesma.itens.push(...limpos);
+  else etapas.push({ descricao: etapaNome, itens: limpos });
+  const todos = etapas.flatMap((et) => et.itens);
   const vd: VersaoDemo = {
     versao: {
       id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
-      data: hojeSP().slice(0, 10), arquivo: `${etapaNome} (projeto).csv`, itens: limpos.length, etapas: 1,
-      total: somaTotal, ativa: true, substitui: null, registro_id: null, criado_em: agoraISO(),
+      data: hojeSP().slice(0, 10), arquivo: `${etapaNome} (projeto).csv`, itens: todos.length, etapas: etapas.length,
+      total: todos.reduce((s, x) => s + total(x.quantidade, x.valor_unitario), 0), ativa: true, substitui: somar ? vigente!.versao.id : null,
+      registro_id: null, criado_em: agoraISO(),
     },
-    etapas: [{ descricao: etapaNome, itens: limpos }],
+    etapas,
     chave,
   };
+  if (somar) vigente!.versao.ativa = false;
   e.versoes.push(vd);
+  const n = `${limpos.length} ${limpos.length === 1 ? "item" : "itens"}`;
   const reg = registrar(e, u, {
     obra_id: o.id,
-    texto: `Lançou a estrutura do projeto como ${tipo === "contrato" ? "contrato" : `aditivo ${numero}`} (${limpos.length} ${limpos.length === 1 ? "item" : "itens"}, ${fmtReais(somaTotal)})`,
+    texto: somar
+      ? `Somou ${n} ao orçamento de ${o.nome} (+${fmtReais(somaTotal)})`
+      : `Lançou a estrutura do projeto como ${tipo === "contrato" ? "contrato" : `aditivo ${numero}`} (${n}, ${fmtReais(somaTotal)})`,
     proposta_id: null,
-    desfazer: { op: "desfazer_versao", versao_id: versaoId },
+    // o Desfazer do somar reativa o orçamento de antes, como a API
+    desfazer: { op: "desfazer_versao", versao_id: versaoId, ...(somar ? { reativar: vigente!.versao.id } : {}) },
     origem: "tela",
   });
   vd.versao.registro_id = reg.id;
@@ -1035,8 +1075,13 @@ export function desfazer(registroId: string, u: Usuario) {
     const vd = e.versoes.find((v) => v.versao.id === vid);
     if (!vd) throw new NaoEncontrado("Versão do orçamento não encontrada.");
     if (!vd.versao.ativa) throw new Conflito("Esta versão do orçamento já foi desfeita.");
+    const reativar = (ent.desfazer as { reativar?: string }).reativar;
+    const anterior = reativar ? e.versoes.find((v) => v.versao.id === reativar) : undefined;
     vd.versao.ativa = false;
-    texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
+    if (anterior) {
+      anterior.versao.ativa = true;
+      texto = `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`;
+    } else texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
   } else if (d.op === "reabrir_orcamento") {
     const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);
     if (o.status !== "em_andamento") throw new Conflito("A obra já mudou de status; não dá para reabrir o orçamento.");

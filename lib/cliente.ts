@@ -185,11 +185,13 @@ export const api = {
   materiaisDoProjeto: (obraId: string, origem: string, itens: MaterialDoProjeto[], aplicar: boolean) =>
     chamar<PreviaOrcamento>("POST", `/obras/${seg(obraId)}/orcamento/materiais`, { origem, itens, aplicar }),
   /** Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, ou aditivo se já houver. */
-  estruturaDoProjeto: (obraId: string, itens: MaterialDoProjeto[], aplicar: boolean, chaveIdempotencia?: string) =>
+  /** Antes de aprovar, com orçamento já lançado, a API soma (`total_apos` na prévia); depois de aprovar, é aditivo. */
+  estruturaDoProjeto: (obraId: string, itens: MaterialDoProjeto[], aplicar: boolean, chaveIdempotencia?: string, ignorarItens?: number[]) =>
     chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/estrutura`, {
       itens,
       aplicar,
       ...(chaveIdempotencia ? { chave_idempotencia: chaveIdempotencia } : {}),
+      ...(ignorarItens?.length ? { ignorar_itens: ignorarItens } : {}),
     }),
   /** Corrige quantidade ou preço de um item vigente; o total da linha e o da versão quem refaz é a API. */
   editarItemOrcamento: (obraId: string, itemId: string, corpo: CorpoEditarItem) =>
@@ -213,6 +215,8 @@ export const api = {
     f.set("aplicar", String(corpo.aplicar));
     if (corpo.chave_idempotencia) f.set("chave_idempotencia", corpo.chave_idempotencia);
     if (corpo.etapas_itens && Object.keys(corpo.etapas_itens).length) f.set("etapas_itens", JSON.stringify(corpo.etapas_itens));
+    if (corpo.somar) f.set("somar", "true");
+    if (corpo.ignorar_itens?.length) f.set("ignorar_itens", JSON.stringify(corpo.ignorar_itens));
     return chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/versoes`, f);
   },
   cronograma: (obraId: string) => chamar<Cronograma>("GET", `/obras/${seg(obraId)}/cronograma`),

@@ -43,7 +43,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const { versao, podeOperar, avisarFeito, mudou, avisar } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
-  const [modal, setModal] = useState<"importar" | "aprovar" | null>(null);
+  const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(null);
 
   const dado = orc.dado;
   const materiais = (ins.dado ?? []).filter((i) => i.insumo.precisa_ate_o_fim > 0);
@@ -152,11 +152,12 @@ export function Orcamento({ obra }: { obra: Obra }) {
               <div>
                 <p>
                   <b>Este orçamento tem só o que as pranchas trazem: estrutura e fundações.</b> Cobertura, piso, instalações e mão de obra ainda não estão nele.
-                  {podeOperar ? " Para completar, importe a planilha da obra (também fica no ⋯)." : ""}
+                  {podeOperar && emOrcamento ? " Para completar, some a planilha da obra a ele." : ""}
                 </p>
-                {podeOperar ? (
-                  <button type="button" className="btn sm" onClick={() => setModal("importar")}>
-                    Importar planilha
+                {/* direto ao somar: é o caminho de quem quer completar, sem a pergunta "o que é esta planilha" */}
+                {podeOperar && emOrcamento ? (
+                  <button type="button" className="btn sm" onClick={() => setModal("somar")}>
+                    Somar a planilha da obra
                   </button>
                 ) : null}
               </div>
@@ -190,7 +191,7 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </>
       ) : null}
 
-      {modal === "importar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} /> : null}
+      {modal === "importar" || modal === "somar" ? <ImportarOrcamento obra={obra} fechar={() => setModal(null)} inicio={modal === "somar" ? "somar" : undefined} /> : null}
       {modal === "aprovar" ? (
         <Confirmar titulo="Aprovar o orçamento?" confirmar={nSemPreco ? "Aprovar mesmo assim" : "Aprovar orçamento"} fechar={() => setModal(null)} aoConfirmar={aprovar}>
           <div className="prev-resumo">

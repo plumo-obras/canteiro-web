@@ -236,10 +236,40 @@ describe("Materiais das pranchas", () => {
     montar();
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
     const dialogo = await screen.findByRole("dialog", { name: "Levar os materiais para o orçamento?" });
-    expect(dialogo).toHaveTextContent("já tem orçamento inicial: os materiais entram como aditivo");
+    expect(dialogo).toHaveTextContent("já tem orçamento aprovado: os materiais entram como aditivo");
     await u.click(within(dialogo).getByRole("button", { name: /Lançar aditivo de R\$\s1\.473,81/ }));
     expect(await screen.findByText("Materiais das pranchas no orçamento, como aditivo.")).toBeInTheDocument();
     expect((escritas(rede).at(-1)!.corpo as { aplicar: boolean }).aplicar).toBe(true);
+  });
+
+  it("antes de aprovar, com orçamento já lançado: soma (não é aditivo) e deixa tirar o que parece repetido", async () => {
+    const ACO = { ordem: 2, tipo: "item", numero: "1.21", nivel: 2, etapa: "1", codigo: "", fonte: "", descricao: NOME_ACO, unidade: "kg", quantidade: 220300,
+      valor_unitario: 669, total: 147381, linha: 3, repetido_de: { item_id: "it-1", descricao: "Aço CA-50", quantidade: 1_850_000, unidade: "kg" } };
+    const somar = ({ corpo }: { corpo: unknown }) => {
+      const c = corpo as { aplicar: boolean; ignorar_itens?: number[] };
+      const fora = c.ignorar_itens?.includes(2);
+      const total = fora ? 0 : 147381;
+      return json({ ...previa(c.aplicar, "contrato"), total, n_itens: fora ? 1 : 2, itens: fora ? [] : [ACO], substitui: { versao_id: "v0", total: 2_000_000, itens: 30 }, total_apos: 2_000_000 + total });
+    };
+    const rede = criarRede(rotas({ "POST /srv/api/obras/o-1/orcamento/estrutura": somar }));
+    const u = userEvent.setup();
+    montar();
+    await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Levar os materiais para o orçamento?" });
+    expect(dialogo).toHaveTextContent("ainda não aprovado: os materiais somam a ele, na etapa Estrutura, e ele fica com R$ 21.473,81.");
+    expect(dialogo).not.toHaveTextContent("aditivo");
+    expect(dialogo).toHaveTextContent("1 material parece já estar no orçamento.");
+
+    await u.click(within(dialogo).getByRole("checkbox", { name: /Não levar Aço CA-50 Ø 10,0 mm/ }));
+    expect(await within(dialogo).findByRole("button", { name: "Somar ao orçamento (+R$ 0,00)" })).toBeInTheDocument();
+    expect(within(dialogo).getByRole("checkbox", { name: /Não levar Aço/ })).toBeChecked();
+    expect((escritas(rede).at(-1)!.corpo as { ignorar_itens: number[] }).ignorar_itens).toEqual([2]);
+
+    await u.click(within(dialogo).getByRole("button", { name: "Somar ao orçamento (+R$ 0,00)" }));
+    expect(await screen.findByText("Materiais das pranchas somados ao orçamento.")).toBeInTheDocument();
+    const gravou = escritas(rede).at(-1)!.corpo as { aplicar: boolean; ignorar_itens: number[]; chave_idempotencia: string };
+    expect(gravou).toMatchObject({ aplicar: true, ignorar_itens: [2] });
+    expect(gravou.chave_idempotencia).toBeTruthy();
   });
 
   it("os mesmos materiais já no orçamento: não oferece lançar de novo", async () => {

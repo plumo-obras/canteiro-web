@@ -56,13 +56,13 @@ describe("avisos do Orçamento", () => {
     montar(orc(PRANCHAS, [500]));
     expect(await screen.findByText(/só o que as pranchas trazem/)).toBeInTheDocument();
     expect(screen.getByRole("note")).toHaveTextContent("Cobertura, piso, instalações e mão de obra ainda não estão nele.");
-    expect(within(screen.getByRole("note")).getByRole("button", { name: "Importar planilha" })).toBeInTheDocument();
+    expect(within(screen.getByRole("note")).getByRole("button", { name: "Somar a planilha da obra" })).toBeInTheDocument();
   });
 
   it("viewer lê o aviso, sem o botão de importar", async () => {
     montar(orc(PRANCHAS, [500]), { ...USUARIO, papel: "viewer" });
     expect(await screen.findByText(/só o que as pranchas trazem/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Importar planilha" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Somar a planilha da obra" })).toBeNull();
   });
 
   it("aditivo de verdade: % neutro sobre o orçamento aprovado, sem citar lei nem pintar de vermelho", async () => {

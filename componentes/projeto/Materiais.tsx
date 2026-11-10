@@ -3,11 +3,12 @@
  * Os materiais que saem das pranchas: o que o projeto estrutural pede para sair do papel (aço por bitola, concreto,
  * forma, enchimento), cada um com o insumo do SINAPI que é o mesmo produto e o preço de referência na UF da obra.
  * Nada vai para o orçamento sozinho: o cartão mostra quantos saíram, e só o clique confirmado grava. Numa obra que já
- * tem orçamento inicial, a gravação vira aditivo, e isso não pode acontecer sem a pessoa ver.
+ * tem orçamento, a gravação soma a ele (antes de aprovar) ou vira aditivo (depois), e isso não pode acontecer sem a
+ * pessoa ver; o que parece repetir um item do orçamento vem marcado para ficar de fora.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/cliente";
-import type { MaterialDoProjeto, Obra, Orcamento, PreviaVersao } from "@/lib/contrato";
+import type { ItemPrevia, MaterialDoProjeto, Obra, Orcamento, PreviaVersao } from "@/lib/contrato";
 import { fmtReais } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
 import { tradutor, type MateriaisProjeto, type MaterialProjeto } from "@/lib/tradutor";
@@ -180,6 +181,8 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
   const [vendo, setVendo] = useState(false);
   const [preparando, setPreparando] = useState(false);
   const [previa, setPrevia] = useState<PreviaVersao | null>(null);
+  // Os marcados "não levar": a API os tira da prévia, a cópia fica aqui para a caixa continuar à vista e desmarcável.
+  const [ignorados, setIgnorados] = useState<Record<string, ItemPrevia>>({});
   // Vale até dar certo: se a API gravou e a resposta se perdeu, repetir com a mesma chave não duplica o aditivo. Depois
   // de gravar ela é trocada, porque depois de um Desfazer a mesma chave devolveria a versão desfeita sem gravar nada.
   // Materiais diferentes pedem outra: a API recusa a chave já usada para outro conteúdo.
@@ -192,14 +195,18 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
   const semQuantidade = dados.itens.length - todos.length;
   const semPreco = todos.filter((m) => !m.valor_unitario).length;
 
-  // A prévia vem antes do diálogo: é a API que diz se entra como orçamento inicial ou aditivo, e por quanto.
-  async function preparar() {
+  const ordens = (ign: Record<string, ItemPrevia>) => Object.keys(ign).map(Number).sort((a, b) => a - b);
+
+  // A prévia vem antes do diálogo: é a API que diz se entra como orçamento inicial, soma ou aditivo, e por quanto.
+  async function preparar(ign: Record<string, ItemPrevia> = {}) {
     setPreparando(true);
     try {
-      const p = await api.estruturaDoProjeto(obra.id, todos, false);
+      const p = await api.estruturaDoProjeto(obra.id, todos, false, undefined, ordens(ign));
       if (p.erros.length) return avisar(p.erros[0]!.mensagem, true);
-      const conteudo = assinatura(todos);
+      // tirar um item muda o conteúdo gravado: a API recusa a mesma chave para outro conteúdo
+      const conteudo = `${assinatura(todos)}|${ordens(ign).join(",")}`;
       if (chave.current?.conteudo !== conteudo) chave.current = { conteudo, valor: uuid7() };
+      setIgnorados(ign);
       setPrevia(p);
     } catch (e) {
       avisar(mensagemDe(e), true);
@@ -211,18 +218,29 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
   async function levar() {
     let r: PreviaVersao;
     try {
-      r = await api.estruturaDoProjeto(obra.id, todos, true, chave.current!.valor);
+      r = await api.estruturaDoProjeto(obra.id, todos, true, chave.current!.valor, ordens(ignorados));
     } catch (e) {
       mudou(); // a resposta pode ter se perdido com a gravação feita: relê o orçamento para o cartão mostrar o que valeu
       throw e;
     }
     if (!r.aplicado) throw new Error(r.erros[0]?.mensagem ?? "Os materiais não entraram no orçamento. Tente de novo.");
+    const somou = previa?.total_apos != null;
     chave.current = null;
     acabouDeLevar.current = true;
     setPrevia(null);
+    setIgnorados({});
     mudou();
-    avisarFeito(`Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "orçamento inicial"}.`, r.registro_id);
+    avisarFeito(
+      somou ? "Materiais das pranchas somados ao orçamento." : `Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "orçamento inicial"}.`,
+      r.registro_id,
+    );
   }
+
+  const alternar = (i: ItemPrevia) => {
+    const k = String(i.ordem);
+    const { [k]: tirado, ...resto } = ignorados;
+    void preparar(tirado ? resto : { ...ignorados, [k]: i });
+  };
 
   const ver = (
     <button type="button" className="btn" onClick={() => setVendo(true)}>
@@ -244,7 +262,7 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
       >
         {ver}
         {podeOperar && !levado ? (
-          <button type="button" className={destacarLevar ? "btn amb" : "btn"} disabled={preparando} aria-busy={preparando} onClick={preparar}>
+          <button type="button" className={destacarLevar ? "btn amb" : "btn"} disabled={preparando} aria-busy={preparando} onClick={() => preparar()}>
             {preparando ? <Icone nome="loader" className="spin" tam={14} /> : null}
             Levar para o orçamento…
           </button>
@@ -259,14 +277,23 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
       {previa ? (
         <Confirmar
           titulo="Levar os materiais para o orçamento?"
-          confirmar={previa.tipo === "aditivo" ? `Lançar aditivo de ${fmtReais(previa.total)}` : "Levar para o orçamento"}
-          fechar={() => setPrevia(null)}
+          confirmar={
+            previa.total_apos != null
+              ? `Somar ao orçamento (+${fmtReais(previa.total)})`
+              : previa.tipo === "aditivo"
+                ? `Lançar aditivo de ${fmtReais(previa.total)}`
+                : "Levar para o orçamento"
+          }
+          fechar={() => {
+            setPrevia(null);
+            setIgnorados({});
+          }}
           aoConfirmar={levar}
         >
           <div className="prev-resumo">
             <div>
               <span className="prev-n">{fmtReais(previa.total)}</span>
-              <span>{previa.tipo === "aditivo" ? "de aditivo" : "no orçamento inicial"}</span>
+              <span>{previa.total_apos != null ? "a somar" : previa.tipo === "aditivo" ? "de aditivo" : "no orçamento inicial"}</span>
             </div>
             <div>
               <span className="prev-n">{previa.n_itens.toLocaleString("pt-BR")}</span>
@@ -274,9 +301,11 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
             </div>
           </div>
           <p style={{ margin: "4px 0 0" }}>
-            {previa.tipo === "aditivo"
-              ? `Esta obra já tem orçamento inicial: os materiais entram como aditivo, na etapa ${ETAPA}, e somam ao orçado atual.`
-              : `Os materiais viram a etapa ${ETAPA} do orçamento inicial desta obra.`}
+            {previa.total_apos != null
+              ? `Esta obra já tem orçamento, ainda não aprovado: os materiais somam a ele, na etapa ${ETAPA}, e ele fica com ${fmtReais(previa.total_apos)}.`
+              : previa.tipo === "aditivo"
+                ? `Esta obra já tem orçamento aprovado: os materiais entram como aditivo, na etapa ${ETAPA}, e somam ao orçado atual.`
+                : `Os materiais viram a etapa ${ETAPA} do orçamento inicial desta obra.`}
             {situacao === "anterior" ? ` A ${ETAPA} de pranchas anteriores continua valendo: para trocar, desfaça a anterior antes.` : ""}
           </p>
           {semQuantidade || semPreco ? (
@@ -289,8 +318,38 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
                 .join(" ")}
             </p>
           ) : null}
+          <RepetidosDasPranchas previa={previa} ignorados={ignorados} alternar={alternar} ocupado={preparando} />
         </Confirmar>
       ) : null}
     </>
+  );
+}
+
+/** O que parece já estar no orçamento (o concreto e o aço da planilha da obra, por exemplo): levar de novo conta em dobro. */
+function RepetidosDasPranchas(p: { previa: PreviaVersao; ignorados: Record<string, ItemPrevia>; alternar: (i: ItemPrevia) => void; ocupado: boolean }) {
+  const lista = [...p.previa.itens.filter((i) => i.tipo === "item" && i.repetido_de), ...Object.values(p.ignorados)].sort((a, b) => a.ordem - b.ordem);
+  if (!lista.length) return null;
+  return (
+    <div className="aviso-atencao" role="note" style={{ marginTop: 10 }}>
+      <Icone nome="alert" tam={15} />
+      <div>
+        <p>
+          <b>{lista.length === 1 ? "1 material parece já estar no orçamento." : `${lista.length} materiais parecem já estar no orçamento.`}</b> Levar de novo conta em
+          dobro: marque o que deve ficar de fora.
+        </p>
+        <ul className="lista-repetidos">
+          {lista.map((i) => (
+            <li key={i.ordem}>
+              <label className="adt-ignorar">
+                <input type="checkbox" checked={String(i.ordem) in p.ignorados} disabled={p.ocupado} onChange={() => p.alternar(i)} />
+                <span>
+                  Não levar {i.descricao} <span className="mut">· no orçamento: {i.repetido_de!.descricao}</span>
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
