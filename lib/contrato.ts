@@ -246,6 +246,11 @@ export interface PreviaVersao {
   substitui: { versao_id: string; total: Centavos; itens: number } | null;
   /** Só na prévia do somar: o orçamento depois de somar (o vigente + `total`). */
   total_apos?: Centavos | null;
+  /**
+   * Só no somar que reordena: {chave de etapa da prévia: número com que ela é gravada}, das que mudam. As chaves
+   * continuam valendo em `etapas_itens`; o número daqui é o que a tela mostra.
+   */
+  numeracao?: Record<string, string>;
   versao_id: string | null;
   registro_id: string | null;
 }
