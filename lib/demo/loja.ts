@@ -1145,7 +1145,7 @@ export function desfazer(registroId: string, u: Usuario) {
       anterior.versao.ativa = true;
       texto = vd.versao.origem === "somar"
         ? `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`
-        : `Desfeito: as etapas voltaram à ordem de antes`;
+        : `Desfeito: as etapas do orçamento de ${e.obras.find((x) => x.id === vd.versao.obra_id)?.nome ?? "a obra"} voltaram à ordem de antes`;
     } else texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;
   } else if (d.op === "reabrir_orcamento") {
     const o = obraPorId(e, (ent.desfazer as { obra_id: string }).obra_id);

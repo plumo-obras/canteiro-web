@@ -184,13 +184,14 @@ describe("ordem das etapas antes de aprovar", () => {
     itens: [],
     etapas: nomes.map((d, i) => etapa(String(i + 1), d)),
   });
-  const montarOrdem = (obra: Obra, usuario: Usuario = USUARIO) => {
+  const montarOrdem = (obra: Obra, usuario: Usuario = USUARIO, recusa?: string) => {
     let atual = ["Estrutura", "Serviços preliminares", "Fundação"];
     const rede = criarRede({
       "POST /srv/auth/renovar": renovarOk,
       "GET /srv/api/obras/o1/orcamento": () => json(dados(atual)),
       "GET /srv/api/obras/o1/insumos": () => json([]),
       "POST /srv/api/obras/o1/orcamento/etapas/ordem": ({ corpo }) => {
+        if (recusa) return json({ detail: recusa }, 409);
         const ordem = (corpo as { ordem: string[] }).ordem;
         atual = ordem.map((k) => atual[Number(k) - 1]!);
         return json({ versao_id: "v9", registro_id: "r9", etapas: atual.map((d, i) => ({ etapa: String(i + 1), descricao: d })) }, 201);
@@ -215,6 +216,14 @@ describe("ordem das etapas antes de aprovar", () => {
     expect(post.corpo).toMatchObject({ ordem: ["2", "1", "3"], chave_idempotencia: expect.any(String) });
     await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole("button", { name: "Descer Estrutura" })).toHaveFocus());
+  });
+
+  it("etapa com lançamento: o 409 da API aparece como veio, e a ordem não muda", async () => {
+    const DETAIL = "Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa 1 Estrutura: renumerar levaria o lançamento para outra etapa.";
+    montarOrdem(OBRA, USUARIO, DETAIL);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Descer Estrutura" }));
+    expect(await screen.findByText(DETAIL)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 1 de 3" })).toBeInTheDocument();
   });
 
   it("aprovado: sem as setas", async () => {
