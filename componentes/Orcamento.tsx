@@ -33,8 +33,14 @@ export const soDasPranchas = (versoes: Pick<VersaoOrcamento, "ativa" | "arquivo"
   const vigentes = versoes.filter((v) => v.ativa);
   return vigentes.length > 0 && vigentes.every((v) => v.arquivo.endsWith(SUFIXO_PROJETO));
 };
-/** O arquivo como a pessoa o reconhece: o "Estrutura (projeto).csv" é nome interno de quem lançou as pranchas. */
-export const nomeArquivo = (arquivo: string) => (arquivo.endsWith(SUFIXO_PROJETO) ? "Materiais das pranchas" : arquivo);
+/**
+ * O nome da versão para a pessoa. A API manda pronto (`rotulo`); a de antes não, e aí o "Estrutura (projeto).csv",
+ * que é o nome interno das pranchas, não pode aparecer.
+ */
+export const rotuloVersao = (v: Pick<VersaoOrcamento, "rotulo" | "descricao" | "arquivo">) =>
+  v.rotulo || (v.arquivo.endsWith(SUFIXO_PROJETO) ? "Materiais das pranchas" : v.descricao);
+/** O arquivo enviado; o das pranchas não é arquivo de ninguém (o rótulo já diz de onde veio). */
+const arquivoEnviado = (arquivo: string) => (arquivo.endsWith(SUFIXO_PROJETO) ? "" : arquivo);
 export const fmtData = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
@@ -423,11 +429,12 @@ function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]
 
   /** O que muda de fato ao desfazer: com um clique só, a pessoa tirava o contrato de vigência sem saber. */
   const consequencia = (v: VersaoOrcamento) => {
+    if (v.desfazer_texto) return v.desfazer_texto;
     if (v.tipo === "aditivo") return `O ${nomeVersao(v)} sai de vigência e o orçado atual volta para ${fmtReais(atual - v.total)}.`;
     const anterior = versoes.find((o) => o.id === v.substitui);
-    if (anterior && v.somou) return `Volta o orçamento para antes de somar a planilha (${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}).`;
+    const nomeAnterior = anterior ? rotuloVersao(anterior) : "";
     return anterior
-      ? `O orçamento inicial sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${anterior.arquivo ? ` (${nomeArquivo(anterior.arquivo)})` : ""}.`
+      ? `O orçamento inicial sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${nomeAnterior ? ` (${nomeAnterior})` : ""}.`
       : "O orçamento inicial sai de vigência e a obra fica sem orçamento: os pedidos e saídas perdem a lista de etapas até importar de novo.";
   };
 
@@ -446,11 +453,11 @@ function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]
         <div className="orc-v-t">
           <div>
             <b>{nomeVersao(v)}</b>
-            {v.descricao ? <span>: {v.descricao}</span> : null}
+            {rotuloVersao(v) ? <span>: {rotuloVersao(v)}</span> : null}
             <span className={`pill ${st === "vigente" ? "st-ok" : "st-orc"}`}>{st}</span>
           </div>
           <div className="mut sm">
-            {[fmtData(v.data), plural(v.itens, "item", "itens"), plural(v.etapas, "etapa", "etapas"), v.arquivo && nomeArquivo(v.arquivo)].filter(Boolean).join(" · ")}
+            {[fmtData(v.data), plural(v.itens, "item", "itens"), plural(v.etapas, "etapa", "etapas"), arquivoEnviado(v.arquivo)].filter(Boolean).join(" · ")}
           </div>
         </div>
         <span className="num orc-v-n">{v.tipo === "aditivo" ? comSinal(v.total) : fmtReais(v.total)}</span>

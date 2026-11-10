@@ -157,20 +157,20 @@ describe("versões depois de somar a planilha", () => {
   const somado = () => {
     const d = orc("planilha.xlsx", [500, 700]);
     d.versoes = [
-      { ...d.versoes[0]!, id: "v2", total: 120000, itens: 2, registro_id: "r2", substitui: "v1", somou: true } as (typeof d.versoes)[number],
+      { ...d.versoes[0]!, id: "v2", total: 120000, itens: 2, registro_id: "r2", substitui: "v1", origem: "somar", rotulo: "Orçamento com a planilha somada", desfazer_texto: "Volta o orçamento para antes de somar a planilha (R$ 500,00, 1 item)." } as (typeof d.versoes)[number],
       { ...d.versoes[0]!, arquivo: PRANCHAS, ativa: false, total: 50000, itens: 1, registro_id: "r1" },
     ];
     return d;
   };
 
-  it("a versão das pranchas aparece como Materiais das pranchas, sem o nome interno do arquivo", async () => {
+  it("a versão das pranchas aparece como Materiais das pranchas, sem o nome interno do arquivo (mesmo na API antiga, sem rótulo)", async () => {
     montar(somado());
     const versoes = await screen.findByRole("region", { name: "Versões do orçamento" });
     expect(within(versoes).getAllByText(/Materiais das pranchas/).length).toBeGreaterThan(0);
     expect(within(versoes).queryByText(/\(projeto\)\.csv/)).toBeNull();
   });
 
-  it("o Desfazer do somar diz que volta para antes de somar, com o total e os itens de antes", async () => {
+  it("o Desfazer do somar mostra o texto que a API mandou", async () => {
     montar(somado());
     await userEvent.setup().click(await screen.findByRole("button", { name: "Desfazer Orçamento inicial" }));
     expect(await screen.findByText("Volta o orçamento para antes de somar a planilha (R$ 500,00, 1 item).")).toBeInTheDocument();

@@ -157,7 +157,7 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   const zero = { cotando: 0, comprometido: 0, realizado: 0 };
   const versoesDaObra = e.versoes.filter((v) => v.versao.obra_id === o.id);
   const ativas = versoesDaObra.filter((v) => v.versao.ativa);
-  const metas = versoesDaObra.map((v) => v.versao);
+  const metas = versoesDaObra.map((v) => ({ ...v.versao, ...textosDaVersao(v.versao, versoesDaObra.map((x) => x.versao)) }));
   if (!ativas.length)
     return { versoes: metas, itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
 
@@ -289,7 +289,7 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
       id: versaoId, obra_id: o.id, tipo, numero, descricao: etapaNome,
       data: hojeSP().slice(0, 10), arquivo: `${etapaNome} (projeto).csv`, itens: todos.length, etapas: etapas.length,
       total: todos.reduce((s, x) => s + total(x.quantidade, x.valor_unitario), 0), ativa: true, substitui: somar ? vigente!.versao.id : null,
-      registro_id: null, criado_em: agoraISO(), ...(somar ? { somou: true } : {}),
+      registro_id: null, criado_em: agoraISO(), ...(somar ? { origem: "somar" as const } : {}),
     },
     etapas,
     chave,
@@ -309,6 +309,22 @@ function lancarEstrutura(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<strin
   });
   vd.versao.registro_id = reg.id;
   return { ...base, aplicado: true, versao_id: versaoId, registro_id: reg.id };
+}
+
+/** O nome da versão e o que o Desfazer dela faz, como a API (`_textos_da_versao`): sem o nome interno das pranchas. */
+function textosDaVersao(v: VersaoOrcamento, versoes: VersaoOrcamento[]): Pick<VersaoOrcamento, "rotulo" | "desfazer_texto"> {
+  const dasPranchas = v.arquivo.endsWith(" (projeto).csv");
+  const anterior = versoes.find((x) => x.id === v.substitui);
+  const nItens = (n: number) => `${n} ${n === 1 ? "item" : "itens"}`;
+  if (v.origem === "reordenar") return { rotulo: "Etapas reordenadas", desfazer_texto: "Volta as etapas do orçamento para a ordem de antes." };
+  if (v.origem === "somar") {
+    const oQue = dasPranchas ? "os materiais das pranchas" : "a planilha";
+    return {
+      rotulo: `Orçamento com ${oQue} somad${dasPranchas ? "os" : "a"}`,
+      desfazer_texto: anterior ? `Volta o orçamento para antes de somar ${oQue} (${fmtReais(anterior.total)}, ${nItens(anterior.itens)}).` : null,
+    };
+  }
+  return { rotulo: dasPranchas ? "Materiais das pranchas" : v.descricao || v.arquivo || "Orçamento", desfazer_texto: null };
 }
 
 /**
@@ -338,7 +354,7 @@ function ordenarEtapas(e: EstadoDemo, u: Usuario, o: Obra, corpo: Record<string,
 
   const versaoId = uuid7();
   const vd: VersaoDemo = {
-    versao: { ...vigente.versao, id: versaoId, substitui: vigente.versao.id, registro_id: null, criado_em: agoraISO(), somou: undefined },
+    versao: { ...vigente.versao, id: versaoId, substitui: vigente.versao.id, registro_id: null, criado_em: agoraISO(), origem: "reordenar" },
     etapas: ordem.map((k) => {
       const et = vigente.etapas[Number(k) - 1]!;
       return { descricao: et.descricao, itens: et.itens.map((x) => ({ ...x })) };
@@ -1127,7 +1143,7 @@ export function desfazer(registroId: string, u: Usuario) {
     vd.versao.ativa = false;
     if (anterior) {
       anterior.versao.ativa = true;
-      texto = vd.versao.somou
+      texto = vd.versao.origem === "somar"
         ? `Desfeito: os itens somados ao orçamento saíram (o anterior volta a valer)`
         : `Desfeito: as etapas voltaram à ordem de antes`;
     } else texto = `Desfeito: ${vd.versao.tipo === "contrato" ? "contrato" : `aditivo ${vd.versao.numero}`} «${vd.versao.descricao}» removido do orçamento`;

@@ -527,7 +527,12 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     expect(depois.totais).toMatchObject({ aditivos: 0, aditivos_pct: 0, n_etapas: 1, atual: antes.totais.atual + Math.round((ACO.quantidade * ACO.valor_unitario) / 1000) });
     expect(depois.itens.filter((i) => i.tipo === "item").map((i) => i.descricao)).toEqual(["Concreto C25", ACO.nome]);
     expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
-    expect(depois.versoes.find((v) => v.ativa)!.somou).toBe(true);
+    expect(depois.versoes.find((v) => v.ativa)).toMatchObject({
+      origem: "somar",
+      rotulo: "Orçamento com os materiais das pranchas somados",
+      desfazer_texto: expect.stringMatching(/^Volta o orçamento para antes de somar os materiais das pranchas \(R\$ [\d.,]+, 1 item\)\.$/),
+    });
+    expect(depois.versoes.find((v) => !v.ativa)).toMatchObject({ rotulo: "Materiais das pranchas", desfazer_texto: null });
     expect(e.registro.at(-1)!.texto).toMatch(/^Somou 1 item ao orçamento de Casa Teste \(\+R\$/);
 
     chamar("POST", `registro/${gravou.registro_id}/desfazer`);
@@ -556,6 +561,7 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     expect(depois.versoes.filter((v) => v.ativa)).toHaveLength(1);
     expect(depois.totais.atual).toBe(antes.totais.atual);
     expect(e.registro.at(-1)!.texto).toBe("Reordenou as etapas do orçamento de Casa Teste");
+    expect(depois.versoes.find((v) => v.ativa)).toMatchObject({ origem: "reordenar", rotulo: "Etapas reordenadas" });
 
     chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`);
     const final = chamar("GET", `obras/${o.id}/orcamento`).corpo as O;

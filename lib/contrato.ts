@@ -184,8 +184,12 @@ export interface VersaoOrcamento {
   /** A EntradaRegistro da importação: o Desfazer da versão usa este ID. */
   registro_id: string | null;
   criado_em: DataISO;
-  /** Contrato gravado pelo somar (o vigente + a planilha). Ausente na API antiga. */
-  somou?: boolean;
+  /** Contrato gravado pelo somar (planilha ou pranchas) ou pela ordem das etapas. Ausente na API antiga. */
+  origem?: "somar" | "reordenar" | null;
+  /** O nome da versão para a pessoa ("Materiais das pranchas", "Etapas reordenadas"). Ausente na API antiga. */
+  rotulo?: string;
+  /** O que o Desfazer desta versão faz, pronto; null = a tela diz o dela. */
+  desfazer_texto?: string | null;
 }
 
 export interface ItemPrevia {
