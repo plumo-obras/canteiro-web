@@ -321,7 +321,7 @@ function proporCronogramaDemo(e: EstadoDemo, o: Obra): Proposta {
     titulo: `Cronograma de ${o.nome}`,
     conta: `${orc.etapas.length} ${orc.etapas.length === 1 ? "etapa" : "etapas"} · ${meses} ${meses === 1 ? "mês" : "meses"} · término ${somarMes(inicio, meses - 1)}`,
     justificativa: "Sequenciei as etapas por fase de obra, com a duração proporcional ao valor.",
-    fonte: "agente",
+    fonte: "orçamento da obra (etapas e valores)",
     dados: { inicio, meses, etapas },
     sugerido_por: "Agente",
     status: "pendente",

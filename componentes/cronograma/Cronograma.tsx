@@ -144,22 +144,27 @@ export function Cronograma({ obra }: { obra: Obra }) {
       ) : !dado ? null : editando ? (
         <EditorCronograma obra={obra} crono={modo.k === "editar" && modo.proposta ? modo.proposta : dado} meses={modo.meses} aditivoPrazo={modo.aditivoPrazo} fechar={() => setModo({ k: "ver" })} />
       ) : !tem ? (
-        <div className="card vazio">
-          <Icone nome="calendario" tam={24} />
-          <h3>Sem cronograma ainda</h3>
-          {dado.etapas.length ? (
-            <p>
-              O <b>Gerar com IA</b> lê o orçamento e propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a duração proporcional ao valor. Você <b>revisa e aprova</b> — como qualquer proposta do agente. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
+        iaProp ? (
+          <section aria-label="Proposta de cronograma da IA">
+            <p className="mut sm" style={{ margin: "4px 2px 12px" }}>
+              A IA preparou o cronograma a partir do orçamento. Revise e <b>aprove</b> — ou recuse e peça outro.
             </p>
-          ) : (
-            <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
-          )}
-          {podeOperar && dado.etapas.length ? (
-            iaProp ? (
-              <div style={{ marginTop: 16, width: "100%", maxWidth: 560 }}>
-                <CartaoProposta id={iaProp} />
-              </div>
+            <div className="ld-lista">
+              <CartaoProposta id={iaProp} />
+            </div>
+          </section>
+        ) : (
+          <div className="card vazio">
+            <Icone nome="calendario" tam={24} />
+            <h3>Sem cronograma ainda</h3>
+            {dado.etapas.length ? (
+              <p>
+                O <b>Gerar com IA</b> lê o orçamento e propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a duração proporcional ao valor. Você <b>revisa e aprova</b> — como qualquer proposta do agente. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
+              </p>
             ) : (
+              <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
+            )}
+            {podeOperar && dado.etapas.length ? (
               <>
                 <div className="row" style={{ marginTop: 16, gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                   <button type="button" className="btn amb" disabled={gerando} aria-busy={gerando} onClick={() => void gerarComIA()}>
@@ -177,9 +182,9 @@ export function Cronograma({ obra }: { obra: Obra }) {
                   </div>
                 ) : null}
               </>
-            )
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        )
       ) : (
         <>
           <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
