@@ -768,3 +768,21 @@ describe("demonstração: IA propõe o cronograma e a aprovação o cria", () =>
     expect(r.status).toBe(409);
   });
 });
+
+describe("demonstração: a IA sequencia o cronograma por fase (multi-etapa)", () => {
+  it("etapas fora de ordem → a proposta reordena fundação → alvenaria → acabamento", () => {
+    const o = chamar("POST", "obras", { nome: "Casa Multietapa", chave_idempotencia: "multietapa-99", verba: 5_000_000 }).corpo as { id: string };
+    // três etapas, numeradas na ordem 1=Fundação, 2=Acabamento, 3=Alvenaria (fora da ordem de obra, de propósito)
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { etapa: "Fundação", itens: [{ nome: "Concreto", unidade: "m³", quantidade: 20_000, valor_unitario: 49_600 }], aplicar: true, chave_idempotencia: "mult-fund-01" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { etapa: "Acabamento", itens: [{ nome: "Pintura", unidade: "m²", quantidade: 300_000, valor_unitario: 2_000 }], aplicar: true, chave_idempotencia: "mult-acab-01" });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { etapa: "Alvenaria", itens: [{ nome: "Bloco", unidade: "un", quantidade: 1_000_000, valor_unitario: 200 }], aplicar: true, chave_idempotencia: "mult-alv-001" });
+
+    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as Proposta;
+    const etapas = (prop.dados as { etapas: { etapa: string; percentuais: number[] }[] }).etapas;
+    const inicio = (chave: string) => etapas.find((e) => e.etapa === chave)!.percentuais.findIndex((p) => p > 0);
+    // 1=Fundação (fase inicial), 3=Alvenaria (vedação), 2=Acabamento (final): a IA reordena por fase de obra
+    expect(inicio("1")).toBeLessThan(inicio("3"));
+    expect(inicio("3")).toBeLessThan(inicio("2"));
+    for (const et of etapas) expect(et.percentuais.reduce((s, x) => s + x, 0)).toBe(10000); // cada etapa fecha 100%
+  });
+});
