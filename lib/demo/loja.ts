@@ -834,6 +834,8 @@ export const estado = () => {
     e.versoes = [];
     semearVersoes(e);
   }
+  // Estado anterior ao campo `cronogramas` (hot reload): o Map vazio basta — sem ele, montarCronogramaDemo quebra.
+  if (!e.cronogramas) e.cronogramas = new Map();
   return e;
 };
 export const reiniciarDemo = () => {
