@@ -785,4 +785,28 @@ describe("demonstração: a IA sequencia o cronograma por fase (multi-etapa)", (
     expect(inicio("3")).toBeLessThan(inicio("2"));
     for (const et of etapas) expect(et.percentuais.reduce((s, x) => s + x, 0)).toBe(10000); // cada etapa fecha 100%
   });
+
+  it("a obra-vitrine do demo já vem pronta para a IA: em orçamento, 4 etapas, sem cronograma, e a proposta vira escada", () => {
+    const vit = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
+    expect(vit.status).toBe("em_orcamento");
+    // sem cronograma: pronta para o "Gerar com IA" da tela
+    expect((chamar("GET", `obras/${vit.id}/cronograma`).corpo as import("../contrato").Cronograma).meses).toBe(0);
+    const orc = chamar("GET", `obras/${vit.id}/orcamento`).corpo as { etapas: { descricao: string }[] };
+    expect(orc.etapas.map((et) => et.descricao)).toEqual(["Fundação", "Superestrutura", "Alvenaria", "Acabamento"]);
+
+    const prop = chamar("POST", `obras/${vit.id}/cronograma/propor`).corpo as Proposta;
+    const etapas = (prop.dados as { meses: number; etapas: { etapa: string; percentuais: number[] }[] }).etapas;
+    const dados = prop.dados as { meses: number };
+    expect(dados.meses).toBe(14); // respeita o prazo da obra (prazo_meses)
+    const inicio = (n: string) => etapas.find((et) => et.etapa === n)!.percentuais.findIndex((p) => p > 0);
+    // 1=Fundação → 2=Superestrutura → 3=Alvenaria → 4=Acabamento: a escada por fase de obra
+    expect(inicio("1")).toBeLessThanOrEqual(inicio("2"));
+    expect(inicio("2")).toBeLessThanOrEqual(inicio("3"));
+    expect(inicio("3")).toBeLessThan(inicio("4"));
+    for (const et of etapas) expect(et.percentuais.reduce((s, x) => s + x, 0)).toBe(10000);
+
+    // aprovar grava o cronograma na obra-vitrine, com os 14 meses do prazo
+    chamar("POST", `propostas/${prop.id}/aprovar`);
+    expect((chamar("GET", `obras/${vit.id}/cronograma`).corpo as import("../contrato").Cronograma).meses).toBe(14);
+  });
 });

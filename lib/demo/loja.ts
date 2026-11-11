@@ -731,9 +731,13 @@ function semear(): EstadoDemo {
     { id: uuid7(), nome: "Marina Duarte", tenant_id: TENANT, papel: "master" },
   ];
   // Duas obras sem almoxarifado ainda, para a página inicial mostrar mais de um cartão e os estados de obra.
+  // Obra-vitrine: orçamento multi-etapa, em orçamento e sem cronograma — pronta para "Gerar com IA" mostrar o
+  // sequenciamento por fase (fundação → superestrutura → alvenaria → acabamento) no Gantt.
+  const vitrine: Obra = doc({ ...OBRA_VAZIA, nome: "Residencial Alto Padrão", cidade: "Campinas", uf: "SP", cep: "13100-000", verba: 120_000_000, prazo_meses: 14, inicio: "2026-11-01", status: "em_orcamento" as const });
   const outras: Obra[] = [
     doc({ ...OBRA_VAZIA, nome: "Sobrado Jardim Europa", cidade: "Valinhos", uf: "SP", cep: "13270-000", verba: 91000000, status: "em_orcamento" as const }),
     doc({ ...OBRA_VAZIA, nome: "Reforma Loja Centro", cidade: "Campinas", uf: "SP", cep: "13010-000", verba: 12500000, status: "concluida" as const }),
+    vitrine,
   ];
   const e: EstadoDemo = {
     usuarios,
@@ -757,6 +761,21 @@ function semear(): EstadoDemo {
     uso: semearUso(obra.id, outras[0]!.id),
   };
   semearVersoes(e);
+  // A versão multi-etapa da obra-vitrine (quatro etapas na ordem de obra); orcamentoDemo as numera 1..4.
+  {
+    const etapas = [
+      { descricao: "Fundação", itens: [{ nome: "Concreto fck25 (fundação)", unidade: "m³", quantidade: 40_000, valor_unitario: 49_600 }, { nome: "Aço CA-50", unidade: "kg", quantidade: 2_000_000, valor_unitario: 700 }] },
+      { descricao: "Superestrutura", itens: [{ nome: "Concreto fck30", unidade: "m³", quantidade: 60_000, valor_unitario: 51_200 }, { nome: "Fôrma de madeira", unidade: "m²", quantidade: 400_000, valor_unitario: 6_900 }] },
+      { descricao: "Alvenaria", itens: [{ nome: "Bloco cerâmico", unidade: "un", quantidade: 8_000_000, valor_unitario: 200 }] },
+      { descricao: "Acabamento", itens: [{ nome: "Revestimento cerâmico", unidade: "m²", quantidade: 500_000, valor_unitario: 4_500 }, { nome: "Pintura látex", unidade: "m²", quantidade: 1_200_000, valor_unitario: 2_000 }] },
+    ];
+    const total = etapas.reduce((s, et) => s + et.itens.reduce((a, i) => a + Math.round((i.quantidade * i.valor_unitario) / 1000), 0), 0);
+    e.versoes.push({
+      versao: { id: `demo-vitrine-${vitrine.id}`, obra_id: vitrine.id, tipo: "contrato", numero: 0, descricao: "Orçamento", data: diasAtras(30).slice(0, 10), arquivo: "", itens: etapas.reduce((s, et) => s + et.itens.length, 0), etapas: etapas.length, total, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(30) },
+      etapas,
+      chave: null,
+    });
+  }
   // Saldo coerente com o consumo do mês: franquia menos o que já foi gasto desde o dia 1.
   const mes = hojeSP().slice(0, 8);
   e.creditos.saldo = Math.max(0, e.creditos.franquia - e.uso.filter((x) => x.dia >= `${mes}01`).reduce((t, x) => t + x.custo, 0));
