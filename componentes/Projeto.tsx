@@ -17,35 +17,10 @@ import { useCelular } from "./midia";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
 import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
+import { gravarFolhas, lerFolhas, LIMITE_PRANCHA, type Folha } from "./obra/pranchas";
 import { DISCIPLINAS_SIMULADAS, FOLHAS_DEMO, type SituacaoDisciplina } from "@/lib/simulado/projeto";
 import s from "./projeto/projeto.module.css";
 
-/** Uma prancha enviada nesta obra. Quem decide o que ela é (locação, formas...) é o tradutor, não a pessoa. */
-interface Folha {
-  id: string;
-  nome: string;
-}
-
-// as folhas do pacote ficam neste navegador (o tradutor guarda cada leitura por 72 h); gravar na obra é da API, depois
-const chave = (obraId: string) => `canteiro:projeto:${obraId}:folhas`;
-function lerFolhas(obraId: string): Folha[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(chave(obraId)) ?? "[]") as unknown;
-    return Array.isArray(v) ? (v as Folha[]) : [];
-  } catch {
-    return [];
-  }
-}
-function gravarFolhas(obraId: string, f: Folha[]) {
-  try {
-    localStorage.setItem(chave(obraId), JSON.stringify(f));
-  } catch {
-    // navegador sem armazenamento: o pacote vale só enquanto a aba estiver aberta
-  }
-}
-
-/** Maior prancha aceita por envio (o limite de corpo das funções da Vercel é 4,5 MB). */
-const LIMITE_ENVIO = 4 * 1024 * 1024;
 
 const ROTULO_SITUACAO = { coberto: "Coberto", parcial: "Parcial", faltando: "Falta" } as const;
 
@@ -124,7 +99,7 @@ export function Projeto({ obra }: { obra: Obra }) {
     setEnviando((v) => [...v, ...arquivos.map((a) => a.name)]);
     let lista = folhas;
     for (const a of arquivos) {
-      if (a.size > LIMITE_ENVIO) {
+      if (a.size > LIMITE_PRANCHA) {
         // o repasse roda numa função da Vercel, que recusa corpo acima de ~4,5 MB com um erro genérico
         setErro(`${a.name}: passa de 4 MB. Exporte a prancha em PDF pelo CAD (fica bem menor) ou reduza a resolução da imagem.`);
         setEnviando((v) => v.filter((n) => n !== a.name));

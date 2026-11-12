@@ -1,8 +1,8 @@
 /**
  * As pranchas escolhidas na Nova obra: a obra ainda não existe quando a pessoa as arrasta, então o arquivo fica na
  * memória da página e sobe para o tradutor logo depois do cadastro. O pacote de folhas de cada obra mora neste
- * navegador, na MESMA chave e formato que a tela Projeto lê (componentes/Projeto.tsx: lerFolhas/gravarFolhas) — se um
- * mudar, o outro tem de mudar junto.
+ * navegador (o tradutor guarda cada leitura por 72 h; gravar na obra é da API, depois): esta é a única leitura e escrita
+ * dele, usada também pela tela Projeto.
  */
 import { tradutor } from "@/lib/tradutor";
 
@@ -17,11 +17,20 @@ export const ACEITA_PRANCHAS = ".pdf,.dxf,image/*";
 
 const chave = (obraId: string) => `canteiro:projeto:${obraId}:folhas`;
 
-function gravarFolhas(obraId: string, f: Folha[]) {
+export function lerFolhas(obraId: string): Folha[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(chave(obraId)) ?? "[]") as unknown;
+    return Array.isArray(v) ? (v as Folha[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function gravarFolhas(obraId: string, f: Folha[]) {
   try {
     localStorage.setItem(chave(obraId), JSON.stringify(f));
   } catch {
-    // navegador sem armazenamento: a pessoa manda de novo na tela Projeto
+    // navegador sem armazenamento: o pacote vale só enquanto a aba estiver aberta
   }
 }
 
