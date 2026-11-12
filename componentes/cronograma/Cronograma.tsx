@@ -5,13 +5,15 @@
  * cronograma, o estado vazio leva ao editor. O aditivo de prazo muda o prazo da obra (PATCH, com Desfazer) e abre o
  * editor com os meses a mais, vazios, para redistribuir.
  */
-import { useState } from "react";
-import type { Cronograma as DadosCronograma, Obra, PrazoCronograma } from "@/lib/contrato";
-import { api } from "@/lib/cliente";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Cronograma as DadosCronograma, Obra, PrazoCronograma, Proposta } from "@/lib/contrato";
+import { api, conversar } from "@/lib/cliente";
 import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
-import { useCasca } from "../contexto";
+import { mensagemDe, useCasca } from "../contexto";
+import { CartaoProposta } from "../CartaoProposta";
+import { BaseOrcamento } from "./BaseOrcamento";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { ProximoPasso } from "../ProximoPasso";
@@ -72,14 +74,73 @@ function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagin
   };
 }
 
+/**
+ * No modo real a API não gera cronograma: quem propõe é o agente (Claude). Pedimos pela conversa e devolvemos a
+ * Proposta de cronograma que ele criar (POST /propostas). A conversa abre uma sessão própria; a Proposta é a mesma que
+ * apareceria no chat do mestre de obras.
+ */
+const PEDIDO_AO_AGENTE =
+  "Monte o cronograma desta obra a partir do orçamento e proponha para a minha aprovação agora. Sequencie as etapas na " +
+  "ordem das fases de obra e defina a equipe de cada uma (a duração o sistema calcula pela quantidade e produtividade). " +
+  "Proponha com as etapas que o orçamento já tiver, mesmo que seja uma só — não peça para eu cadastrar mais etapas antes.";
+
+async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
+  let proposta: Proposta | null = null;
+  let erro: string | null = null;
+  let texto = "";
+  for await (const ev of conversar({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
+    if (ev.tipo === "proposta" && ev.proposta.tipo === "cronograma") proposta = ev.proposta;
+    else if (ev.tipo === "texto") texto += ev.delta;
+    else if (ev.tipo === "erro") erro = ev.mensagem;
+  }
+  if (proposta) return proposta;
+  // o agente respondeu sem propor (ex.: orçamento ralo): mostra o que ele disse, não um erro genérico
+  const recado = texto.trim();
+  throw new Error(erro ?? (recado ? recado : "O mestre de obras não chegou a propor o cronograma. Tente de novo."));
+}
+
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, podeOperar } = useCasca();
+  const { versao, demo, podeOperar, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
-  const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean }>({ k: "ver" });
+  const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
   const [tabela, setTabela] = useState(false);
+  const [iaProp, setIaProp] = useState<string | null>(null);
+  const [gerando, setGerando] = useState(false);
+  const [erroIA, setErroIA] = useState<string | null>(null);
   const tem = !!dado?.inicio && dado.meses > 0;
   const editando = modo.k === "editar" && dado;
+
+  // A IA intermediária: propõe o cronograma a partir do orçamento (sequência por fase de obra, duração pelo valor) e
+  // vira uma Proposta pendente. A pessoa aprova — como qualquer escrita do agente — e aí o cronograma é criado.
+  const gerarComIA = useCallback(async () => {
+    setGerando(true);
+    setErroIA(null);
+    try {
+      // Antes de montar, prevê a obra completa: estima as fases que o orçamento ainda não tem (fundação, alvenaria,
+      // acabamento...), para o cronograma sair da fundação à entrega mesmo de um orçamento parcial. "Já organizado" ou
+      // sem o que estimar não é erro — segue. (Demo não tem a rota; usa o atalho da loja.)
+      if (!demo) await api.organizarFases(obra.id).catch(() => {});
+      const prop = demo ? await api.proporCronograma(obra.id) : await proporCronogramaPeloAgente(obra.id);
+      receberPropostas([prop]);
+      setIaProp(prop.id);
+    } catch (e) {
+      setErroIA(mensagemDe(e));
+    } finally {
+      setGerando(false);
+    }
+  }, [demo, obra.id, receberPropostas]);
+
+  // Veio do "Gerar cronograma" do Projeto: ao chegar (orçamento já carregado, sem cronograma ainda), dispara a geração
+  // sozinho — a página já abre na geração. Só uma vez; depois limpa a intenção para não repetir ao voltar à tela.
+  const autoGerou = useRef(false);
+  useEffect(() => {
+    if (autoGerou.current || carregando) return;
+    if (!lerFiltroTela("cronograma")?.gerar) return;
+    autoGerou.current = true;
+    limparFiltroTela();
+    if (podeOperar && !tem && !gerando && !iaProp) void gerarComIA();
+  }, [carregando, tem, podeOperar, gerando, iaProp, gerarComIA, lerFiltroTela, limparFiltroTela]);
 
   return (
     <div className="page">
@@ -122,28 +183,58 @@ export function Cronograma({ obra }: { obra: Obra }) {
           Carregando o cronograma…
         </div>
       ) : !dado ? null : editando ? (
-        <EditorCronograma obra={obra} crono={dado} meses={modo.meses} aditivoPrazo={modo.aditivoPrazo} fechar={() => setModo({ k: "ver" })} />
+        <EditorCronograma obra={obra} crono={modo.k === "editar" && modo.proposta ? modo.proposta : dado} meses={modo.meses} aditivoPrazo={modo.aditivoPrazo} fechar={() => setModo({ k: "ver" })} />
       ) : !tem ? (
-        <div className="card vazio">
-          <Icone nome="calendario" tam={24} />
-          <h3>Sem cronograma ainda</h3>
-          {dado.etapas.length ? (
-            <p>
-              Distribua cada etapa do orçamento pelos meses da obra, em %. Com ele, cada medição mostra o previsto × executado e projeta o término.
+        iaProp ? (
+          <section aria-label="Proposta de cronograma da IA">
+            <p className="mut sm" style={{ margin: "4px 2px 12px" }}>
+              A IA preparou o cronograma a partir do orçamento. Revise e <b>aprove</b> — ou recuse e peça outro.
             </p>
-          ) : (
-            <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
-          )}
-          {podeOperar && dado.etapas.length ? (
-            <button type="button" className="btn amb" style={{ marginTop: 16 }} onClick={() => setModo({ k: "editar" })}>
-              Montar cronograma
-            </button>
-          ) : null}
-        </div>
+            <div className="ld-lista">
+              <CartaoProposta id={iaProp} />
+            </div>
+            {/* a base: o que cada etapa executa (do orçamento). Aberto aqui para conferir a proposta sem voltar. */}
+            <BaseOrcamento obraId={obra.id} aberto />
+          </section>
+        ) : (
+          <div className="card vazio">
+            <Icone nome="calendario" tam={24} />
+            <h3>Sem cronograma ainda</h3>
+            {dado.etapas.length ? (
+              <p>
+                O <b>Gerar com IA</b> lê o orçamento e propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a <b>duração de cada etapa calculada pela quantidade de serviço e a produtividade</b> (homem-hora), respeitando as dependências e a cura do concreto. Você <b>revisa e aprova</b> — como qualquer proposta do agente. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
+              </p>
+            ) : (
+              <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
+            )}
+            {podeOperar && dado.etapas.length ? (
+              <>
+                <div className="row" style={{ marginTop: 16, gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                  <button type="button" className="btn amb" disabled={gerando} aria-busy={gerando} onClick={() => void gerarComIA()}>
+                    <Icone nome={gerando ? "loader" : "spark"} tam={15} className={gerando ? "spin" : undefined} />
+                    Gerar com IA
+                  </button>
+                  <button type="button" className="btn" onClick={() => setModo({ k: "editar" })}>
+                    Montar à mão
+                  </button>
+                </div>
+                {erroIA ? (
+                  <div className="aviso-erro" role="alert" style={{ marginTop: 12 }}>
+                    <Icone nome="alert" tam={15} />
+                    <span>{erroIA}</span>
+                  </div>
+                ) : null}
+                {/* o que vai ser sequenciado, já visível antes de gerar — sem ter de abrir o Orçamento */}
+                <BaseOrcamento obraId={obra.id} />
+              </>
+            ) : null}
+          </div>
+        )
       ) : (
         <>
           <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
           <Gantt crono={dado} />
+          <BaseOrcamento obraId={obra.id} />
           <Desembolso obra={obra} />
           <h3 className="sectit">Medições</h3>
           <ListaMedicoes obra={obra} medicoes={dado.medicoes} />

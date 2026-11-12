@@ -1560,3 +1560,29 @@ rect.db-falta{fill:var(--accentSoft);stroke:var(--accent);stroke-width:1;stroke-
 .busca-prod-lista .bp-desc{font-size:var(--t-body);color:var(--ink);line-height:1.3}
 .busca-prod-lista .bp-meta{font-size:12px;color:var(--muted);font-family:var(--mono)}
 .busca-prod-lista .bp-meta .pill{margin-right:4px}
+
+/* Base no orçamento: os serviços de cada etapa, na tela de Cronograma e na proposta da IA. */
+.base-orc { margin-top: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.base-orc > summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 10px; }
+.base-orc > summary::-webkit-details-marker { display: none; }
+.base-orc > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.base-orc[open] > summary::before { transform: rotate(90deg); }
+.base-orc-cont { color: var(--muted); font-weight: 400; font-size: 13px; }
+.base-orc-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding: 4px 16px 18px; }
+.base-orc-grade h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.base-orc-grade ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.base-orc-grade li { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; border-bottom: 1px solid var(--line); padding: 3px 0; }
+.base-orc-grade li em { color: var(--muted); font-style: normal; white-space: nowrap; }
+
+/* Itens estimados pela IA no orçamento: selo "estimativa" e linha levemente destacada (viram real ao detalhar a fase). */
+.pill.estimativa { background: color-mix(in srgb, var(--ocre) 22%, transparent); color: var(--ocre); border: 1px solid color-mix(in srgb, var(--ocre) 45%, transparent); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 8px; white-space: nowrap; }
+.eap-estimado .eap-d { font-style: italic; color: var(--muted); }
+.eap-estimado td { background: color-mix(in srgb, var(--ocre) 5%, transparent); }
+
+/* Resumo estimativa × realidade no topo do Orçamento. */
+.est-resumo { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 14px 16px; margin-bottom: 14px; }
+.est-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.est-barra { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ocre) 18%, var(--sunk, #0003)); overflow: hidden; margin: 10px 0 8px; }
+.est-barra > span { display: block; height: 100%; border-radius: 999px; background: var(--green, #3ba55d); transition: width .3s var(--ease, ease); }
+.est-resumo p { margin: 0; }
+.est-resumo .pill.estimativa { margin: 0 2px; }

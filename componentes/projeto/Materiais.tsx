@@ -8,12 +8,12 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/cliente";
-import type { ItemPrevia, MaterialDoProjeto, Obra, Orcamento, PreviaVersao } from "@/lib/contrato";
+import type { MaterialDoProjeto, Obra, Orcamento } from "@/lib/contrato";
 import { fmtReais } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
 import { tradutor, type MateriaisProjeto, type MaterialProjeto } from "@/lib/tradutor";
-import { mensagemDe, useCasca } from "../contexto";
-import { Confirmar, Drawer } from "../Dialogo";
+import { useCasca } from "../contexto";
+import { Drawer } from "../Dialogo";
 import { Icone } from "../Icone";
 import { Faixa, LinkTela, ProximoPasso } from "../ProximoPasso";
 import { useCarregar } from "../useCarregar";
@@ -164,193 +164,90 @@ function ListaMateriais({ dados }: { dados: MateriaisProjeto }) {
  * Pranchas que mudaram depois de levar não empurram outro aditivo: levar de novo fica como opção, sem destaque.
  */
 export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: MateriaisProjeto | null; erro?: string | null }) {
-  const { podeOperar, versao, mudou, avisar, avisarFeito } = useCasca();
+  const { podeOperar, versao, mudou, avisarFeito, irParaTela } = useCasca();
   const todos = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
   const tem = todos.length > 0;
   const orc = useCarregar(() => (tem ? api.orcamento(obra.id) : Promise.resolve(null)), [obra.id, versao, tem]);
+  const cron = useCarregar(() => (tem ? api.cronograma(obra.id) : Promise.resolve(null)), [obra.id, versao, tem]);
   const situacao = situacaoNoOrcamento(todos, orc.dado);
   const levado = !!orc.dado && situacao === "igual";
-  // O botão clicado some ao levar: o foco e o olhar vão para o que entrou no lugar, em vez de ficar só o aviso.
-  const irAoOrcamento = useRef<HTMLAnchorElement>(null);
-  const acabouDeLevar = useRef(false);
+  const temCronograma = !!cron.dado?.inicio && (cron.dado.meses ?? 0) > 0;
+  // Entrados os materiais, o foco vai para o próximo passo (o cronograma), não para o aviso.
+  const irAoProximo = useRef<HTMLButtonElement>(null);
+  const acabouDeFluir = useRef(false);
   useEffect(() => {
-    if (!levado || !acabouDeLevar.current) return;
-    acabouDeLevar.current = false;
-    irAoOrcamento.current?.focus({ preventScroll: true });
+    if (!levado || !acabouDeFluir.current) return;
+    acabouDeFluir.current = false;
+    irAoProximo.current?.focus({ preventScroll: true });
   }, [levado]);
   const [vendo, setVendo] = useState(false);
-  const [preparando, setPreparando] = useState(false);
-  const [previa, setPrevia] = useState<PreviaVersao | null>(null);
-  // Os marcados "não levar": a API os tira da prévia, a cópia fica aqui para a caixa continuar à vista e desmarcável.
-  const [ignorados, setIgnorados] = useState<Record<string, ItemPrevia>>({});
-  // Vale até dar certo: se a API gravou e a resposta se perdeu, repetir com a mesma chave não duplica o aditivo. Depois
-  // de gravar ela é trocada, porque depois de um Desfazer a mesma chave devolveria a versão desfeita sem gravar nada.
-  // Materiais diferentes pedem outra: a API recusa a chave já usada para outro conteúdo.
-  const chave = useRef<{ conteudo: string; valor: string } | null>(null);
+
+  // O upload do projeto é a aprovação: na 1ª vez (orçamento ainda sem nenhuma versão) os materiais das pranchas entram
+  // no orçamento sozinhos, sem passo manual — toda escrita cai no Histórico com Desfazer. Só na 1ª vez: depois o
+  // orçamento é reorganizado em fases (prever obra, cronograma), e re-levar aqui apagaria esse trabalho.
+  const autoFluiu = useRef(false);
+  const orcVazio = !!orc.dado && !(orc.dado.versoes ?? []).some((v) => v.ativa);
+  useEffect(() => {
+    if (autoFluiu.current || !podeOperar || !tem || !orcVazio || situacao !== "fora") return;
+    autoFluiu.current = true;
+    void (async () => {
+      try {
+        const r = await api.estruturaDoProjeto(obra.id, todos, true, uuid7(), []);
+        if (!r.aplicado) return void (autoFluiu.current = false);
+        acabouDeFluir.current = true;
+        mudou();
+        avisarFeito(`${plural(todos.length, "material das pranchas entrou", "materiais das pranchas entraram")} no orçamento.`, r.registro_id);
+      } catch {
+        autoFluiu.current = false;
+      }
+    })();
+  }, [podeOperar, tem, orcVazio, situacao, obra.id, todos, mudou, avisarFeito]);
 
   if (erro || (dados && !tem)) {
     return <ProximoPasso obraId={obra.id} para="orcamento" acao="Ver o orçamento" titulo="As pranchas estão lidas." texto="Confira no orçamento o que já entrou e o que falta lançar." />;
   }
   if (!dados || (!orc.dado && !orc.erro)) return null;
-  const semQuantidade = dados.itens.length - todos.length;
-  const semPreco = todos.filter((m) => !m.valor_unitario).length;
-
-  const ordens = (ign: Record<string, ItemPrevia>) => Object.keys(ign).map(Number).sort((a, b) => a - b);
-
-  // A prévia vem antes do diálogo: é a API que diz se entra como orçamento inicial, soma ou aditivo, e por quanto.
-  async function preparar(ign: Record<string, ItemPrevia> = {}) {
-    setPreparando(true);
-    try {
-      const p = await api.estruturaDoProjeto(obra.id, todos, false, undefined, ordens(ign));
-      if (p.erros.length) return avisar(p.erros[0]!.mensagem, true);
-      // tirar um item muda o conteúdo gravado: a API recusa a mesma chave para outro conteúdo
-      const conteudo = `${assinatura(todos)}|${ordens(ign).join(",")}`;
-      if (chave.current?.conteudo !== conteudo) chave.current = { conteudo, valor: uuid7() };
-      setIgnorados(ign);
-      setPrevia(p);
-    } catch (e) {
-      avisar(mensagemDe(e), true);
-    } finally {
-      setPreparando(false);
-    }
-  }
-
-  async function levar() {
-    let r: PreviaVersao;
-    try {
-      r = await api.estruturaDoProjeto(obra.id, todos, true, chave.current!.valor, ordens(ignorados));
-    } catch (e) {
-      mudou(); // a resposta pode ter se perdido com a gravação feita: relê o orçamento para o cartão mostrar o que valeu
-      throw e;
-    }
-    if (!r.aplicado) throw new Error(r.erros[0]?.mensagem ?? "Os materiais não entraram no orçamento. Tente de novo.");
-    const somou = previa?.total_apos != null;
-    chave.current = null;
-    acabouDeLevar.current = true;
-    setPrevia(null);
-    setIgnorados({});
-    mudou();
-    avisarFeito(
-      somou ? "Materiais das pranchas somados ao orçamento." : `Materiais das pranchas no orçamento, como ${r.tipo === "aditivo" ? "aditivo" : "orçamento inicial"}.`,
-      r.registro_id,
-      { fixo: somou },
-    );
-  }
-
-  const alternar = (i: ItemPrevia) => {
-    const k = String(i.ordem);
-    const { [k]: tirado, ...resto } = ignorados;
-    void preparar(tirado ? resto : { ...ignorados, [k]: i });
-  };
 
   const ver = (
     <button type="button" className="btn" onClick={() => setVendo(true)}>
       Ver
     </button>
   );
-  const destacarLevar = situacao === "fora" && podeOperar;
-  const verOrcamento = destacarLevar ? null : (
-    <LinkTela obraId={obra.id} para="orcamento" ref={irAoOrcamento}>
-      Ver o orçamento
-    </LinkTela>
-  );
+  // Enquanto o auto-fluxo da 1ª vez roda, mostra "Entrando…". Entrados os materiais, o próximo passo é a previsão de
+  // entrega: gerar o cronograma (ou, se já existe, abri-lo — sem oferecer "gerar" de novo). Viewer fica com o orçamento.
+  const entrando = orcVazio && situacao === "fora" && podeOperar;
   return (
     <>
       <Faixa
         rotulo="Próximo passo"
         titulo={levado ? `${plural(todos.length, "material das pranchas já está", "materiais das pranchas já estão")} no orçamento.` : `${plural(todos.length, "material saiu das pranchas", "materiais saíram das pranchas")}.`}
-        texto={levado ? "Confira os preços e o que falta lançar." : situacao === "anterior" ? "O orçamento ainda tem a Estrutura de pranchas anteriores." : "Só entram no orçamento se você levar."}
+        texto={levado ? "Confira os preços e o que falta lançar." : entrando ? "Entrando no orçamento automaticamente…" : "Veja no orçamento o que já entrou."}
       >
         {ver}
-        {podeOperar && !levado ? (
-          <button type="button" className={destacarLevar ? "btn amb" : "btn"} disabled={preparando} aria-busy={preparando} onClick={() => preparar()}>
-            {preparando ? <Icone nome="loader" className="spin" tam={14} /> : null}
-            Levar para o orçamento…
+        {!podeOperar ? (
+          <LinkTela obraId={obra.id} para="orcamento">
+            Ver o orçamento
+          </LinkTela>
+        ) : entrando ? (
+          <span className="btn" aria-busy="true" aria-live="polite">
+            <Icone nome="loader" className="spin" tam={14} /> Entrando…
+          </span>
+        ) : temCronograma ? (
+          <button type="button" ref={irAoProximo} className="btn amb" onClick={() => irParaTela("cronograma")}>
+            Ver o cronograma
           </button>
-        ) : null}
-        {verOrcamento}
+        ) : (
+          <button type="button" ref={irAoProximo} className="btn amb" onClick={() => irParaTela("cronograma", { gerar: true })}>
+            Gerar cronograma
+          </button>
+        )}
       </Faixa>
       {vendo ? (
         <Drawer titulo="Materiais das pranchas" fechar={() => setVendo(false)}>
           <ListaMateriais dados={dados} />
         </Drawer>
       ) : null}
-      {previa ? (
-        <Confirmar
-          titulo="Levar os materiais para o orçamento?"
-          confirmar={
-            previa.total_apos != null
-              ? `Somar ao orçamento (+${fmtReais(previa.total)})`
-              : previa.tipo === "aditivo"
-                ? `Lançar aditivo de ${fmtReais(previa.total)}`
-                : "Levar para o orçamento"
-          }
-          fechar={() => {
-            setPrevia(null);
-            setIgnorados({});
-          }}
-          aoConfirmar={levar}
-        >
-          <div className="prev-resumo">
-            <div>
-              <span className="prev-n">{fmtReais(previa.total)}</span>
-              <span>{previa.total_apos != null ? "a somar" : previa.tipo === "aditivo" ? "de aditivo" : "no orçamento inicial"}</span>
-            </div>
-            <div>
-              <span className="prev-n">{previa.n_itens.toLocaleString("pt-BR")}</span>
-              <span>{previa.n_itens === 1 ? "item" : "itens"}</span>
-            </div>
-          </div>
-          <p style={{ margin: "4px 0 0" }}>
-            {previa.total_apos != null
-              ? `Esta obra já tem orçamento, ainda não aprovado: os materiais somam a ele, na etapa ${ETAPA}, e ele fica com ${fmtReais(previa.total_apos)}.`
-              : previa.tipo === "aditivo"
-                ? `Esta obra já tem orçamento aprovado: os materiais entram como aditivo, na etapa ${ETAPA}, e somam ao orçado atual.`
-                : `Os materiais viram a etapa ${ETAPA} do orçamento inicial desta obra.`}
-            {situacao === "anterior" ? ` A ${ETAPA} de pranchas anteriores continua valendo: para trocar, desfaça a anterior antes.` : ""}
-          </p>
-          {semQuantidade || semPreco ? (
-            <p className="mut sm" style={{ margin: "8px 0 0" }}>
-              {[
-                semQuantidade ? `${plural(semQuantidade, "material sem quantidade fica", "materiais sem quantidade ficam")} de fora.` : "",
-                semPreco ? `${plural(semPreco, "material sem preço de referência entra", "materiais sem preço de referência entram")} com R$ 0,00.` : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            </p>
-          ) : null}
-          <RepetidosDasPranchas previa={previa} ignorados={ignorados} alternar={alternar} ocupado={preparando} />
-        </Confirmar>
-      ) : null}
     </>
   );
 }
 
-/** O que parece já estar no orçamento (o concreto e o aço da planilha da obra, por exemplo): levar de novo conta em dobro. */
-function RepetidosDasPranchas(p: { previa: PreviaVersao; ignorados: Record<string, ItemPrevia>; alternar: (i: ItemPrevia) => void; ocupado: boolean }) {
-  const lista = [...p.previa.itens.filter((i) => i.tipo === "item" && i.repetido_de), ...Object.values(p.ignorados)].sort((a, b) => a.ordem - b.ordem);
-  if (!lista.length) return null;
-  return (
-    <div className="aviso-atencao" role="note" style={{ marginTop: 10 }}>
-      <Icone nome="alert" tam={15} />
-      <div>
-        <p>
-          <b>{lista.length === 1 ? "1 material parece já estar no orçamento." : `${lista.length} materiais parecem já estar no orçamento.`}</b> Levar de novo conta em
-          dobro: marque o que deve ficar de fora.
-        </p>
-        <ul className="lista-repetidos">
-          {lista.map((i) => (
-            <li key={i.ordem}>
-              <label className="adt-ignorar">
-                <input type="checkbox" checked={String(i.ordem) in p.ignorados} disabled={p.ocupado} onChange={() => p.alternar(i)} />
-                <span>
-                  Não levar {i.descricao} <span className="mut">· no orçamento: {i.repetido_de!.descricao}</span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}

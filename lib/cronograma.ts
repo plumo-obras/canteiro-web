@@ -162,3 +162,85 @@ export function textoSoma(total: number): { texto: string; ok: boolean } {
   const n = dif.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
   return { texto: `${fmtPct(total)} · ${total < CEM ? `faltam ${n}` : `sobram ${n}`}`, ok: false };
 }
+
+/* ───────────────────────── gerar cronograma a partir do orçamento ─────────────────────────
+ * A "intermediária": propõe a distribuição das etapas pelos meses, sequenciando por fase de obra. É proposta — a
+ * pessoa revisa no editor e aprova ao salvar. (A versão com LLM, mais nuance e dependências, vai no agente.)
+ */
+
+/** Fases da obra, na ordem em que acontecem; cada uma com termos (sem acento) para casar com a descrição da etapa. */
+const FASES: string[][] = [
+  ["prelimin", "canteiro", "demol", "tapume", "servicos iniciais", "terraplen", "movimento de terra"],
+  ["funda", "infraestrutura", "baldrame", "sapata", "estaca", "radier", "coroamento"],
+  ["estrutura", "superestrutura", "pilar", "viga", "laje", "concreto", "forma", "arma", "aco"],
+  ["alvenaria", "vedacao", "parede", "tijolo", "bloco ceramic"],
+  ["cobertura", "telhado", "telha", "madeiramento"],
+  ["instala", "eletric", "hidraul", "sanitar", "esgoto", "tubula", "agua fria"],
+  ["revestim", "contrapiso", "reboco", "chapisco", "emboco", "piso", "ceramic", "azulejo", "forro", "gesso", "impermeab"],
+  ["esquadri", "porta", "janela", "vidro", "ferragem"],
+  ["pintura", "tinta", "textura", "massa corrida"],
+  ["acabamento", "louca", "metal", "bancada", "soleira", "rodape", "marmore", "granito"],
+  ["limpeza final", "entrega", "paisag"],
+];
+
+const semAcento = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/** Em que fase de obra cai a etapa (índice em FASES), ou -1 se nenhuma palavra bate. */
+export function faseDaEtapa(descricao: string): number {
+  const d = semAcento(descricao);
+  for (let f = 0; f < FASES.length; f++) if (FASES[f]!.some((t) => d.includes(t))) return f;
+  return -1;
+}
+
+/** Reparte `meses` inteiros entre as etapas conforme o valor, cada uma com no mínimo 1, somando `meses`. */
+export function repartirMeses(pesos: number[], meses: number): number[] {
+  const n = pesos.length;
+  if (n === 0) return [];
+  if (meses <= n) return pesos.map(() => 1); // mais etapas que meses: 1 cada (vão se sobrepor; a pessoa ajusta)
+  const soma = pesos.reduce((s, p) => s + Math.max(0, p), 0) || n;
+  const bruto = pesos.map((p) => (Math.max(0, p) / soma) * meses);
+  const base = bruto.map((b) => Math.max(1, Math.floor(b)));
+  let resto = meses - base.reduce((s, b) => s + b, 0);
+  const porResto = bruto.map((b, i) => ({ i, f: b - Math.floor(b) })).sort((a, z) => z.f - a.f).map((x) => x.i);
+  let k = 0;
+  while (resto > 0) { const i = porResto[k % n]!; base[i] = (base[i] ?? 0) + 1; resto--; k++; }
+  k = 0;
+  const porFolga = [...porResto].reverse();
+  let guarda = 0;
+  while (resto < 0 && guarda++ < n * meses) { const i = porFolga[k % n]!; if ((base[i] ?? 0) > 1) { base[i] = (base[i] ?? 0) - 1; resto++; } k++; }
+  return base;
+}
+
+export interface EtapaParaGerar {
+  etapa: string;
+  descricao: string;
+  atual: number;
+}
+
+/**
+ * Propõe o cronograma a partir do orçamento: ordena as etapas pela fase de obra (as sem fase ficam na ordem original,
+ * depois), dá a cada uma uma duração proporcional ao valor e as põe em sequência, distribuindo o % igualmente nos meses
+ * da etapa. Cada etapa soma 100% (CEM) ou fica zerada. É proposta: a pessoa revisa no editor e aprova ao salvar.
+ */
+export function gerarCronograma(etapas: EtapaParaGerar[], meses: number): { etapa: string; percentuais: number[] }[] {
+  const vazio = (): number[] => Array.from({ length: Math.max(0, meses) }, () => 0);
+  if (!etapas.length || meses < 1) return etapas.map((e) => ({ etapa: e.etapa, percentuais: vazio() }));
+  const ordenadas = etapas
+    .map((e, i) => ({ e, i, f: faseDaEtapa(e.descricao) }))
+    .sort((a, z) => {
+      const fa = a.f === -1 ? FASES.length : a.f;
+      const fz = z.f === -1 ? FASES.length : z.f;
+      return fa === fz ? a.i - z.i : fa - fz;
+    });
+  const dur = repartirMeses(ordenadas.map((o) => o.e.atual), meses);
+  const porEtapa = new Map<string, number[]>();
+  let cursor = 0;
+  ordenadas.forEach((o, k) => {
+    const len = Math.max(1, dur[k] ?? 1);
+    const de = Math.min(cursor, Math.max(0, meses - 1));
+    const ate = Math.min(de + len - 1, meses - 1);
+    porEtapa.set(o.e.etapa, distribuirIgual(meses, de, ate));
+    cursor = Math.min(ate + 1, meses - 1);
+  });
+  return etapas.map((e) => ({ etapa: e.etapa, percentuais: porEtapa.get(e.etapa) ?? vazio() }));
+}

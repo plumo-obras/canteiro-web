@@ -535,12 +535,12 @@ export interface RespostaRecebimento {
 export type ComRegistro<T> = T & { registro_id?: string | null };
 
 export type StatusProposta = "pendente" | "aprovada" | "recusada" | "desfeita";
-export type TipoProposta = "criar_pedido" | "avancar_pedido" | "ajuste_estoque" | "registrar_entrega";
+export type TipoProposta = "criar_pedido" | "avancar_pedido" | "ajuste_estoque" | "registrar_entrega" | "cronograma";
 /**
  * O que aprovar faz, decidido pela API ao criar a proposta: o botão diz a consequência por ele. "conferido" num pedido
  * parcial ENCERRA o resto (nada entra); num pedido que chegou, dá entrada. Proposta antiga vem sem o campo.
  */
-export type EfeitoProposta = "compra" | "entrada" | "encerramento" | "cancelamento" | "status" | "ajuste";
+export type EfeitoProposta = "compra" | "entrada" | "encerramento" | "cancelamento" | "status" | "ajuste" | "cronograma";
 
 export interface DadosCriarPedido {
   insumo_id: string;

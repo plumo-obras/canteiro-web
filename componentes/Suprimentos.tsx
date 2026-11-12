@@ -21,6 +21,7 @@ import { Itens, ehServico, type Lancar } from "./suprimentos/Itens";
 import { ModalNovoItem } from "./suprimentos/ModalNovoItem";
 import { ModalPedidoMarcados } from "./suprimentos/ModalPedidoMarcados";
 import { ABERTOS, ListaPedidos } from "./suprimentos/Pedidos";
+import { BaseOrcamento } from "./cronograma/BaseOrcamento";
 
 type Secao = "compras" | "estoque" | "fornecedores";
 
@@ -107,6 +108,8 @@ export function Suprimentos({ obra }: { obra: Obra }) {
           <>
             <FaltaComprar key={pedidosFeitos} itens={itens} etapas={etapas} fazerPedido={setMarcados} desfazendo={desfazendo} etapa={etapaRecorte} verTudo={() => setEtapaRecorte(null)} />
             <ListaPedidos obra={obra} pedidos={pedidos} itens={itens} etapas={etapas} fornecedores={fornecedores} />
+            {/* a base: os serviços de cada etapa do orçamento, para ver de onde vem cada compra sem voltar ao Orçamento */}
+            <BaseOrcamento obraId={obra.id} />
           </>
         ) : secao === "estoque" ? (
           <Itens obra={obra} itens={itens} etapas={etapas} lancar={setLancando} lancando={!!lancando} />
