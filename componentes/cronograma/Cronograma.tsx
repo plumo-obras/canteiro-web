@@ -6,8 +6,8 @@
  * editor com os meses a mais, vazios, para redistribuir.
  */
 import { useState } from "react";
-import type { Cronograma as DadosCronograma, Obra, PrazoCronograma } from "@/lib/contrato";
-import { api } from "@/lib/cliente";
+import type { Cronograma as DadosCronograma, Obra, PrazoCronograma, Proposta } from "@/lib/contrato";
+import { api, conversar } from "@/lib/cliente";
 import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
@@ -73,8 +73,29 @@ function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagin
   };
 }
 
+/**
+ * No modo real a API não gera cronograma: quem propõe é o agente (Claude). Pedimos pela conversa e devolvemos a
+ * Proposta de cronograma que ele criar (POST /propostas). A conversa abre uma sessão própria; a Proposta é a mesma que
+ * apareceria no chat do mestre de obras.
+ */
+const PEDIDO_AO_AGENTE =
+  "Monte o cronograma desta obra a partir do orçamento: sequencie as etapas na ordem das fases de obra (fundação → " +
+  "estrutura → vedação → acabamento) e defina a duração de cada uma, proporcional ao valor. Proponha o cronograma " +
+  "para a minha aprovação.";
+
+async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
+  let proposta: Proposta | null = null;
+  let erro: string | null = null;
+  for await (const ev of conversar({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
+    if (ev.tipo === "proposta" && ev.proposta.tipo === "cronograma") proposta = ev.proposta;
+    else if (ev.tipo === "erro") erro = ev.mensagem;
+  }
+  if (!proposta) throw new Error(erro ?? "O mestre de obras não chegou a propor o cronograma. Tente de novo.");
+  return proposta;
+}
+
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, podeOperar, receberPropostas } = useCasca();
+  const { versao, demo, podeOperar, receberPropostas } = useCasca();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
@@ -91,7 +112,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
     setGerando(true);
     setErroIA(null);
     try {
-      const prop = await api.proporCronograma(obra.id);
+      // Demo: a loja tem a rota de atalho (POST /cronograma/propor). Real: a API não gera — o agente (Claude) propõe.
+      const prop = demo ? await api.proporCronograma(obra.id) : await proporCronogramaPeloAgente(obra.id);
       receberPropostas([prop]);
       setIaProp(prop.id);
     } catch (e) {
@@ -159,7 +181,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
             <h3>Sem cronograma ainda</h3>
             {dado.etapas.length ? (
               <p>
-                O <b>Gerar com IA</b> lê o orçamento e propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a duração proporcional ao valor. Você <b>revisa e aprova</b> — como qualquer proposta do agente. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
+                O <b>Gerar com IA</b> lê o orçamento e propõe a sequência das etapas por fase de obra (fundação → estrutura → acabamento), com a <b>duração de cada etapa calculada pela quantidade de serviço e a produtividade</b> (homem-hora), respeitando as dependências e a cura do concreto. Você <b>revisa e aprova</b> — como qualquer proposta do agente. Com o cronograma, cada medição mostra o previsto × executado e projeta o término.
               </p>
             ) : (
               <p>Importe o orçamento da obra primeiro: o cronograma distribui as etapas dele pelos meses.</p>
