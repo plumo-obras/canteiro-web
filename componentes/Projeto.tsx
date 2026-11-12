@@ -453,7 +453,7 @@ export function Projeto({ obra }: { obra: Obra }) {
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
         {/* À esquerda, as disciplinas do projeto, uma por cartão; a estrutura é a única que vem das pranchas hoje. */}
         <div id="painel-pacote" className={s.lado} hidden={!painelVisivel} role="group" aria-label="Disciplinas do projeto">
-          <section className={s.disc} data-estado={seloEstrutura.tom} aria-labelledby="disc-estrutura" {...soltarAqui}>
+          <section className={s.disc} data-estado={seloEstrutura.tom} aria-labelledby="disc-estrutura" {...(podeOperar ? soltarAqui : {})}>
             <div className={s.discCab}>
               <h2 id="disc-estrutura" className={s.discT}>
                 Estrutura

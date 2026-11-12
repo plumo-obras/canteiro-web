@@ -63,6 +63,8 @@ export function Gastos({ obra }: { obra: Obra }) {
     [obra.id, versao],
   );
   const [filaToda, resumo, arvore, resumoObra, pedidos] = dado ?? [[], null, [], null, []];
+  // fila recarregada: o que ela trouxe de volta (Desfazer devolve o comprovante para "a revisar") volta a aparecer
+  useEffect(() => setFeitos([]), [dado]);
   const fila = filaToda.filter((c) => !feitos.includes(c.id));
   // nomes de etapa e tópico já arquivados: só o resumo ainda os tem
   const nomesResumo = useMemo(() => {
@@ -543,7 +545,8 @@ function fmtDiaCurto(iso: string): string {
 }
 
 /** "R$ 9.620": no celular a lista mostra o valor sem os centavos; o cheio está no comprovante. */
-const semCentavos = (c: number) => fmtReais(c).replace(/,\d{2}$/, "");
+// arredonda como o placar, para o mesmo valor não aparecer diferente em duas telas
+const semCentavos = (c: number) => `R$ ${Math.round(c / 100).toLocaleString("pt-BR")}`;
 
 function Vazio({ texto }: { texto: string }) {
   return <div className="card vazio sm">{texto}</div>;

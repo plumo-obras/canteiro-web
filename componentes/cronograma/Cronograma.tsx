@@ -154,7 +154,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
   const celular = useCelular();
   const { dado: daApi, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   // a demonstração não tem cronograma: no lugar do vazio, o fictício de lib/simulado (nunca com dado real)
-  const simulado = useMemo(() => (demo && daApi && !(daApi.inicio && daApi.meses > 0) ? cronogramaSimulado() : null), [demo, daApi]);
+  const simulado = useMemo(() => (demo && daApi && !(daApi.inicio && daApi.meses > 0) ? cronogramaSimulado(undefined, daApi.etapas) : null), [demo, daApi]);
   const dado = simulado ?? daApi;
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);

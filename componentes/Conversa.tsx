@@ -170,7 +170,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         aria-label="Mensagens da conversa"
         role="log"
         // ao vivo, o resumo inteiro seria lido em voz alta ao carregar; quem avisa da resposta é o status abaixo
-        aria-live={comCasa ? "off" : undefined}
+        aria-live={comCasa || obra ? "off" : undefined}
       >
         {!sessao.carregada ? (
           sessao.erroCarga ? (

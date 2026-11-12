@@ -59,7 +59,8 @@ describe("tela do cronograma", () => {
         <Cronograma obra={OBRA} />
       </ProvedorCasca>,
     );
-    expect(await screen.findByRole("button", { name: /^7 · Acabamento/ })).toBeInTheDocument();
+    // o simulado usa as etapas do orçamento da obra (aqui, as três do fixture) e só inventa os meses
+    expect(await screen.findByRole("button", { name: /^3 · Acabamento/ })).toBeInTheDocument();
     expect(screen.getByText(/Valores fictícios/)).toBeInTheDocument();
     // lançar a medição no simulado não grava nada: só avisa que é prévia
     await userEvent.click(screen.getByRole("button", { name: "Lançar medição" }));

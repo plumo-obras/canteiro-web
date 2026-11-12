@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { criarRede, json } from "@/testes/rede";
 import { DELETE, GET, POST, caminhoTradutor } from "./route";
+import { entrarDemo } from "@/lib/demo/loja";
 
 const ID = "0123456789abcdef0123456789abcdef";
 
@@ -136,5 +137,52 @@ describe("/srv/tradutor/* — sessão e chave", () => {
     });
     const r = await chamar("GET", ["traducoes", ID]);
     expect(r.status).toBe(502);
+  });
+});
+
+describe("/srv/tradutor/* — demonstração sem tradutor (projeto fictício, SIMULADO)", () => {
+  const FOLHA_DEMO = "d0e0f0010001";
+  const acessoDemo = () => {
+    const r = entrarDemo("admin@exemplo.com", "qualquer")!;
+    return { authorization: `Bearer ${r.acesso}` };
+  };
+  beforeEach(() => {
+    vi.stubEnv("CANTEIRO_DEMO", "1");
+    vi.stubEnv("TRADUTOR_URL", "");
+  });
+
+  it("sem sessão da demo, 401", async () => {
+    const r = await chamar("POST", ["traducoes"], {});
+    expect(r.status).toBe(401);
+  });
+
+  it("projeto e materiais fictícios só para as folhas da demo, sem tocar a rede", async () => {
+    const rede = criarRede({});
+    const req = (busca: string, caminho: string[]) =>
+      GET(new Request(`http://localhost:3000/srv/tradutor/${caminho.join("/")}${busca}`, { headers: acessoDemo() }), { params: Promise.resolve({ caminho }) });
+    const p = await (await req(`?ids=${FOLHA_DEMO}`, ["projetos"])).json();
+    expect(p.modelo3d?.elementos.length).toBeGreaterThan(0);
+    const estranho = await (await req(`?ids=${ID}`, ["projetos"])).json();
+    expect(estranho.modelo3d).toBeNull();
+    expect(estranho.nao_encontradas).toEqual([ID]);
+    expect((await req(`?ids=${FOLHA_DEMO}&uf=SP`, ["projetos", "materiais"])).status).toBe(200);
+    expect(rede.chamadas).toEqual([]);
+  });
+
+  it("enviar e apagar não fingem que deu certo: 503 com o motivo", async () => {
+    for (const [metodo, caminho] of [["POST", ["traducoes"]], ["DELETE", ["traducoes", ID]]] as const) {
+      const r = await chamar(metodo, [...caminho], acessoDemo());
+      expect(r.status).toBe(503);
+      expect((await r.json()).detail).toMatch(/fictício/);
+    }
+  });
+
+  it("com TRADUTOR_URL ligado, a demonstração repassa ao tradutor de verdade", async () => {
+    vi.stubEnv("TRADUTOR_URL", "http://tradutor.teste/");
+    const rede = criarRede({ "GET /v1/projetos": () => json({ ok: true }) });
+    const req = new Request(`http://localhost:3000/srv/tradutor/projetos?ids=${ID}`, { headers: acessoDemo() });
+    const r = await GET(req, { params: Promise.resolve({ caminho: ["projetos"] }) });
+    expect(r.status).toBe(200);
+    expect(rede.chamadas.some((c) => c.url.host === "tradutor.teste")).toBe(true);
   });
 });

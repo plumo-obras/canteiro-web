@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Obra, Usuario } from "@/lib/contrato";
@@ -224,6 +224,18 @@ describe("Projeto 3D", () => {
     await u.keyboard("{Escape}");
     await u.click(screen.getByRole("button", { name: /^Folhas/ }));
     expect(screen.queryByRole("button", { name: /Tirar/ })).not.toBeInTheDocument();
+  });
+
+  it("quem só lê não envia prancha arrastando para o cartão da estrutura", async () => {
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    montar({ ...USUARIO, papel: "viewer" });
+    await screen.findByText("vista 3d");
+    const cartao = screen.getByRole("heading", { name: "Estrutura" }).closest("section")!;
+    const arquivo = new File(["%PDF"], "E-07.pdf", { type: "application/pdf" });
+    fireEvent.drop(cartao, { dataTransfer: { files: [arquivo] } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(rede.chamadas.filter((c) => c.metodo === "POST" && c.caminho.startsWith("/srv/tradutor"))).toEqual([]);
   });
 
   it("prancha acima de 4 MB nem sai do navegador e a pessoa sabe o que fazer", async () => {

@@ -203,14 +203,15 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
   const ocupado = avancando || chegada.ocupado;
   const [pri] = podeOperar ? acoesDe(p) : [];
 
-  const avancar = async (para: StatusPedido, feito: string) => {
+  // `noDialogo`: o Confirmar já mostra o erro dentro dele; o aviso solto repetiria a mesma frase
+  const avancar = async (para: StatusPedido, feito: string, noDialogo = false) => {
     setAvancando(true);
     try {
       const x = await api.avancarPedido(p.id, para);
       mudou();
       avisarFeito(feito, x.registro_id);
     } catch (e) {
-      avisar(mensagemDe(e), true);
+      if (!noDialogo) avisar(mensagemDe(e), true);
       throw e;
     } finally {
       setAvancando(false);
@@ -279,7 +280,7 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
       </span>
       {acoes ? <div className={s.pedAcoes}>{acoes}</div> : null}
       {recusando ? (
-        <Confirmar titulo={`Recusar o ${p.numero}?`} confirmar="Recusar pedido" fechar={() => setRecusando(false)} aoConfirmar={() => avancar("cancelado", `${p.numero} recusado.`).then(() => setRecusando(false))}>
+        <Confirmar titulo={`Recusar o ${p.numero}?`} confirmar="Recusar pedido" fechar={() => setRecusando(false)} aoConfirmar={() => avancar("cancelado", `${p.numero} recusado.`, true).then(() => setRecusando(false))}>
           <p style={{ margin: "4px 0 0" }}>
             O pedido de {r.primeira} ({reaisInteiros(p.valor)}, {p.fornecedor}) é cancelado e o que ele traria volta para Falta comprar. Dá para desfazer pelo Histórico.
           </p>

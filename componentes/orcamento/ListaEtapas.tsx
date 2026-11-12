@@ -651,8 +651,10 @@ function TabelaItens(props: {
                         <td className={s.num} title={fmtReais(i.total)}>
                           {reaisInteiros(i.total)}
                         </td>
-                        <td className={s.num}>{doItem.comprometido ? reaisInteiros(doItem.comprometido) : "—"}</td>
-                        <td className={s.num}>{i.total - doItem.comprometido > 0 ? reaisInteiros(i.total - doItem.comprometido) : "—"}</td>
+                        {/* o comprometido por item é regra da API (maior entre pedido e entregue, encerrado com sobra…): sem o vínculo
+                            item→pedido na resposta, a tela não faz a conta — mostra só os pedidos casados, no selo */}
+                        <td className={s.num}>—</td>
+                        <td className={s.num}>—</td>
                         <td>
                           <SeloItem ps={doItem.pedidos} hoje={hoje} />
                         </td>

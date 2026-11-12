@@ -89,6 +89,8 @@ function aplicar(s: Sessao, a: AcaoSessoes): Sessao {
       return {
         ...s,
         titulo: s.mensagens.length ? s.titulo : tituloDe(a.eu.texto),
+        // retomada hoje, a conversa vai para "Hoje" na lista (o servidor também a põe no topo)
+        atualizadoEm: new Date().toISOString(),
         mensagens: [...s.mensagens, a.eu, a.agente],
       };
     case "evento": {

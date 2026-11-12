@@ -4,10 +4,17 @@
  * O que Compras mostra e a API ainda não tem: a cobrança do pedido atrasado pelo Plumo e, só na demonstração (que não
  * tem cronograma), o "precisa até" de cada etapa. Nada vai para a rede nem é gravado; a ação avisa que é prévia.
  */
+import { cronogramaSimulado } from "./cronograma";
+
 export const AVISO_PREVIA = "Prévia: ainda não é salvo.";
 
-/** Na demonstração, cada etapa começa um mês depois da anterior, a partir do mês que vem. */
+/**
+ * Na demonstração, o mês em que a etapa começa no cronograma simulado (lib/simulado/cronograma.ts): Compras e
+ * Cronograma contam a mesma história.
+ */
 export function inicioEtapaDemo(posicao: number, hoje: Date): string {
-  const d = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1 + posicao, 1));
-  return d.toISOString().slice(0, 7);
+  const c = cronogramaSimulado(hoje);
+  const e = c.etapas[posicao % c.etapas.length]!;
+  const i = Math.max(0, e.percentuais.findIndex((p) => p > 0));
+  return c.mensal[i]?.mes ?? c.inicio!;
 }

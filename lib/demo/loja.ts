@@ -111,7 +111,7 @@ type ItemDemo = ItemInsumo["insumo"];
 /** Preço e fornecedor de referência da demonstração, para a proposta de compra ter valor. */
 export const REFERENCIA: Record<string, { fornecedor: string; centavosPorUn: number }> = {
   bloco: { fornecedor: "Cerâmica Santa Rita", centavosPorUn: 320 },
-  aco: { fornecedor: "Gerdau · distribuidor Campinas", centavosPorUn: 660 },
+  aco: { fornecedor: "Aço Forte · distribuidor (fictício)", centavosPorUn: 660 },
   cimento: { fornecedor: "Depósito Ouro Verde", centavosPorUn: 3900 },
   areia: { fornecedor: "Areial Jaguari", centavosPorUn: 14000 },
 };
@@ -819,7 +819,7 @@ function semear(): EstadoDemo {
   reg("PED-0158: aprovado → em_transito", "Rizzi", "tela", 5, 14);
   reg("Saída de 190 un de Bloco cerâmico 14×19×29 · Quebra no descarregamento", "Joana (mestre)", "whatsapp", 4);
   reg("PED-0160: aprovado → enviado", "Rizzi", "tela", 3, 11);
-  reg("PED-0167 criado: 600 kg de Aço CA-50 10 mm com Gerdau · distribuidor Campinas (R$ 4.020,00)", "Rizzi", "tela", 1, 16);
+  reg("PED-0167 criado: 600 kg de Aço CA-50 10 mm com Aço Forte · distribuidor (fictício) (R$ 4.020,00)", "Rizzi", "tela", 1, 16);
   return e;
 }
 
@@ -1023,10 +1023,10 @@ function semearConversas(e: EstadoDemo, u: Usuario) {
   const dia = 86_400_000;
   const exemplos: [string, number, string][] = [
     ["Hidráulica: o que muda", 0.1, "Quando a planta da hidráulica chegar, refaço orçamento, compras e cronograma e te mostro antes de mudar."],
-    ["Comprovante do Depósito São Jorge", 2, "Li o comprovante: R$ 1.283,00 para o Depósito São Jorge. Está em Gastos para você conferir."],
-    ["Atraso do aço da Aço Forte", 3, "O pedido de aço passou da data. Quer que eu prepare a mensagem para o fornecedor?"],
-    ["O que falta para a laje?", 4, "Para a laje faltam forma, laje treliçada e aço CA-60. Posso montar o pedido."],
-    ["Orçamento da estrutura", 24, "O orçamento da estrutura saiu das seis pranchas: 4 materiais, R$ 53.084,00."],
+    ["Comprovante do cimento", 2, "Li o comprovante do cimento e deixei para você conferir antes de lançar."],
+    ["Quando chega o aço?", 3, "O pedido do aço está a caminho. Aviso quando a entrega for registrada."],
+    ["O que falta comprar?", 4, "Faltam bloco cerâmico, cimento e areia da Estrutura. Posso montar o pedido."],
+    ["Orçamento da estrutura", 24, "O orçamento da Estrutura está aprovado. As compras seguem a ordem das etapas."],
     ["Cronograma inicial", 26, "Montei o cronograma inicial em 11 meses. Ajuste o que não bater com a obra."],
   ];
   exemplos.forEach(([titulo, diasAtras, resposta], i) => {

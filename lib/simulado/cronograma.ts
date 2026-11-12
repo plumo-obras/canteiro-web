@@ -30,15 +30,22 @@ export function mesDaObra(agora = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(agora).slice(0, 7);
 }
 
-export function cronogramaSimulado(agora = new Date()): Cronograma {
+/**
+ * `reais`: as etapas do orçamento da obra (número, nome e orçado). Com elas, o cronograma fictício usa as mesmas etapas
+ * e valores das outras telas e só inventa a distribuição pelos meses; sem elas, usa as sete etapas de exemplo.
+ */
+export function cronogramaSimulado(agora = new Date(), reais?: { etapa: string; descricao: string; atual: number }[]): Cronograma {
   const inicio = mesDaObra(agora);
   const meses = listaMeses(inicio, MESES);
-  const etapas = ETAPAS.map(([etapa, descricao, reais, ps]) => ({
+  const base = reais?.length
+    ? reais.map((e, i) => [e.etapa, e.descricao, e.atual, ETAPAS[i % ETAPAS.length]![3], i] as const)
+    : ETAPAS.map(([etapa, descricao, r, ps], i) => [etapa, descricao, r * 100, ps, i] as const);
+  const etapas = base.map(([etapa, descricao, atual, ps, i]) => ({
     etapa,
     descricao,
-    atual: reais * 100,
-    percentuais: Array.from({ length: MESES }, (_, i) => ps[i] ?? 0),
-    medido_acumulado: MEDIDO[etapa] ?? 0,
+    atual,
+    percentuais: Array.from({ length: MESES }, (_, m) => ps[m] ?? 0),
+    medido_acumulado: MEDIDO[String(i + 1)] ?? 0,
   }));
   const total = etapas.reduce((t, e) => t + e.atual, 0);
   const porMes = etapas.map((e) => valoresMes(e.atual, e.percentuais));

@@ -325,12 +325,12 @@ export function reaisCurtos(c: number): string {
 
 /**
  * Os quatro números do Orçamento numa faixa só, como no protótipo: orçado atual (inicial + aditivos embaixo),
- * comprometido (% do orçado), realizado e saldo a comprometer (a margem contra o valor fechado embaixo). Em reais
+ * comprometido (% do orçado), realizado e saldo a comprometer (o valor fechado embaixo, sem conta de margem: dinheiro
+ * se calcula na API). Em reais
  * inteiros; o valor com centavos fica no title. No celular, 2 × 2 e só rótulo e valor.
  */
 function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obra: Obra; celular: boolean }) {
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
-  const margem = obra.verba ? obra.verba - t.atual : null;
   const celulas: { rotulo: string; valor: number; sub?: ReactNode; neg?: boolean }[] = [
     {
       rotulo: "Orçado atual",
@@ -352,7 +352,7 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
       rotulo: celular ? "Saldo" : "Saldo a comprometer",
       valor: t.saldo,
       neg: t.saldo < 0,
-      sub: margem !== null ? <span className={margem < 0 ? "t-neg" : undefined}>margem: {margem < 0 ? `−${reaisInteiros(-margem)}` : reaisInteiros(margem)}</span> : undefined,
+      sub: obra.verba ? `valor fechado ${reaisInteiros(obra.verba)}` : undefined,
     },
   ];
   return (

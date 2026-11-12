@@ -119,7 +119,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .painel[hidden]{display:none}
 .painel-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:0 4px 6px}
 .painel-t{font-size:var(--t-sec);font-weight:600}
-.painel-sub{font-size:var(--t-meta);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px}
 .painel-x{width:34px;height:34px;margin:-4px -4px 0 0}
 .painel-nova{display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;border:0;border-radius:999px;background:var(--accent);color:var(--onAccent,#1d1505);
   font-weight:600;flex:none;transition:transform .12s var(--ease),filter .15s var(--ease)}
@@ -177,7 +176,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 /* ---------- celular e tablet ---------- */
 .gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
 .gaveta-fundo[hidden]{display:none}
-@media (min-width:900px){ .so-movel{display:none!important} }
 /* notebook de 1366: o Plumo, as cinco abas, o ⋯, o sino e o nome da obra cabem sem cortar a última */
 @media (max-width:1480px) and (min-width:1181px){
   .topo-marca-t{display:none}

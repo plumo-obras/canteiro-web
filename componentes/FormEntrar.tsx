@@ -103,7 +103,7 @@ export function FormEntrar({ demo }: { demo: boolean }) {
           <div className={s.linha}>
             <label className={s.manter}>
               <input type="checkbox" checked={manter} onChange={(e) => setManter(e.target.checked)} />
-              Manter conectado
+              Manter conectado neste navegador
             </label>
             {/* Não há recuperação de senha por e-mail: quem cria e troca acesso é o master da conta. */}
             {celular ? null : <span className={s.ajuda}>Esqueceu a senha? Fale com o admin da empresa.</span>}

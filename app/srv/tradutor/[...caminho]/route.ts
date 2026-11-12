@@ -88,8 +88,8 @@ async function demo(req: Request, caminho: string[]) {
   const ids = new URLSearchParams(new URL(req.url).search).get("ids")?.split(",") ?? [];
   if (req.method === "GET" && caminho[0] === "projetos" && caminho.length === 1) return json(projetoDemo(ids));
   if (req.method === "GET" && caminho[0] === "projetos" && caminho[1] === "materiais") return json(materiaisDemo());
-  if (req.method === "DELETE") return new Response(null, { status: 204 });
-  return json({ detail: "Na demonstração o projeto é fictício: enviar pranchas e baixar o DXF só com o tradutor ligado." }, 503);
+  // apagar, enviar e baixar o DXF não existem no projeto fictício: responder 204 fingiria que apagou (e ele voltaria)
+  return json({ detail: "Na demonstração o projeto é fictício: enviar, apagar e baixar o DXF só com o tradutor ligado." }, 503);
 }
 
 export const GET = repassar;

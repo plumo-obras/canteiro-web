@@ -77,7 +77,23 @@ function modeloDemo(): Modelo3D {
 
 const arquivo = (i: number) => ({ id: FOLHAS_DEMO[i]!.id, arquivo: FOLHAS_DEMO[i]!.nome, folha: FOLHAS_DEMO[i]!.folha, detalhes: [] });
 
+/** Sem nenhuma folha da demo, nada de projeto: os ids estranhos voltam em `nao_encontradas`, como o tradutor faria. */
 export function projetoDemo(ids: string[]): Projeto {
+  if (!ids.some(ehFolhaDemo)) {
+    return {
+      traducoes: [],
+      obra: {},
+      pacote: [],
+      nao_lidos_ainda: [],
+      conferencias: [],
+      quantitativos: { aco_kg: {}, aco_total_kg: 0, concreto_m3: {}, concreto_total_m3: 0, forma_m2: 0, por_folha: [] },
+      modelo3d: null,
+      pronto_para_3d: false,
+      edicoes_cad: null,
+      em_andamento: [],
+      nao_encontradas: ids,
+    };
+  }
   const parte = (papel: Projeto["pacote"][number]["papel"], nome: string, responsavel_por: string, obrig: boolean, i: number) => ({
     papel,
     nome,
@@ -130,13 +146,14 @@ export function materiaisDemo(): MateriaisProjeto {
     total_centavos: Math.round(preco * qtd),
   });
   const itens: MateriaisProjeto["itens"] = [
-      { chave: "aco-ca50-10", categoria: "aco", especificacao: "Aço CA-50 10 mm", unidade: "kg", quantidade: 3420, origem: ["E-03", "E-04"], ajuste: null, nota: null, referencia: ref("00000034", "Aço CA-50, 10 mm", "kg", 660, 3420) },
-      { chave: "aco-ca60-5", categoria: "aco", especificacao: "Aço CA-60 5 mm", unidade: "kg", quantidade: 520, origem: ["E-05"], ajuste: null, nota: null, referencia: ref("00000039", "Aço CA-60, 5 mm", "kg", 720, 520) },
-      { chave: "concreto-25", categoria: "concreto", especificacao: "Concreto fck 25 MPa", unidade: "m3", quantidade: 31.5, origem: ["E-01", "E-02"], ajuste: null, nota: null, referencia: ref("00034492", "Concreto usinado fck 25 MPa", "m3", 52000, 31.5) },
+      { chave: "aco-ca50-10", categoria: "aco", especificacao: "Aço CA-50 10 mm", unidade: "kg", quantidade: 3420, origem: ["E-03", "E-04"], ajuste: null, nota: null, referencia: ref("SIM-0034", "Aço CA-50, 10 mm", "kg", 660, 3420) },
+      { chave: "aco-ca60-5", categoria: "aco", especificacao: "Aço CA-60 5 mm", unidade: "kg", quantidade: 520, origem: ["E-05"], ajuste: null, nota: null, referencia: ref("SIM-0039", "Aço CA-60, 5 mm", "kg", 720, 520) },
+      { chave: "concreto-25", categoria: "concreto", especificacao: "Concreto fck 25 MPa", unidade: "m3", quantidade: 31.5, origem: ["E-01", "E-02"], ajuste: null, nota: null, referencia: ref("SIM-4492", "Concreto usinado fck 25 MPa", "m3", 52000, 31.5) },
       { chave: "forma", categoria: "forma", especificacao: "Forma de madeira", unidade: "m2", quantidade: 310, origem: ["E-02"], ajuste: null, nota: null, referencia: null },
   ];
   return {
-    referencia: { fonte: "SINAPI", mes: "2026-09", encargos: "não desonerado", uf: "SP" },
+    // fonte e códigos claramente fictícios: o repositório é público e não traz tabela de preço de verdade
+    referencia: { fonte: "SINAPI (fictício)", mes: "2026-09", encargos: "não desonerado", uf: "SP" },
     itens,
     total_referencia_centavos: itens.reduce((s, i) => s + (i.referencia?.total_centavos ?? 0), 0),
     avisos: [],

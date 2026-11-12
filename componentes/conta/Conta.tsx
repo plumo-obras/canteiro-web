@@ -117,7 +117,7 @@ export function Conta({ usuario }: { usuario: Usuario }) {
  */
 function Perfil(props: { className: string; usuario: { nome: string; email: string; papel: Papel }; empresa: string; compacto?: boolean }) {
   const { avisar } = useCasca();
-  const [nome, setNome] = useState(props.usuario.nome);
+  const nome = props.usuario.nome;
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -155,7 +155,7 @@ function Perfil(props: { className: string; usuario: { nome: string; email: stri
       setErro(p);
       return;
     }
-    setNome(valor.trim());
+    // prévia: nada é gravado, então o nome na tela também não muda (mudar faria parecer que salvou)
     setEditando(false);
     avisar(AVISO_PREVIA);
   };

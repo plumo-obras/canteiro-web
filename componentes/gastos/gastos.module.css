@@ -96,20 +96,6 @@ span.topicoNome { cursor: default; padding-right: 12px; }
   .soltarCom .previa { max-height: 96px; max-width: 38%; }
 }
 
-/* abas internas: no celular, rótulos curtos (os quatro inteiros não cabem em 390 px); se ainda assim passarem, rolam */
-.rotuloCurto { display: none; }
-@media (max-width: 760px) {
-  .segGastos { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-  .segGastos::-webkit-scrollbar { display: none; }
-  .segGastos button { flex: 1 0 auto; padding: 0 12px; white-space: nowrap; }
-  .rotuloLongo { display: none; }
-  .rotuloCurto { display: inline; }
-}
-/* tela estreita (abaixo de 360): o esmaecido na borda diz que tem mais aba para o lado */
-@media (max-width: 359px) {
-  .segGastos { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
-}
-
 /* fila: o que a IA leu identifica o comprovante sem abrir */
 .filaTitulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .filaLido { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 2px; font-size: var(--t-meta); }

@@ -62,7 +62,7 @@ describe("/conta: o que o protótipo mostra", () => {
     expect(screen.queryByText("Por rota")).toBeNull();
   });
 
-  it("Editar nome é prévia: muda só a tela e avisa que não salvou", async () => {
+  it("Editar nome é prévia: avisa que não salvou e o nome na tela não muda", async () => {
     const rede = criarRede({
       "GET /srv/api/conta": () =>
         json({ usuario: { id: "u-1", nome: "Rizzi", email: "eu@obra.com", papel: "admin" }, tenant: { id: "t-1", nome: "Construtora Exemplo" }, chave_propria: null, creditos: CREDITOS }),
@@ -79,7 +79,9 @@ describe("/conta: o que o protótipo mostra", () => {
     await userEvent.clear(campo);
     await userEvent.type(campo, "Rizzi Inventado");
     await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
-    expect(screen.getByText("Rizzi Inventado")).toBeTruthy();
+    // o nome não troca na tela: trocar faria parecer que gravou
+    expect(screen.queryByText("Rizzi Inventado")).toBeNull();
+    expect(screen.getByText("Rizzi")).toBeTruthy();
     expect(await screen.findByText("Prévia: ainda não é salvo.")).toBeTruthy();
     // nenhuma escrita saiu do navegador
     expect(rede.chamadas.filter((c) => c.metodo !== "GET")).toEqual([]);
