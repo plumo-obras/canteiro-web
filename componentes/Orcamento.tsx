@@ -74,12 +74,24 @@ export function Orcamento({ obra }: { obra: Obra }) {
     avisarFeito(`Orçamento aprovado. ${obra.nome} está em andamento.`, r.registro_id ?? null);
   };
 
+  // Organiza os serviços em etapas por fase de obra: com isso o cronograma nasce completo, por fase até a entrega.
+  const organizarFases = async () => {
+    try {
+      const r = await api.organizarFases(obra.id);
+      mudou();
+      avisarFeito(`Orçamento organizado em ${r.fases.length} fases de obra. O cronograma já sai completo, por fase.`, r.registro_id);
+    } catch (e) {
+      avisar(mensagemDe(e));
+    }
+  };
+
   const t = dado?.totais;
   const temOrcamento = !!dado?.versoes.length;
   const [historico, setHistorico] = useState(false);
   // Um botão só no cabeçalho: as ações de arquivo e o histórico vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
   const menu = [
     ...(podeOperar && (temOrcamento || materiais.length) ? [{ rotulo: "Importar planilha", acao: () => setModal("importar") }] : []),
+    ...(podeOperar && temContrato ? [{ rotulo: "Organizar em fases de obra", acao: () => void organizarFases() }] : []),
     ...(dado && temOrcamento ? [{ rotulo: "Exportar CSV", acao: () => exportarCsv(obra, dado) }] : []),
     ...(dado && dado.versoes.length ? [{ rotulo: "Histórico de versões", acao: () => setHistorico(true) }] : []),
   ];
