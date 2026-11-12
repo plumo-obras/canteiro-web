@@ -45,9 +45,9 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   historico: { rotulo: "Histórico", icone: "history" },
 };
 // A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados.
-// Planejar antes de executar: Projeto define o quê, Orçamento quanto, Cronograma quando — e só então Compras e Gastos
-// (execução contra o plano). O Cronograma sai do Orçamento, então vem logo depois dele.
-const ABAS: AbaAtiva[] = ["projeto", "orcamento", "cronograma", "suprimentos", "gastos"];
+// O projeto gera o cronograma estimado da obra toda; o orçamento é o detalhamento que a estimativa vai virando real.
+// Por isso Cronograma (a previsão da obra) vem antes do Orçamento (o detalhe), e depois Compras e Gastos (execução).
+const ABAS: AbaAtiva[] = ["projeto", "cronograma", "orcamento", "suprimentos", "gastos"];
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 

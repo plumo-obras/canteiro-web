@@ -219,7 +219,7 @@ describe("a barra da obra", () => {
 
   it("cinco abas, nesta ordem e sem números", async () => {
     await abrir();
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Projeto", "Orçamento", "Cronograma", "Compras", "Gastos"]);
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Projeto", "Cronograma", "Orçamento", "Compras", "Gastos"]);
   });
 
   it("o sino conta as pendências da obra aberta e abre as Aprovações", async () => {
