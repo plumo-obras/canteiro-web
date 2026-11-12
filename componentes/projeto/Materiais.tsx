@@ -188,6 +188,27 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
   // Materiais diferentes pedem outra: a API recusa a chave já usada para outro conteúdo.
   const chave = useRef<{ conteudo: string; valor: string } | null>(null);
 
+  // O upload do projeto é a aprovação: na 1ª vez (orçamento ainda sem nenhuma versão) os
+  // materiais das pranchas entram sozinhos, sem o passo manual. Havendo orçamento, mudança de
+  // prancha vira aditivo e segue pela mão — toda escrita cai no Histórico com Desfazer.
+  const autoFluiu = useRef(false);
+  const orcVazio = !!orc.dado && !(orc.dado.versoes ?? []).some((v) => v.ativa);
+  useEffect(() => {
+    if (autoFluiu.current || !podeOperar || !tem || !orcVazio || situacao !== "fora") return;
+    autoFluiu.current = true;
+    void (async () => {
+      try {
+        const r = await api.estruturaDoProjeto(obra.id, todos, true, uuid7(), []);
+        if (!r.aplicado) return void (autoFluiu.current = false);
+        acabouDeLevar.current = true;
+        mudou();
+        avisarFeito(`${plural(todos.length, "material das pranchas entrou", "materiais das pranchas entraram")} no orçamento.`, r.registro_id);
+      } catch {
+        autoFluiu.current = false; // a próxima releitura tenta de novo; a chave idempotente evita duplicar
+      }
+    })();
+  }, [podeOperar, tem, orcVazio, situacao, obra.id, todos, mudou, avisarFeito]);
+
   if (erro || (dados && !tem)) {
     return <ProximoPasso obraId={obra.id} para="orcamento" acao="Ver o orçamento" titulo="As pranchas estão lidas." texto="Confira no orçamento o que já entrou e o que falta lançar." />;
   }
@@ -248,8 +269,10 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
       Ver
     </button>
   );
-  const destacarLevar = situacao === "fora" && podeOperar;
-  const verOrcamento = destacarLevar ? null : (
+  // Enquanto o auto-fluxo da 1ª vez roda, o botão manual some: a tela não oferece de novo o que já está entrando.
+  const autoEntrando = orcVazio && situacao === "fora" && podeOperar;
+  const destacarLevar = situacao === "fora" && podeOperar && !autoEntrando;
+  const verOrcamento = situacao === "fora" && podeOperar ? null : (
     <LinkTela obraId={obra.id} para="orcamento" ref={irAoOrcamento}>
       Ver o orçamento
     </LinkTela>
@@ -259,10 +282,14 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
       <Faixa
         rotulo="Próximo passo"
         titulo={levado ? `${plural(todos.length, "material das pranchas já está", "materiais das pranchas já estão")} no orçamento.` : `${plural(todos.length, "material saiu das pranchas", "materiais saíram das pranchas")}.`}
-        texto={levado ? "Confira os preços e o que falta lançar." : situacao === "anterior" ? "O orçamento ainda tem a Estrutura de pranchas anteriores." : "Só entram no orçamento se você levar."}
+        texto={levado ? "Confira os preços e o que falta lançar." : autoEntrando ? "Entrando no orçamento automaticamente…" : situacao === "anterior" ? "O orçamento ainda tem a Estrutura de pranchas anteriores." : "Só entram no orçamento se você levar."}
       >
         {ver}
-        {podeOperar && !levado ? (
+        {autoEntrando ? (
+          <span className="btn" aria-busy="true" aria-live="polite">
+            <Icone nome="loader" className="spin" tam={14} /> Entrando…
+          </span>
+        ) : podeOperar && !levado ? (
           <button type="button" className={destacarLevar ? "btn amb" : "btn"} disabled={preparando} aria-busy={preparando} onClick={() => preparar()}>
             {preparando ? <Icone nome="loader" className="spin" tam={14} /> : null}
             Levar para o orçamento…

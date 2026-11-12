@@ -28,6 +28,13 @@ const MATERIAIS: MateriaisProjeto = {
 };
 
 const VAZIO_ORC = { versoes: [], itens: [], etapas: [], totais: {} };
+// Um orçamento que já tem versão ativa: a 1ª vez já passou, então os materiais das pranchas não
+// entram mais sozinhos — volta o passo manual (aditivo/soma), com prévia e confirmação.
+const COM_VERSAO = {
+  ...VAZIO_ORC,
+  versoes: [{ id: "v0", tipo: "contrato", descricao: "Serviços", ativa: true }],
+  itens: [{ versao_id: "v0", tipo: "item", descricao: "Locação da obra", quantidade: 1000, valor_unitario: 100 }],
+};
 const previa = (aplicar: boolean, tipo: "contrato" | "aditivo") => ({
   aplicado: aplicar, tipo, registro_id: aplicar ? "rv1" : null, versao_id: aplicar ? "v1" : null, total: 147381, n_itens: 2, erros: [], avisos: [], itens: [], ignoradas: [], n_etapas: 1, etapas: [], substitui: null,
 });
@@ -53,6 +60,7 @@ const rotas = (extra = {}) => ({
   "POST /srv/auth/renovar": renovarOk,
   "GET /srv/tradutor/projetos/materiais": () => json(MATERIAIS),
   "GET /srv/api/obras/o-1/orcamento": () => json(VAZIO_ORC),
+  "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura(),
   ...extra,
 });
 const escritas = (rede: ReturnType<typeof criarRede>) => rede.chamadas.filter((c) => c.caminho.endsWith("/orcamento/estrutura"));
@@ -82,22 +90,45 @@ describe("Materiais das pranchas", () => {
     expect(within(lista).getByText("Vigotas pré-moldadas (2 tipos)").closest("li")).toHaveTextContent("a confirmar");
   });
 
-  it("nada entra no orçamento sem o clique: abrir a tela só lista e conta", async () => {
-    const rede = criarRede(rotas({ "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura() }));
+  it("na 1ª vez, com o orçamento ainda vazio, os materiais entram sozinhos — o upload do projeto é a aprovação", async () => {
+    let gravou = false;
+    const LEVADO = {
+      ...VAZIO_ORC,
+      versoes: [{ id: "v1", tipo: "contrato", descricao: "Estrutura", ativa: true }],
+      itens: [
+        { versao_id: "v1", tipo: "item", descricao: NOME_ACO, quantidade: 220300, valor_unitario: 669 },
+        { versao_id: "v1", tipo: "item", descricao: "EPS B8/30/125", quantidade: 382000, valor_unitario: 0 },
+      ],
+    };
+    const rede = criarRede(
+      rotas({
+        "GET /srv/api/obras/o-1/orcamento": () => json(gravou ? LEVADO : VAZIO_ORC),
+        "POST /srv/api/obras/o-1/orcamento/estrutura": ({ corpo }: { corpo: unknown }) => {
+          gravou = (corpo as { aplicar: boolean }).aplicar;
+          return json(previa(gravou, "contrato"));
+        },
+      }),
+    );
     montar();
-    // só contam os que têm quantidade: a vigota "a confirmar" não vai
-    expect(await screen.findByText("2 materiais saíram das pranchas.")).toBeInTheDocument();
-    expect(escritas(rede)).toEqual([]);
+    // sem prévia e sem clique: grava direto, uma vez só, e a vigota sem quantidade fica de fora
+    await vi.waitFor(() => expect(escritas(rede).filter((c) => (c.corpo as { aplicar: boolean }).aplicar)).toHaveLength(1));
+    expect(await screen.findByText("2 materiais das pranchas já estão no orçamento.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull();
+    const corpo = escritas(rede).at(-1)!.corpo as { chave_idempotencia: string; itens: { nome: string }[] };
+    expect(corpo.chave_idempotencia).toMatch(/^[0-9a-f-]{36}$/);
+    expect(corpo.itens.map((i) => i.nome)).toEqual([NOME_ACO, "EPS B8/30/125"]);
   });
 
-  it("levar pede a prévia, confirma e só então grava, com Desfazer", async () => {
-    const rede = criarRede(rotas({ "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura() }));
+  it("com orçamento já existente, levar pede a prévia, confirma e só então grava, com Desfazer", async () => {
+    const rede = criarRede(rotas({ "GET /srv/api/obras/o-1/orcamento": () => json(COM_VERSAO), "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura("aditivo") }));
     const u = userEvent.setup();
     montar();
+    // orçamento já existe: nada entra sozinho — aparece o passo manual
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
 
     const dialogo = await screen.findByRole("dialog", { name: "Levar os materiais para o orçamento?" });
-    expect(dialogo).toHaveTextContent("viram a etapa Estrutura do orçamento inicial");
+    expect(dialogo).toHaveTextContent("entram como aditivo");
     expect(dialogo).toHaveTextContent("1 material sem quantidade fica de fora.");
     expect(escritas(rede).map((c) => (c.corpo as { aplicar: boolean }).aplicar)).toEqual([false]);
 
@@ -106,9 +137,9 @@ describe("Materiais das pranchas", () => {
     expect(escritas(rede).map((c) => (c.corpo as { aplicar: boolean }).aplicar)).toEqual([false]);
 
     await u.click(screen.getByRole("button", { name: "Levar para o orçamento…" }));
-    await u.click(await screen.findByRole("button", { name: "Levar para o orçamento" }));
+    await u.click(await screen.findByRole("button", { name: /Lançar aditivo/ }));
 
-    expect(await screen.findByText("Materiais das pranchas no orçamento, como orçamento inicial.")).toBeInTheDocument();
+    expect(await screen.findByText("Materiais das pranchas no orçamento, como aditivo.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
     const gravou = escritas(rede).at(-1)!.corpo as { aplicar: boolean; chave_idempotencia: string; itens: { nome: string }[] };
     expect(gravou.aplicar).toBe(true);
@@ -120,6 +151,7 @@ describe("Materiais das pranchas", () => {
     let tentativas = 0;
     const rede = criarRede(
       rotas({
+        "GET /srv/api/obras/o-1/orcamento": () => json(COM_VERSAO),
         "POST /srv/api/obras/o-1/orcamento/estrutura": ({ corpo }: { corpo: unknown }) => {
           const aplicar = (corpo as { aplicar: boolean }).aplicar;
           if (aplicar && ++tentativas === 1) return json({ detail: "O servidor não respondeu." }, 502);
@@ -166,19 +198,20 @@ describe("Materiais das pranchas", () => {
       }),
     );
     const { rerender } = render(comCasca(["f1", "f2"]));
-    await screen.findByRole("button", { name: "Levar para o orçamento…" });
+    // o botão "Ver" do cartão só aparece com materiais carregados — bom sinal de que a leitura chegou
+    await screen.findByRole("button", { name: "Ver" });
 
     rerender(comCasca(["f1"]));
-    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull());
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Ver" })).toBeNull());
     expect(screen.getByText(/Levantando os materiais/)).toBeInTheDocument();
 
     // a 2ª leitura precisa ter saído: antes disso, ainda não há o que liberar
     await vi.waitFor(() => expect(leituras).toBe(2));
     liberar(json(MATERIAIS));
-    expect(await screen.findByRole("button", { name: "Levar para o orçamento…" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Ver" })).toBeInTheDocument();
   });
 
-  it("um passo por vez: primeiro levar, em destaque; levado, o foco vai para Ver o orçamento", async () => {
+  it("na 1ª vez, o foco vai para Ver o orçamento assim que os materiais entram sozinhos", async () => {
     const LEVADO = {
       ...VAZIO_ORC,
       versoes: [{ id: "v1", tipo: "contrato", descricao: "Estrutura", ativa: true }],
@@ -197,14 +230,8 @@ describe("Materiais das pranchas", () => {
         },
       }),
     );
-    const u = userEvent.setup();
     montar();
-    const levar = await screen.findByRole("button", { name: "Levar para o orçamento…" });
-    expect(levar).toHaveClass("amb");
-    expect(screen.queryByRole("link", { name: "Ver o orçamento" })).toBeNull();
-
-    await u.click(levar);
-    await u.click(await screen.findByRole("button", { name: "Levar para o orçamento" }));
+    // sem clique: enquanto entra, mostra "Entrando…"; entrado, o foco vai para Ver o orçamento
     const ir = await screen.findByRole("link", { name: "Ver o orçamento" });
     expect(ir).toHaveClass("amb");
     await vi.waitFor(() => expect(ir).toHaveFocus());
@@ -231,7 +258,7 @@ describe("Materiais das pranchas", () => {
   });
 
   it("em obra com contrato, o diálogo avisa que entra como aditivo e diz o valor no botão", async () => {
-    const rede = criarRede(rotas({ "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura("aditivo") }));
+    const rede = criarRede(rotas({ "GET /srv/api/obras/o-1/orcamento": () => json(COM_VERSAO), "POST /srv/api/obras/o-1/orcamento/estrutura": estrutura("aditivo") }));
     const u = userEvent.setup();
     montar();
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
@@ -251,7 +278,7 @@ describe("Materiais das pranchas", () => {
       const total = fora ? 0 : 147381;
       return json({ ...previa(c.aplicar, "contrato"), total, n_itens: fora ? 1 : 2, itens: fora ? [] : [ACO], substitui: { versao_id: "v0", total: 2_000_000, itens: 30 }, total_apos: 2_000_000 + total });
     };
-    const rede = criarRede(rotas({ "POST /srv/api/obras/o-1/orcamento/estrutura": somar }));
+    const rede = criarRede(rotas({ "GET /srv/api/obras/o-1/orcamento": () => json(COM_VERSAO), "POST /srv/api/obras/o-1/orcamento/estrutura": somar }));
     const u = userEvent.setup();
     montar();
     await u.click(await screen.findByRole("button", { name: "Levar para o orçamento…" }));
