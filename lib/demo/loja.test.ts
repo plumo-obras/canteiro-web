@@ -227,7 +227,7 @@ describe("demonstração: página inicial e conta", () => {
     expect(chamar("PUT", "conta/chave-anthropic", { chave }, master()).status).toBe(200);
     const depois = chamar("GET", "conta", undefined, master()).corpo;
     expect(JSON.stringify(depois)).not.toContain("abcdefghijklmnop");
-    expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: true, final: "WXYZ" });
+    expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: true, final: "WXYZ", conectada_por: master().nome });
     expect((chamar("GET", "creditos").corpo as { chave_propria: boolean }).chave_propria).toBe(true);
     expect(chamar("DELETE", "conta/chave-anthropic", undefined, master()).status).toBe(200);
     expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: false, final: null });

@@ -88,15 +88,15 @@ export function Conta({ usuario }: { usuario: Usuario }) {
             </dl>
           </section>
 
-          {/* Logo abaixo do perfil, que é da pessoa; no desktop a chave (da empresa) ocupa a coluna ao lado das duas. */}
-          <Senha className={`${s.bloco} ${s.senha}`} email={c.usuario.email} />
-
+          {/* A chave vem antes da senha no HTML porque no desktop ela fica ao lado do perfil: o Tab segue a ordem que se vê. */}
           <Chave
             className={`${s.bloco} ${s.chave}`}
             situacao={c.chave_propria}
             podeTrocar={c.usuario.papel !== "viewer"}
             mudou={() => setVersao((v) => v + 1)}
           />
+
+          <Senha className={`${s.bloco} ${s.senha}`} email={c.usuario.email} />
 
           <Creditos
             className={`${s.bloco} ${s.creditos}`}

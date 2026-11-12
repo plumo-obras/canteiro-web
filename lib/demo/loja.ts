@@ -84,7 +84,7 @@ interface EstadoDemo {
   /** E-mail com que cada pessoa entrou (o Usuario do contrato não traz e-mail; GET /conta traz). */
   emails: Map<string, string>;
   /** Da chave própria a demonstração guarda só o final, como a tela enxerga: a chave em si é descartada. */
-  chave: { final: string; cadastrada_em: string } | null;
+  chave: { final: string; cadastrada_em: string; por: string } | null;
   creditos: { saldo: number; franquia: number };
   /** Linhas de UsoIA (custo em microdólares), somadas na hora como a API faz. */
   uso: { dia: string; obra_id: string | null; rota: string; custo: number; tokens: number }[];
@@ -1244,7 +1244,9 @@ export function resumoObras(e: EstadoDemo) {
 }
 
 function chaveDemo(e: EstadoDemo) {
-  return e.chave ? { ativa: true, final: e.chave.final, cadastrada_em: e.chave.cadastrada_em } : { ativa: false, final: null, cadastrada_em: null };
+  return e.chave
+    ? { ativa: true, final: e.chave.final, cadastrada_em: e.chave.cadastrada_em, conectada_por: e.chave.por }
+    : { ativa: false, final: null, cadastrada_em: null, conectada_por: null };
 }
 
 function creditosDemo(e: EstadoDemo, u: Usuario) {
@@ -1325,7 +1327,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         const chave = String(c.chave ?? "").trim();
         if (!/^sk-ant-/.test(chave) || chave.length < 20 || chave.length > 300)
           return erro(422, "Isto não parece uma chave da API da Anthropic (começa com sk-ant-).");
-        e.chave = { final: chave.slice(-4), cadastrada_em: agoraISO() };
+        e.chave = { final: chave.slice(-4), cadastrada_em: agoraISO(), por: u.nome };
         return ok({ chave_propria: true, final: e.chave.final });
       }
       if (metodo === "DELETE") {

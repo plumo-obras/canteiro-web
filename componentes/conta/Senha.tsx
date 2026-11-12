@@ -4,7 +4,7 @@
  * nova para este aparelho (lib/sessao.trocarSenha guarda). As senhas digitadas saem do estado assim que a troca dá
  * certo ou o formulário é fechado.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { trocarSenha } from "@/lib/sessao";
 import { useCasca } from "../contexto";
 import { Icone } from "../Icone";
@@ -34,6 +34,11 @@ export function Senha(props: { className: string; email: string }) {
   const [ver, setVer] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const primeiro = useRef<HTMLInputElement>(null);
+  // O botão "Trocar senha" some quando o formulário abre: o foco vai para o primeiro campo.
+  useEffect(() => {
+    if (aberto) primeiro.current?.focus();
+  }, [aberto]);
 
   const problema = problemaNaSenha(atual, nova, confirmar);
   // Só aponta o que a pessoa já terminou de digitar: avisar "curta" no primeiro caractere é ruído.
@@ -70,6 +75,7 @@ export function Senha(props: { className: string; email: string }) {
         {rotulo}
       </label>
       <input
+        ref={id === "senha-atual" ? primeiro : undefined}
         id={id}
         className={`f ${s.entrada}`}
         type={ver ? "text" : "password"}

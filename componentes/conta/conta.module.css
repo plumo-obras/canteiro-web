@@ -109,7 +109,9 @@
 .senha[data-aberto="false"] .texto{grid-column:1;margin:0}
 .senha[data-aberto="false"]>:global(.btn){grid-column:2;grid-row:1/span 2;min-height:44px}
 .formSenha{display:flex;flex-direction:column;gap:6px}
-.camposSenha{display:grid;gap:8px 16px;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+/* três colunas só onde cabem as três; abaixo disso, uma: nunca 2 + 1 */
+.camposSenha{display:grid;gap:8px 16px;align-items:start;grid-template-columns:minmax(0,1fr)}
+@media (min-width:960px){.camposSenha{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .campoSenha{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .entrada{min-height:44px;font-size:16px;width:100%}
 .verSenhas{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:2px;padding:0;border:0;background:none;

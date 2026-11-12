@@ -6,7 +6,7 @@ import "server-only";
 
 /**
  * Rotas de dados do contrato que a web pode repassar, por método. /auth fica nas rotas próprias. A conta e o consumo só
- * se leem daqui; fora de GET/POST, só a chave própria da Anthropic (o papel master quem confere é a API) e o PATCH dos
+ * se leem daqui; fora de GET/POST, só a chave própria da Anthropic (o papel admin quem confere é a API) e o PATCH dos
  * dados de uma obra, de um pedido (previsão, observação), de um fornecedor, de uma etapa extra, de um tópico e a etapa
  * de um gasto (e a natureza fiscal dele, PATCH /gastos/{id}/fiscal), e o de um item do orçamento; o PUT do
  * cronograma da obra. Os tributos da obra se leem por GET /obras/{id}/tributos. A leitura de comprovante pela IA (`/interno/...`) é do agente, nunca do navegador.
