@@ -5,7 +5,7 @@
  * conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
  * perderem. Início e Conta ficam no logo e no avatar. No celular a lista vira gaveta e as telas vão para a barra de baixo.
  */
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Obra, ResumoDaObra, Usuario } from "@/lib/contrato";
@@ -88,13 +88,26 @@ const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
 }
-/** Começa fechado: a casa da obra precisa da largura. Só fica aberto para quem abriu (a preferência fica salva). */
+/** Começa aberto no computador, como no desenho da casa da obra; quem fechou continua com ele fechado (fica salvo). */
 export function lerPainel() {
   try {
-    return localStorage.getItem(CHAVE_PAINEL) === "aberto";
+    return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
   } catch {
-    return false;
+    return true;
   }
+}
+
+/** "Hoje", "Esta semana", "Este mês" ou o mês por extenso: os grupos da lista de conversas, das mais novas às mais velhas. */
+export function grupoDaData(iso: string, agora = new Date()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Mais antigas";
+  const dia = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dias = Math.round((dia(agora) - dia(d)) / 86400000);
+  if (dias <= 0) return "Hoje";
+  if (dias < 7) return "Esta semana";
+  if (d.getFullYear() === agora.getFullYear() && d.getMonth() === agora.getMonth()) return "Este mês";
+  const mes = new Intl.DateTimeFormat("pt-BR", { month: "long", ...(d.getFullYear() === agora.getFullYear() ? {} : { year: "numeric" }) }).format(d);
+  return mes[0]!.toUpperCase() + mes.slice(1);
 }
 
 function App({ usuario }: { usuario: Usuario }) {
@@ -126,6 +139,7 @@ function App({ usuario }: { usuario: Usuario }) {
   // novo que a última dela já está aqui, então o cursor de TODAS as obras começa nessa data.
   const [cursorGlobal, setCursorGlobal] = useState<string | null>(null);
   const [maisConversas, setMaisConversas] = useState<Record<string, { antes: string | null; buscando?: boolean }>>({});
+  const [buscaConversa, setBuscaConversa] = useState("");
 
   const iniciou = useRef(false);
   useEffect(() => {
@@ -371,23 +385,40 @@ function App({ usuario }: { usuario: Usuario }) {
             Nova conversa
           </button>
         ) : null}
+        <label className="busca painel-busca">
+          <Icone nome="busca" tam={15} />
+          <span className="sr-only">Buscar nas conversas</span>
+          <input type="search" placeholder="Buscar nas conversas" value={buscaConversa} onChange={(e) => setBuscaConversa(e.target.value)} />
+        </label>
         <div className="painel-lista">
-          {sessoes
-            // A conversa nova e vazia já é o botão "Nova conversa" acima: não entra na lista duas vezes.
-            .filter((s) => s.obraId === obra?.id && !(s.carregada && s.mensagens.length === 0))
-            .map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={`painel-sess${s.id === atual ? (tela === "conversa" ? " on" : " atual") : ""}`}
-                aria-current={s.id === atual ? "true" : undefined}
-                title={s.titulo}
-                onClick={() => escolherSessao(s.id)}
-              >
-                <Icone nome="message" tam={14} />
-                <span className="sess-t">{s.titulo}</span>
-              </button>
-            ))}
+          {(() => {
+            const q = buscaConversa.trim().toLowerCase();
+            const lista = sessoes
+              // A conversa nova e vazia já é o botão "Nova conversa" acima: não entra na lista duas vezes.
+              .filter((s) => s.obraId === obra?.id && !(s.carregada && s.mensagens.length === 0))
+              .filter((s) => !q || s.titulo.toLowerCase().includes(q));
+            if (q && !lista.length) return <p className="painel-vazio">Nenhuma conversa com «{buscaConversa.trim()}».</p>;
+            let anterior = "";
+            return lista.map((s) => {
+              const grupo = grupoDaData(s.atualizadoEm);
+              const cab = grupo !== anterior ? grupo : null;
+              anterior = grupo;
+              return (
+                <Fragment key={s.id}>
+                  {cab ? <p className="painel-grupo">{cab}</p> : null}
+                  <button
+                    type="button"
+                    className={`painel-sess${s.id === atual ? (tela === "conversa" ? " on" : " atual") : ""}`}
+                    aria-current={s.id === atual ? "true" : undefined}
+                    title={s.titulo}
+                    onClick={() => escolherSessao(s.id)}
+                  >
+                    <span className="sess-t">{s.titulo}</span>
+                  </button>
+                </Fragment>
+              );
+            });
+          })()}
           {obra && cursorDa(obra.id) ? (
             <button
               type="button"

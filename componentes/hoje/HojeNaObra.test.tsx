@@ -152,7 +152,7 @@ describe("HojeNaObra", () => {
   it("esperando você: cartões desta obra, até 3, e o caminho para o resto", async () => {
     montar(() => json(HOJE), [proposta("a"), proposta("b"), proposta("c"), proposta("d"), proposta("x", "outra")]);
     const usuario = userEvent.setup();
-    await usuario.click(await screen.findByRole("button", { name: "4 esperando você" }));
+    await usuario.click(await screen.findByRole("button", { name: "4 aprovações" }));
     await screen.findByRole("heading", { name: /Esperando você/ });
     await usuario.click(await screen.findByRole("button", { name: "Ver as outras 1 em Aprovações" }));
     expect(ir).toHaveBeenCalledWith("aprovacoes");

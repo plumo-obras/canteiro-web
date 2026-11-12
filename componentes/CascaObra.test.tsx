@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Obra } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
-import { Casca, lerPainel } from "./Casca";
+import { Casca, lerPainel, grupoDaData } from "./Casca";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 
@@ -225,11 +225,13 @@ describe("a barra da obra", () => {
   it("sem trilho: a lista de conversas abre pelo botão da própria conversa", async () => {
     await abrir();
     expect(document.querySelector(".trilho")).toBeNull();
+    // no computador a lista começa aberta; o botão fecha e reabre
     const bt = await screen.findByRole("button", { name: "Conversas" });
-    expect(bt.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(bt);
     await waitFor(() => expect(bt.getAttribute("aria-expanded")).toBe("true"));
     expect(document.getElementById("painel-conversas")?.hidden).toBe(false);
+    fireEvent.click(bt);
+    await waitFor(() => expect(bt.getAttribute("aria-expanded")).toBe("false"));
+    expect(document.getElementById("painel-conversas")?.hidden).toBe(true);
   });
 
   it("o sino conta as pendências da obra aberta e abre as Aprovações", async () => {
@@ -321,12 +323,22 @@ describe("a conversa vazia pergunta sobre o momento da obra", () => {
 describe("painel de conversas", () => {
   afterEach(() => localStorage.removeItem("plumo.painel"));
 
-  it("começa fechado e só fica aberto para quem abriu", () => {
+  it("começa aberto e só fica fechado para quem fechou", () => {
     localStorage.removeItem("plumo.painel");
-    expect(lerPainel()).toBe(false);
+    expect(lerPainel()).toBe(true);
     localStorage.setItem("plumo.painel", "fechado");
     expect(lerPainel()).toBe(false);
     localStorage.setItem("plumo.painel", "aberto");
     expect(lerPainel()).toBe(true);
+  });
+
+  it("agrupa as conversas por data", () => {
+    const agora = new Date(2026, 10, 12, 15);
+    expect(grupoDaData(new Date(2026, 10, 12, 9).toISOString(), agora)).toBe("Hoje");
+    expect(grupoDaData(new Date(2026, 10, 9).toISOString(), agora)).toBe("Esta semana");
+    expect(grupoDaData(new Date(2026, 10, 2).toISOString(), agora)).toBe("Este mês");
+    expect(grupoDaData(new Date(2026, 9, 20).toISOString(), agora)).toBe("Outubro");
+    expect(grupoDaData(new Date(2025, 9, 20).toISOString(), agora)).toBe("Outubro de 2025");
+    expect(grupoDaData("", agora)).toBe("Mais antigas");
   });
 });

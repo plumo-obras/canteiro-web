@@ -11,6 +11,7 @@ import { CartaoProposta } from "../CartaoProposta";
 import { useCasca } from "../contexto";
 import { Icone } from "../Icone";
 import { telaDe, type AbaAtiva } from "../sessoes";
+import { DISCIPLINAS_SIMULADAS } from "@/lib/simulado/projeto";
 import { useCarregar } from "../useCarregar";
 import s from "./hoje.module.css";
 
@@ -151,7 +152,7 @@ type Gaveta = "esperando" | "semana";
 
 function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
-  const { cartoes } = useCasca();
+  const { cartoes, irParaTela } = useCasca();
   const [gaveta, setGaveta] = useState<Gaveta | null>(null);
   const caixa = useRef<HTMLElement>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
@@ -194,10 +195,13 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
   const rotuloEsperando = podeOperar
     ? nPendentes === 0
       ? "Nada esperando você"
-      : `${nPendentes} esperando você`
+      : `${nPendentes} ${nPendentes === 1 ? "aprovação" : "aprovações"}`
     : nPendentes === 0
       ? "Nada aguardando aprovação"
       : `${nPendentes} aguardando aprovação`;
+  // o que pede atenção vira etiqueta também (o detalhe continua na lista abaixo); a próxima disciplina é SIMULADA
+  const atencao = pontos.filter((p) => p.prioridade === "atencao" && p.acao && telaDe(p.acao.tela));
+  const proxima = DISCIPLINAS_SIMULADAS.find((d) => d.situacao === "proxima");
 
   return (
     <div className={s.casa}>
@@ -213,6 +217,18 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
             <span className={s.bola} aria-hidden="true" />
             {rotuloEsperando}
           </button>
+          {atencao.map((p) => (
+            <button key={p.tipo} type="button" className={`${s.etq} ${s.ver}`} onClick={() => irParaTela(telaDe(p.acao!.tela)!, p.acao!.filtro)}>
+              <span className={s.bola} aria-hidden="true" />
+              {p.titulo.replace(/\.$/, "")}
+            </button>
+          ))}
+          {proxima ? (
+            <button type="button" className={`${s.etq} ${s.azu}`} onClick={() => irParaTela("projeto")}>
+              <span className={s.bola} aria-hidden="true" />
+              {proxima.nome}: falta a planta
+            </button>
+          ) : null}
           <button type="button" className={s.etq} aria-expanded={gaveta === "semana"} aria-controls="hoje-gaveta" onClick={alternar("semana")}>
             <Icone nome="calendario" tam={14} />
             Esta semana{dado.semana.length ? ` · ${dado.semana.length}` : ""}

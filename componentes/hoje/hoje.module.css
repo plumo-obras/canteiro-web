@@ -11,6 +11,8 @@
 .etq[aria-expanded=true]{border-color:var(--ink2);color:var(--ink)}
 .amb{background:var(--amberSoft);color:var(--amberInk);border-color:transparent}
 .amb[aria-expanded=true]{border-color:var(--amber);color:var(--amberInk)}
+.ver{background:var(--redSoft);color:var(--redInk);border-color:transparent}
+.azu{background:var(--blueSoft);color:var(--blueInk);border-color:transparent}
 .bola{width:7px;height:7px;border-radius:var(--rp);background:currentColor;flex:none}
 @media (hover:hover){ .etq:hover{background:var(--hover)} .amb:hover{background:var(--amberSoft);filter:brightness(1.06)} }
 

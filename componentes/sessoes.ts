@@ -30,6 +30,8 @@ export interface Sessao {
   carregada: boolean;
   erroCarga: string | null;
   titulo: string;
+  /** ISO; agrupa a lista das conversas por data (Hoje, Esta semana…). */
+  atualizadoEm: string;
   mensagens: Msg[];
   abas: Tela[];
   ativa: AbaAtiva;
@@ -56,6 +58,7 @@ export function novaSessao(obraId: string): Sessao {
     servidorId: uuid7(),
     obraId,
     titulo: "Nova conversa",
+    atualizadoEm: new Date().toISOString(),
     carregada: true,
     erroCarga: null,
     mensagens: [],
@@ -142,6 +145,7 @@ export function redutorSessoes(ss: Sessao[], a: AcaoSessoes): Sessao[] {
         servidorId: x.id,
         obraId: x.obra_id ?? a.obraPadrao,
         titulo: x.titulo || "Conversa",
+        atualizadoEm: x.atualizado_em,
         carregada: x.total_mensagens === 0,
         erroCarga: null,
         mensagens: [],
