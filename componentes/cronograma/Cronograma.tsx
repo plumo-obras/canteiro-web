@@ -13,6 +13,7 @@ import { fmtReais } from "@/lib/formato";
 import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
 import { mensagemDe, useCasca } from "../contexto";
 import { CartaoProposta } from "../CartaoProposta";
+import { BaseOrcamento } from "./BaseOrcamento";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { ProximoPasso } from "../ProximoPasso";
@@ -174,6 +175,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
             <div className="ld-lista">
               <CartaoProposta id={iaProp} />
             </div>
+            {/* a base: o que cada etapa executa (do orçamento). Aberto aqui para conferir a proposta sem voltar. */}
+            <BaseOrcamento obraId={obra.id} aberto />
           </section>
         ) : (
           <div className="card vazio">
@@ -203,6 +206,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
                     <span>{erroIA}</span>
                   </div>
                 ) : null}
+                {/* o que vai ser sequenciado, já visível antes de gerar — sem ter de abrir o Orçamento */}
+                <BaseOrcamento obraId={obra.id} />
               </>
             ) : null}
           </div>
@@ -211,6 +216,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
         <>
           <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
           <Gantt crono={dado} />
+          <BaseOrcamento obraId={obra.id} />
           <Desembolso obra={obra} />
           <h3 className="sectit">Medições</h3>
           <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
