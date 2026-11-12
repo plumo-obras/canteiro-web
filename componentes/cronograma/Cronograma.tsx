@@ -1,27 +1,29 @@
 "use client";
 /**
  * Aba Cronograma (Fase 4): o físico-financeiro (etapas × meses em %), as medições mensais e o prazo. A API calcula o
- * mensal, o medido e o término projetado (GET /obras/{id}/cronograma); a tela mostra, desenha a curva S e edita. Sem
- * cronograma, o estado vazio leva ao editor. O aditivo de prazo muda o prazo da obra (PATCH, com Desfazer) e abre o
- * editor com os meses a mais, vazios, para redistribuir.
+ * mensal, o medido e o término projetado (GET /obras/{id}/cronograma); a tela mostra, desenha a curva S e edita. O
+ * topo diz numa linha quando termina, se está em dia e quanto foi medido; embaixo, uma vista por vez (Etapas, Curva S,
+ * Desembolso) e as medições. Sem cronograma, o estado vazio leva ao editor. O aditivo de prazo muda o prazo da obra
+ * (PATCH, com Desfazer) e abre o editor com os meses a mais, vazios, para redistribuir.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Cronograma as DadosCronograma, Obra, PrazoCronograma, Proposta } from "@/lib/contrato";
-import { api, conversar } from "@/lib/cliente";
-import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
-import { fmtReais } from "@/lib/formato";
-import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
+import { api, conversar as conversarComAgente } from "@/lib/cliente";
+import { fmtMes, fmtMesLongo, fmtPct, indiceDoMes, listaMeses, situacaoEtapa } from "@/lib/cronograma";
+import { CabecalhoPagina } from "../CabecalhoPagina";
 import { mensagemDe, useCasca } from "../contexto";
 import { CartaoProposta } from "../CartaoProposta";
 import { BaseOrcamento } from "./BaseOrcamento";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
+import { useCelular } from "../midia";
 import { ProximoPasso } from "../ProximoPasso";
 import { useCarregar } from "../useCarregar";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
 import { Desembolso } from "./Desembolso";
-import { Gantt } from "./Gantt";
+import { Gantt, type FiltroGantt } from "./Gantt";
+import c from "./cronograma.module.css";
 import { TabelaFisicoFinanceira } from "./Tabela";
 import { EditorCronograma } from "./Editor";
 import { ListaMedicoes, ModalMedicao } from "./Medicao";
@@ -59,19 +61,35 @@ export function textoPrazo(c: DadosCronograma): { termina: string; contrato: str
   };
 }
 
-/** O prazo na faixa do cabeçalho: o término (com a situação) grande; medido, contrato e o original embaixo, só se houver. */
-function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros"> {
-  const t = textoPrazo(c);
-  const p = c.prazo;
-  const numeros: Numero[] = [];
-  if (p.pct_medido !== null)
-    numeros.push({ rotulo: "Medido", valor: fmtPct(p.pct_medido), sub: `de ${fmtPct(p.pct_previsto_na_medicao ?? 0)} previsto em ${fmtMes(p.mes_referencia)}` });
-  if (t.contrato) numeros.push({ rotulo: "Término do contrato", valor: t.contrato });
-  if (t.base) numeros.push({ rotulo: "Contra o original", valor: fmtMesLongo(p.termino_base ?? null), tag: t.base.replace(" contra o original", ""), tom: "acima" });
-  return {
-    principal: { rotulo: "Termina", valor: t.termina, tag: t.sit ? t.sit.texto : "sem medição ainda", tom: t.sit ? (t.sit.tom === "acima" ? "acima" : "ok") : "info" },
-    numeros,
-  };
+/**
+ * A linha de contexto do cabeçalho: "Termina em set/2027 [em dia] · 7,65% medido (previsto 9% em out/26)". O contrato e
+ * o atraso contra o original só aparecem quando dizem algo (projetado ≠ contratual; depois de reprogramar).
+ */
+function LinhaPrazo({ crono }: { crono: DadosCronograma }) {
+  const t = textoPrazo(crono);
+  const p = crono.prazo;
+  const tom = t.sit ? (t.sit.tom === "acima" ? "bad" : "ok") : "info";
+  return (
+    <span className={c.linhaPrazo}>
+      <span>
+        Termina em <b>{t.termina}</b>
+      </span>
+      <span className={`pill ${tom}`}>{t.sit ? t.sit.texto : "sem medição ainda"}</span>
+      {t.medido ? (
+        <span>
+          · <b>{t.medido}</b>
+          {p.mes_referencia ? (
+            <span className="mut">
+              {" "}
+              (previsto {fmtPct(p.pct_previsto_na_medicao ?? 0)} em {fmtMes(p.mes_referencia)})
+            </span>
+          ) : null}
+        </span>
+      ) : null}
+      {t.contrato ? <span className="mut">· contrato: {t.contrato}</span> : null}
+      {t.base ? <span className="pill bad">{t.base}</span> : null}
+    </span>
+  );
 }
 
 /**
@@ -88,7 +106,7 @@ async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   let proposta: Proposta | null = null;
   let erro: string | null = null;
   let texto = "";
-  for await (const ev of conversar({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
+  for await (const ev of conversarComAgente({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
     if (ev.tipo === "proposta" && ev.proposta.tipo === "cronograma") proposta = ev.proposta;
     else if (ev.tipo === "texto") texto += ev.delta;
     else if (ev.tipo === "erro") erro = ev.mensagem;
@@ -99,8 +117,16 @@ async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   throw new Error(erro ?? (recado ? recado : "O mestre de obras não chegou a propor o cronograma. Tente de novo."));
 }
 
+type Vista = "etapas" | "curva" | "desembolso";
+const VISTAS: { k: Vista; rotulo: string }[] = [
+  { k: "etapas", rotulo: "Etapas" },
+  { k: "curva", rotulo: "Curva S" },
+  { k: "desembolso", rotulo: "Desembolso" },
+];
+
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, demo, podeOperar, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
+  const { versao, demo, podeOperar, irParaTela, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
+  const celular = useCelular();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
@@ -108,8 +134,45 @@ export function Cronograma({ obra }: { obra: Obra }) {
   const [iaProp, setIaProp] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erroIA, setErroIA] = useState<string | null>(null);
+  const [vista, setVista] = useState<Vista>("etapas");
+  const [filtro, setFiltro] = useState<FiltroGantt>("todas");
   const tem = !!dado?.inicio && dado.meses > 0;
   const editando = modo.k === "editar" && dado;
+  const ver = tem && !editando;
+  // a mesma situação que o Gantt pinta (no mês da última medição); etapa sem % nunca está atrasada
+  const nAtrasadas = ver
+    ? dado.etapas.filter((e) => situacaoEtapa(e.percentuais, e.medido_acumulado, indiceDoMes(dado.inicio, dado.prazo.mes_referencia)).situacao === "atrasada").length
+    : 0;
+  const conversar = () => irParaTela("conversa");
+
+  const abas = (
+    <div className="seg seg-pq" role="tablist" aria-label="Vista do cronograma">
+      {VISTAS.map((x) => (
+        <button key={x.k} type="button" role="tab" aria-selected={vista === x.k} className={vista === x.k ? "on" : ""} onClick={() => setVista(x.k)}>
+          {x.rotulo}
+        </button>
+      ))}
+    </div>
+  );
+  // o filtro do Gantt mora na barra, ao lado das vistas; no celular a lista tem o seu (Agora / Próximas / Todas)
+  const mostrar =
+    vista === "etapas" && !celular ? (
+      <div className="seg seg-pq" role="group" aria-label="Mostrar">
+        {(
+          [
+            ["todas", "Todas"],
+            ["andamento", "Em andamento"],
+            ["atrasadas", "Atrasadas"],
+            ["proximas", "Próximas"],
+          ] as const
+        ).map(([k, r]) => (
+          <button key={k} type="button" aria-pressed={filtro === k} className={filtro === k ? "on" : ""} onClick={() => setFiltro(k)}>
+            {r}
+            {k === "atrasadas" ? <small className="seg-n">{nAtrasadas}</small> : null}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   // A IA intermediária: propõe o cronograma a partir do orçamento (sequência por fase de obra, duração pelo valor) e
   // vira uma Proposta pendente. A pessoa aprova — como qualquer escrita do agente — e aí o cronograma é criado.
@@ -145,16 +208,28 @@ export function Cronograma({ obra }: { obra: Obra }) {
     <div className="page">
       <CabecalhoPagina
         titulo="Cronograma"
+        sub={ver ? <LinhaPrazo crono={dado} /> : undefined}
         acao={
-          podeOperar && tem && !editando ? (
-            <button type="button" className="btn amb" onClick={() => setModal("medicao")}>
-              <Icone nome="plus" tam={15} />
-              Nova medição
-            </button>
+          ver ? (
+            <>
+              {/* no celular o convite à conversa vai para o pé da lista, grande */}
+              {!celular ? (
+                <button type="button" className={`btn ${c.btPlumo}`} onClick={conversar}>
+                  <Icone nome="spark" tam={15} />
+                  Atualizar o andamento conversando
+                </button>
+              ) : null}
+              {podeOperar ? (
+                <button type="button" className="btn amb" onClick={() => setModal("medicao")}>
+                  <Icone nome="plus" tam={15} />
+                  Lançar medição
+                </button>
+              ) : null}
+            </>
           ) : null
         }
         menu={
-          tem && !editando
+          ver
             ? [
                 { rotulo: "Ver tabela físico-financeira", acao: () => setTabela(true) },
                 ...(podeOperar
@@ -167,7 +242,14 @@ export function Cronograma({ obra }: { obra: Obra }) {
             : []
         }
         rotuloMenu="Mais ações do cronograma"
-        {...(tem && !editando ? numerosPrazo(dado) : {})}
+        barra={
+          ver ? (
+            <>
+              {abas}
+              {mostrar}
+            </>
+          ) : undefined
+        }
       />
       {tabela && dado ? <TabelaFisicoFinanceira crono={dado} fechar={() => setTabela(false)} /> : null}
       {erro ? (
@@ -231,10 +313,16 @@ export function Cronograma({ obra }: { obra: Obra }) {
         )
       ) : (
         <>
-          <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
-          <Gantt crono={dado} />
+          <div role="tabpanel" aria-label={VISTAS.find((x) => x.k === vista)!.rotulo}>
+            {vista === "etapas" ? (
+              <Gantt crono={dado} filtro={filtro} conversar={celular ? conversar : undefined} />
+            ) : vista === "curva" ? (
+              <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
+            ) : (
+              <Desembolso obra={obra} />
+            )}
+          </div>
           <BaseOrcamento obraId={obra.id} />
-          <Desembolso obra={obra} />
           <h3 className="sectit">Medições</h3>
           <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
           <ProximoPasso

@@ -135,3 +135,76 @@ span.topicoNome { cursor: default; padding-right: 12px; }
 .criarEtapa{align-self:flex-start;margin-top:6px}
 .novaEtapa{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
 .novaEtapa input{flex:1 1 200px;min-width:0}
+
+/* ---------- redesenho: "A conferir" em destaque, lançados em colunas, ação grande no celular ---------- */
+.sp { flex: 1; }
+
+/* o bloco que pede a pessoa: borda ocre, à frente de tudo */
+section.conferir { border-color: color-mix(in srgb, var(--accent) 45%, var(--edge)); box-shadow: var(--hl), 0 0 0 3px var(--accentSoft); }
+.conferirCab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.conferirT { margin: 0 auto 0 0; font: 600 var(--t-sec) var(--serif); letter-spacing: -.01em; }
+section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-top: 12px; padding-bottom: 12px; color: var(--ink2); font-size: var(--t-meta); }
+.conferirVazio :global(.ic) { flex: none; color: var(--greenInk); }
+.filaT { margin: 18px 0 6px; font-size: var(--t-meta); font-weight: 600; color: var(--ink2); }
+.fila { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line2); border-radius: var(--ri); overflow: hidden; }
+.fila .linha { padding: 10px 14px; }
+.linhaAberta { background: var(--sunk); }
+
+/* revisão na página: a foto mais baixa (os campos ao lado cabem sem rolar a página inteira) e os botões no pé */
+.embutida .rev { margin-top: 14px; }
+.arquivoEmbutido { position: static; min-height: 200px; }
+.arquivoEmbutido .foto { max-height: 420px; }
+.arquivoEmbutido .pdf { height: 420px; }
+.embutidaPe { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line2); }
+
+/* compacto (celular): miniatura, valor e uma linha; Corrigir e Confirmar dividindo a largura */
+.compacto { display: grid; gap: 10px; margin-top: 10px; }
+.compactoLinha { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.compactoTexto { display: flex; flex-direction: column; min-width: 0; }
+.compactoTexto > b { font-size: var(--t-sec); }
+.compactoTexto > span { overflow-wrap: anywhere; }
+.miniatura { flex: none; width: 56px; height: 56px; border-radius: 10px; background: var(--sunk); border: 1px solid var(--line2); display: grid; place-items: center; overflow: hidden; color: var(--muted); }
+.miniatura img { width: 100%; height: 100%; object-fit: cover; }
+.compactoAcoes { display: flex; gap: 8px; }
+.compactoAcoes :global(.btn) { flex: 1 1 0; min-width: 0; min-height: 44px; box-sizing: border-box; }
+.compacto .falta { margin: 0; }
+
+/* celular: a ação principal grande, no topo */
+.fotografar { display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; min-height: 72px; margin: 0 0 14px; padding: 14px 16px;
+  border-radius: var(--ri); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--edge)); background: var(--accentSoft); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.fotografarIc { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--ocre); color: var(--onAccent); }
+.fotografarTexto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fotografarTexto > b { font-size: var(--t-sec); color: var(--ink); }
+.fotografar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* lançados */
+.lancadosSec { margin-top: 8px; }
+.lancadosCab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 24px 0 10px; }
+.lancadosT { margin: 0; }
+div.lancados { padding: 0; overflow: hidden; }
+.lancLista { list-style: none; margin: 0; padding: 0; }
+/* uma grade por linha com colunas de largura fixa: as linhas alinham como tabela sem virar tabela (no celular empilha) */
+.lancCab, .lanc { display: grid; grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.6fr) 120px 132px; gap: 4px 14px; align-items: center; padding: 12px 20px; }
+.semAcao .lancCab, .semAcao .lanc { grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.6fr) 120px; }
+.lancCab { padding-top: 10px; padding-bottom: 10px; background: var(--sunk); border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 500; color: var(--muted); }
+.lanc { border-top: 1px solid var(--line2); }
+.lanc:first-child { border-top: 0; }
+.lData { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lDesc { display: flex; flex-direction: column; min-width: 0; }
+.lDesc > strong { font-weight: 500; overflow-wrap: anywhere; }
+.lEtapa { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.lValor { text-align: right; }
+.lAcao { display: flex; justify-content: flex-end; }
+
+@media (max-width: 760px) {
+  .lancCab { display: none; }
+  .lanc, .semAcao .lanc { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "desc desc valor" "data etapa etapa" "acao acao acao"; padding: 12px 16px; }
+  .lDesc { grid-area: desc; }
+  .lValor { grid-area: valor; align-self: start; }
+  .lData { grid-area: data; }
+  .lEtapa { grid-area: etapa; }
+  .lAcao { grid-area: acao; justify-content: flex-start; }
+  .lAcao:empty { display: none; }
+  .lancadosCab .sp { display: none; }
+  .embutidaPe { justify-content: stretch; }
+}

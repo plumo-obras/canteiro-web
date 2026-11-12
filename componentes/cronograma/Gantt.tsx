@@ -3,7 +3,9 @@
  * O cronograma de barras (Gantt): uma linha por etapa, com a barra do primeiro ao último mês previsto (cada mês um
  * segmento, mais forte quanto maior o % daquele mês) e, por cima, o medido em ocre, a mesma cor da curva S. À direita,
  * a situação no mês da última medição ("hoje"): concluída, em dia, atrasada ou não começou. Todos os meses cabem na
- * largura (colunas em fração), sem rolagem escondida. No celular vira uma lista de cartões.
+ * largura (colunas em fração), sem rolagem escondida. O filtro "Mostrar" vem de fora (fica na barra da tela, ao lado
+ * das vistas). No celular o Gantt não cabe: vira a lista "Agora / Próximas / Todas", cada etapa com a barra do feito e
+ * um risco no previsto até hoje.
  * Os números vêm da API (percentuais, medido, mensal); a tela só soma o previsto da etapa até o mês de referência.
  */
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -23,7 +25,9 @@ import {
 } from "@/lib/cronograma";
 import { fmtReais } from "@/lib/formato";
 import { Drawer } from "../Dialogo";
-import { BarraFiltros } from "../CabecalhoPagina";
+import { Icone } from "../Icone";
+import { useCelular } from "../midia";
+import c from "./cronograma.module.css";
 
 const ROTULO: Record<Situacao, string> = { concluida: "concluída", em_dia: "em dia", atrasada: "atrasada", nao_comecou: "não começou" };
 const NOMES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -47,39 +51,58 @@ interface LinhaGantt extends EtapaCronograma {
   barra: ReturnType<typeof barraDaEtapa>;
 }
 
-type Filtro = "todas" | "atrasadas" | "andamento";
-const VAZIO: Record<Filtro, string> = { todas: "Nenhuma etapa no cronograma.", atrasadas: "Nenhuma etapa atrasada.", andamento: "Nenhuma etapa em andamento." };
+export type FiltroGantt = "todas" | "andamento" | "atrasadas" | "proximas";
+const VAZIO: Record<FiltroGantt, string> = {
+  todas: "Nenhuma etapa no cronograma.",
+  atrasadas: "Nenhuma etapa atrasada.",
+  andamento: "Nenhuma etapa em andamento.",
+  proximas: "Nenhuma etapa por começar.",
+};
 
-export function Gantt({ crono }: { crono: Cronograma }) {
+/** As etapas que entram no Gantt, com a situação no mês da última medição. */
+function linhasDoGantt(crono: Cronograma): LinhaGantt[] {
+  const ref = indiceDoMes(crono.inicio, crono.prazo.mes_referencia);
+  return crono.etapas
+    .filter((e) => e.percentuais.some(Boolean) || e.medido_acumulado)
+    .map((e) => {
+      const s = situacaoEtapa(e.percentuais, e.medido_acumulado, ref);
+      return { ...e, situacao: s.situacao, previstoRef: s.previsto, falta: s.falta, intervalo: intervaloEtapa(e.percentuais), barra: barraDaEtapa(e.percentuais, e.medido_acumulado) };
+    });
+}
+
+/** O dia de hoje como fração do mês (0 a 1), no fuso da obra: põe a marca de hoje no ponto certo da coluna do mês. */
+export function fracaoDoMes(agora = new Date()): number {
+  const [a, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(agora).split("-").map(Number);
+  const dias = new Date(Date.UTC(a!, m!, 0)).getUTCDate();
+  return (d! - 0.5) / dias;
+}
+
+export function Gantt({ crono, filtro = "todas", conversar }: { crono: Cronograma; filtro?: FiltroGantt; conversar?: () => void }) {
+  const celular = useCelular();
   const meses = useMemo(() => listaMeses(crono.inicio!, crono.meses), [crono.inicio, crono.meses]);
   const ref = indiceDoMes(crono.inicio, crono.prazo.mes_referencia);
   const refNaGrade = ref !== null && ref >= 0 && ref < meses.length ? ref : null;
   // "Referência" é o mês da última medição; "hoje" é o mês do calendário. Se coincidem, uma linha só.
   const hojeIdx = indiceDoMes(crono.inicio, new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date()));
   const hojeNaGrade = hojeIdx !== null && hojeIdx >= 0 && hojeIdx < meses.length ? hojeIdx : null;
-  const [filtro, setFiltro] = useState<Filtro>("todas");
   const [dica, setDica] = useState<{ texto: string; x: number; y: number } | null>(null);
   const [aberta, setAberta] = useState<LinhaGantt | null>(null);
 
-  const todas: LinhaGantt[] = useMemo(
-    () =>
-      crono.etapas
-        .filter((e) => e.percentuais.some(Boolean) || e.medido_acumulado)
-        .map((e) => {
-          const s = situacaoEtapa(e.percentuais, e.medido_acumulado, ref);
-          return { ...e, situacao: s.situacao, previstoRef: s.previsto, falta: s.falta, intervalo: intervaloEtapa(e.percentuais), barra: barraDaEtapa(e.percentuais, e.medido_acumulado) };
-        }),
-    [crono.etapas, ref],
-  );
+  const todas: LinhaGantt[] = useMemo(() => linhasDoGantt(crono), [crono]);
   const linhas = useMemo(() => {
     const f = todas.filter((l) =>
-      filtro === "atrasadas" ? l.situacao === "atrasada" : filtro === "andamento" ? l.situacao !== "concluida" && (l.medido_acumulado > 0 || l.previstoRef > 0) : true,
+      filtro === "atrasadas"
+        ? l.situacao === "atrasada"
+        : filtro === "andamento"
+          ? l.situacao !== "concluida" && (l.medido_acumulado > 0 || l.previstoRef > 0)
+          : filtro === "proximas"
+            ? l.situacao === "nao_comecou"
+            : true,
     );
     // Atrasadas sempre no topo (a maior falta primeiro); o resto na ordem da planilha.
     const atr = f.filter((l) => l.situacao === "atrasada").sort((a, b) => b.falta - a.falta);
     return [...atr, ...f.filter((l) => l.situacao !== "atrasada")];
   }, [todas, filtro]);
-  const nAtrasadas = todas.filter((l) => l.situacao === "atrasada").length;
   // Se o rótulo do mês não cabe na coluna (cronograma longo ou texto maior, como no portal), vira a inicial.
   const cab = useRef<HTMLSpanElement>(null);
   const [encolher, setEncolher] = useState(false);
@@ -128,50 +151,16 @@ export function Gantt({ crono }: { crono: Cronograma }) {
     });
   };
 
-  const cartao = (l: LinhaGantt) => (
-          <li key={l.etapa}>
-      <button type="button" className={`g-cartao g-${l.situacao}`} onClick={() => setAberta(l)}>
-        <span className="g-c-cab">
-          <span className="g-n">
-            <span className="eap-num">{l.etapa}</span> {l.descricao}
-          </span>
-          {l.situacao === "atrasada" || l.situacao === "concluida" ? <span className={`g-chip c-${l.situacao}`}>{ROTULO[l.situacao]}</span> : null}
-        </span>
-        <span className="g-prog" aria-hidden="true">
-          <span className="g-prog-prev" style={{ width: `${l.previstoRef / 100}%` }} />
-          <span className="g-prog-med" style={{ width: `${l.medido_acumulado / 100}%` }} />
-        </span>
-        <span className="g-c-pe">
-          <span>{contaDaEtapa(l)}</span>
-          <span className="mut">{l.intervalo ? `${fmtMes(meses[l.intervalo.de]!)} → ${fmtMes(meses[l.intervalo.ate]!)}` : "fora do cronograma"}</span>
-        </span>
-      </button>
-    </li>
-  );
+  if (celular)
+    return (
+      <section aria-label="Etapas">
+        <ListaCelular todas={todas} meses={meses} abrir={setAberta} conversar={conversar} />
+        {aberta ? <GavetaEtapa crono={crono} linha={aberta} meses={meses} fechar={() => setAberta(null)} /> : null}
+      </section>
+    );
 
   return (
-    <section aria-labelledby="gantt-titulo">
-      <div className="gantt-cab">
-        <h3 className="sectit" id="gantt-titulo">
-          Etapas no tempo
-        </h3>
-        <BarraFiltros
-          grupos={[
-            {
-              rotulo: "Mostrar",
-              valor: filtro,
-              opcoes: [
-                { k: "todas", rotulo: "Todas" },
-                { k: "atrasadas", rotulo: `Atrasadas${nAtrasadas ? ` (${nAtrasadas})` : ""}` },
-                { k: "andamento", rotulo: "Em andamento" },
-              ],
-              mudar: (k: Filtro) => setFiltro(k),
-            },
-          ]}
-        />
-      </div>
-
-      {/* desktop e tablet: a grade de barras */}
+    <section aria-label="Etapas no tempo">
       <div className="gantt" style={grade} onMouseLeave={() => setDica(null)}>
         <div className="g-l g-head">
           <span className="g-nome">Etapa</span>
@@ -206,7 +195,10 @@ export function Gantt({ crono }: { crono: Cronograma }) {
             </button>
             <span className="g-meses g-trilho">
               {refNaGrade !== null ? <span className="g-hoje" style={{ gridColumn: refNaGrade + 1 }} aria-hidden="true" /> : null}
-              {hojeNaGrade !== null && hojeNaGrade !== refNaGrade ? <span className="g-cal" style={{ gridColumn: hojeNaGrade + 1 }} aria-hidden="true" /> : null}
+              {/* hoje no dia certo dentro do mês (margem em % da coluna), não no começo dele */}
+              {hojeNaGrade !== null && hojeNaGrade !== refNaGrade ? (
+                <span className="g-cal" style={{ gridColumn: hojeNaGrade + 1, marginLeft: `${(fracaoDoMes() * 100).toFixed(1)}%` }} aria-hidden="true" />
+              ) : null}
               {/* Uma barra contínua do início ao fim da etapa, com o medido por cima, mais escuro. O % de cada mês não pinta
                   a barra: fica no hover/toque (alvo transparente por mês). Mês sem previsão no meio afina a barra. */}
               {l.barra ? (
@@ -247,41 +239,112 @@ export function Gantt({ crono }: { crono: Cronograma }) {
         {dica ? <Dica {...dica} /> : null}
       </div>
 
-      {/* celular: cartões */}
-      {!linhas.length ? <p className="mut sm gantt-cartoes-vazio">{VAZIO[filtro]}</p> : null}
-      {/* celular: em cima o que pede atenção (atrasadas e em andamento); concluídas e próximas recolhidas */}
-      <div className="gantt-cartoes">
-        {(filtro === "todas" ? gruposCelular(linhas) : [{ k: "todas", rotulo: "", itens: linhas, aberto: true }]).map((g) =>
-          g.aberto ? (
-            <ul key={g.k} className="g-grupo">
-              {g.itens.map(cartao)}
-            </ul>
-          ) : (
-            <details key={g.k} className="g-grupo-rec">
-              <summary>
-                {g.rotulo} ({g.itens.length})
-              </summary>
-              <ul className="g-grupo">{g.itens.map(cartao)}</ul>
-            </details>
-          ),
-        )}
-      </div>
+      <p className={`mut sm ${c.legenda}`}>
+        <span>
+          <i className={c.legPrev} aria-hidden="true" /> previsto
+        </span>
+        <span>
+          <i className={c.legMed} aria-hidden="true" /> medido
+        </span>
+        {refNaGrade !== null ? (
+          <span>
+            <i className={c.legRef} aria-hidden="true" /> última medição
+          </span>
+        ) : null}
+        {hojeNaGrade !== null && hojeNaGrade !== refNaGrade ? (
+          <span>
+            <i className={c.legHoje} aria-hidden="true" /> hoje
+          </span>
+        ) : null}
+        <span>Clique no nome da etapa para ver mês a mês.</span>
+      </p>
 
       {aberta ? <GavetaEtapa crono={crono} linha={aberta} meses={meses} fechar={() => setAberta(null)} /> : null}
     </section>
   );
 }
 
-/** Grupos do celular: o que pede atenção aberto em cima; concluídas e próximas recolhidas (só aparecem se houver). */
-export function gruposCelular<T extends { situacao: Situacao; medido_acumulado: number; previstoRef: number }>(ls: T[]) {
-  const atencao = ls.filter((l) => l.situacao === "atrasada" || l.situacao === "em_dia");
-  const concluidas = ls.filter((l) => l.situacao === "concluida");
-  const proximas = ls.filter((l) => l.situacao === "nao_comecou");
-  return [
-    { k: "atencao", rotulo: "", itens: atencao, aberto: true },
-    { k: "concluidas", rotulo: "Concluídas", itens: concluidas, aberto: false },
-    { k: "proximas", rotulo: "Próximas", itens: proximas, aberto: false },
-  ].filter((g) => g.itens.length);
+export type MostrarCelular = "agora" | "proximas" | "todas";
+
+/** O filtro do celular: Agora (atrasadas e em andamento, as atrasadas primeiro), Próximas (não começaram) ou Todas. */
+export function filtroCelular<T extends { situacao: Situacao; falta: number }>(ls: T[], k: MostrarCelular): T[] {
+  if (k === "proximas") return ls.filter((l) => l.situacao === "nao_comecou");
+  if (k === "todas") return ls;
+  const atr = ls.filter((l) => l.situacao === "atrasada").sort((a, b) => b.falta - a.falta);
+  return [...atr, ...ls.filter((l) => l.situacao === "em_dia")];
+}
+
+const SELO_CEL: Record<Situacao, string> = { concluida: "ok", em_dia: "ok", atrasada: "bad", nao_comecou: "" };
+
+/**
+ * No celular, no lugar do Gantt: uma lista por etapa com a barra do feito (ocre) e um risco no previsto até hoje. Abre
+ * em "Agora"; se nada está andando, em "Todas". Tocar na etapa abre a mesma gaveta do Gantt.
+ */
+function ListaCelular({ todas, meses, abrir, conversar }: { todas: LinhaGantt[]; meses: string[]; abrir: (l: LinhaGantt) => void; conversar?: () => void }) {
+  const [mostrar, setMostrar] = useState<MostrarCelular>(() => (filtroCelular(todas, "agora").length ? "agora" : "todas"));
+  const itens = filtroCelular(todas, mostrar);
+  const quando = (l: LinhaGantt) => (l.intervalo ? `${fmtMes(meses[l.intervalo.de]!)} → ${fmtMes(meses[l.intervalo.ate]!)}` : "fora do cronograma");
+  const selo = (l: LinhaGantt) =>
+    l.situacao === "nao_comecou" && l.intervalo ? `começa ${fmtMes(meses[l.intervalo.de]!)}` : l.situacao === "em_dia" ? "em dia" : ROTULO[l.situacao];
+  return (
+    <>
+      <div className={c.celTopo}>
+        <div className="seg seg-pq" role="group" aria-label="Mostrar">
+          {(
+            [
+              ["agora", "Agora"],
+              ["proximas", "Próximas"],
+              ["todas", "Todas"],
+            ] as const
+          ).map(([k, r]) => (
+            <button key={k} type="button" aria-pressed={mostrar === k} className={mostrar === k ? "on" : ""} onClick={() => setMostrar(k)}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <p className={`mut sm ${c.legenda}`}>
+          <span>
+            <i className={c.legMed} aria-hidden="true" /> feito
+          </span>
+          <span>
+            <i className={c.legRisco} aria-hidden="true" /> previsto até hoje
+          </span>
+        </p>
+      </div>
+      {itens.length ? (
+        <ul className={c.celLista}>
+          {itens.map((l) => (
+            <li key={l.etapa}>
+              <button type="button" className={c.celItem} onClick={() => abrir(l)}>
+                <span className={c.celCab}>
+                  <span className={c.celNome}>
+                    <span className="eap-num">{l.etapa}</span> {l.descricao}
+                  </span>
+                  <span className={`pill ${SELO_CEL[l.situacao]}`}>{selo(l)}</span>
+                </span>
+                <span className={c.celBarra} aria-hidden="true">
+                  <span className={c.celFeito} style={{ width: `${Math.min(100, l.medido_acumulado / 100)}%` }} />
+                  {l.previstoRef > 0 ? <span className={c.celRisco} style={{ left: `${Math.min(100, l.previstoRef / 100)}%` }} /> : null}
+                </span>
+                <span className="mut sm">
+                  {fmtPct(l.medido_acumulado)} feito · {fmtPct(l.previstoRef)} previsto · {quando(l)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mut sm">{mostrar === "proximas" ? VAZIO.proximas : mostrar === "agora" ? "Nenhuma etapa andando agora." : VAZIO.todas}</p>
+      )}
+      {conversar ? (
+        <button type="button" className={`btn amb ${c.celPlumo}`} onClick={conversar}>
+          <Icone nome="spark" tam={16} />
+          Contar ao Plumo como está a obra
+        </button>
+      ) : null}
+      <p className={`mut sm ${c.celNota}`}>O Gantt completo, mês a mês, fica no computador.</p>
+    </>
+  );
 }
 
 /** "30% de 70% previsto" · "100% medido"; etapa que não começou não diz nada (a barra já mostra quando começa). */

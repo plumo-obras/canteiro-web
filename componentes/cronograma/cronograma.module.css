@@ -1,0 +1,36 @@
+/* Cronograma: a linha do prazo no cabeçalho, a legenda do Gantt e a lista do celular. Só tokens da casca (globals.css). */
+
+.linhaPrazo { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.linhaPrazo b { font-weight: 600; color: var(--ink); }
+
+/* o convite à conversa: secundário, em ocre suave (a ação principal é a medição) */
+.btPlumo { color: var(--accentInk); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accentSoft); }
+@media (hover: hover) { .btPlumo:hover { color: var(--accentInk); background: color-mix(in srgb, var(--accent) 24%, transparent); } }
+
+.legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 10px 2px 0; }
+.legenda > span { display: inline-flex; align-items: center; gap: 6px; }
+.legPrev, .legMed { display: inline-block; width: 14px; height: 8px; border-radius: 4px; }
+.legPrev { background: color-mix(in srgb, var(--blue) 55%, var(--cardSolido)); }
+.legMed { background: var(--accent); }
+.legRef { display: inline-block; width: 2px; height: 12px; background: var(--accent); }
+.legHoje { display: inline-block; width: 0; height: 12px; border-left: 2px dashed var(--ink2); }
+.legRisco { display: inline-block; width: 2px; height: 12px; border-radius: 1px; background: var(--ink); }
+
+/* celular: no lugar do Gantt, uma etapa por linha com a barra do feito e o risco do previsto até hoje */
+.celTopo { display: flex; flex-direction: column; gap: 4px; }
+.celTopo :global(.seg) { display: flex; width: 100%; box-sizing: border-box; margin-top: 0; }
+.celTopo :global(.seg button) { flex: 1 1 0; min-height: 44px; padding: 0 8px; }
+.celTopo .legenda { margin-top: 6px; }
+.celLista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.celItem { display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; min-height: 44px; padding: 12px 14px; border-radius: var(--ri);
+  border: 1px solid var(--edge); background: var(--cardSolido); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.celItem:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.celCab { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.celNome { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.celNome :global(.eap-num) { margin-right: 4px; }
+.celBarra { position: relative; display: block; height: 10px; border-radius: 99px; background: var(--line2); }
+.celFeito { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--accent); }
+/* o risco passa um pouco da barra, para ser visto mesmo quando o feito já o cobre */
+.celRisco { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); }
+.celPlumo { width: 100%; box-sizing: border-box; min-height: 48px; margin-top: 16px; }
+.celNota { margin: 8px 0 0; text-align: center; }

@@ -11,7 +11,7 @@ import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { corpoConfirmar, escolhasIniciais, hojeNaObra, nomeComCodigo, pendencias, type Escolha, type Escolhas } from "./escolhas";
+import { corpoConfirmar, escolhasIniciais, fmtDia, hojeNaObra, nomeComCodigo, pendencias, type Escolha, type Escolhas } from "./escolhas";
 import { NovaEtapa } from "./NovaEtapa";
 import s from "./gastos.module.css";
 
@@ -42,7 +42,12 @@ const TIPO_DOC: Record<string, string> = {
   outro: "Outro documento",
 };
 
-export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string; obra: Obra; fechar: () => void }) {
+/**
+ * O estado e as ações de uma revisão, sem tela: a mesma lógica serve ao modal, ao bloco "A conferir" da página e ao
+ * cartão compacto do celular. Assim confirmar, ler de novo e descartar não têm duas versões que divergem.
+ * `terminou` é chamado quando o comprovante sai da fila (confirmado ou descartado).
+ */
+export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => void) {
   const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
   const [c, setC] = useState<ComprovanteDetalhe | null>(null);
   const [arvore, setArvore] = useState<EtapaNaArvore[]>([]);
@@ -53,7 +58,6 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
   const [erroApi, setErroApi] = useState<string | null>(null);
   const [descartando, setDescartando] = useState(false);
   const [confirmarLer, setConfirmarLer] = useState(false);
-  const idMotivo = useId();
   const [motivo, setMotivo] = useState("");
   const hoje = hojeNaObra();
 
@@ -95,7 +99,7 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
       const r = await api.confirmarComprovante(comprovanteId, corpo);
       mudou();
       avisarFeito(`Gasto de ${fmtReais(r.gasto.valor)} lançado.`, r.registro_id);
-      fechar();
+      terminou();
     } catch (e) {
       setErroApi(mensagemDe(e));
       setOcupado(null);
@@ -129,203 +133,311 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
       const r = await api.descartarComprovante(comprovanteId, motivo);
       mudou();
       avisarFeito("Comprovante descartado. O arquivo continua guardado.", r.registro_id);
-      fechar();
+      terminou();
     } catch (e) {
       setErroApi(mensagemDe(e));
       setOcupado(null);
     }
   };
 
-  const rodape = !c ? (
+  return {
+    podeOperar, c, arvore, setArvore, pedidos, erro, esc, mudar, proprio, ocupado, erroApi, descartando, setDescartando,
+    confirmarLer, setConfirmarLer, motivo, setMotivo, hoje, falta, corpo, revisavel, confirmar, pedirLerDeNovo, lerDeNovo, descartar,
+  };
+}
+
+type EstadoRevisao = ReturnType<typeof useRevisao>;
+
+/**
+ * Os botões da revisão. `fechar` só existe no modal: no bloco da página não há o que fechar, e os botões de "Fechar"
+ * somem (o descarte e o "ler de novo" continuam com o seu Voltar/Cancelar).
+ */
+function BotoesRevisao({ r, fechar }: { r: EstadoRevisao; fechar?: () => void }) {
+  const fecharBt = fechar ? (
     <button type="button" className="btn" onClick={fechar}>
       Fechar
     </button>
-  ) : !revisavel || !podeOperar ? (
+  ) : null;
+  if (!r.c) return fecharBt;
+  if (!r.revisavel || !r.podeOperar)
+    return (
+      <>
+        {r.revisavel ? <span className="mut sm">Só quem opera a obra confirma o gasto.</span> : null}
+        {fecharBt}
+      </>
+    );
+  if (r.descartando)
+    return (
+      <>
+        <button type="button" className="btn" onClick={() => r.setDescartando(false)}>
+          Voltar
+        </button>
+        <button type="button" className="btn" disabled={!!r.ocupado} aria-busy={r.ocupado === "descartar"} onClick={r.descartar}>
+          {r.ocupado === "descartar" ? <Icone nome="loader" className="spin" tam={14} /> : null}
+          Descartar comprovante
+        </button>
+      </>
+    );
+  if (r.confirmarLer)
+    return (
+      <>
+        <span className="mut sm">Ler de novo troca o que você já escolheu ou digitou.</span>
+        <button type="button" className="btn" onClick={() => r.setConfirmarLer(false)}>
+          Cancelar
+        </button>
+        <button type="button" className="btn" onClick={r.lerDeNovo}>
+          <Icone nome="spark" tam={14} />
+          Ler mesmo assim
+        </button>
+      </>
+    );
+  return (
     <>
-      {revisavel ? <span className="mut sm">Só quem opera a obra confirma o gasto.</span> : null}
-      <button type="button" className="btn" onClick={fechar}>
-        Fechar
-      </button>
-    </>
-  ) : descartando ? (
-    <>
-      <button type="button" className="btn" onClick={() => setDescartando(false)}>
-        Voltar
-      </button>
-      <button type="button" className="btn" disabled={!!ocupado} aria-busy={ocupado === "descartar"} onClick={descartar}>
-        {ocupado === "descartar" ? <Icone nome="loader" className="spin" tam={14} /> : null}
-        Descartar comprovante
-      </button>
-    </>
-  ) : confirmarLer ? (
-    <>
-      <span className="mut sm">Ler de novo troca o que você já escolheu ou digitou.</span>
-      <button type="button" className="btn" onClick={() => setConfirmarLer(false)}>
-        Cancelar
-      </button>
-      <button type="button" className="btn" onClick={lerDeNovo}>
-        <Icone nome="spark" tam={14} />
-        Ler mesmo assim
-      </button>
-    </>
-  ) : (
-    <>
-      <button type="button" className="btn" disabled={!!ocupado} onClick={() => setDescartando(true)}>
+      <button type="button" className="btn" disabled={!!r.ocupado} onClick={() => r.setDescartando(true)}>
         Não é gasto
       </button>
-      <button type="button" className="btn" disabled={!!ocupado} aria-busy={ocupado === "ler"} onClick={pedirLerDeNovo}>
-        {ocupado === "ler" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="spark" tam={14} />}
-        {ocupado === "ler" ? "Lendo…" : "Ler de novo"}
+      <button type="button" className="btn" disabled={!!r.ocupado} aria-busy={r.ocupado === "ler"} onClick={r.pedirLerDeNovo}>
+        {r.ocupado === "ler" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="spark" tam={14} />}
+        {r.ocupado === "ler" ? "Lendo…" : "Ler de novo"}
       </button>
-      <button type="button" className="btn amb" disabled={!corpo || !!ocupado} aria-busy={ocupado === "confirmar"} onClick={confirmar}>
-        {ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="check" tam={14} />}
+      <button type="button" className="btn amb" disabled={!r.corpo || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={r.confirmar}>
+        {r.ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="check" tam={14} />}
         Confirmar gasto
       </button>
     </>
   );
+}
 
+/** O arquivo ao lado dos campos: o mesmo corpo no modal e no bloco "A conferir". */
+function CorpoRevisao({ r, obra, embutida = false }: { r: EstadoRevisao; obra: Obra; embutida?: boolean }) {
+  const idMotivo = useId();
+  const { c, esc } = r;
+  if (r.erro)
+    return (
+      <div className="aviso-erro" role="alert">
+        <Icone nome="alert" tam={15} />
+        {r.erro}
+      </div>
+    );
+  if (!c || !esc)
+    return (
+      <div className="carregando" role="status">
+        <Icone nome="loader" className="spin" tam={15} />
+        Abrindo o comprovante…
+      </div>
+    );
   return (
-    <Modal titulo="Revisar comprovante" fechar={fechar} largo classe={s.modalRev} rodape={rodape}>
-      {erro ? (
-        <div className="aviso-erro" role="alert">
-          <Icone nome="alert" tam={15} />
-          {erro}
-        </div>
-      ) : !c || !esc ? (
-        <div className="carregando" role="status">
-          <Icone nome="loader" className="spin" tam={15} />
-          Abrindo o comprovante…
-        </div>
-      ) : (
-        <div className={s.rev}>
-          <Arquivo id={c.id} tipo={c.tipo_conteudo} />
-          <div className={s.revCampos}>
-            <Cabecalho c={c} />
-            {!revisavel ? (
-              <div className={`${s.aviso} ${s.avisoInfo}`}>
-                {c.status === "confirmado" ? "Este comprovante já virou gasto." : `Descartado${c.motivo_descarte ? `: ${c.motivo_descarte}` : "."}`}
-              </div>
-            ) : null}
-            {c.revisao.avisos.length ? (
-              <ul className={s.aviso} role="list" aria-label="Atenção">
-                {c.revisao.avisos.map((a) => (
-                  <li key={a}>
-                    <Icone nome="alert" tam={14} />
-                    {a}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <fieldset disabled={!revisavel || !podeOperar || !!ocupado} className={s.campos}>
-              <CampoOpcoes
-                rotulo="Valor pago"
-                campo={c.revisao.valor}
-                escolha={esc.valor}
-                escolher={(x) => mudar({ valor: x })}
-                propria={
-                  <input
-                    className="f"
-                    inputMode="decimal"
-                    placeholder="R$ 0,00"
-                    aria-label="Valor pago (outro)"
-                    value={esc.propria.valor}
-                    onChange={(e) => proprio("valor", e.target.value)}
-                  />
-                }
-              />
-              <CampoOpcoes
-                rotulo="Data do pagamento"
-                campo={c.revisao.data_pagamento}
-                escolha={esc.data}
-                escolher={(x) => mudar({ data: x })}
-                propria={
-                  <input
-                    className="f"
-                    type="date"
-                    max={hoje}
-                    aria-label="Data do pagamento (outra)"
-                    value={esc.propria.data}
-                    onChange={(e) => proprio("data", e.target.value)}
-                  />
-                }
-              />
-              <CampoOpcoes
-                rotulo="Quem recebeu"
-                campo={c.revisao.favorecido}
-                escolha={esc.favorecido}
-                escolher={(x) => mudar({ favorecido: x })}
-                selo={(o) => (o.fornecedor_id ? <span className="pill info">fornecedor cadastrado</span> : null)}
-                propria={
-                  <input
-                    className="f"
-                    maxLength={120}
-                    placeholder="Loja, empresa ou pessoa"
-                    aria-label="Quem recebeu (outro)"
-                    value={esc.propria.favorecido}
-                    onChange={(e) => proprio("favorecido", e.target.value)}
-                  />
-                }
-              />
-              <CampoOpcoes
-                rotulo="O que foi pago"
-                campo={c.revisao.descricao}
-                escolha={esc.descricao}
-                escolher={(x) => mudar({ descricao: x })}
-                propria={
-                  <input
-                    className="f"
-                    maxLength={200}
-                    placeholder="Ex.: cimento e areia, mão de obra do pedreiro"
-                    aria-label="O que foi pago (outro)"
-                    value={esc.propria.descricao}
-                    onChange={(e) => proprio("descricao", e.target.value)}
-                  />
-                }
-              />
-              <CampoEtapa
-                c={c}
-                obraId={obra.id}
-                arvore={arvore}
-                esc={esc}
-                mudar={mudar}
-                proprio={proprio}
-                criada={(e) => {
-                  setArvore((a) => [...a, e]);
-                  proprio("etapa", e.chave);
-                  proprio("topico", ""); // o tópico escolhido era da etapa anterior
-                }}
-              />
-              <CampoPedido pedidos={pedidos} esc={esc} mudar={mudar} />
-            </fieldset>
-            {revisavel && podeOperar && falta.length ? (
-              <p className={s.falta} role="status">
-                Para confirmar, falta: {falta.join(", ")}.
-              </p>
-            ) : null}
-            {descartando ? (
-              <div className="campo">
-                <label className="l" htmlFor={idMotivo}>
-                  Por que não é gasto da obra? (opcional)
-                </label>
-                <input
-                  id={idMotivo}
-                  className="f"
-                  maxLength={200}
-                  placeholder="Ex.: foto repetida, gasto pessoal"
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                />
-              </div>
-            ) : null}
-            {erroApi ? (
-              <div className="aviso-erro form-erro" role="alert">
-                {erroApi}
-              </div>
-            ) : null}
+    <div className={s.rev}>
+      <Arquivo id={c.id} tipo={c.tipo_conteudo} embutida={embutida} />
+      <div className={s.revCampos}>
+        <Cabecalho c={c} />
+        {!r.revisavel ? (
+          <div className={`${s.aviso} ${s.avisoInfo}`}>
+            {c.status === "confirmado" ? "Este comprovante já virou gasto." : `Descartado${c.motivo_descarte ? `: ${c.motivo_descarte}` : "."}`}
           </div>
-        </div>
-      )}
+        ) : null}
+        {c.revisao.avisos.length ? (
+          <ul className={s.aviso} role="list" aria-label="Atenção">
+            {c.revisao.avisos.map((a) => (
+              <li key={a}>
+                <Icone nome="alert" tam={14} />
+                {a}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <fieldset disabled={!r.revisavel || !r.podeOperar || !!r.ocupado} className={s.campos}>
+          <CampoOpcoes
+            rotulo="Valor pago"
+            campo={c.revisao.valor}
+            escolha={esc.valor}
+            escolher={(x) => r.mudar({ valor: x })}
+            propria={
+              <input
+                className="f"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                aria-label="Valor pago (outro)"
+                value={esc.propria.valor}
+                onChange={(e) => r.proprio("valor", e.target.value)}
+              />
+            }
+          />
+          <CampoOpcoes
+            rotulo="Data do pagamento"
+            campo={c.revisao.data_pagamento}
+            escolha={esc.data}
+            escolher={(x) => r.mudar({ data: x })}
+            propria={
+              <input
+                className="f"
+                type="date"
+                max={r.hoje}
+                aria-label="Data do pagamento (outra)"
+                value={esc.propria.data}
+                onChange={(e) => r.proprio("data", e.target.value)}
+              />
+            }
+          />
+          <CampoOpcoes
+            rotulo="Quem recebeu"
+            campo={c.revisao.favorecido}
+            escolha={esc.favorecido}
+            escolher={(x) => r.mudar({ favorecido: x })}
+            selo={(o) => (o.fornecedor_id ? <span className="pill info">fornecedor cadastrado</span> : null)}
+            propria={
+              <input
+                className="f"
+                maxLength={120}
+                placeholder="Loja, empresa ou pessoa"
+                aria-label="Quem recebeu (outro)"
+                value={esc.propria.favorecido}
+                onChange={(e) => r.proprio("favorecido", e.target.value)}
+              />
+            }
+          />
+          <CampoOpcoes
+            rotulo="O que foi pago"
+            campo={c.revisao.descricao}
+            escolha={esc.descricao}
+            escolher={(x) => r.mudar({ descricao: x })}
+            propria={
+              <input
+                className="f"
+                maxLength={200}
+                placeholder="Ex.: cimento e areia, mão de obra do pedreiro"
+                aria-label="O que foi pago (outro)"
+                value={esc.propria.descricao}
+                onChange={(e) => r.proprio("descricao", e.target.value)}
+              />
+            }
+          />
+          <CampoEtapa
+            c={c}
+            obraId={obra.id}
+            arvore={r.arvore}
+            esc={esc}
+            mudar={r.mudar}
+            proprio={r.proprio}
+            criada={(e) => {
+              r.setArvore((a) => [...a, e]);
+              r.proprio("etapa", e.chave);
+              r.proprio("topico", ""); // o tópico escolhido era da etapa anterior
+            }}
+          />
+          <CampoPedido pedidos={r.pedidos} esc={esc} mudar={r.mudar} />
+        </fieldset>
+        {r.revisavel && r.podeOperar && r.falta.length ? (
+          <p className={s.falta} role="status">
+            Para confirmar, falta: {r.falta.join(", ")}.
+          </p>
+        ) : null}
+        {r.descartando ? (
+          <div className="campo">
+            <label className="l" htmlFor={idMotivo}>
+              Por que não é gasto da obra? (opcional)
+            </label>
+            <input
+              id={idMotivo}
+              className="f"
+              maxLength={200}
+              placeholder="Ex.: foto repetida, gasto pessoal"
+              value={r.motivo}
+              onChange={(e) => r.setMotivo(e.target.value)}
+            />
+          </div>
+        ) : null}
+        {r.erroApi ? (
+          <div className="aviso-erro form-erro" role="alert">
+            {r.erroApi}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string; obra: Obra; fechar: () => void }) {
+  const r = useRevisao(comprovanteId, obra, fechar);
+  return (
+    <Modal titulo="Revisar comprovante" fechar={fechar} largo classe={s.modalRev} rodape={<BotoesRevisao r={r} fechar={fechar} />}>
+      <CorpoRevisao r={r} obra={obra} />
     </Modal>
+  );
+}
+
+/**
+ * A revisão dentro da página, no bloco "A conferir" (computador): a foto e os campos à vista, sem abrir janela. Os
+ * botões ficam no pé do bloco, na mesma ordem do modal.
+ */
+export function RevisaoEmbutida({ comprovanteId, obra, terminou }: { comprovanteId: string; obra: Obra; terminou: () => void }) {
+  const r = useRevisao(comprovanteId, obra, terminou);
+  return (
+    <div className={s.embutida}>
+      <CorpoRevisao r={r} obra={obra} embutida />
+      {r.c ? (
+        <div className={s.embutidaPe}>
+          <BotoesRevisao r={r} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * O comprovante a conferir no celular, compacto: o que a IA leu numa linha e dois botões. Confirmar grava exatamente
+ * o que a revisão traria marcado; se a leitura deixou algo em dúvida, ele fica desligado e o caminho é Corrigir.
+ */
+export function ConferirCompacto({ comprovanteId, obra, corrigir, terminou }: { comprovanteId: string; obra: Obra; corrigir: () => void; terminou: () => void }) {
+  const r = useRevisao(comprovanteId, obra, terminou);
+  const { c, esc } = r;
+  if (r.erro)
+    return (
+      <div className="aviso-erro" role="alert">
+        <Icone nome="alert" tam={15} />
+        {r.erro}
+      </div>
+    );
+  if (!c || !esc)
+    return (
+      <div className="carregando" role="status">
+        <Icone nome="loader" className="spin" tam={15} />
+        Abrindo o comprovante…
+      </div>
+    );
+  const v = r.corpo;
+  // sem o corpo completo, mostra a 1ª leitura de cada campo (o que a pessoa vai conferir em Corrigir)
+  const lido = (k: "valor" | "favorecido" | "descricao" | "data_pagamento") => c.revisao[k].opcoes[0]?.rotulo ?? null;
+  const valor = v ? fmtReais(v.valor) : (lido("valor") ?? "valor não lido");
+  const linha = [v?.favorecido ?? lido("favorecido"), v?.descricao ?? lido("descricao"), v ? fmtDia(v.data_pagamento) : lido("data_pagamento")].filter(Boolean).join(" · ");
+  const pode = r.revisavel && r.podeOperar;
+  return (
+    <div className={s.compacto}>
+      <div className={s.compactoLinha}>
+        <Miniatura id={c.id} tipo={c.tipo_conteudo} />
+        <div className={s.compactoTexto}>
+          <b className={s.valor}>{valor}</b>
+          {linha ? <span className="mut sm">{linha}</span> : null}
+        </div>
+      </div>
+      {pode && r.falta.length ? <p className={s.falta}>Confira antes: {r.falta.join(", ")}.</p> : null}
+      {r.erroApi ? (
+        <div className="aviso-erro form-erro" role="alert">
+          {r.erroApi}
+        </div>
+      ) : null}
+      <div className={s.compactoAcoes}>
+        <button type="button" className={`btn${pode && !v ? " amb" : ""}`} onClick={corrigir}>
+          {pode ? "Corrigir" : "Abrir"}
+        </button>
+        {pode ? (
+          <button type="button" className="btn amb" disabled={!v || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={r.confirmar}>
+            {r.ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="check" tam={14} />}
+            Confirmar
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -501,11 +613,12 @@ function CampoPedido({ pedidos, esc, mudar }: { pedidos: Pedido[]; esc: Escolhas
   );
 }
 
-/** A foto (ou o PDF) ao lado dos campos. Vem pelo repasse com o token, num endereço que só vale nesta aba. */
-function Arquivo({ id, tipo }: { id: string; tipo: string }) {
+/** O arquivo do comprovante pelo repasse com o token, num endereço que só vale nesta aba (revogado ao sair). */
+function useArquivo(id: string | null) {
   const [url, setUrl] = useState<string | null>(null);
   const [erro, setErro] = useState(false);
   useEffect(() => {
+    if (!id) return;
     let vivo = true;
     let criado: string | null = null;
     arquivoComprovante(id)
@@ -520,8 +633,14 @@ function Arquivo({ id, tipo }: { id: string; tipo: string }) {
       if (criado) URL.revokeObjectURL(criado);
     };
   }, [id]);
+  return { url, erro };
+}
+
+/** A foto (ou o PDF) ao lado dos campos. Na página (embutida) fica mais baixa, para os campos caberem ao lado. */
+function Arquivo({ id, tipo, embutida = false }: { id: string; tipo: string; embutida?: boolean }) {
+  const { url, erro } = useArquivo(id);
   return (
-    <div className={s.arquivo}>
+    <div className={`${s.arquivo}${embutida ? ` ${s.arquivoEmbutido}` : ""}`}>
       {erro ? (
         <span className="mut sm">Não consegui abrir o arquivo.</span>
       ) : !url ? (
@@ -537,5 +656,16 @@ function Arquivo({ id, tipo }: { id: string; tipo: string }) {
         </a>
       ) : null}
     </div>
+  );
+}
+
+/** A miniatura do cartão compacto: a foto pequena; PDF não vira imagem, então mostra o ícone. */
+function Miniatura({ id, tipo }: { id: string; tipo: string }) {
+  const pdf = tipo === "application/pdf";
+  const { url } = useArquivo(pdf ? null : id);
+  return (
+    <span className={s.miniatura}>
+      {!pdf && url ? <img src={url} alt="Miniatura do comprovante" /> : <Icone nome={pdf ? "planilha" : "recibo"} tam={18} />}
+    </span>
   );
 }

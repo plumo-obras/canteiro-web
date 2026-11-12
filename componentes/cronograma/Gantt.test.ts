@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Cronograma } from "@/lib/contrato";
 import { barraDaEtapa } from "@/lib/cronograma";
-import { gruposCelular, rotuloMesGantt } from "./Gantt";
+import { filtroCelular, fracaoDoMes, rotuloMesGantt } from "./Gantt";
 import { linhasTabela } from "./Tabela";
 
 describe("Gantt com barra única e tabela físico-financeira", () => {
@@ -19,11 +19,21 @@ describe("Gantt com barra única e tabela físico-financeira", () => {
 });
 
 describe("Gantt no celular", () => {
-  it("atenção aberta em cima; concluídas e próximas recolhidas, só se houver", () => {
-    const l = (situacao: "atrasada" | "em_dia" | "concluida" | "nao_comecou") => ({ situacao, medido_acumulado: 0, previstoRef: 0 });
-    const g = gruposCelular([l("nao_comecou"), l("em_dia"), l("concluida"), l("atrasada"), l("nao_comecou")]);
-    expect(g.map((x) => [x.k, x.itens.length, x.aberto])).toEqual([["atencao", 2, true], ["concluidas", 1, false], ["proximas", 2, false]]);
-    expect(gruposCelular([l("nao_comecou")]).map((x) => x.k)).toEqual(["proximas"]);
+  it("Agora traz atrasadas (a maior falta primeiro) e em andamento; Próximas, as que não começaram; Todas, tudo", () => {
+    const l = (n: string, situacao: "atrasada" | "em_dia" | "concluida" | "nao_comecou", falta = 0) => ({ n, situacao, falta });
+    const ls = [l("a", "nao_comecou"), l("b", "em_dia"), l("c", "concluida"), l("d", "atrasada", 100), l("e", "atrasada", 900), l("f", "nao_comecou")];
+    expect(filtroCelular(ls, "agora").map((x) => x.n)).toEqual(["e", "d", "b"]);
+    expect(filtroCelular(ls, "proximas").map((x) => x.n)).toEqual(["a", "f"]);
+    expect(filtroCelular(ls, "todas")).toHaveLength(6);
+  });
+});
+
+describe("Gantt: marca de hoje", () => {
+  it("cai no dia certo do mês, no fuso da obra", () => {
+    // 1º de fevereiro 12h em São Paulo: meio do primeiro dia de 28
+    expect(fracaoDoMes(new Date("2027-02-01T15:00:00Z"))).toBeCloseTo(0.5 / 28);
+    // 00h30 UTC do dia 1º ainda é o último dia do mês anterior em São Paulo
+    expect(fracaoDoMes(new Date("2026-12-01T00:30:00Z"))).toBeCloseTo(29.5 / 30);
   });
 });
 
