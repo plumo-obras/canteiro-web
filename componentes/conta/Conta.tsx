@@ -94,7 +94,7 @@ export function Conta({ usuario }: { usuario: Usuario }) {
           <Chave
             className={`${s.bloco} ${s.chave}`}
             situacao={c.chave_propria}
-            podeTrocar={c.usuario.papel === "master"}
+            podeTrocar={c.usuario.papel !== "viewer"}
             mudou={() => setVersao((v) => v + 1)}
           />
 

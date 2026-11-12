@@ -75,7 +75,7 @@ API real entra em `SO_COM_API`.
 
 ## Papéis
 
-`viewer` só lê; `admin` opera; `master` também troca a chave própria. Na tela, `const { podeOperar } = useCasca()`
+`viewer` só lê; `admin` opera e troca a chave própria; `master` também. Na tela, `const { podeOperar } = useCasca()`
 esconde os botões de escrita (`podeOperar && …`). Isso é só cortesia: **quem barra é a API**. Não mostre botão
 desabilitado sem explicação para viewer — esconda.
 

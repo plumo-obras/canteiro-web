@@ -26,7 +26,7 @@ describe("chave própria da Anthropic", () => {
     expect(problemaNaChave("sk-ant-api03-abcdefghijklmnop")).toBeNull();
   });
 
-  it("master conecta com campo de senha; o campo esvazia depois de enviar", async () => {
+  it("admin conecta com campo de senha; o campo esvazia depois de enviar", async () => {
     const rede = criarRede({ "PUT /srv/api/conta/chave-anthropic": () => json({ chave_propria: true, final: "mnop" }) });
     const mudou = montar();
     // estado + botão: o campo só aparece depois de "Conectar chave"
@@ -42,11 +42,11 @@ describe("chave própria da Anthropic", () => {
     expect(campo.value).toBe("");
   });
 
-  it("ativa mostra só o final; quem não é master não vê o formulário", () => {
+  it("ativa mostra só o final; quem só lê não vê o formulário", () => {
     montar({ situacao: { ativa: true, final: "abcd", cadastrada_em: null }, podeTrocar: false });
     expect(screen.getByText("…abcd")).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByLabelText(/chave/i, { selector: "input" })).toBeNull();
-    expect(screen.getByText(/Só quem tem o papel master/)).toBeTruthy();
+    expect(screen.getByText(/Só admin ou master/)).toBeTruthy();
   });
 });

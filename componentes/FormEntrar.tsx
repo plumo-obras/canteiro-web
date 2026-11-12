@@ -101,7 +101,7 @@ export function FormEntrar({ demo }: { demo: boolean }) {
             {demo ? (
               <p className={s.nota}>
                 Modo de demonstração: qualquer e-mail e senha entram como admin. Um e-mail que começa com <b>leitura</b> entra com o
-                papel de leitura, e um que começa com <b>master</b> entra como master (troca a chave da Anthropic).
+                papel de leitura, e um que começa com <b>master</b> entra como master.
               </p>
             ) : null}
           </form>

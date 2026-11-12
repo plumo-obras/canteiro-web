@@ -796,7 +796,7 @@ function emitir(e: EstadoDemo, u: Usuario): RespostaEntrar {
 
 /**
  * Na demonstração qualquer senha entra (os dados são fictícios); e-mail começando por "leitura" entra como viewer e
- * por "master" entra como master (o único papel que troca a chave própria).
+ * por "master" entra como master.
  */
 export function entrarDemo(email: string, senha: string): RespostaEntrar | null {
   const e = estado();
@@ -1260,10 +1260,6 @@ export function minhaConta(e: EstadoDemo, u: Usuario): MinhaConta {
   };
 }
 
-function exigirMaster(u: Usuario) {
-  if (u.papel !== "master") throw new Proibido("Só quem tem o papel master troca a chave da Anthropic.");
-}
-
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 
 /** GET /uso: soma por dia, obra e rota a partir das linhas, como servicos/uso.py. */
@@ -1325,7 +1321,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
     if (a === "conta" && id === "chave-anthropic" && !b) {
       if (metodo === "GET") return ok(chaveDemo(e));
       if (metodo === "PUT") {
-        exigirMaster(u);
+        exigirAdmin(u);
         const chave = String(c.chave ?? "").trim();
         if (!/^sk-ant-/.test(chave) || chave.length < 20 || chave.length > 300)
           return erro(422, "Isto não parece uma chave da API da Anthropic (começa com sk-ant-).");
@@ -1333,7 +1329,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok({ chave_propria: true, final: e.chave.final });
       }
       if (metodo === "DELETE") {
-        exigirMaster(u);
+        exigirAdmin(u);
         e.chave = null;
         return ok({ chave_propria: false, final: null });
       }

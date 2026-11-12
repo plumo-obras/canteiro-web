@@ -5,12 +5,14 @@
 .link{background:none;border:0;padding:0;color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 
 .grade{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+/* Desktop: perfil e chave lado a lado, da mesma altura; senha e créditos na largura toda, sem sobrar canto vazio. */
 @media (min-width:960px){
-  .grade{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
-  .creditos{grid-column:1/-1}
-  .perfil,.senha{grid-column:1}
-  .chave{grid-column:2;grid-row:1/span 2;align-self:start}
+  .grade{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .perfil{grid-column:1;grid-row:1}
+  .chave{grid-column:2;grid-row:1}
+  .senha,.creditos{grid-column:1/-1}
 }
+.chave{display:flex;flex-direction:column}
 .bloco{min-width:0;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);padding:22px 24px;box-shadow:var(--hl),var(--shadow)}
 .h2{font-size:var(--t-sec);margin:0 0 14px}
 .h3{font-size:var(--t-sec);margin:0}
@@ -97,12 +99,17 @@
   .grafico{grid-template-rows:120px auto}
 }
 .acoesChave{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 4px}
-.como{margin-top:14px;font-size:var(--t-meta)}
+.como{margin-top:auto;padding-top:14px;font-size:var(--t-meta)}
 .como summary{cursor:pointer;color:var(--ink2);font-weight:500;min-height:32px;display:flex;align-items:center}
 .como p{margin:6px 0 0}
 
-/* senha */
-.formSenha{display:flex;flex-direction:column;gap:6px;max-width:420px}
+/* senha: fechada é uma faixa (texto à esquerda, botão à direita); aberta, os três campos dividem a largura */
+.senha[data-aberto="false"]{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:24px}
+.senha[data-aberto="false"] .h2{margin-bottom:6px}
+.senha[data-aberto="false"] .texto{grid-column:1;margin:0}
+.senha[data-aberto="false"]>:global(.btn){grid-column:2;grid-row:1/span 2;min-height:44px}
+.formSenha{display:flex;flex-direction:column;gap:6px}
+.camposSenha{display:grid;gap:8px 16px;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
 .campoSenha{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .entrada{min-height:44px;font-size:16px;width:100%}
 .verSenhas{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:2px;padding:0;border:0;background:none;
@@ -112,6 +119,7 @@
 .acoesSenha{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .acoesSenha :global(.btn){min-height:44px}
 @media (max-width:640px){
-  .formSenha{max-width:none}
+  .senha[data-aberto="false"]{grid-template-columns:minmax(0,1fr)}
+  .senha[data-aberto="false"]>:global(.btn){grid-column:1;grid-row:auto;margin-top:14px;justify-self:start}
   .acoesSenha :global(.btn){flex:1 1 100%}
 }

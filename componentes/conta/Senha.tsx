@@ -64,7 +64,7 @@ export function Senha(props: { className: string; email: string }) {
     avisar("Senha trocada. Os outros aparelhos foram desconectados.");
   };
 
-  const campo = (id: string, rotulo: string, valor: string, mudar: (v: string) => void, auto: string, descrito?: string) => (
+  const campo = (id: string, rotulo: string, valor: string, mudar: (v: string) => void, auto: string, descrito?: string, abaixo?: React.ReactNode) => (
     <div className={s.campoSenha}>
       <label className={s.rotulo} htmlFor={id}>
         {rotulo}
@@ -85,11 +85,12 @@ export function Senha(props: { className: string; email: string }) {
         aria-describedby={descrito}
         aria-invalid={descrito?.startsWith("erro-") || undefined}
       />
+      {abaixo}
     </div>
   );
 
   return (
-    <section className={props.className} aria-labelledby="t-senha">
+    <section className={props.className} aria-labelledby="t-senha" data-aberto={aberto}>
       <h2 id="t-senha" className={s.h2}>
         Senha
       </h2>
@@ -104,23 +105,40 @@ export function Senha(props: { className: string; email: string }) {
         <form className={s.formSenha} onSubmit={enviar} noValidate>
           {/* Para o gerenciador de senhas saber de qual conta é a senha nova. */}
           <input type="text" name="username" autoComplete="username" value={props.email} readOnly hidden />
-          {campo("senha-atual", "Senha atual", atual, setAtual, "current-password")}
-          {campo("senha-nova", "Nova senha", nova, setNova, "new-password", curta ? "erro-senha-curta" : "dica-senha")}
-          {curta ? (
-            <div id="erro-senha-curta" className="campo-erro">
-              Pelo menos {SENHA_MIN} caracteres.
-            </div>
-          ) : (
-            <div id="dica-senha" className={s.dica}>
-              Pelo menos {SENHA_MIN} caracteres, diferente da atual e do seu e-mail.
-            </div>
-          )}
-          {campo("senha-confirmar", "Confirmar a nova senha", confirmar, setConfirmar, "new-password", naoConfere ? "erro-senha-confere" : undefined)}
-          {naoConfere ? (
-            <div id="erro-senha-confere" className="campo-erro">
-              A confirmação não confere com a nova senha.
-            </div>
-          ) : null}
+          {/* Os três campos lado a lado no desktop: cada aviso fica embaixo do seu campo. */}
+          <div className={s.camposSenha}>
+            {campo("senha-atual", "Senha atual", atual, setAtual, "current-password")}
+            {campo(
+              "senha-nova",
+              "Nova senha",
+              nova,
+              setNova,
+              "new-password",
+              curta ? "erro-senha-curta" : "dica-senha",
+              curta ? (
+                <div id="erro-senha-curta" className="campo-erro">
+                  Pelo menos {SENHA_MIN} caracteres.
+                </div>
+              ) : (
+                <div id="dica-senha" className={s.dica}>
+                  Pelo menos {SENHA_MIN} caracteres, diferente da atual e do seu e-mail.
+                </div>
+              ),
+            )}
+            {campo(
+              "senha-confirmar",
+              "Confirmar a nova senha",
+              confirmar,
+              setConfirmar,
+              "new-password",
+              naoConfere ? "erro-senha-confere" : undefined,
+              naoConfere ? (
+                <div id="erro-senha-confere" className="campo-erro">
+                  A confirmação não confere com a nova senha.
+                </div>
+              ) : null,
+            )}
+          </div>
 
           <button type="button" className={s.verSenhas} aria-pressed={ver} onClick={() => setVer((v) => !v)}>
             <Icone nome={ver ? "olhoFechado" : "olho"} tam={16} />

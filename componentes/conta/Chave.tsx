@@ -1,7 +1,7 @@
 "use client";
 /**
  * Chave própria da Anthropic. A tela nunca vê a chave guardada (a API devolve só os 4 últimos caracteres) e a que é
- * digitada sai do estado assim que é enviada. Trocar e remover são do papel master; os outros só veem a situação.
+ * digitada sai do estado assim que é enviada. Trocar e remover são de admin ou master; leitura só vê a situação.
  */
 import { useRef, useState } from "react";
 import type { ChavePropria } from "@/lib/contrato";
@@ -153,7 +153,7 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
       ) : (
         <p className={s.so}>
           <Icone nome="info" tam={15} />
-          Só quem tem o papel master conecta, troca ou remove a chave.
+          Só admin ou master conecta, troca ou remove a chave.
         </p>
       )}
 
