@@ -80,19 +80,23 @@ function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagin
  * apareceria no chat do mestre de obras.
  */
 const PEDIDO_AO_AGENTE =
-  "Monte o cronograma desta obra a partir do orçamento: sequencie as etapas na ordem das fases de obra (fundação → " +
-  "estrutura → vedação → acabamento) e defina a duração de cada uma, proporcional ao valor. Proponha o cronograma " +
-  "para a minha aprovação.";
+  "Monte o cronograma desta obra a partir do orçamento e proponha para a minha aprovação agora. Sequencie as etapas na " +
+  "ordem das fases de obra e defina a equipe de cada uma (a duração o sistema calcula pela quantidade e produtividade). " +
+  "Proponha com as etapas que o orçamento já tiver, mesmo que seja uma só — não peça para eu cadastrar mais etapas antes.";
 
 async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   let proposta: Proposta | null = null;
   let erro: string | null = null;
+  let texto = "";
   for await (const ev of conversar({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
     if (ev.tipo === "proposta" && ev.proposta.tipo === "cronograma") proposta = ev.proposta;
+    else if (ev.tipo === "texto") texto += ev.delta;
     else if (ev.tipo === "erro") erro = ev.mensagem;
   }
-  if (!proposta) throw new Error(erro ?? "O mestre de obras não chegou a propor o cronograma. Tente de novo.");
-  return proposta;
+  if (proposta) return proposta;
+  // o agente respondeu sem propor (ex.: orçamento ralo): mostra o que ele disse, não um erro genérico
+  const recado = texto.trim();
+  throw new Error(erro ?? (recado ? recado : "O mestre de obras não chegou a propor o cronograma. Tente de novo."));
 }
 
 export function Cronograma({ obra }: { obra: Obra }) {
