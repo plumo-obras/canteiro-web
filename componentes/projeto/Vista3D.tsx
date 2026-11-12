@@ -45,10 +45,34 @@ function ficha(e: Elemento3D): [string, string][] {
   return linhas;
 }
 
-export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?: (e: Elemento3D | null) => void }) {
+/** Uma disciplina fora da estrutura nas camadas: a prévia liga e desliga; a que ainda não veio aparece apagada. */
+export interface OutraCamada {
+  rotulo: string;
+  ligada: boolean;
+  falta?: boolean;
+  alternar?: () => void;
+}
+
+export function Vista3D({
+  modelo,
+  aoEscolher,
+  previa = false,
+  outras = [],
+}: {
+  modelo: Modelo3D;
+  aoEscolher?: (e: Elemento3D | null) => void;
+  /** Prévia da hidráulica (SIMULADO): tubos tracejados e a caixa d'água sobre a estrutura, até a prancha chegar. */
+  previa?: boolean;
+  outras?: OutraCamada[];
+}) {
   const palco = useRef<HTMLDivElement>(null);
   const [camera, setCamera] = useState<"3d" | "topo" | "frente">("3d");
-  const ctl = useRef<{ vista: (v: "3d" | "topo" | "frente") => void; mostrar: (c: Camada, sim: boolean) => void } | null>(null);
+  const ctl = useRef<{ vista: (v: "3d" | "topo" | "frente") => void; mostrar: (c: Camada, sim: boolean) => void; previa: (sim: boolean) => void } | null>(null);
+  const previaRef = useRef(previa);
+  previaRef.current = previa;
+  useEffect(() => {
+    ctl.current?.previa(previa);
+  }, [previa]);
   const [visiveis, setVisiveis] = useState<Record<Camada, boolean>>({ sapata: true, pilar: true, morre: true, viga: true, laje: true, solo: true });
   const [sel, setSel] = useState<Elemento3D | null>(null);
   const [falhou, setFalhou] = useState(false);
@@ -146,9 +170,40 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
       cena.add(solo, grade);
       grupos.set("solo", [solo, grade]);
 
+      // prévia da hidráulica (SIMULADO): tubo de distribuição rente ao chão e sob a laje, uma prumada num canto e a
+      // caixa d'água sobre a cobertura. Tracejado e azul para nunca se confundir com o que veio das pranchas.
+      const previaG = new THREE.Group();
+      const tubo = new THREE.LineDashedMaterial({ color: 0x9cc4f5, dashSize: 60, gapSize: 30, depthTest: false });
+      const zTopo = modelo.limites.z1;
+      const zMeio = modelo.niveis[1]?.cota_cm ?? zTopo / 2;
+      const m = 60;
+      const linha = (pts: [number, number, number][]) => {
+        const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(([x, y, z]) => P(x, y, z))), tubo);
+        l.computeLineDistances();
+        previaG.add(l);
+      };
+      linha([[x0 + m, y0 + m, 20], [x1 - m, y0 + m, 20], [x1 - m, y1 - m, 20]]);
+      linha([[x0 + m, y0 + m, zMeio - 60], [x1 - m, y0 + m, zMeio - 60], [x1 - m, y1 - m, zMeio - 60]]);
+      linha([[x1 - m, y0 + m, 0], [x1 - m, y0 + m, zTopo + 60]]);
+      const caixaAgua = new THREE.Mesh(
+        new THREE.BoxGeometry(140, 110, 140),
+        new THREE.MeshBasicMaterial({ color: 0x7fa9dc, transparent: true, opacity: 0.22 }),
+      );
+      caixaAgua.position.copy(P(x1 - m - 70, y0 + m + 70, zTopo + 55));
+      caixaAgua.add(new THREE.LineSegments(new THREE.EdgesGeometry(caixaAgua.geometry), tubo));
+      (caixaAgua.children[0] as InstanceType<typeof THREE.LineSegments>).computeLineDistances();
+      previaG.add(caixaAgua);
+      previaG.visible = previaRef.current;
+      cena.add(previaG);
+
       const alvo = P(cx, cy, 120);
       const posicoes = {
-        "3d": () => P(cx + tam * 0.55, cy - tam * 0.7, tam * 0.5),
+        // de longe o bastante para a obra caber inteira com as camadas abertas no canto
+        "3d": () => {
+          // tela em pé (celular): a obra cabe na largura, então a câmera recua mais
+          const k = W() < H() ? 1.6 : 1;
+          return P(cx + tam * 0.95 * k, cy - tam * 1.15 * k, tam * 0.85 * k);
+        },
         topo: () => P(cx, cy - 1, tam * 1.7),
         frente: () => P(cx, cy - tam * 1.8, 150),
       };
@@ -159,6 +214,9 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
           orb.update();
         },
         mostrar: (c, sim) => (grupos.get(c) ?? []).forEach((o) => (o.visible = sim)),
+        previa: (sim) => {
+          previaG.visible = sim;
+        },
       };
       ctl.current.vista("3d");
 
@@ -258,6 +316,13 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
                 />
                 <span className={s.amostra} style={{ background: `#${CORES[c].toString(16).padStart(6, "0")}` }} />
                 {ROTULO[c]}
+              </label>
+            ))}
+            {outras.map((o) => (
+              <label key={o.rotulo} className={o.falta ? s.camadaFalta : s.camadaPrevia}>
+                <input type="checkbox" checked={o.ligada} disabled={o.falta || !o.alternar} onChange={() => o.alternar?.()} />
+                <span className={o.falta ? s.amostraFalta : s.amostraPrevia} />
+                {o.rotulo}
               </label>
             ))}
           </fieldset>

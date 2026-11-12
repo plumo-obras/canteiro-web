@@ -60,6 +60,8 @@ describe("Projeto 3D", () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk });
     montar();
     expect(screen.getByRole("button", { name: /Arraste aqui as pranchas/ })).toBeInTheDocument();
+    // o pacote abre numa gaveta a partir do cartão da estrutura
+    await userEvent.setup().click(screen.getByRole("button", { name: "Pacote" }));
     const pacote = screen.getByRole("list", { name: "Partes do pacote" });
     expect(within(pacote).getAllByText("Falta").length).toBeGreaterThan(0);
     expect(screen.queryByRole("tab", { name: "3D" })).not.toBeInTheDocument();
@@ -76,7 +78,8 @@ describe("Projeto 3D", () => {
 
     expect(await screen.findByText("vista 3d")).toBeInTheDocument();
     expect(rede.chamadas.find((c) => c.caminho === "/srv/tradutor/projetos")?.url.searchParams.get("ids")).toBe("f1");
-    // o que falta e os números ficam no painel, sem rolar a página
+    // o que falta e os números ficam na gaveta do pacote, aberta pelo cartão da estrutura
+    await u.click(screen.getByRole("button", { name: /^Pacote/ }));
     expect(screen.getByText("1.129,2 kg")).toBeInTheDocument();
     expect(screen.getByText(/Para completar o modelo, falta/)).toBeInTheDocument();
 
@@ -84,14 +87,15 @@ describe("Projeto 3D", () => {
     await u.click(screen.getByRole("tab", { name: /Conferências/ }));
     const itens = within(screen.getByRole("tabpanel", { name: /Conferências/ })).getAllByRole("listitem");
     expect(itens[0]).toHaveTextContent("Verificar");
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Fechar" }));
 
     await u.click(screen.getByRole("tab", { name: "CAD" }));
     expect(screen.getByText("editor cad")).toBeInTheDocument();
-    expect(screen.queryByRole("complementary", { name: "Pacote do projeto" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Disciplinas do projeto" })).not.toBeInTheDocument();
     const mostrar = screen.getByRole("button", { name: "Mostrar o pacote" });
     expect(mostrar).toHaveAttribute("aria-expanded", "false");
     await u.click(mostrar);
-    expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Disciplinas do projeto" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Esconder o pacote" })).toHaveAttribute("aria-expanded", "true");
   });
 
@@ -101,15 +105,15 @@ describe("Projeto 3D", () => {
     const u = userEvent.setup();
     montar();
     await screen.findByText("vista 3d");
-    expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Disciplinas do projeto" })).toBeInTheDocument();
     await u.click(screen.getByRole("tab", { name: "Lado a lado" }));
     expect(screen.getByText("vista 3d")).toBeInTheDocument();
     expect(screen.getByText("editor cad")).toBeInTheDocument();
-    expect(screen.queryByRole("complementary", { name: "Pacote do projeto" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Disciplinas do projeto" })).not.toBeInTheDocument();
     // de volta ao 3D, o CAD sai de vista e a coluna volta
     await u.click(screen.getByRole("tab", { name: "3D" }));
     expect(screen.queryByText("editor cad")).not.toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Disciplinas do projeto" })).toBeInTheDocument();
   });
 
   it("no celular não há CAD: só o 3D, com o aviso de onde editar", async () => {
@@ -123,11 +127,16 @@ describe("Projeto 3D", () => {
     expect(screen.queryByRole("tab", { name: "Lado a lado" })).not.toBeInTheDocument();
   });
 
-  it("outras disciplinas: só o aviso, sem botão", async () => {
+  it("outras disciplinas (simuladas): um cartão cada, e a escolha só muda a tela", async () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk });
     montar();
-    expect(screen.getByText("Hidráulica, elétrica e incêndio")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /hidráulica|elétrica|incêndio/i })).not.toBeInTheDocument();
+    for (const nome of ["Hidráulica", "Elétrica", "Prevenção de incêndio"]) expect(screen.getByRole("heading", { name: nome })).toBeInTheDocument();
+    const eletrica = screen.getByRole("heading", { name: "Elétrica" }).closest("section")!;
+    const vaiTer = within(eletrica).getByRole("button", { name: "Vai ter" });
+    expect(vaiTer).toHaveAttribute("aria-pressed", "false");
+    await userEvent.setup().click(vaiTer);
+    expect(vaiTer).toHaveAttribute("aria-pressed", "true");
+    expect(within(eletrica).getByText("Vai ter", { selector: "span" })).toBeInTheDocument();
   });
 
   it("próximo passo só com pranchas lidas: nem no vazio, nem com folha sendo lida", async () => {
@@ -213,7 +222,7 @@ describe("Projeto 3D", () => {
     await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     expect(screen.queryByRole("menuitem", { name: "Apagar o projeto" })).not.toBeInTheDocument();
     await u.keyboard("{Escape}");
-    await u.click(screen.getByRole("tab", { name: /Folhas/ }));
+    await u.click(screen.getByRole("button", { name: /^Folhas/ }));
     expect(screen.queryByRole("button", { name: /Tirar/ })).not.toBeInTheDocument();
   });
 

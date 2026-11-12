@@ -11,12 +11,13 @@ import type { Obra } from "@/lib/contrato";
 import { tradutor, type Elemento3D, type Projeto as ProjetoT } from "@/lib/tradutor";
 import { CabecalhoPagina } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
-import { Confirmar } from "./Dialogo";
+import { Confirmar, Drawer } from "./Dialogo";
 import { Icone } from "./Icone";
 import { useCelular } from "./midia";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
 import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
+import { DISCIPLINAS_SIMULADAS, FOLHAS_DEMO, type SituacaoDisciplina } from "@/lib/simulado/projeto";
 import s from "./projeto/projeto.module.css";
 
 /** Uma prancha enviada nesta obra. Quem decide o que ela é (locação, formas...) é o tradutor, não a pessoa. */
@@ -60,11 +61,15 @@ export function Projeto({ obra }: { obra: Obra }) {
   const [vista, setVista] = useState<"3d" | "cad" | "lado">("3d");
   const [cadMontado, setCadMontado] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
-  const [aba, setAba] = useState<"pacote" | "materiais" | "conferencias" | "folhas">("pacote");
+  // o detalhe da estrutura (pacote, materiais, conferências, folhas) abre numa gaveta: a coluna fica só com as disciplinas
+  const [gaveta, setGaveta] = useState<"pacote" | "materiais" | "conferencias" | "folhas" | null>(null);
+  // SIMULADO: as outras disciplinas e a prévia da hidráulica ainda não existem na API (lib/simulado/projeto.ts)
+  const [disciplinas, setDisciplinas] = useState(DISCIPLINAS_SIMULADAS);
+  const [previa, setPrevia] = useState(false);
   // com o CAD à vista ele precisa da largura toda (tem os próprios painéis): a coluna da estrutura recolhe e volta por um botão
   const [pacoteNo2d, setPacoteNo2d] = useState(false);
   const [apagando, setApagando] = useState(false);
-  const { podeOperar, avisar } = useCasca();
+  const { podeOperar, avisar, demo } = useCasca();
   // o CAD (CADCraft num iframe) pede mouse e tela larga: no celular a vista é só o 3D
   const celular = useCelular();
   const modo = celular ? "3d" : vista;
@@ -93,13 +98,18 @@ export function Projeto({ obra }: { obra: Obra }) {
 
   useEffect(() => {
     vivo.current = true;
-    const f = lerFolhas(obra.id);
+    let f = lerFolhas(obra.id);
+    // a demonstração não tem o tradutor: a obra já começa com o projeto fictício (servido pelo repasse, SIMULADO)
+    if (demo && !f.length) {
+      f = FOLHAS_DEMO.map(({ id, nome }) => ({ id, nome }));
+      gravarFolhas(obra.id, f);
+    }
     setFolhas(f);
     void atualizar(f);
     return () => {
       vivo.current = false;
     };
-  }, [obra.id, atualizar]);
+  }, [obra.id, atualizar, demo]);
 
   // enquanto houver folha sendo lida (imagem leva minutos), o pacote se atualiza sozinho
   const lendo = (projeto?.em_andamento.length ?? 0) > 0;
@@ -241,7 +251,7 @@ export function Projeto({ obra }: { obra: Obra }) {
     setVista("3d");
     setCadMontado(false);
     setPacoteNo2d(false);
-    setAba("pacote");
+    setGaveta(null);
     setApagando(false);
     avisar(`Projeto apagado: ${n} prancha${n === 1 ? "" : "s"} removida${n === 1 ? "" : "s"}.`);
   }
@@ -468,12 +478,15 @@ export function Projeto({ obra }: { obra: Obra }) {
       {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
 
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
-        {/* À esquerda, as disciplinas do projeto; por enquanto só a estrutura existe de fato. */}
-        <div className={s.lado} hidden={!painelVisivel}>
-          <aside id="painel-pacote" className={`card ${s.painel}`} aria-label="Pacote do projeto" {...soltarAqui}>
+        {/* À esquerda, as disciplinas do projeto, uma por cartão; a estrutura é a única que vem das pranchas hoje. */}
+        <div id="painel-pacote" className={s.lado} hidden={!painelVisivel} role="group" aria-label="Disciplinas do projeto">
+          <section className={s.disc} data-estado={seloEstrutura.tom} aria-labelledby="disc-estrutura" {...soltarAqui}>
             <div className={s.discCab}>
-              <h2 className={s.discT}>Estrutura</h2>
+              <h2 id="disc-estrutura" className={s.discT}>
+                Estrutura
+              </h2>
               <span className={s.discSelo} data-tom={seloEstrutura.tom}>
+                {seloEstrutura.tom === "ok" ? <Icone nome="check" tam={12} /> : null}
                 {seloEstrutura.t}
               </span>
             </div>
@@ -487,34 +500,68 @@ export function Projeto({ obra }: { obra: Obra }) {
                 </span>
               </div>
             ) : null}
-            <div className={`seg seg-pq ${s.abas}`} role="tablist" aria-label="Seções do pacote">
+            <div className={s.discPe}>
               {abas.map((a) => (
-                <button key={a.k} type="button" role="tab" id={`aba-${a.k}`} aria-selected={aba === a.k} aria-controls="aba-painel" className={aba === a.k ? "on" : ""} onClick={() => setAba(a.k)} aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo}>
+                <button key={a.k} type="button" className="btn sm" aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo} onClick={() => setGaveta(a.k)}>
                   {a.rotulo}
-                  {a.n ? <small className="seg-n">{a.n}</small> : null}
+                  {a.n ? <span className={s.discN}>{a.n}</span> : null}
                 </button>
               ))}
             </div>
-            <div id="aba-painel" role="tabpanel" aria-labelledby={`aba-${aba}`} className={s.painelCorpo}>
-              {aba === "pacote" ? (
-                painelPacote
-              ) : aba === "materiais" ? (
-                <Materiais {...materiais} />
-              ) : aba === "conferencias" ? (
-                painelConferencias
-              ) : (
-                painelFolhas
-              )}
-            </div>
-            {/* o envio fica sempre à mão no pé da coluna, qualquer que seja a aba: mais pranchas ou o DXF editado */}
-            {temModelo && podeOperar ? <div className={s.peEnvio}>{soltar}</div> : null}
-          </aside>
-          {/* Hidráulica, elétrica e incêndio ainda não existem na API: só o aviso, sem botão nem estado de mentira. */}
-          <p className={s.outras}>
-            <Icone nome="plus" tam={14} />
-            <span>Hidráulica, elétrica e incêndio</span>
-            <span className={s.breve}>em breve</span>
-          </p>
+          </section>
+
+          {disciplinas.map((d) => (
+            <section key={d.id} className={s.disc} data-estado={d.situacao} aria-labelledby={`disc-${d.id}`}>
+              <div className={s.discCab}>
+                <h2 id={`disc-${d.id}`} className={s.discT}>
+                  {d.nome}
+                </h2>
+                <span className={s.discSelo} data-tom={TOM_DISCIPLINA[d.situacao]}>
+                  {ROTULO_DISCIPLINA[d.situacao]}
+                </span>
+              </div>
+              <p className={s.discTexto}>{d.texto}</p>
+              {podeOperar || d.situacao === "proxima" ? (
+                <div className={s.discPe}>
+                  {d.situacao === "proxima" ? (
+                    <>
+                      {podeOperar ? (
+                        <button type="button" className="btn sm amb" aria-label={`Enviar pranchas da ${d.nome.toLowerCase()}`} onClick={() => avisar("Prévia: a leitura da hidráulica ainda não existe; nada foi enviado.")}>
+                          Enviar pranchas
+                        </button>
+                      ) : null}
+                      {temModelo ? (
+                        <button type="button" className="btn sm" aria-pressed={previa} onClick={() => setPrevia((v) => !v)}>
+                          {previa ? "Esconder a prévia" : "Ver prévia no 3D"}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
+                    (["vai_ter", "nao_vai_ter"] as const).map((op) => (
+                      <button
+                        key={op}
+                        type="button"
+                        className="btn sm"
+                        aria-pressed={d.situacao === op}
+                        onClick={() => {
+                          setDisciplinas((ds) => ds.map((x) => (x.id === d.id ? { ...x, situacao: x.situacao === op ? "nao_confirmada" : op } : x)));
+                          avisar("Prévia: ainda não é salvo.");
+                        }}
+                      >
+                        {op === "vai_ter" ? "Vai ter" : "Não vai ter"}
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ))}
+          {podeOperar ? (
+            <button type="button" className={`btn sm ${s.outraDisc}`} onClick={() => avisar("Prévia: ainda não é salvo.")}>
+              <Icone nome="plus" tam={14} />
+              Outra disciplina
+            </button>
+          ) : null}
         </div>
 
         <section className={s.visor} aria-label="Modelo da obra">
@@ -570,8 +617,34 @@ export function Projeto({ obra }: { obra: Obra }) {
                 ) : null}
               </div>
               <div id="vista-painel" role="tabpanel" aria-labelledby={celular ? undefined : `vista-${modo}`} className={`${s.visorCorpo} ${modo === "lado" ? s.visorLado : ""}`}>
-                {modo !== "cad" ? <Vista3D modelo={projeto.modelo3d} aoEscolher={escolher3d} /> : null}
+                {modo !== "cad" ? (
+                  <Vista3D
+                    modelo={projeto.modelo3d}
+                    aoEscolher={escolher3d}
+                    previa={previa}
+                    outras={disciplinas
+                      .filter((d) => d.situacao !== "nao_vai_ter")
+                      .map((d) =>
+                        d.situacao === "proxima"
+                          ? { rotulo: `${d.nome} · prévia`, ligada: previa, alternar: () => setPrevia((v) => !v) }
+                          : { rotulo: `${d.nome} · falta`, ligada: false, falta: true },
+                      )}
+                  />
+                ) : null}
                 {cadMontado && !celular ? <EditorCad espelho={baixarEspelho} aoSalvar={aoSalvarNoCad} foco={foco} visivel={modo !== "3d"} /> : null}
+              </div>
+              <div className={s.montado} aria-label="Pranchas que montam o modelo">
+                <span className={s.montadoT}>Montado com</span>
+                {folhas.map((f) => (
+                  <button key={f.id} type="button" className={s.pr} onClick={() => setGaveta("folhas")}>
+                    {f.nome.replace(/\.(pdf|png|jpe?g|tiff?|dxf)$/i, "")}
+                  </button>
+                ))}
+                {podeOperar ? (
+                  <button type="button" className={`${s.pr} ${s.prNova}`} disabled={enviando.length > 0} onClick={escolherArquivos} {...soltarAqui}>
+                    + Prancha ou DXF editado
+                  </button>
+                ) : null}
               </div>
             </>
           ) : (
@@ -589,6 +662,20 @@ export function Projeto({ obra }: { obra: Obra }) {
         </section>
       </div>
 
+      {gaveta ? (
+        <Drawer titulo={`Estrutura · ${abas.find((x) => x.k === gaveta)!.rotulo}`} fechar={() => setGaveta(null)}>
+          <div className="seg seg-pq" role="tablist" aria-label="Detalhe da estrutura">
+            {abas.map((a) => (
+              <button key={a.k} type="button" role="tab" aria-selected={gaveta === a.k} className={gaveta === a.k ? "on" : ""} onClick={() => setGaveta(a.k)}>
+                {a.rotulo}
+              </button>
+            ))}
+          </div>
+          <div role="tabpanel" aria-label={abas.find((x) => x.k === gaveta)!.rotulo} className={s.painelCorpo}>
+            {gaveta === "pacote" ? painelPacote : gaveta === "materiais" ? <Materiais {...materiais} /> : gaveta === "conferencias" ? painelConferencias : painelFolhas}
+          </div>
+        </Drawer>
+      ) : null}
       {apagando ? (
         <Confirmar titulo="Apagar o projeto desta obra?" confirmar={`Apagar ${folhas.length} prancha${folhas.length === 1 ? "" : "s"}`} fechar={() => setApagando(false)} aoConfirmar={apagarProjeto}>
           <p>
@@ -600,6 +687,9 @@ export function Projeto({ obra }: { obra: Obra }) {
     </div>
   );
 }
+
+const ROTULO_DISCIPLINA: Record<SituacaoDisciplina, string> = { proxima: "Próxima", nao_confirmada: "Não confirmada", vai_ter: "Vai ter", nao_vai_ter: "Não vai ter" };
+const TOM_DISCIPLINA: Record<SituacaoDisciplina, string> = { proxima: "atencao", nao_confirmada: "neutro", vai_ter: "info", nao_vai_ter: "neutro" };
 
 /** As partes antes de qualquer envio: a mesma lista do tradutor, para a pessoa ver o que o pacote pede. */
 const PACOTE_VAZIO: ProjetoT["pacote"] = (
