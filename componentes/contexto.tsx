@@ -14,6 +14,8 @@ import { Icone } from "./Icone";
 export interface FiltroTela {
   etapa?: string;
   status?: string;
+  /** Chega na tela do Cronograma já disparando a geração com IA (vindo do "Gerar cronograma" do Projeto). */
+  gerar?: boolean;
 }
 
 export interface CartaoEstado {

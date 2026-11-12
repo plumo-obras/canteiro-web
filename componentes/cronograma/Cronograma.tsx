@@ -5,7 +5,7 @@
  * cronograma, o estado vazio leva ao editor. O aditivo de prazo muda o prazo da obra (PATCH, com Desfazer) e abre o
  * editor com os meses a mais, vazios, para redistribuir.
  */
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Cronograma as DadosCronograma, Obra, PrazoCronograma, Proposta } from "@/lib/contrato";
 import { api, conversar } from "@/lib/cliente";
 import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
@@ -100,7 +100,7 @@ async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
 }
 
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, demo, podeOperar, receberPropostas } = useCasca();
+  const { versao, demo, podeOperar, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
@@ -113,7 +113,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
 
   // A IA intermediária: propõe o cronograma a partir do orçamento (sequência por fase de obra, duração pelo valor) e
   // vira uma Proposta pendente. A pessoa aprova — como qualquer escrita do agente — e aí o cronograma é criado.
-  const gerarComIA = async () => {
+  const gerarComIA = useCallback(async () => {
     setGerando(true);
     setErroIA(null);
     try {
@@ -129,7 +129,18 @@ export function Cronograma({ obra }: { obra: Obra }) {
     } finally {
       setGerando(false);
     }
-  };
+  }, [demo, obra.id, receberPropostas]);
+
+  // Veio do "Gerar cronograma" do Projeto: ao chegar (orçamento já carregado, sem cronograma ainda), dispara a geração
+  // sozinho — a página já abre na geração. Só uma vez; depois limpa a intenção para não repetir ao voltar à tela.
+  const autoGerou = useRef(false);
+  useEffect(() => {
+    if (autoGerou.current || carregando) return;
+    if (!lerFiltroTela("cronograma")?.gerar) return;
+    autoGerou.current = true;
+    limparFiltroTela();
+    if (podeOperar && !tem && !gerando && !iaProp) void gerarComIA();
+  }, [carregando, tem, podeOperar, gerando, iaProp, gerarComIA, lerFiltroTela, limparFiltroTela]);
 
   return (
     <div className="page">
