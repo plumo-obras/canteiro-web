@@ -870,7 +870,7 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .cab{margin:2px 0 14px}
 .cab-l1{display:flex;align-items:center;gap:10px;min-height:40px}
 .cab-l1 .sp{flex:1}
-.cab-t{margin:0;font:600 var(--t-bloco)/1.2 var(--sans);letter-spacing:-.01em;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.cab-t{margin:0;font:600 var(--t-h1)/1.2 var(--serif);letter-spacing:-.02em;color:var(--ink);min-width:0;overflow-wrap:anywhere}
 .cab-selo{display:inline-flex;align-items:center;gap:6px;flex:none}
 .cab-sub{margin-top:2px;font-size:var(--t-meta);color:var(--ink2)}
 .faixa{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 40px;margin:0 0 18px;padding:16px 20px;border-radius:var(--r);background:var(--card);border:1px solid var(--edge)}

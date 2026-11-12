@@ -10,7 +10,7 @@ import { useCelular } from "../midia";
 import s from "./projeto.module.css";
 
 type Camada = TipoElemento | "morre" | "solo";
-const CORES: Record<Camada, number> = { sapata: 0x8d928f, pilar: 0xc2c7c3, morre: 0xe8b04a, viga: 0x7fa9dc, laje: 0xd9dfe6, solo: 0x6e7a66 };
+const CORES: Record<Camada, number> = { sapata: 0x8d928f, pilar: 0xc2c7c3, morre: 0xe8b04a, viga: 0xb4bac4, laje: 0xd9dfe6, solo: 0x6e7a66 };
 const ROTULO: Record<Camada, string> = {
   sapata: "Sapatas",
   pilar: "Pilares",
@@ -67,7 +67,7 @@ export function Vista3D({
 }) {
   const palco = useRef<HTMLDivElement>(null);
   const [camera, setCamera] = useState<"3d" | "topo" | "frente">("3d");
-  const ctl = useRef<{ vista: (v: "3d" | "topo" | "frente") => void; mostrar: (c: Camada, sim: boolean) => void; previa: (sim: boolean) => void } | null>(null);
+  const ctl = useRef<{ vista: (v: "3d" | "topo" | "frente") => void; mostrar: (c: Camada, sim: boolean) => void; previa: (sim: boolean) => void; zoom: (f: number) => void } | null>(null);
   const previaRef = useRef(previa);
   previaRef.current = previa;
   useEffect(() => {
@@ -217,6 +217,11 @@ export function Vista3D({
         previa: (sim) => {
           previaG.visible = sim;
         },
+        // aproxima/afasta ao longo da linha até o alvo, como a rodinha do mouse faz
+        zoom: (f) => {
+          cam.position.sub(orb.target).multiplyScalar(f).add(orb.target);
+          orb.update();
+        },
       };
       ctl.current.vista("3d");
 
@@ -304,6 +309,7 @@ export function Vista3D({
         {camadasAbertas ? (
           <fieldset id={idCamadas} className={s.listaCamadas}>
             <legend className="sr-only">Camadas visíveis no 3D</legend>
+            <span className={s.grupoCamada}>Estrutura</span>
             {presentes.map((c) => (
               <label key={c}>
                 <input
@@ -318,6 +324,7 @@ export function Vista3D({
                 {ROTULO[c]}
               </label>
             ))}
+            {outras.length ? <span className={s.grupoCamada}>Outras disciplinas</span> : null}
             {outras.map((o) => (
               <label key={o.rotulo} className={o.falta ? s.camadaFalta : s.camadaPrevia}>
                 <input type="checkbox" checked={o.ligada} disabled={o.falta || !o.alternar} onChange={() => o.alternar?.()} />
@@ -327,6 +334,17 @@ export function Vista3D({
             ))}
           </fieldset>
         ) : null}
+      </div>
+      <div className={s.zoom} role="group" aria-label="Zoom">
+        <button type="button" aria-label="Aproximar" title="Aproximar" onClick={() => ctl.current?.zoom(0.8)}>
+          <Icone nome="plus" tam={16} />
+        </button>
+        <button type="button" aria-label="Afastar" title="Afastar" onClick={() => ctl.current?.zoom(1.25)}>
+          <Icone nome="menos" tam={16} />
+        </button>
+        <button type="button" aria-label="Voltar à vista inicial" title="Voltar à vista inicial" onClick={() => ctl.current?.vista(camera)}>
+          <Icone nome="undo" tam={16} />
+        </button>
       </div>
       <span className={`seg seg-pq ${s.cameras}`} role="group" aria-label="Câmera">
         {(["3d", "topo", "frente"] as const).map((v) => (

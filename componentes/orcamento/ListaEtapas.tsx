@@ -206,7 +206,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
 
 
   return (
-    <section aria-label="Etapas do orçamento">
+    <section className={s.secao} aria-label="Etapas do orçamento">
       {/* no celular não há barra: a lista é curta (uma linha por etapa) e o item aparece ao abrir a etapa */}
       {celular ? null : (
         <div className={s.barra}>

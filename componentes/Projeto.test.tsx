@@ -158,11 +158,11 @@ describe("Projeto 3D", () => {
 
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
     montar();
+    // o atalho fica no cartão da estrutura; o passo em si, na gaveta dos materiais
+    await userEvent.setup().click(await screen.findByRole("button", { name: /Próximo passo: materiais no orçamento/ }));
     expect(within(await screen.findByRole("region", passo)).getByRole("link", { name: "Ver o orçamento" })).toHaveAttribute("href", "/?obra=o-1&tela=orcamento");
-    // o passo vem antes da mesa, e o Enviar pranchas deixa de ser o dourado da tela
-    const passoNaTela = screen.getByRole("region", passo);
-    expect(passoNaTela.compareDocumentPosition(screen.getByRole("region", { name: "Modelo da obra" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Enviar pranchas" })).not.toHaveClass("amb");
+    // com o modelo montado, o envio é o "+ Prancha" do pé do modelo, não um botão no cabeçalho
+    expect(screen.queryByRole("button", { name: "Enviar pranchas" })).toBeNull();
   });
 
   it("apagar o projeto pede confirmação, apaga cada leitura no tradutor e esvazia o pacote", async () => {

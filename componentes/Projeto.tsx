@@ -187,6 +187,7 @@ export function Projeto({ obra }: { obra: Obra }) {
   // com folha ainda sendo lida, os materiais e a conta do pacote vão mudar: nada de sugerir o passo seguinte
   const pranchasLidas = cobertas > 0 && !enviando.length && !projeto?.em_andamento.some((a) => a.status !== "falhou");
 
+  const temModelo = Boolean(projeto?.modelo3d);
   const acao = (
     <>
       <input
@@ -202,7 +203,7 @@ export function Projeto({ obra }: { obra: Obra }) {
           if (arqs.length) void enviar(arqs);
         }}
       />
-      {podeOperar ? (
+      {podeOperar && !temModelo ? (
       <button type="button" className={pranchasLidas ? "btn" : "btn amb"} disabled={enviando.length > 0} aria-busy={enviando.length > 0} onClick={escolherArquivos}>
         <Icone nome={enviando.length ? "loader" : "arrowUp"} tam={15} className={enviando.length ? "spin" : undefined} />
         Enviar pranchas
@@ -246,7 +247,6 @@ export function Projeto({ obra }: { obra: Obra }) {
     .sort((a, b) => Number(b.obrigatorio_para_3d) - Number(a.obrigatorio_para_3d));
   const lendoNomes = [...enviando, ...(projeto?.em_andamento ?? []).filter((a) => a.status !== "falhou").map((a) => a.nome ?? nomeFolha(a.id))];
   const verificar = (projeto?.conferencias.filter((c) => !c.ok).length ?? 0) + (projeto?.modelo3d?.avisos.length ?? 0);
-  const temModelo = Boolean(projeto?.modelo3d);
   const painelVisivel = !temModelo || modo === "3d" || pacoteNo2d;
 
   function abrirCad(m: "cad" | "lado" = "cad") {
@@ -436,7 +436,7 @@ export function Projeto({ obra }: { obra: Obra }) {
     <div className={s.tela}>
       <CabecalhoPagina
         titulo="Projeto"
-        sub={sub ?? "As pranchas viram o modelo 3D da obra e a lista de materiais que vai para o orçamento."}
+        sub={sub ?? "Cada prancha que entra monta o modelo 3D e refaz o orçamento, as compras e o cronograma. O Plumo mostra o que muda, e nada é aplicado sem a sua aprovação."}
         acao={acao}
         menu={menu}
         rotuloMenu="Mais ações do Projeto"
@@ -449,8 +449,6 @@ export function Projeto({ obra }: { obra: Obra }) {
         </div>
       ) : null}
 
-      {/* No topo: abaixo da mesa (uma tela inteira de altura) a pessoa não via o próximo passo. */}
-      {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
 
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
         {/* À esquerda, as disciplinas do projeto, uma por cartão; a estrutura é a única que vem das pranchas hoje. */}
@@ -474,6 +472,13 @@ export function Projeto({ obra }: { obra: Obra }) {
                   <small>PDF leva uns 20 s; imagem, alguns minutos. Pode trocar de aba.</small>
                 </span>
               </div>
+            ) : null}
+            {/* o próximo passo (levar os materiais ao orçamento) mora na gaveta dos materiais; aqui, o atalho */}
+            {pranchasLidas ? (
+              <button type="button" className={s.discProximo} onClick={() => setGaveta("materiais")}>
+                <span className={s.bola} aria-hidden="true" />
+                Próximo passo: materiais no orçamento
+              </button>
             ) : null}
             <div className={s.discPe}>
               {abas.map((a) => (
@@ -647,7 +652,18 @@ export function Projeto({ obra }: { obra: Obra }) {
             ))}
           </div>
           <div role="tabpanel" aria-label={abas.find((x) => x.k === gaveta)!.rotulo} className={s.painelCorpo}>
-            {gaveta === "pacote" ? painelPacote : gaveta === "materiais" ? <Materiais {...materiais} /> : gaveta === "conferencias" ? painelConferencias : painelFolhas}
+            {gaveta === "pacote" ? (
+              painelPacote
+            ) : gaveta === "materiais" ? (
+              <>
+                {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
+                <Materiais {...materiais} />
+              </>
+            ) : gaveta === "conferencias" ? (
+              painelConferencias
+            ) : (
+              painelFolhas
+            )}
           </div>
         </Drawer>
       ) : null}
