@@ -150,7 +150,9 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .conversa-t{margin:0;font:600 var(--t-sec) var(--sans);letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .palco>.card.vazio,.palco>.aviso-erro,.palco>.carregando{margin-top:24px}
 
-/* ---------- placar: fica fora da rolagem da tela, sempre à vista ---------- */
+/* ---------- placar: fica fora da rolagem da tela, sempre à vista ----------
+   No computador é uma linha fina (rótulo e valor lado a lado), não quatro cartões: os números acompanham a tela sem
+   disputar com ela. A legenda só aparece onde explica o "—" (ou quando é fixa), como no celular. */
 .placar{flex:none;margin-bottom:12px;border-radius:20px}
 .placar dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0}
 .placar dl>div{display:grid;gap:1px;align-content:start;min-width:0;padding:12px 18px;border-left:1px solid var(--line2)}
@@ -214,6 +216,15 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 }
 /* teclado aberto (o dvh encolhe) e editor do cronograma: a altura é de quem está digitando */
 @media (max-width:899px) and (max-height:560px){ .placar{display:none} }
+@media (min-width:761px){
+  .placar{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:0;margin-bottom:10px}
+  .placar dl{display:flex;flex-wrap:wrap;gap:4px 28px;padding:0 6px}
+  .placar dl>div,.placar dl>div:nth-child(n){display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px;padding:0;border:0}
+  .placar dt{font-size:var(--t-meta)}
+  .placar-v{font:600 15px/1.4 var(--sans);letter-spacing:0}
+  .placar-s{display:none;min-height:0;font-size:12px}
+  .placar-v.t-mut + .placar-s,.placar-s.fixo{display:inline}
+}
 @media (max-width:760px){ html:has(.crono-editor) .placar{display:none} }
 /* celular: recolhido numa linha; aberto, só rótulo e valor, com a legenda onde ela explica o "—" */
 .placar-linha{display:none}

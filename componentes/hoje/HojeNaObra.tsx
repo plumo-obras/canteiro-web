@@ -2,8 +2,9 @@
 /**
  * A casa da obra: o que importa hoje, sem gastar token. As contas e as frases vêm prontas de GET /obras/{id}/hoje; aqui
  * só entram a saudação, o dia e o que já está na casca (as propostas esperando). Cada ponto leva à tela certa.
+ * O que espera a pessoa e a semana viram etiquetas no topo: a conversa fica com a largura e o detalhe abre numa gaveta.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { AcaoHoje, EventoSemana, HojeNaObra as HojeT, Obra, PontoHoje, PrioridadeHoje } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { CartaoProposta } from "../CartaoProposta";
@@ -88,11 +89,15 @@ function Evento({ e }: { e: EventoSemana }) {
   );
 }
 
-function EsperandoVoce({ obraId }: { obraId: string }) {
-  const { cartoes, irParaTela, podeOperar } = useCasca();
-  const pendentes = Object.values(cartoes)
+type Cartoes = ReturnType<typeof useCasca>["cartoes"];
+const pendentesDa = (cartoes: Cartoes, obraId: string) =>
+  Object.values(cartoes)
     .filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente")
     .map((c) => c.proposta.id);
+
+function EsperandoVoce({ obraId }: { obraId: string }) {
+  const { cartoes, irParaTela, podeOperar } = useCasca();
+  const pendentes = pendentesDa(cartoes, obraId);
   const chavePendentes = pendentes.join(",");
   // Quem acabou de ser decidido continua aqui, com "Aprovado · Desfazer", até a próxima vez que a tela abrir.
   const [vistos, setVistos] = useState<string[]>([]);
@@ -142,8 +147,30 @@ export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?:
   return <Casa {...props} versao={versaoVista} podeOperar={podeOperar} />;
 }
 
+type Gaveta = "esperando" | "semana";
+
 function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
+  const { cartoes } = useCasca();
+  const [gaveta, setGaveta] = useState<Gaveta | null>(null);
+  const caixa = useRef<HTMLElement>(null);
+  const quemAbriu = useRef<HTMLElement | null>(null);
+  const fechar = () => {
+    setGaveta(null);
+    quemAbriu.current?.focus({ preventScroll: true });
+  };
+  const alternar = (g: Gaveta) => (e: MouseEvent<HTMLButtonElement>) => {
+    if (gaveta === g) return fechar();
+    quemAbriu.current = e.currentTarget;
+    setGaveta(g);
+  };
+  useEffect(() => {
+    if (!gaveta) return;
+    caixa.current?.querySelector<HTMLElement>("button,a,[tabindex]")?.focus({ preventScroll: true });
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && fechar();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [gaveta]);
 
   if (carregando && !dado) {
     return (
@@ -163,11 +190,35 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
   }
   if (!dado) return <>{alternativa}</>;
   const { pontos } = dado;
+  const nPendentes = pendentesDa(cartoes, obra.id).length;
+  const rotuloEsperando = podeOperar
+    ? nPendentes === 0
+      ? "Nada esperando você"
+      : `${nPendentes} esperando você`
+    : nPendentes === 0
+      ? "Nada aguardando aprovação"
+      : `${nPendentes} aguardando aprovação`;
 
   return (
     <div className={s.casa}>
-      <div className={s.coluna}>
-        <section className={`card ${s.hoje}`} aria-labelledby="hoje-titulo">
+      <div className={s.principal}>
+        <div className={s.etiquetas} role="group" aria-label="Atalhos da obra">
+          <button
+            type="button"
+            className={`${s.etq}${nPendentes ? ` ${s.amb}` : ""}`}
+            aria-expanded={gaveta === "esperando"}
+            aria-controls="hoje-gaveta"
+            onClick={alternar("esperando")}
+          >
+            <span className={s.bola} aria-hidden="true" />
+            {rotuloEsperando}
+          </button>
+          <button type="button" className={s.etq} aria-expanded={gaveta === "semana"} aria-controls="hoje-gaveta" onClick={alternar("semana")}>
+            <Icone nome="calendario" tam={14} />
+            Esta semana{dado.semana.length ? ` · ${dado.semana.length}` : ""}
+          </button>
+        </div>
+        <section className={s.hoje} aria-labelledby="hoje-titulo">
           <div className={s.cabeca}>
             <span className={s.mestre} aria-hidden="true">
               <Icone nome="spark" tam={18} />
@@ -193,26 +244,37 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
           )}
           {dado.mais ? <p className={`mut sm ${s.mais}`}>E mais {dado.mais === 1 ? "1 ponto" : `${dado.mais} pontos`} depois destes.</p> : null}
         </section>
+        <p className={`mut sm ${s.nota}`}>O Plumo só propõe. Nada é pedido, pago ou mudado sem o seu toque, e tudo fica no Histórico com Desfazer.</p>
+        {abaixo ? <div className={s.nota}>{abaixo}</div> : null}
       </div>
-      <div className={s.coluna}>
-        <EsperandoVoce obraId={obra.id} />
-        <section className={`card ${s.semana}`} aria-labelledby="hoje-semana">
-          <h2 id="hoje-semana" className={s.tituloBloco}>
-            Esta semana
-          </h2>
-          {dado.semana.length ? (
-            <ul className={s.eventos}>
-              {dado.semana.map((e, i) => (
-                <Evento key={`${e.data}-${i}`} e={e} />
-              ))}
-            </ul>
-          ) : (
-            <p className="mut">Nenhuma entrega ou início de etapa nos próximos 7 dias.</p>
-          )}
-        </section>
-      </div>
-      <p className={`mut sm ${s.nota}`}>O Plumo só propõe. Nada é pedido, pago ou mudado sem o seu toque, e tudo fica no Histórico com Desfazer.</p>
-      {abaixo ? <div className={s.nota}>{abaixo}</div> : null}
+      {gaveta ? (
+        <>
+          <div className={s.fundo} aria-hidden="true" onClick={fechar} />
+          <aside id="hoje-gaveta" ref={caixa} className={`card ${s.gaveta}`} aria-label={gaveta === "esperando" ? "Esperando você" : "Esta semana"}>
+            <button type="button" className={`btn sm ${s.fechar}`} aria-label="Fechar" onClick={fechar}>
+              <Icone nome="x" tam={16} />
+            </button>
+            {gaveta === "esperando" ? (
+              <EsperandoVoce obraId={obra.id} />
+            ) : (
+              <section aria-labelledby="hoje-semana">
+                <h2 id="hoje-semana" className={s.tituloBloco}>
+                  Esta semana
+                </h2>
+                {dado.semana.length ? (
+                  <ul className={s.eventos}>
+                    {dado.semana.map((e, i) => (
+                      <Evento key={`${e.data}-${i}`} e={e} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mut">Nenhuma entrega ou início de etapa nos próximos 7 dias.</p>
+                )}
+              </section>
+            )}
+          </aside>
+        </>
+      ) : null}
     </div>
   );
 }
