@@ -1,15 +1,15 @@
 "use client";
 /**
  * Moldura das páginas fora do workspace (/inicio e /conta): garante a sessão de login como a Casca faz (renova pelo
- * cookie depois de recarregar, volta ao login se cair) e põe um topo simples com Início, Conta, o workspace e o menu do
- * avatar (o mesmo do workspace: Conta e créditos, tema, Sair).
+ * cookie depois de recarregar, volta ao login se cair) e põe um topo simples: a marca, Obras e Conta logo ao lado, e o
+ * menu do avatar (o mesmo do workspace: Conta e créditos, tema, Sair). O workspace se abre pelo cartão da obra.
  * É a própria área de rolagem: a casca trava a rolagem do body no desktop.
  */
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Usuario } from "@/lib/contrato";
 import { ProvedorCasca } from "../contexto";
-import { Icone, Logo } from "../Icone";
+import { Logo } from "../Icone";
 import { MenuPerfil } from "../MenuPerfil";
 import { useSessaoGarantida } from "../useSessaoGarantida";
 import s from "./moldura.module.css";
@@ -44,13 +44,10 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
             </Link>
             {demo ? <span className={s.demo}>demonstração</span> : null}
             <nav className={s.navs} aria-label="Principal">
-              {item("inicio", "/inicio", "Início")}
+              {item("inicio", "/inicio", "Obras")}
               {item("conta", "/conta", "Conta")}
             </nav>
-            <Link href="/" className={`btn ${s.work}`}>
-              <Icone nome="message" tam={15} />
-              <span className={s.workT}>Abrir workspace</span>
-            </Link>
+            <span className={s.sp} />
             <MenuPerfil usuario={usuario} />
           </div>
         </header>

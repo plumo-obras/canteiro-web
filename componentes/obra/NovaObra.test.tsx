@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
-import { NovaObra } from "./NovaObra";
+import { NovaObra, destinoDe } from "./NovaObra";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push }) }));
@@ -31,6 +31,8 @@ describe("Nova obra", () => {
     await u.selectOptions(screen.getByLabelText("UF"), "RS");
     await u.click(screen.getByRole("radio", { name: "Galpão" }));
     await u.type(screen.getByLabelText("Área construída (m²)"), "530");
+    // o contrato vem recolhido: abre para lançar o valor
+    await u.click(screen.getByText("Contrato"));
     await u.type(screen.getByLabelText("Valor fechado com o cliente (opcional)"), "520.000");
     await u.click(screen.getByRole("button", { name: "Criar obra" }));
 
@@ -45,17 +47,45 @@ describe("Nova obra", () => {
     });
   });
 
-  it("só o nome é obrigatório e os campos do contrato não aparecem aqui", async () => {
+  it("só o nome é obrigatório e o contrato vem recolhido", async () => {
     const rede = criarRede({ "POST /srv/auth/renovar": renovarOk });
     const u = userEvent.setup();
     render(<NovaObra usuario={USUARIO} />);
-    expect(screen.queryByLabelText(/BDI/)).toBeNull();
-    expect(screen.queryByLabelText(/Endereço/)).toBeNull();
+    expect(screen.getByLabelText(/BDI/).closest("details")!.open).toBe(false);
 
     await u.click(screen.getByRole("button", { name: "Criar obra" }));
     expect(await screen.findByText(/Dê um nome para a obra/)).toBeInTheDocument();
     expect(rede.chamadas.some((c) => c.caminho === "/srv/api/obras")).toBe(false);
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("erro num campo do contrato abre o bloco recolhido", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    const u = userEvent.setup();
+    render(<NovaObra usuario={USUARIO} />);
+    const contrato = screen.getByLabelText(/BDI/).closest("details")!;
+    await u.click(screen.getByText("Contrato"));
+    await u.type(screen.getByLabelText(/BDI/), "300");
+    await u.click(screen.getByText("Contrato"));
+    expect(contrato.open).toBe(false);
+    await u.type(screen.getByLabelText("Nome da obra"), "Obra Inventada");
+    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    expect(await screen.findByText(/BDI em %/)).toBeInTheDocument();
+    expect(contrato.open).toBe(true);
+  });
+
+  it("o começo escolhido decide aonde a tela vai depois de criar", async () => {
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "POST /srv/api/obras": () => json({ id: "o-7", nome: "Obra Inventada" }, 201),
+    });
+    const u = userEvent.setup();
+    render(<NovaObra usuario={USUARIO} />);
+    await u.type(screen.getByLabelText("Nome da obra"), "Obra Inventada");
+    await u.click(screen.getByRole("radio", { name: /Já tenho a planilha do orçamento/ }));
+    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-7&tela=orcamento"));
+    expect(destinoDe("o-7", "cadastrar")).toBe("/inicio");
   });
 
   it("viewer não cadastra", () => {

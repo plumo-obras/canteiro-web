@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ResumoObra, Usuario } from "@/lib/contrato";
 import type { SessaoApi } from "@/lib/historico";
 import { criarRede, json } from "@/testes/rede";
-import { Inicio, hrefDaObra } from "./Inicio";
+import { Inicio, avisosDe, hrefDaObra } from "./Inicio";
 
 vi.mock("@/lib/sessao", () => ({ comAcesso: (u: string, i: RequestInit) => fetch(u, i) }));
 afterEach(() => vi.unstubAllGlobals());
@@ -19,6 +19,7 @@ describe("hrefDaObra", () => {
     const ss = [sessao("s-b", "b"), sessao("s-a2", "a"), sessao("s-a1", "a")];
     expect(hrefDaObra("a", ss)).toBe("/?obra=a&sessao=s-a2");
     expect(hrefDaObra("c", ss)).toBe("/?obra=c");
+    expect(hrefDaObra("a", ss, "aprovacoes")).toBe("/?obra=a&sessao=s-a2&tela=aprovacoes");
   });
 });
 
@@ -50,14 +51,17 @@ describe("Inicio", () => {
     });
     render(<Inicio usuario={eu} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Olá, Marina");
-    const cartoes = await screen.findAllByRole("listitem");
+    const lista = await screen.findByRole("list", { name: "Obras" });
+    const cartoes = within(lista)
+      .getAllByRole("listitem")
+      .filter((li) => li.parentElement === lista);
     // em andamento primeiro
     expect(cartoes[0]!.textContent).toContain("Casa Vila Nova");
     expect(cartoes[0]!.textContent).toContain("3 pedidos a receber · R$ 29.800,00");
     expect(cartoes[0]!.textContent).toContain("1 insumo a comprar");
     // o cartão inteiro é o link; sem botão "Abrir obra"
     expect(screen.queryByRole("link", { name: "Abrir obra" })).toBeNull();
-    const abrir = screen.getAllByRole("link").filter((l) => l.getAttribute("href")?.startsWith("/?obra="));
+    const abrir = within(lista).getAllByRole("link");
     expect(abrir[0]!.getAttribute("href")).toBe("/?obra=a&sessao=s1");
     expect(abrir[1]!.getAttribute("href")).toBe("/?obra=b");
     expect(screen.getAllByText(/2 aprovações esperando você/).length).toBeGreaterThan(0);
@@ -65,5 +69,23 @@ describe("Inicio", () => {
     expect(cartoes.at(-1)!.textContent).toContain("Tudo em dia");
     expect(cartoes.at(-1)!.textContent).not.toMatch(/nenhum|nada/);
     expect(cartoes.at(-1)!.textContent).toContain("Sem atividade ainda");
+    // os avisos do topo levam à tela da obra onde a coisa espera
+    const avisos = screen.getByRole("navigation", { name: "Esperando você" });
+    expect(within(avisos).getByRole("link", { name: /2 aprovações · Casa Vila Nova/ }).getAttribute("href")).toBe("/?obra=a&sessao=s1&tela=aprovacoes");
+    expect(within(avisos).getByRole("link", { name: /1 NF para conferir · Casa Vila Nova/ }).getAttribute("href")).toBe(
+      "/?obra=a&sessao=s1&tela=suprimentos",
+    );
+  });
+});
+
+describe("avisosDe", () => {
+  it("um aviso por obra e por tipo, aprovações antes, e nada com zero", () => {
+    const r = (id: string, pendencias: number, nf: number) =>
+      ({ obra: obra(id, `Obra ${id}`), pendencias, nf_para_conferir: nf, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, ultima_atividade: null }) as ResumoObra;
+    const avisos = avisosDe([r("a", 0, 2), r("b", 1, 0), r("c", 0, 0)]);
+    expect(avisos.map((a) => [a.texto, a.tela])).toEqual([
+      ["1 aprovação · Obra b", "aprovacoes"],
+      ["2 NFs para conferir · Obra a", "suprimentos"],
+    ]);
   });
 });

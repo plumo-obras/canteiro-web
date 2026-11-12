@@ -1,8 +1,4 @@
 /* /inicio. Cor com semântica fixa (globals.css): âmbar = pede você · vermelho = falta · azul = a caminho. */
-.cab{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
-.ola{font:500 var(--t-pagina)/1.08 var(--sans);letter-spacing:-.025em;margin:0 0 8px}
-.sub{margin:0;color:var(--ink2);font-size:var(--t-sec)}
-.pede{color:var(--amberInk);font-weight:600}
 .denovo{background:none;border:0;padding:0;color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;min-height:24px}
 
 .grade{list-style:none;margin:0;padding:0;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
@@ -13,19 +9,26 @@
 .cartao:active{transform:scale(.99)}
 .cartao:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media (hover:hover){ .cartao:hover{border-color:var(--edgeHi,var(--line))} .cartao:hover .nome{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)} }
-.pends{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:var(--t-body);font-weight:500}
-.pends li[data-tom="pede"]{color:var(--amberInk)}
-.pends li[data-tom="falta"]{color:var(--redInk)}
-.pends li[data-tom="info"]{color:var(--blueInk)}
-.emdia{font-size:var(--t-body);color:var(--greenInk);font-weight:500}
-.topo{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:var(--t-meta);color:var(--muted)}
-.status{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--ink2)}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--gray)}
-.status[data-st="em_andamento"] .dot{background:var(--green)}
-.status[data-st="concluida"] .dot{background:var(--blue)}
-.status[data-st="desfazendo_aprovacao"] .dot{background:var(--amber)}
-.cidade{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nome{font-size:var(--t-bloco);line-height:1.2;margin:0;overflow-wrap:anywhere}
+/* Pendências em selos: âmbar pede você, vermelho falta, azul a caminho; quebram linha para caber no celular. */
+.pends{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.pends :global(.pill){white-space:normal;line-height:1.5;padding-block:2px}
+.neutro{background:var(--graySoft);color:var(--grayInk)}
+.topo{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
+.topo :global(.pill){flex:none;margin-top:3px}
+.onde{margin-top:-6px;font-size:var(--t-meta);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nome{font-size:var(--t-bloco);line-height:1.2;margin:0;overflow-wrap:anywhere;min-width:0}
+.numeros{display:flex;flex-wrap:wrap;gap:6px 24px;margin:0}
+.numeros dt{font-size:var(--t-meta);color:var(--muted)}
+.numeros dd{margin:0;font-weight:600;color:var(--ink)}
+
+/* Avisos do topo: etiquetas que levam direto à tela da obra onde a coisa espera. */
+.avisos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}
+.etiqueta{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px;border-radius:var(--rp);font-size:var(--t-meta);font-weight:500;
+  text-decoration:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 24%,transparent)}
+.etiqueta:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (hover:hover){ .etiqueta:hover{box-shadow:inset 0 0 0 1px currentColor} }
+.bola{width:7px;height:7px;flex:none;border-radius:50%;background:currentColor}
+.maisAvisos{font-size:var(--t-meta);color:var(--muted)}
 
 .rodape{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;color:var(--muted)}
 .quando{font-size:var(--t-meta);color:var(--muted)}
@@ -38,13 +41,9 @@
 }
 
 @media (max-width:640px){
-  .ola{font-size:30px}
-  .sub{font-size:var(--t-body)}
-
-  .cartao{padding:14px 16px;gap:8px}
+  .cartao{padding:14px 16px;gap:10px}
+  .etiqueta{min-height:44px}
   .grade{gap:10px}
 }
-.prazo{font-size:var(--t-meta);color:var(--ink2)}
-.prazo [data-tom="acima"]{color:var(--redInk);font-weight:600}
+.prazo [data-tom="acima"]{color:var(--redInk)}
 .prazo [data-tom="ok"]{color:var(--greenInk)}
-.sempend{font-size:var(--t-body);color:var(--ink2);font-weight:500}

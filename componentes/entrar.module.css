@@ -1,22 +1,20 @@
-/* Tela de entrar: cartão dividido, formulário à esquerda e o painel da marca à direita (só no desktop). */
-.pagina{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:clamp(16px,4vw,48px)}
-.cartao{width:min(1120px,100%);min-height:min(640px,calc(100dvh - 64px));display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
-  background:var(--cardForte);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);
-  border-radius:28px;box-shadow:var(--hl),var(--shadow);overflow:hidden}
+/* Tela de entrar: a tela inteira, sem cartão. Formulário à esquerda e a vitrine (o modelo da estrutura e a promessa) à
+   direita; no celular a vitrine sobe para o topo, menor, e o formulário vem embaixo. */
+.pagina{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(380px,560px) minmax(0,1fr);background:var(--cardSolido)}
 
 .lado{display:flex;flex-direction:column;padding:28px clamp(24px,4vw,56px)}
 .topo{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .marca{display:flex;align-items:center;gap:10px;font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-weight:600;
   font-size:22px;letter-spacing:-.01em;color:var(--ink)}
 .marca :global(.logo){width:34px;height:34px;border-radius:10px}
-.tema{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--campo);
+.tema{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--campo);
   color:var(--ink2);cursor:pointer}
 .tema:hover{color:var(--ink)}
 
 .form{width:min(380px,100%);margin:auto;padding:40px 0;display:flex;flex-direction:column}
 .titulo{font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-size:30px;font-weight:600;letter-spacing:-.02em;
-  line-height:1.15;margin:0;color:var(--ink);text-align:center}
-.sub{margin:8px 0 28px;color:var(--muted);text-align:center}
+  line-height:1.15;margin:0;color:var(--ink)}
+.sub{margin:8px 0 28px;color:var(--muted)}
 
 .rotulo{font-weight:500;color:var(--ink2);margin:14px 0 6px}
 .campo{position:relative}
@@ -43,26 +41,43 @@
 .nota{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line2);font-size:var(--t-meta);color:var(--muted);line-height:1.5}
 .rodape{text-align:center;color:var(--faint);font-size:12px}
 
-/* Painel da marca: azul-marinho da obra com o peso do prumo em ocre, pendurado no fio que desce do topo. */
-.painel{position:relative;display:grid;place-items:center;overflow:hidden;color:var(--accent);
-  background:radial-gradient(120% 80% at 70% 15%,#1d2d4d 0%,var(--marinho) 60%,#0a1222 100%)}
-.painel::after{content:"";position:absolute;inset:0;pointer-events:none;
+/* Vitrine: azul-marinho da obra nos dois temas (é a "prancheta"), com a grade de desenho e o modelo em perspectiva. As faces
+   do modelo saem da mistura do branco com o marinho, e a sapata puxa para o ocre: nada de cor nova fora dos tokens. */
+.vitrine{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-width:0;overflow:hidden;padding:48px;
+  color:#f6f2e8;background:radial-gradient(120% 80% at 55% 40%,#1d2d4d 0%,var(--marinho) 60%,#0a1222 100%)}
+.vitrine::before{content:"";position:absolute;inset:0;pointer-events:none;
   background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
-  background-size:48px 48px;mask-image:radial-gradient(80% 70% at 50% 50%,#000 30%,transparent 100%)}
-/* o fio sai do topo do peso (y=24 de 64 no desenho) e sobe até a borda do painel, que o corta */
-.peso{position:relative;display:block;width:64px;height:64px}
-.peso::before{content:"";position:absolute;left:50%;bottom:calc(100% - 24px);height:100vh;width:2px;transform:translateX(-50%);
-  background:linear-gradient(180deg,transparent,var(--accent) 40%)}
-.painelMarca{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:20px}
-.painelNome{font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-size:52px;font-weight:600;letter-spacing:-.03em;
-  line-height:1;color:#f6f2e8}
-.painelFrase{color:rgba(246,242,232,.72);font-size:17px}
+  background-size:40px 40px;mask-image:radial-gradient(85% 75% at 50% 45%,#000 30%,transparent 100%)}
+.modelo{position:absolute;left:8%;top:6%;width:84%;height:64%}
+.modelo polygon{stroke:color-mix(in srgb,var(--marinho) 55%,transparent);stroke-width:1;stroke-linejoin:round}
+.f0{fill:color-mix(in srgb,white 82%,var(--marinho))}
+.f1{fill:color-mix(in srgb,white 58%,var(--marinho))}
+.f2{fill:color-mix(in srgb,white 40%,var(--marinho))}
+.f3{fill:color-mix(in srgb,var(--accent) 62%,var(--marinho))}
+.f4{fill:color-mix(in srgb,var(--accent) 46%,var(--marinho))}
+.f5{fill:color-mix(in srgb,var(--accent) 32%,var(--marinho))}
+.f6,.f7,.f8{fill-opacity:.55}
+.f6{fill:color-mix(in srgb,white 76%,var(--marinho))}
+.f7{fill:color-mix(in srgb,white 52%,var(--marinho))}
+.f8{fill:color-mix(in srgb,white 32%,var(--marinho))}
+
+.vitrineTexto{position:relative;z-index:1;max-width:560px;display:flex;flex-direction:column;gap:16px}
+.chamada{margin:0;font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-size:clamp(32px,3.4vw,44px);font-weight:600;
+  letter-spacing:-.03em;line-height:1.05;color:#f6f2e8}
+.passos{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px 20px;color:rgba(246,242,232,.78)}
+.passos li{display:flex;align-items:center;gap:8px}
+.passoN{width:22px;height:22px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;
+  background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accentHi)}
 
 @media (max-width:899px){
-  .cartao{grid-template-columns:1fr;min-height:auto;border-radius:24px}
-  .painel{display:none}
-  .lado{padding:20px 20px 16px}
-  .form{padding:32px 0 24px}
+  .pagina{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  /* a vitrine vem primeiro só na tela: no DOM continua depois do formulário */
+  .vitrine{order:-1;min-height:clamp(220px,34dvh,300px);padding:20px}
+  .modelo{left:12%;top:6%;width:76%;height:70%}
+  .chamada{font-size:20px;line-height:1.15}
+  .passos{display:none}
+  .lado{padding:16px 20px}
+  .form{padding:24px 0}
   .titulo{font-size:26px}
 }
 @media (prefers-reduced-motion:reduce){
