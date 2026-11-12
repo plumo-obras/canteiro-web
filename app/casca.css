@@ -8,7 +8,9 @@
 html:has(.app),html:has(.app) body{overflow:hidden}
 .app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
   padding:14px 18px}
-.app.com-painel{grid-template-columns:300px minmax(0,1fr)}
+.app.com-painel{grid-template-columns:264px minmax(0,1fr)}
+.app.com-trilho{grid-template-columns:44px minmax(0,1fr)}
+.app>.trilho-conv{grid-column:1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px}
 .app>.topo{grid-column:1/-1;grid-row:1}
 /* a linha dos números fica logo abaixo do topo, de ponta a ponta; a lista de conversas e o palco vêm embaixo dela */
 .app>.placar{grid-column:1/-1;grid-row:2;margin-bottom:-4px}
@@ -320,3 +322,35 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .painel-cab{align-items:center}
 .ca-anexo{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;margin-left:-6px}
 @media (hover:hover){ .ca-anexo:hover{background:var(--sunk);color:var(--ink)} }
+
+/* gaveta da casa da obra aberta (Esperando você, Esta semana): a conversa e o campo abrem espaço à direita */
+@media (min-width:900px){
+  .palco-conversa{position:relative}
+  .palco-conversa:has(#hoje-gaveta) .msgs.com-casa,.palco-conversa:has(#hoje-gaveta) .conversa-cab{padding-right:max(456px,calc((100% - 780px)/2))}
+  .palco-conversa:has(#hoje-gaveta) .ca-pe{padding-right:440px}
+  .composer{background:var(--card)}
+}
+/* cartão de proposta compacto (gaveta): o porquê recolhido em "Ver a conta" */
+.ld-compacto{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:var(--ri);border:1px solid var(--line2);background:var(--sunk)}
+.ld-compacto.feito{opacity:.85}
+.ldc-meta{font-size:var(--t-meta);color:var(--muted)}
+.ldc-tit{font-weight:600;color:var(--ink);line-height:1.35}
+.ldc-valor{font-weight:600;color:var(--ink)}
+.ldc-conta{font-size:var(--t-meta);color:var(--muted)}
+.ldc-conta summary{cursor:pointer;width:max-content;min-height:28px;display:flex;align-items:center}
+.ldc-conta p{margin:4px 0 0;color:var(--ink2)}
+.ldc-acts{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:4px}
+
+/* mensagens como no protótipo: a do Plumo sem caixa (avatar ocre suave e "Plumo" em cima), a sua num balão */
+.msg.ai .bub{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:0;padding:0;color:var(--ink)}
+.msg.ai .bub.erro{padding:10px 14px;border-radius:12px}
+.ca-pensando .bub{padding:0}
+.aiav{width:32px;height:32px;border-radius:10px;background:var(--accentSoft);color:var(--accentInk);box-shadow:none}
+.ai-meta{display:block;font-size:var(--t-meta);color:var(--faint);margin-bottom:4px}
+.msg.me{border-radius:18px 18px 6px 18px;padding:10px 14px}
+
+/* no computador o botão de lista sai do título: quem mostra a lista é a faixa estreita (ou o ícone do painel) */
+@media (min-width:900px){
+  .conversa-lista{display:none!important}
+  .conversa-cab{padding-top:14px;padding-bottom:6px}
+}

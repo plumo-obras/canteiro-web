@@ -44,6 +44,7 @@ function BalaoAgente({ m }: { m: MsgAgente }) {
         <Icone nome="spark" tam={16} />
       </div>
       <div className="corpo">
+        <span className="ai-meta">Plumo</span>
         {m.ferramentas.length ? (
           <ul className="tools" aria-label="Ferramentas usadas">
             {m.ferramentas.map((f, i) => (
@@ -160,7 +161,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
   return (
     <>
       <div
-        className={`msgs${comCasa ? " com-casa" : ""}`}
+        className={`msgs${comCasa || obra ? " com-casa" : ""}`}
         ref={lista}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -193,6 +194,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
             <HojeNaObra
               obra={obra}
               visivel={visivel}
+              soEtiquetas={sessao.mensagens.length > 0}
               alternativa={sessao.mensagens.length ? null : <ConversaVazia sugestoes={sugestoesDaObra(obra, resumo)} perguntar={(s) => void perguntar(s)} />}
               abaixo={
                 sessao.mensagens.length ? null : (
@@ -223,15 +225,19 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         ) : sessao.mensagens.length === 0 ? (
           <ConversaVazia sugestoes={obra ? sugestoesDaObra(obra, resumo) : []} perguntar={(s) => void perguntar(s)} />
         ) : (
-          sessao.mensagens.map((m) =>
-            m.papel === "eu" ? (
-              <div key={m.id} className="msg me mv-entra">
-                {m.texto}
-              </div>
-            ) : (
-              <BalaoAgente key={m.id} m={m} />
-            ),
-          )
+          <>
+            {/* numa conversa antiga as etiquetas da obra continuam no topo, como na conversa nova */}
+            {obra ? <HojeNaObra obra={obra} visivel={visivel} soEtiquetas alternativa={null} /> : null}
+            {sessao.mensagens.map((m) =>
+              m.papel === "eu" ? (
+                <div key={m.id} className="msg me mv-entra">
+                  {m.texto}
+                </div>
+              ) : (
+                <BalaoAgente key={m.id} m={m} />
+              ),
+            )}
+          </>
         )}
       </div>
       <div className="sr-only" role="status" aria-live="polite">
@@ -253,7 +259,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
             ref={campo}
             rows={1}
             value={texto}
-            placeholder={comCasa ? "Peça algo ao Plumo…" : "Pergunte sobre a obra…"}
+            placeholder="Peça algo ao Plumo…"
             onChange={(e) => {
               setTexto(e.target.value);
               crescer(e.target);

@@ -330,6 +330,8 @@ function App({ usuario }: { usuario: Usuario }) {
       setMaisConversas((m) => ({ ...m, [obraId]: { antes } }));
     }
   };
+  // lista recolhida no computador: sobra uma faixa estreita com mostrar a lista e começar outra conversa
+  const trilhoConversas = !movel && tela === "conversa" && !painelAberto && Boolean(obra);
   const conteudo = erro ? (
     <div className="aviso-erro" role="alert">
       <Icone nome="alert" tam={15} />
@@ -354,7 +356,7 @@ function App({ usuario }: { usuario: Usuario }) {
   ) : null;
 
   return (
-    <div className={`app${painelAberto ? " com-painel" : ""}`}>
+    <div className={`app${painelAberto ? " com-painel" : trilhoConversas ? " com-trilho" : ""}`}>
       <Topo
         semAbas={barraCelular}
         obras={obras ?? []}
@@ -370,6 +372,16 @@ function App({ usuario }: { usuario: Usuario }) {
         inerte={movel && gaveta}
       />
       {obra && !conteudo ? <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} /> : null}
+      {trilhoConversas && obra ? (
+        <nav className="trilho-conv" aria-label="Conversas">
+          <button type="button" className="tr-btn" aria-label="Mostrar a lista de conversas" title="Conversas" aria-expanded={false} aria-controls="painel-conversas" onClick={alternarPainel}>
+            <Icone nome="painel" tam={18} />
+          </button>
+          <button type="button" className="tr-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
+            <Icone nome="plus" tam={18} />
+          </button>
+        </nav>
+      ) : null}
       <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
         <div className="painel-cab">
           <div className="painel-t">Conversas</div>

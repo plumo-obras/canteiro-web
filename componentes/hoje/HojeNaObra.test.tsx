@@ -66,7 +66,8 @@ describe("HojeNaObra", () => {
     expect(screen.getByText("Entrega do aço")).toBeInTheDocument();
     await usuario.click(screen.getByRole("button", { name: "Fechar" }));
     expect(screen.queryByText("Entrega do aço")).toBeNull();
-    await usuario.click(screen.getByRole("button", { name: "Conferir os 2" }));
+    // o atalho do ponto é a etiqueta dele, no topo
+    await usuario.click(screen.getByRole("button", { name: "2 comprovantes para conferir" }));
     expect(ir).toHaveBeenCalledWith("gastos");
     expect(filtroLido()).toEqual({ status: "a_revisar" });
   });
@@ -153,10 +154,10 @@ describe("HojeNaObra", () => {
     montar(() => json(HOJE), [proposta("a"), proposta("b"), proposta("c"), proposta("d"), proposta("x", "outra")]);
     const usuario = userEvent.setup();
     await usuario.click(await screen.findByRole("button", { name: "4 aprovações" }));
-    await screen.findByRole("heading", { name: /Esperando você/ });
+    await screen.findByRole("heading", { name: "4 aprovações" });
     await usuario.click(await screen.findByRole("button", { name: "Ver as outras 1 em Aprovações" }));
     expect(ir).toHaveBeenCalledWith("aprovacoes");
-    expect(screen.getByRole("heading", { name: /Esperando você · 4/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "4 aprovações" })).toBeInTheDocument();
   });
 });
 

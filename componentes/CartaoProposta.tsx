@@ -109,7 +109,8 @@ export function notaDaEntrega(p: Proposta): string | null {
   return partes.length ? partes.join(" · ") : "Sem nota fiscal informada";
 }
 
-export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco?: boolean; obraNome?: string }) {
+/** `compacto`: a versão da gaveta (título, valor e ações; o porquê fica recolhido em "Ver a conta"). */
+export function CartaoProposta({ id, foco = true, obraNome, compacto = false }: { id: string; foco?: boolean; obraNome?: string; compacto?: boolean }) {
   const { cartoes, usuario, podeOperar, aprovar, recusar, desfazer, avisar } = useCasca();
   const c = cartoes[id];
   const [ocupado, setOcupado] = useState(false);
@@ -205,6 +206,35 @@ export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco
 
   const tom = p.status === "pendente" ? "pede" : p.status === "aprovada" ? "ok" : "info";
   const prazo = p.status === "pendente" ? "Pede você" : p.status === "aprovada" ? "Aprovado" : p.status === "recusada" ? "Recusado" : "Desfeito";
+
+  if (compacto) {
+    const porque = [p.justificativa, p.conta, notaDaEntrega(p)].filter(Boolean);
+    return (
+      <div ref={linha} className={`ld-compacto${p.status !== "pendente" ? " feito" : ""}${c.anim ? ` mv-${c.anim}` : ""}`} role="group" aria-label={`Proposta: ${p.titulo}`}>
+        <div className="ldc-meta">
+          {p.status === "pendente" ? "Pede você" : prazo} · sugerida pelo Plumo{p.fonte ? ` · ${p.fonte}` : ""}
+        </div>
+        <div className="ldc-tit">{p.titulo}</div>
+        {v !== null ? <div className="ldc-valor">{fmtReais(v)}</div> : null}
+        {porque.length ? (
+          <details className="ldc-conta">
+            <summary>Ver a conta</summary>
+            {porque.map((x, i) => (
+              <p key={i}>{x}</p>
+            ))}
+          </details>
+        ) : null}
+        <div className="ldc-acts">{acoes}</div>
+        {erro ? (
+          <div className="ld-erro" role="alert">
+            {erro}
+          </div>
+        ) : null}
+        {ajustando ? <ModalAjustar proposta={p} fechar={() => setAjustando(false)} /> : null}
+        {recusando ? <ModalRecusar titulo={p.titulo} fechar={() => setRecusando(false)} confirmar={(m) => recusar(p.id, m)} /> : null}
+      </div>
+    );
+  }
 
   return (
     <div

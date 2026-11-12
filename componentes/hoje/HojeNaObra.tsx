@@ -62,21 +62,20 @@ function Acao({ acao, classe }: { acao: AcaoHoje; classe: string }) {
   );
 }
 
+/** Um ponto do dia, como frase da mensagem do Plumo; o atalho para a tela fica na etiqueta correspondente, no topo. */
 function Ponto({ p }: { p: PontoHoje }) {
   const { podeOperar } = useCasca();
   // "Falta você confirmar" não vale para quem só lê: fica o fato, sem a cobrança
   const detalhe = p.prioridade === "pede_voce" && !podeOperar ? "" : p.detalhe;
   return (
     <li className={s.ponto}>
-      <span className={`${s.dot} ${s[p.prioridade]}`} aria-hidden="true" />
-      <p className={s.texto}>
-        <span className="sr-only">{podeOperar ? ROTULO_PRIORIDADE[p.prioridade] : p.prioridade === "pede_voce" ? "Pendente" : ROTULO_PRIORIDADE[p.prioridade]}: </span>
-        <b>{p.titulo}</b> <span className="mut">{detalhe}</span>
-      </p>
-      {p.acao ? <Acao acao={p.acao} classe={`btn sm ${s.acao}`} /> : null}
+      <span className="sr-only">{podeOperar ? ROTULO_PRIORIDADE[p.prioridade] : p.prioridade === "pede_voce" ? "Pendente" : ROTULO_PRIORIDADE[p.prioridade]}: </span>
+      <b>{p.titulo}</b> {detalhe ? <span className={s.detalhe}>{detalhe}</span> : null}
     </li>
   );
 }
+
+const TOM_PONTO: Record<PrioridadeHoje, "amb" | "ver" | "azu" | "cin"> = { pede_voce: "amb", atencao: "ver", a_caminho: "azu", ok: "cin" };
 
 function Evento({ e }: { e: EventoSemana }) {
   return (
@@ -112,12 +111,12 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
   return (
     <section aria-labelledby="hoje-esperando">
       <h2 id="hoje-esperando" className={s.tituloBloco}>
-        {podeOperar ? "Esperando você" : "Aguardando aprovação"} {pendentes.length ? <small>· {pendentes.length}</small> : null}
+        {podeOperar ? (pendentes.length ? `${pendentes.length} ${pendentes.length === 1 ? "aprovação" : "aprovações"}` : "Esperando você") : "Aguardando aprovação"}
       </h2>
       {aMostra.length ? (
-        <div className="ld-lista ld-estreita">
+        <div className={s.cartoes}>
           {aMostra.map((id) => (
-            <CartaoProposta key={id} id={id} foco={id === primeira} />
+            <CartaoProposta key={id} id={id} foco={id === primeira} compacto />
           ))}
         </div>
       ) : (
@@ -136,7 +135,8 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
  * `alternativa`: o que mostrar se a API no ar ainda não tem a rota. `abaixo`: o que vem depois do resumo. `visivel`: a
  * conversa fica montada e escondida atrás das outras telas; escondida, ela não busca, e ao voltar relê se algo mudou.
  */
-export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; visivel?: boolean }) {
+/** `soEtiquetas`: numa conversa que já tem mensagens fica só a linha de etiquetas no topo (o resumo do dia sai). */
+export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; visivel?: boolean; soEtiquetas?: boolean }) {
   const { versao, podeOperar } = useCasca();
   const { visivel = true } = props;
   // "versão ao chegar aqui": só anda com a casa à vista, e é o que dispara a busca
@@ -150,7 +150,7 @@ export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?:
 
 type Gaveta = "esperando" | "semana";
 
-function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean }) {
+function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean; soEtiquetas?: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
   const { cartoes, irParaTela } = useCasca();
   const [gaveta, setGaveta] = useState<Gaveta | null>(null);
@@ -200,7 +200,7 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
       ? "Nada aguardando aprovação"
       : `${nPendentes} aguardando aprovação`;
   // o que pede atenção vira etiqueta também (o detalhe continua na lista abaixo); a próxima disciplina é SIMULADA
-  const atencao = pontos.filter((p) => p.prioridade === "atencao" && p.acao && telaDe(p.acao.tela));
+  const comAtalho = pontos.filter((p) => p.acao && telaDe(p.acao.tela));
   const proxima = DISCIPLINAS_SIMULADAS.find((d) => d.situacao === "proxima");
 
   return (
@@ -217,8 +217,14 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
             <span className={s.bola} aria-hidden="true" />
             {rotuloEsperando}
           </button>
-          {atencao.map((p) => (
-            <button key={p.tipo} type="button" className={`${s.etq} ${s.ver}`} onClick={() => irParaTela(telaDe(p.acao!.tela)!, p.acao!.filtro)}>
+          {comAtalho.map((p) => (
+            <button
+              key={p.tipo}
+              type="button"
+              className={`${s.etq} ${s[TOM_PONTO[p.prioridade]]}`}
+              title={p.acao!.rotulo}
+              onClick={() => irParaTela(telaDe(p.acao!.tela)!, p.acao!.filtro)}
+            >
               <span className={s.bola} aria-hidden="true" />
               {p.titulo.replace(/\.$/, "")}
             </button>
@@ -235,7 +241,7 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
           </button>
         </div>
         {/* o resumo do dia é uma mensagem do Plumo, não um título: a conversa continua embaixo dela */}
-        <section className={s.hoje} aria-labelledby="hoje-titulo">
+        <section className={s.hoje} aria-labelledby="hoje-titulo" hidden={soEtiquetas}>
           <div className={s.cabeca}>
             <span className={s.mestre} aria-hidden="true">
               <Icone nome="spark" tam={16} />
@@ -262,7 +268,7 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
           )}
           {dado.mais ? <p className={`mut sm ${s.mais}`}>E mais {dado.mais === 1 ? "1 ponto" : `${dado.mais} pontos`} depois destes.</p> : null}
         </section>
-        {abaixo ? <div className={s.nota}>{abaixo}</div> : null}
+        {abaixo && !soEtiquetas ? <div className={s.nota}>{abaixo}</div> : null}
       </div>
       {gaveta ? (
         <>
