@@ -117,7 +117,10 @@ export function Cronograma({ obra }: { obra: Obra }) {
     setGerando(true);
     setErroIA(null);
     try {
-      // Demo: a loja tem a rota de atalho (POST /cronograma/propor). Real: a API não gera — o agente (Claude) propõe.
+      // Antes de montar, prevê a obra completa: estima as fases que o orçamento ainda não tem (fundação, alvenaria,
+      // acabamento...), para o cronograma sair da fundação à entrega mesmo de um orçamento parcial. "Já organizado" ou
+      // sem o que estimar não é erro — segue. (Demo não tem a rota; usa o atalho da loja.)
+      if (!demo) await api.organizarFases(obra.id).catch(() => {});
       const prop = demo ? await api.proporCronograma(obra.id) : await proporCronogramaPeloAgente(obra.id);
       receberPropostas([prop]);
       setIaProp(prop.id);
