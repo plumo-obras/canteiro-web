@@ -126,7 +126,7 @@ describe("Projeto 3D", () => {
   it("outras disciplinas: só o aviso, sem botão", async () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk });
     montar();
-    expect(screen.getByText(/Outras disciplinas/)).toBeInTheDocument();
+    expect(screen.getByText("Hidráulica, elétrica e incêndio")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /hidráulica|elétrica|incêndio/i })).not.toBeInTheDocument();
   });
 

@@ -512,7 +512,7 @@ export function Projeto({ obra }: { obra: Obra }) {
           {/* Hidráulica, elétrica e incêndio ainda não existem na API: só o aviso, sem botão nem estado de mentira. */}
           <p className={s.outras}>
             <Icone nome="plus" tam={14} />
-            <span>Outras disciplinas (hidráulica, elétrica, incêndio)</span>
+            <span>Hidráulica, elétrica e incêndio</span>
             <span className={s.breve}>em breve</span>
           </p>
         </div>

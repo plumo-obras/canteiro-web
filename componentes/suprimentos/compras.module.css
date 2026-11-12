@@ -32,8 +32,9 @@
 .vazioPed{margin:0;padding:14px 16px}
 .pedidos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .ped{display:flex;flex-direction:column;gap:4px;padding:12px 14px;margin:0}
-.pedTopo{display:flex;align-items:flex-start;gap:8px}
-.pedTopo :global(.pill){flex:none;margin-left:auto}
+/* o selo vai embaixo do título: ao lado, num cartão estreito, espremia o nome do material em três linhas */
+.pedTopo{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.pedTopo :global(.pill){flex:none;max-width:100%;white-space:normal}
 .pedAbrir{flex:1 1 auto;min-width:0;border:0;background:none;padding:0;color:var(--ink);font:inherit;font-weight:600;text-align:left;cursor:pointer;overflow-wrap:anywhere}
 @media (hover:hover){.pedAbrir:hover{color:var(--accentInk)}}
 .pedAbrir:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

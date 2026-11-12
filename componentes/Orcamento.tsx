@@ -442,8 +442,9 @@ function Etiqueta({ tom, children }: { tom: "info" | "atencao" | "neutro"; child
 /** Os dados do contrato à vista, só leitura (antes ficavam na linha de dados da obra): o engenheiro consulta sem abrir a edição. */
 export function textoContrato(o: Pick<Obra, "numero_contrato" | "verba" | "bdi" | "data_base">): string {
   return [
-    o.numero_contrato ? `Contrato nº ${o.numero_contrato}` : null,
-    o.verba ? fmtReais(o.verba) : null,
+    // sem o número, o valor sozinho embaixo da faixa não diz o que é: o rótulo vai junto
+    o.numero_contrato ? `Contrato nº ${o.numero_contrato}` : o.verba ? `Contrato ${fmtReais(o.verba)}` : null,
+    o.numero_contrato && o.verba ? fmtReais(o.verba) : null,
     o.bdi ? `BDI ${(o.bdi / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : null,
     o.data_base ? `data-base ${o.data_base.slice(5, 7)}/${o.data_base.slice(0, 4)}` : null,
   ]
