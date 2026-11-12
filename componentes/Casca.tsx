@@ -479,6 +479,9 @@ function App({ usuario }: { usuario: Usuario }) {
                   <h1 className="conversa-t" title={sessao.titulo}>
                     {sessao.titulo}
                   </h1>
+                  <button type="button" className="btn sm conversa-nova" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
+                    <Icone nome="plus" tam={16} />
+                  </button>
                   <button
                     type="button"
                     className={`btn sm conversa-lista${painelAberto ? " on" : ""}`}

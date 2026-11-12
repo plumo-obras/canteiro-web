@@ -19,7 +19,7 @@
 @media (hover:hover){ .etq:hover{background:var(--hover)} .amb:hover{background:var(--amberSoft);filter:brightness(1.06)} }
 
 /* a gaveta ocupa a lateral direita do palco, do alto ao pé (a conversa abre espaço para ela: casca.css, :has) */
-.gaveta{position:absolute;top:0;right:0;bottom:12px;z-index:5;width:420px;max-width:calc(100% - 24px);box-sizing:border-box;overflow:auto;padding:18px 18px 16px;scrollbar-width:thin;border-radius:var(--r)}
+.gaveta{position:absolute;top:0;right:0;bottom:12px;z-index:5;width:420px;background:var(--cardForte);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);max-width:calc(100% - 24px);box-sizing:border-box;overflow:auto;padding:18px 18px 16px;scrollbar-width:thin;border-radius:var(--r)}
 .cartoes{display:flex;flex-direction:column;gap:12px}
 .fechar{position:absolute;top:12px;right:12px;width:36px;height:36px;padding:0}
 .fundo{display:none}
@@ -58,7 +58,7 @@
 
 @media (max-width:899px){
   .fundo{display:block;position:fixed;inset:0;z-index:54;background:var(--veu)}
-  .gaveta{position:fixed;top:auto;left:0;right:0;bottom:0;z-index:55;width:auto;max-width:none;max-height:80dvh;border-radius:22px 22px 0 0;
+  .gaveta{position:fixed;top:auto;left:0;right:0;bottom:0;z-index:55;width:auto;max-width:none;background:var(--cardSolido);max-height:80dvh;border-radius:22px 22px 0 0;
     padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:sobe 240ms var(--ease)}
   .titulo{font-size:var(--t-bloco)}
   .ponto{grid-template-columns:10px minmax(0,1fr)}
@@ -68,3 +68,9 @@
 @media (prefers-reduced-motion:reduce){ .gaveta{animation:none} }
 
 @media (max-width:899px){ .titulo{font-size:16px} .pontos{margin-left:0!important} }
+/* celular: as etiquetas rolam de lado numa linha só, como no protótipo */
+@media (max-width:760px){
+  .etiquetas{flex-wrap:nowrap;overflow-x:auto;margin:0 -12px;padding:0 12px 2px;scrollbar-width:none}
+  .etiquetas::-webkit-scrollbar{display:none}
+  .etq{flex:none;white-space:nowrap}
+}
