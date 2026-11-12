@@ -13,6 +13,8 @@ import { Icone } from "../Icone";
 import { telaDe, type AbaAtiva } from "../sessoes";
 import { DISCIPLINAS_SIMULADAS } from "@/lib/simulado/projeto";
 import { useCarregar } from "../useCarregar";
+import { paradasDoTab, proximaParada } from "../foco";
+import { useMidia } from "../midia";
 import s from "./hoje.module.css";
 
 /** Quantos cartões cabem ao lado do resumo; o resto fica em Aprovações. */
@@ -165,13 +167,24 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { 
     quemAbriu.current = e.currentTarget;
     setGaveta(g);
   };
+  // abaixo de 900 px a gaveta é uma folha modal (sobe de baixo, com véu): o Tab fica dentro dela
+  const modal = useMidia("(max-width: 899px)");
   useEffect(() => {
     if (!gaveta) return;
     caixa.current?.querySelector<HTMLElement>("button,a,[tabindex]")?.focus({ preventScroll: true });
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && fechar();
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return fechar();
+      if (modal && e.key === "Tab" && caixa.current) {
+        const prox = proximaParada(paradasDoTab(caixa.current), document.activeElement, e.shiftKey);
+        if (prox) {
+          e.preventDefault();
+          prox.focus();
+        }
+      }
+    };
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
-  }, [gaveta]);
+  }, [gaveta, modal]);
 
   if (carregando && !dado) {
     return (
@@ -242,6 +255,7 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { 
         </div>
         {/* o resumo do dia é uma mensagem do Plumo, não um título: a conversa continua embaixo dela */}
         <section className={s.hoje} aria-labelledby="hoje-titulo" hidden={soEtiquetas}>
+          <h2 className="sr-only">Hoje na obra</h2>
           <div className={s.cabeca}>
             <span className={s.mestre} aria-hidden="true">
               <Icone nome="spark" tam={16} />
@@ -273,7 +287,14 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { 
       {gaveta ? (
         <>
           <div className={s.fundo} aria-hidden="true" onClick={fechar} />
-          <aside id="hoje-gaveta" ref={caixa} className={`card ${s.gaveta}`} aria-label={gaveta === "esperando" ? "Esperando você" : "Esta semana"}>
+          <aside
+            id="hoje-gaveta"
+            ref={caixa}
+            className={`card ${s.gaveta}`}
+            aria-label={gaveta === "esperando" ? "Esperando você" : "Esta semana"}
+            role={modal ? "dialog" : undefined}
+            aria-modal={modal ? true : undefined}
+          >
             <button type="button" className={`btn sm ${s.fechar}`} aria-label="Fechar" onClick={fechar}>
               <Icone nome="x" tam={16} />
             </button>

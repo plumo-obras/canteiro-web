@@ -72,7 +72,7 @@ describe("Inicio", () => {
     expect(cartoes.at(-1)!.textContent).not.toMatch(/nenhum|nada/);
     expect(cartoes.at(-1)!.textContent).toContain("Sem atividade ainda");
     // com uma obra só esperando, a etiqueta do topo leva direto à tela dela
-    const avisos = screen.getByRole("navigation", { name: "Esperando você" });
+    const avisos = screen.getByRole("group", { name: "Esperando você" });
     expect(within(avisos).getByRole("link", { name: /2 aprovações/ }).getAttribute("href")).toBe("/?obra=a&sessao=s1&tela=aprovacoes");
     expect(within(avisos).getByRole("link", { name: /1 comprovante para conferir/ }).getAttribute("href")).toBe("/?obra=a&sessao=s1&tela=suprimentos");
   });
@@ -89,7 +89,7 @@ describe("Inicio", () => {
     const situacao = await screen.findByRole("group", { name: "Situação" });
     expect(within(situacao).getByRole("button", { name: "Em andamento 2" })).toBeTruthy();
     expect(within(situacao).getByRole("button", { name: "Concluídas" })).toBeTruthy();
-    const etiqueta = within(screen.getByRole("navigation", { name: "Esperando você" })).getByRole("button", { name: /3 aprovações/ });
+    const etiqueta = within(screen.getByRole("group", { name: "Esperando você" })).getByRole("button", { name: /3 aprovações/ });
     await userEvent.click(etiqueta);
     expect(etiqueta.getAttribute("aria-pressed")).toBe("true");
     const nomes = within(screen.getByRole("list", { name: "Obras" }))

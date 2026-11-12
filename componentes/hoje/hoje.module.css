@@ -67,10 +67,11 @@
 @keyframes sobe{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){ .gaveta{animation:none} }
 
-@media (max-width:899px){ .titulo{font-size:16px} .pontos{margin-left:0!important} }
+@media (max-width:899px){ .titulo{font-size:16px} .pontos{margin-left:44px!important} }
 /* celular: as etiquetas rolam de lado numa linha só, como no protótipo */
 @media (max-width:760px){
   .etiquetas{flex-wrap:nowrap;overflow-x:auto;margin:0 -12px;padding:0 12px 2px;scrollbar-width:none}
   .etiquetas::-webkit-scrollbar{display:none}
   .etq{flex:none;white-space:nowrap}
 }
+@media (max-width:899px){ .etq{min-height:44px} }

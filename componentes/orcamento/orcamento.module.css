@@ -21,7 +21,7 @@
 .atencao{background:var(--amberSoft);color:var(--amberInk)}
 .neutro{background:var(--graySoft);color:var(--grayInk)}
 .etqAcao{margin-left:6px;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.etqAcao:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.etqAcao:focus-visible{outline:2px solid var(--accentInk);outline-offset:2px;border-radius:4px}
 
 /* a barra e a tabela com respiro entre elas (antes encostavam) */
 .secao{display:flex;flex-direction:column;gap:14px}
@@ -45,7 +45,7 @@
 .etapa.movida td{box-shadow:inset 0 0 0 9999px var(--hover)}
 .etapa.movida td:first-child{box-shadow:inset 3px 0 0 var(--accent),inset 0 0 0 9999px var(--hover)}
 .abrir{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.abrir:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.abrir:focus-visible{outline:2px solid var(--accentInk);outline-offset:2px;border-radius:6px}
 .seta{color:var(--faint);transition:transform .15s var(--ease)}
 .abrir[aria-expanded=false] .seta{transform:rotate(-90deg)}
 .item td:first-child{padding-left:28px}
@@ -60,7 +60,7 @@
 .etapasCel{list-style:none;margin:0;padding:0}
 .etapasCel>li{border-bottom:1px solid var(--line2)}
 .etapaCel{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:100%;min-height:44px;padding:12px 0;border:0;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
-.etapaCel:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.etapaCel:focus-visible{outline:2px solid var(--accentInk);outline-offset:2px;border-radius:8px}
 .etapaCelLinha{display:flex;align-items:center;gap:10px}
 .etapaCelLinha b{flex:1 1 auto;min-width:0;font-weight:500}
 .setaCel{color:var(--faint);transition:transform .15s var(--ease)}
@@ -98,3 +98,4 @@
   .etiquetas{align-items:stretch}
   .etq{min-height:44px;border-radius:14px}
 }
+@media (max-width:899px){ .recolhido>summary{min-height:44px} .etqAcao{position:relative} .etqAcao::after{content:"";position:absolute;inset:-12px} }

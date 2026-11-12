@@ -312,13 +312,13 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .painel{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border-color:var(--line2)}
 }
 /* com a lista aberta o botão Conversas some do título: quem recolhe é o ícone do próprio painel */
-.app.com-painel .conversa-lista{display:none}
+@media (min-width:900px){ .app.com-painel .conversa-lista{display:none} }
 .conversa-lista{order:-1;width:40px;height:40px;padding:0;justify-content:center}
 .conversa-lista .rot{display:none}
 .painel-nova{background:var(--accentSoft);color:var(--accentInk);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:12px;font-weight:600}
 @media (hover:hover){ .painel-nova:hover{filter:none;border-color:var(--accent)} }
 .painel-cab{align-items:center}
-.ca-anexo{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;margin-left:-6px}
+.ca-anexo{width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;margin-left:-6px}
 @media (hover:hover){ .ca-anexo:hover{background:var(--sunk);color:var(--ink)} }
 
 /* gaveta da casa da obra aberta (Esperando você, Esta semana): a conversa e o campo abrem espaço à direita */
@@ -358,3 +358,12 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 /* celular: o + de nova conversa no fim do cabeçalho da conversa */
 .conversa-nova{display:none}
 @media (max-width:899px){ .conversa-nova{display:grid;place-items:center;width:40px;height:40px;padding:0;margin-left:auto} }
+
+/* celular e tablet: sem vidro no palco da conversa (o backdrop-filter prendia o position:fixed da folha "Esperando você"
+   dentro dele); com a folha aberta, a barra de baixo some, como com qualquer gaveta */
+@media (max-width:899px){
+  .palco-conversa{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--cardSolido)}
+  html:has(#hoje-gaveta) .barra-inf,html:has(#hoje-gaveta) .barra-inf.compacta{display:none!important}
+}
+@media (max-width:899px){ .ca-anexo{width:44px;height:44px} }
+@media (max-width:760px){ .bi-rot,.bi-item span:last-child{font-size:12px} }

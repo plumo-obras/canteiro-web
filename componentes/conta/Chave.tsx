@@ -194,6 +194,7 @@ export function Chave(props: {
           <h2 id="t-chave" className={s.h2Cel}>
             <button type="button" className={s.abreCel} aria-expanded={abertoCel} onClick={() => setAbertoCel((v) => !v)}>
               <span className={s.esp}>Chave da Anthropic</span>
+              <span className="sr-only">, </span>
               {selo}
             </button>
           </h2>

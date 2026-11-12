@@ -364,7 +364,12 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
             <dd className={c.neg ? "t-neg" : undefined} title={fmtReais(c.valor)}>
               {c.valor < 0 ? `−${reaisInteiros(-c.valor)}` : reaisInteiros(c.valor)}
             </dd>
-            {c.sub && !celular ? <small>{c.sub}</small> : null}
+            {/* a legenda num dd próprio: <small> solto dentro do grupo do dl é marcação inválida */}
+            {c.sub && !celular ? (
+              <dd>
+                <small>{c.sub}</small>
+              </dd>
+            ) : null}
           </div>
         ))}
       </dl>

@@ -31,6 +31,7 @@ import { useCelular, useMidia } from "./midia";
 import { useCarregar } from "./useCarregar";
 import { useSessaoGarantida } from "./useSessaoGarantida";
 import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
+import { paradasDoTab, proximaParada } from "./foco";
 
 // Rótulo e ícone de cada tela (para o título de seção e o aria-label).
 const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
@@ -227,7 +228,8 @@ function App({ usuario }: { usuario: Usuario }) {
 
   const fecharGaveta = (devolverFoco = true) => {
     setGaveta(false);
-    if (devolverFoco) quemAbriu.current?.focus({ preventScroll: true });
+    // quem abriu só volta a aparecer quando a gaveta sai (com ela aberta ele fica escondido): foca no quadro seguinte
+    if (devolverFoco) requestAnimationFrame(() => quemAbriu.current?.focus({ preventScroll: true }));
   };
   const alternarPainel = () => {
     if (movel) {
@@ -621,11 +623,20 @@ function FolhaMais(p: { fechar: () => void; telas: AbaAtiva[]; ir: (t: AbaAtiva)
     caixa.current?.querySelector<HTMLElement>("button,a")?.focus();
     const tecla = (e: KeyboardEvent) => {
       if (e.key === "Escape") fechar();
+      // o Tab anda só dentro da folha: atrás dela está o véu
+      if (e.key === "Tab" && caixa.current) {
+        const prox = proximaParada(paradasDoTab(caixa.current), document.activeElement, e.shiftKey);
+        if (prox) {
+          e.preventDefault();
+          prox.focus();
+        }
+      }
     };
     document.addEventListener("keydown", tecla);
     return () => {
       document.removeEventListener("keydown", tecla);
-      antes?.focus?.();
+      // a barra (com o botão Mais) só volta a aparecer depois de a folha sair: foca no quadro seguinte
+      requestAnimationFrame(() => antes?.focus?.());
     };
   }, [fechar]);
   return (
@@ -813,6 +824,7 @@ function SeletorObra({ obras, obra, resumo, trocar }: { obras: Obra[]; obra: Obr
         <span className="dot" style={{ background: COR_STATUS[obra.status] }} aria-hidden="true" />
         <span className="seletor-t">
           <span className="seletor-nome">{obra.nome}</span>
+          <span className="sr-only">, </span>
           <span className="seletor-st">{statusDaObra(obra, resumo)}</span>
         </span>
         <Icone nome="chevDown" tam={14} />

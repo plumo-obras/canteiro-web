@@ -81,7 +81,7 @@
   background:linear-gradient(var(--line2),var(--line2)) top/100% 1px no-repeat,linear-gradient(var(--line2),var(--line2)) center/100% 1px no-repeat}
 .plot{gap:5px}
 .graficoCel .plot{gap:3px}
-.plot:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
+.plot:focus-visible{outline:2px solid var(--accentInk);outline-offset:4px;border-radius:4px}
 .col{flex:1;display:flex;align-items:flex-end;min-width:0}
 .barraDia{display:block;width:100%;border-radius:3px 3px 0 0;background:var(--accent);opacity:.55;transition:opacity var(--mv-rapido) var(--ease)}
 .barraDia[data-zero]{height:2px;background:var(--line);border-radius:1px;opacity:1}
@@ -106,7 +106,7 @@
 /* senha: recolhida é uma faixa com seta; aberta, os três campos dividem a largura */
 .h2Senha{margin:0;font:inherit}
 .abreSenha{display:flex;align-items:center;gap:12px;width:100%;min-height:28px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.abreSenha:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
+.abreSenha:focus-visible{outline:2px solid var(--accentInk);outline-offset:4px;border-radius:8px}
 .abreSenha[aria-expanded="true"] .seta{transform:rotate(180deg)}
 .abreSenhaT{font:600 17px/1.3 var(--serif);color:var(--ink);white-space:nowrap}
 .abreSenhaMeta{flex:1;min-width:0;color:var(--muted);font-size:var(--t-meta)}
@@ -119,7 +119,7 @@
 .verSenhas{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:2px;padding:0;border:0;background:none;
   color:var(--ink2);font:500 var(--t-meta) var(--sans);cursor:pointer}
 .verSenhas:hover{color:var(--ink)}
-.verSenhas:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.verSenhas:focus-visible{outline:2px solid var(--accentInk);outline-offset:2px;border-radius:6px}
 .acoesSenha{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .acoesSenha :global(.btn){min-height:44px}
 
@@ -129,7 +129,7 @@
 .blocoCel .quemT b{font-size:16px}
 .blocoCel .quem{gap:12px}
 .abreCel{display:flex;align-items:center;gap:10px;width:100%;min-height:28px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.abreCel:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
+.abreCel:focus-visible{outline:2px solid var(--accentInk);outline-offset:4px;border-radius:8px}
 .blocoCel .pe{margin-top:6px}
 
 /* celular: Trocar senha, Tema e Sair numa lista solta, cada linha um alvo de toque inteiro */
@@ -142,7 +142,7 @@
 .opcaoSenha .seta{margin-left:auto}
 .opcaoSenha[data-aberto="true"]{padding-bottom:16px}
 .opcao{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 4px;border:0;border-bottom:1px solid var(--line2);background:none;color:var(--ink);font:400 16px var(--sans);text-align:left;cursor:pointer}
-.opcao:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.opcao:focus-visible{outline:2px solid var(--accentInk);outline-offset:-2px}
 .opcaoT{flex:1}
 .opcaoSair{color:var(--redInk)}
 
@@ -154,3 +154,4 @@
   .abreSenhaMeta{display:none}
 }
 .quem>.selo{margin-left:auto}
+@media (max-width:899px){ .abreCel{min-height:44px} }

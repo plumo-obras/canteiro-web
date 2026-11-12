@@ -159,7 +159,7 @@ section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-t
 .ccFoto { flex: 0 0 160px; height: 210px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; cursor: zoom-in;
   display: grid; place-items: center; background: var(--sunk); color: var(--muted); }
 .ccFoto img { width: 100%; height: 100%; object-fit: cover; }
-.ccFoto:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ccFoto:focus-visible { outline:2px solid var(--accentInk); outline-offset: 2px; }
 .ccCorpo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .ccTopo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .ccCampos { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -172,7 +172,7 @@ section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-t
 .ccPe :global(.btn) { min-height: 40px; padding: 0 14px; box-shadow: none; }
 .ccPedido { display: inline-flex; align-items: center; gap: 6px; }
 .ccPedido select { field-sizing: content; max-width: 280px; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 0; }
-.ccPedido select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ccPedido select:focus-visible { outline:2px solid var(--accentInk); outline-offset: 2px; }
 
 /* compacto (celular): miniatura, valor e uma linha; Corrigir e Confirmar dividindo a largura */
 .compacto { display: grid; gap: 12px; }
@@ -193,7 +193,7 @@ section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-t
   border-radius: 20px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); background: var(--accentSoft); color: var(--ink); font: inherit; cursor: pointer; }
 .fotografar > b { font-size: var(--t-sec); }
 .fotografarIc { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 6px; border-radius: 50%; background: var(--ocre); color: var(--onAccent); }
-.fotografar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fotografar:focus-visible { outline:2px solid var(--accentInk); outline-offset: 2px; }
 
 /* lançados */
 .lancadosSec { display: flex; flex-direction: column; gap: 12px; }

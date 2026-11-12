@@ -16,7 +16,7 @@
 .busca input::placeholder{color:var(--muted)}
 .seg{display:inline-flex;flex-wrap:wrap;padding:3px;border-radius:var(--rp);background:var(--sunk)}
 .seg button{min-height:34px;padding:0 14px;border-radius:var(--rp);border:0;background:transparent;color:var(--ink2);font:500 var(--t-body) var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.seg button:focus-visible{outline:2px solid var(--accentInk);outline-offset:1px}
 .seg .on{background:var(--ativo);color:var(--ink)}
 .c{font-size:12px;color:var(--muted)}
 
@@ -26,7 +26,7 @@
   border:1px solid var(--edge);border-radius:20px;padding:16px 18px;box-shadow:var(--hl),var(--shadow);color:var(--ink);text-decoration:none;
   transition:border-color .15s var(--ease),transform .12s var(--ease)}
 .cartao:active{transform:scale(.99)}
-.cartao:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.cartao:focus-visible{outline:2px solid var(--accentInk);outline-offset:3px}
 @media (hover:hover){ .cartao:hover{border-color:var(--edgeHi,var(--line))} .cartao:hover .nome{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)} }
 /* Pendências em selos: âmbar pede você, vermelho falta, azul a caminho; quebram linha para caber no celular. */
 .pends{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
@@ -44,7 +44,7 @@
 .avisos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 18px}
 .etiqueta{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 12px;border-radius:var(--rp);font:500 var(--t-meta) var(--sans);cursor:pointer;border:0;
   text-decoration:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 24%,transparent)}
-.etiqueta:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.etiqueta:focus-visible{outline:2px solid var(--accentInk);outline-offset:2px}
 @media (hover:hover){ .etiqueta:hover{box-shadow:inset 0 0 0 1px currentColor} }
 .bola{width:7px;height:7px;flex:none;border-radius:50%;background:currentColor}
 .etiqueta[aria-pressed="true"]{box-shadow:inset 0 0 0 2px currentColor}
@@ -79,3 +79,4 @@
   .grade{gap:14px}
 }
 .cartao :global(.pill){font-weight:600}
+@media (max-width:899px){ .etiquetas button,.etiquetas a,.etq{min-height:44px} }

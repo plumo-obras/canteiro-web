@@ -30,7 +30,7 @@
   color:var(--faint)}
 .olho{border:0;background:none;border-radius:10px;cursor:pointer}
 .olho:hover{color:var(--ink2)}
-.olho:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.olho:focus-visible{outline:2px solid var(--accentInk);outline-offset:-2px}
 
 .erro{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--redSoft);color:var(--redInk);
   font-size:var(--t-meta)}
@@ -113,3 +113,4 @@
 @media (prefers-reduced-motion:reduce){
   .campo input,.botao{transition:none}
 }
+@media (max-width:899px){ .olho{width:44px;height:44px} .lado summary{min-height:44px} }

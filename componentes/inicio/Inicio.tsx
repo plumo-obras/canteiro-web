@@ -180,7 +180,7 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
       ) : (
         <>
           {avisos.length ? (
-            <nav className={s.avisos} aria-label="Esperando você">
+            <div className={s.avisos} role="group" aria-label="Esperando você">
               {avisos.map((a) => {
                 const texto = celular ? a.curto : a.texto;
                 const classe = `${s.etiqueta} ${a.tom}`;
@@ -202,7 +202,7 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
                   </button>
                 );
               })}
-            </nav>
+            </div>
           ) : null}
           {/* uma obra só não tem o que buscar nem filtrar */}
           {ordenados.length > 1 ? (

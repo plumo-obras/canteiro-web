@@ -161,7 +161,7 @@
   box-shadow:var(--shadowLeve);font-size:var(--t-meta)}
 .camadasB{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 8px;border:0;border-radius:8px;background:none;color:var(--ink2);
   font:600 var(--t-meta) var(--sans);cursor:pointer}
-.camadasB:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.camadasB:focus-visible{outline:2px solid var(--accentInk);outline-offset:1px}
 .camadasB[aria-expanded="true"] .setaCamadas{transform:rotate(180deg)}
 .setaCamadas{color:var(--muted);transition:transform var(--mv-rapido) var(--ease)}
 .listaCamadas{display:flex;flex-direction:column;gap:0;margin:0;padding:0;border:0;min-width:0}
@@ -217,3 +217,6 @@
 @media (hover:hover){.zoom button:hover{color:var(--ink);border-color:var(--ink2)}}
 @media (max-width:760px){.zoom{bottom:64px}}
 @media (max-width:760px){ .tela :global(.cab-sub){display:none} }
+@media (max-width:899px){ .pr,.discProximo,.camadasB{min-height:44px} .zoom button{width:44px;height:44px} }
+/* a dica do 3D passava por baixo do botão Camadas no celular: lá, o gesto é óbvio */
+@media (max-width:760px){ .dica{display:none} }

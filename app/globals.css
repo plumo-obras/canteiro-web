@@ -67,7 +67,7 @@
   /* liso, como o escuro: a foto deixava as superfícies translúcidas manchadas ao lado das sólidas */
   --fundo:radial-gradient(1200px 600px at 70% -10%,#dfe6f1 0%,rgba(236,238,235,0) 60%);
   --ativo:#fff;
-  --accentSoft:#fbeed3; --accentInk:#94650f;
+  --accentSoft:#fbeed3; --accentInk:#885c0d;
   --pine:#0f1a2e; --pineSoft:#e3e8f0; --pineLine:#c5cede;
   --amber:#a06a16; --amberSoft:#fcecc6; --amberInk:#7a520f;
   --red:#b0472f;   --redSoft:#fae3dc;   --redInk:#923a26;
@@ -1546,3 +1546,11 @@ rect.db-falta{fill:var(--accentSoft);stroke:var(--accent);stroke-width:1;stroke-
 .est-barra > span { display: block; height: 100%; border-radius: 999px; background: var(--green, #3ba55d); transition: width .3s var(--ease, ease); }
 .est-resumo p { margin: 0; }
 .est-resumo .pill.estimativa { margin: 0 2px; }
+
+/* alvos de toque: 44 px em tudo que se toca abaixo de 900 px (celular e tablet), incluindo os segmentados e as pílulas */
+@media (max-width:899px){
+  .seg button,.seg-pq button,.pilula,.btn.sm,.btn,.chip,summary{min-height:44px}
+  .seg,.seg-pq{align-items:stretch}
+}
+/* texto clicável no computador nunca abaixo de 24 px de alvo (WCAG 2.5.8) */
+.link,button.link{min-height:24px}
