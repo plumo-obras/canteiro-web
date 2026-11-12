@@ -1,7 +1,8 @@
 /* Tela de entrar: um cartão grande com respiro até a borda da tela (o fundo do app aparece em volta). Formulário à
    esquerda e a vitrine (o modelo da estrutura e a promessa) à direita; no celular o cartão some (a tela é pequena demais
    para margem), a vitrine sobe para o topo, menor, e o formulário vem embaixo. */
-.pagina{--respiro:clamp(16px,3.2vw,56px);position:relative;box-sizing:border-box;min-height:calc(100dvh - 2 * var(--respiro));margin:var(--respiro);
+/* preso à janela (inset), não com margem: a margem vazava para o body, que já tem 100dvh, e a página rolava */
+.pagina{--respiro:clamp(16px,3.2vw,56px);position:fixed;inset:var(--respiro);box-sizing:border-box;overflow:auto;
   display:grid;grid-template-columns:minmax(380px,460px) minmax(0,1fr);background:var(--cardSolido);border:1px solid var(--edge);
   border-radius:28px;overflow:hidden;box-shadow:var(--shadowUp)}
 
@@ -89,7 +90,7 @@
   background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accentHi)}
 
 @media (max-width:899px){
-  .pagina{grid-template-columns:1fr;grid-template-rows:auto 1fr;margin:0;min-height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .pagina{position:relative;inset:auto;overflow:visible;grid-template-columns:1fr;grid-template-rows:auto 1fr;min-height:100dvh;border:0;border-radius:0;box-shadow:none}
   /* a vitrine vem primeiro só na tela: no DOM continua depois do formulário */
   .vitrine{order:-1;min-height:300px;padding:20px}
   .modelo{left:12%;top:14%;width:76%;height:76%}
