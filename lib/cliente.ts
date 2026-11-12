@@ -161,7 +161,7 @@ export const api = {
   resumoObra: (obraId: string) => chamar<ResumoDaObra>("GET", `/obras/${seg(obraId)}/resumo`),
   conta: () => chamar<MinhaConta>("GET", "/conta"),
   chaveAnthropic: () => chamar<ChavePropria>("GET", "/conta/chave-anthropic"),
-  /** Só master. A resposta não importa para a tela: ela relê `GET /conta`, que é a fonte da verdade. */
+  /** Admin ou master. A resposta não importa para a tela: ela relê `GET /conta`, que é a fonte da verdade. */
   salvarChaveAnthropic: (chave: string) => chamar<unknown>("PUT", "/conta/chave-anthropic", { chave }),
   removerChaveAnthropic: () => chamar<unknown>("DELETE", "/conta/chave-anthropic"),
   /** `de` e `ate` em AAAA-MM-DD, inclusivos. */

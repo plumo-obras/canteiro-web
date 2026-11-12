@@ -84,7 +84,7 @@ interface EstadoDemo {
   /** E-mail com que cada pessoa entrou (o Usuario do contrato não traz e-mail; GET /conta traz). */
   emails: Map<string, string>;
   /** Da chave própria a demonstração guarda só o final, como a tela enxerga: a chave em si é descartada. */
-  chave: { final: string; cadastrada_em: string } | null;
+  chave: { final: string; cadastrada_em: string; por: string } | null;
   creditos: { saldo: number; franquia: number };
   /** Linhas de UsoIA (custo em microdólares), somadas na hora como a API faz. */
   uso: { dia: string; obra_id: string | null; rota: string; custo: number; tokens: number }[];
@@ -796,7 +796,7 @@ function emitir(e: EstadoDemo, u: Usuario): RespostaEntrar {
 
 /**
  * Na demonstração qualquer senha entra (os dados são fictícios); e-mail começando por "leitura" entra como viewer e
- * por "master" entra como master (o único papel que troca a chave própria).
+ * por "master" entra como master.
  */
 export function entrarDemo(email: string, senha: string): RespostaEntrar | null {
   const e = estado();
@@ -1244,7 +1244,9 @@ export function resumoObras(e: EstadoDemo) {
 }
 
 function chaveDemo(e: EstadoDemo) {
-  return e.chave ? { ativa: true, final: e.chave.final, cadastrada_em: e.chave.cadastrada_em } : { ativa: false, final: null, cadastrada_em: null };
+  return e.chave
+    ? { ativa: true, final: e.chave.final, cadastrada_em: e.chave.cadastrada_em, conectada_por: e.chave.por }
+    : { ativa: false, final: null, cadastrada_em: null, conectada_por: null };
 }
 
 function creditosDemo(e: EstadoDemo, u: Usuario) {
@@ -1258,10 +1260,6 @@ export function minhaConta(e: EstadoDemo, u: Usuario): MinhaConta {
     chave_propria: e.chave ? chaveDemo(e) : null,
     creditos: creditosDemo(e, u),
   };
-}
-
-function exigirMaster(u: Usuario) {
-  if (u.papel !== "master") throw new Proibido("Só quem tem o papel master troca a chave da Anthropic.");
 }
 
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
@@ -1325,15 +1323,15 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
     if (a === "conta" && id === "chave-anthropic" && !b) {
       if (metodo === "GET") return ok(chaveDemo(e));
       if (metodo === "PUT") {
-        exigirMaster(u);
+        exigirAdmin(u);
         const chave = String(c.chave ?? "").trim();
         if (!/^sk-ant-/.test(chave) || chave.length < 20 || chave.length > 300)
           return erro(422, "Isto não parece uma chave da API da Anthropic (começa com sk-ant-).");
-        e.chave = { final: chave.slice(-4), cadastrada_em: agoraISO() };
+        e.chave = { final: chave.slice(-4), cadastrada_em: agoraISO(), por: u.nome };
         return ok({ chave_propria: true, final: e.chave.final });
       }
       if (metodo === "DELETE") {
-        exigirMaster(u);
+        exigirAdmin(u);
         e.chave = null;
         return ok({ chave_propria: false, final: null });
       }

@@ -26,7 +26,7 @@ describe("chave própria da Anthropic", () => {
     expect(problemaNaChave("sk-ant-api03-abcdefghijklmnop")).toBeNull();
   });
 
-  it("master conecta com campo de senha; o campo esvazia depois de enviar", async () => {
+  it("admin conecta com campo de senha; depois de enviar o formulário fecha e o campo sai da tela", async () => {
     const rede = criarRede({ "PUT /srv/api/conta/chave-anthropic": () => json({ chave_propria: true, final: "mnop" }) });
     const mudou = montar();
     // estado + botão: o campo só aparece depois de "Conectar chave"
@@ -34,19 +34,26 @@ describe("chave própria da Anthropic", () => {
     await userEvent.click(screen.getByRole("button", { name: "Conectar chave" }));
     const campo = screen.getByLabelText("Colar a chave") as HTMLInputElement;
     expect(campo.type).toBe("password");
+    expect(document.activeElement).toBe(campo); // o botão sumiu: o foco foi para o campo
     await userEvent.type(campo, "sk-ant-api03-abcdefghijklmnop");
     await userEvent.click(screen.getByRole("button", { name: "Conectar chave" }));
     // o clique só dispara o envio: o "fim" dele é o mudou
     await vi.waitFor(() => expect(mudou).toHaveBeenCalled());
     expect(rede.chamadas.at(-1)!.corpo).toEqual({ chave: "sk-ant-api03-abcdefghijklmnop" });
-    expect(campo.value).toBe("");
+    expect(campo.isConnected).toBe(false);
+    expect(screen.queryByLabelText("Colar a chave")).toBeNull();
   });
 
-  it("ativa mostra só o final; quem não é master não vê o formulário", () => {
+  it("ativa mostra só o final; quem só lê não vê o formulário", () => {
     montar({ situacao: { ativa: true, final: "abcd", cadastrada_em: null }, podeTrocar: false });
     expect(screen.getByText("…abcd")).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByLabelText(/chave/i, { selector: "input" })).toBeNull();
-    expect(screen.getByText(/Só quem tem o papel master/)).toBeTruthy();
+    expect(screen.getByText(/Só admin ou master/)).toBeTruthy();
+  });
+
+  it("mostra quem conectou a chave", () => {
+    montar({ situacao: { ativa: true, final: "abcd", cadastrada_em: null, conectada_por: "Marina Duarte" }, podeTrocar: false });
+    expect(screen.getByText(/conectada por Marina Duarte/)).toBeTruthy();
   });
 });

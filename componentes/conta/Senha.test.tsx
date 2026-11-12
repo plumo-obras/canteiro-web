@@ -31,6 +31,12 @@ async function preencher(a: string, n: string, c = n) {
 }
 
 describe("trocar a própria senha", () => {
+  it("ao abrir, o foco vai para a senha atual", async () => {
+    montar();
+    await abrir();
+    expect(document.activeElement).toBe(atual());
+  });
+
   it("regras locais: senha atual, mínimo de 8 e confirmação igual", () => {
     expect(problemaNaSenha("", "nova-senha", "nova-senha")).toMatch(/atual/);
     expect(problemaNaSenha("a", "curta", "curta")).toMatch(/8/);

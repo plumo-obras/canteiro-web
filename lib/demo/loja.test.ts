@@ -227,15 +227,17 @@ describe("demonstração: página inicial e conta", () => {
     expect(chamar("PUT", "conta/chave-anthropic", { chave }, master()).status).toBe(200);
     const depois = chamar("GET", "conta", undefined, master()).corpo;
     expect(JSON.stringify(depois)).not.toContain("abcdefghijklmnop");
-    expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: true, final: "WXYZ" });
+    expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: true, final: "WXYZ", conectada_por: master().nome });
     expect((chamar("GET", "creditos").corpo as { chave_propria: boolean }).chave_propria).toBe(true);
     expect(chamar("DELETE", "conta/chave-anthropic", undefined, master()).status).toBe(200);
     expect(chamar("GET", "conta/chave-anthropic").corpo).toMatchObject({ ativa: false, final: null });
   });
 
-  it("só master troca a chave; chave fora do formato é 422", () => {
-    expect(chamar("PUT", "conta/chave-anthropic", { chave: "sk-ant-api03-abcdefghijklmnop" }).status).toBe(403);
+  it("admin e master trocam a chave, leitura não; chave fora do formato é 422", () => {
+    expect(chamar("PUT", "conta/chave-anthropic", { chave: "sk-ant-api03-abcdefghijklmnop" }, leitura()).status).toBe(403);
     expect(chamar("DELETE", "conta/chave-anthropic", undefined, leitura()).status).toBe(403);
+    expect(chamar("PUT", "conta/chave-anthropic", { chave: "sk-ant-api03-abcdefghijklmnop" }).status).toBe(200);
+    expect(chamar("DELETE", "conta/chave-anthropic").status).toBe(200);
     expect(chamar("PUT", "conta/chave-anthropic", { chave: "minha-assinatura-pro" }, master()).status).toBe(422);
   });
 

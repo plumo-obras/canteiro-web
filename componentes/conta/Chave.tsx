@@ -1,9 +1,9 @@
 "use client";
 /**
  * Chave própria da Anthropic. A tela nunca vê a chave guardada (a API devolve só os 4 últimos caracteres) e a que é
- * digitada sai do estado assim que é enviada. Trocar e remover são do papel master; os outros só veem a situação.
+ * digitada sai do estado assim que é enviada. Trocar e remover são de admin ou master; leitura só vê a situação.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChavePropria } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtDiaHora } from "@/lib/formato";
@@ -31,6 +31,11 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
   const [remover, setRemover] = useState(false);
   const [aberto, setAberto] = useState(false);
   const cancelar = useRef<HTMLButtonElement>(null);
+  const campo = useRef<HTMLInputElement>(null);
+  // O botão clicado some quando o formulário abre: o foco vai para o campo que entra no lugar dele.
+  useEffect(() => {
+    if (aberto) campo.current?.focus();
+  }, [aberto]);
 
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +49,7 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
     try {
       await api.salvarChaveAnthropic(valor.trim());
       setValor("");
+      setAberto(false);
       avisar(ativa ? "Chave trocada. As próximas conversas já usam a nova." : "Chave conectada. As conversas deixam de gastar créditos.");
       mudou();
     } catch (x) {
@@ -78,7 +84,13 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
         {ativa ? (
           <span>
             <b>Ativa</b>, termina em <code className={s.final}>…{final}</code>
-            {situacao?.cadastrada_em ? <span className={s.diz}> · conectada em {fmtDiaHora(situacao.cadastrada_em)}</span> : null}
+            {situacao?.conectada_por || situacao?.cadastrada_em ? (
+              <span className={s.diz}>
+                {" · conectada"}
+                {situacao.conectada_por ? ` por ${situacao.conectada_por}` : ""}
+                {situacao.cadastrada_em ? ` em ${fmtDiaHora(situacao.cadastrada_em)}` : ""}
+              </span>
+            ) : null}
           </span>
         ) : (
           <span>
@@ -105,6 +117,7 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
           </label>
           <div className={s.linha}>
             <input
+              ref={campo}
               id="chave-anthropic"
               className={`f ${s.campo}`}
               type="password"
@@ -126,7 +139,8 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
             />
             <button type="submit" className="btn pri" disabled={ocupado || !valor} aria-busy={ocupado}>
               {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
-              {ativa ? "Trocar chave" : "Conectar chave"}
+              {/* a API confere a chave na Anthropic antes de guardar: pode levar alguns segundos */}
+              {ocupado ? "Conferindo…" : ativa ? "Trocar chave" : "Conectar chave"}
             </button>
           </div>
           {erro ? (
@@ -153,7 +167,7 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
       ) : (
         <p className={s.so}>
           <Icone nome="info" tam={15} />
-          Só quem tem o papel master conecta, troca ou remove a chave.
+          Só admin ou master conecta, troca ou remove a chave.
         </p>
       )}
 

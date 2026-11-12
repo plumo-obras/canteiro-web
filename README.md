@@ -47,7 +47,7 @@ Com `CANTEIRO_DEMO=1`, o próprio Next se passa pela API e pelo agente, com a ob
 (`lib/demo/`). Os dados somem quando o servidor reinicia.
 
 - Qualquer e-mail e senha entram. E-mail começando com `leitura` entra como **viewer** (só lê); com `master`, como
-  **master** (o único papel que troca a chave própria da Anthropic). Os demais entram como admin.
+  **master**. Os demais entram como admin (admin e master trocam a chave própria da Anthropic).
 - Na conversa, `/sem-creditos` simula o erro de créditos do agente.
 - A aba Gastos só existe com a API de verdade (`SO_COM_API` em `componentes/sessoes.ts`); na demonstração, um link
   com `?tela=gastos` cai na conversa.

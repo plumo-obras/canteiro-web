@@ -731,6 +731,8 @@ export interface ChavePropria {
   ativa: boolean;
   final: string | null;
   cadastrada_em: DataISO | null;
+  /** Nome de quem conectou (null se a pessoa não existe mais). Opcional até a API nova subir. */
+  conectada_por?: string | null;
 }
 
 /** `GET /conta`. */
