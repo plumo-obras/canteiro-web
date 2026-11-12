@@ -219,7 +219,7 @@ describe("a barra da obra", () => {
 
   it("cinco abas, nesta ordem e sem números", async () => {
     await abrir();
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Projeto", "Orçamento", "Compras", "Cronograma", "Gastos"]);
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Projeto", "Orçamento", "Cronograma", "Compras", "Gastos"]);
   });
 
   it("o sino conta as pendências da obra aberta e abre as Aprovações", async () => {
@@ -260,9 +260,9 @@ describe("a barra do celular", () => {
   };
   const barra = () => [...document.querySelectorAll(".barra-inf .bi-item")].map((b) => b.querySelector(".bi-rot")?.textContent);
 
-  it("orçamento aprovado: Mestre, Compras, Gastos, Cronograma e Mais", async () => {
+  it("orçamento aprovado: Mestre, Cronograma, Compras, Gastos e Mais", async () => {
     await abrir(resumo("o-emei", true));
-    await waitFor(() => expect(barra()).toEqual(["Mestre", "Compras", "Gastos", "Cronograma", "Mais"]));
+    await waitFor(() => expect(barra()).toEqual(["Mestre", "Cronograma", "Compras", "Gastos", "Mais"]));
     expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Mestre de obras");
   });
 

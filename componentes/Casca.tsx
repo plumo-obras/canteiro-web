@@ -45,7 +45,9 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   historico: { rotulo: "Histórico", icone: "history" },
 };
 // A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados.
-const ABAS: AbaAtiva[] = ["projeto", "orcamento", "suprimentos", "cronograma", "gastos"];
+// Planejar antes de executar: Projeto define o quê, Orçamento quanto, Cronograma quando — e só então Compras e Gastos
+// (execução contra o plano). O Cronograma sai do Orçamento, então vem logo depois dele.
+const ABAS: AbaAtiva[] = ["projeto", "orcamento", "cronograma", "suprimentos", "gastos"];
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
@@ -536,7 +538,7 @@ function App({ usuario }: { usuario: Usuario }) {
 /** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
 // Antes do orçamento aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar, lançar e acompanhar.
 function barraDe(aprovada: boolean, demo: boolean): AbaAtiva[] {
-  const abas: AbaAtiva[] = aprovada ? ["conversa", "suprimentos", "gastos", "cronograma"] : ["conversa", "projeto", "orcamento", "gastos"];
+  const abas: AbaAtiva[] = aprovada ? ["conversa", "cronograma", "suprimentos", "gastos"] : ["conversa", "projeto", "orcamento", "gastos"];
   // Na demonstração não há Gastos: outra tela fica no lugar, e a barra continua com cinco colunas.
   return demo ? abas.map((k) => (k !== "gastos" ? k : aprovada ? "orcamento" : "suprimentos")) : abas;
 }
