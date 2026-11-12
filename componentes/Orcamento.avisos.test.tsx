@@ -73,14 +73,15 @@ describe("avisos do Orçamento", () => {
       totais: { ...base.totais, contratado: 5_000_000, aditivos: 5_000_000, atual: 10_000_000, aditivos_pct: 10_000 },
     });
     expect(await screen.findByText("+100% sobre o orçamento aprovado")).not.toHaveClass("bad");
-    expect(screen.getByRole("button", { name: "+100% aditivo" })).not.toHaveClass("t-acima");
+    // na faixa, o inicial e os aditivos em texto, sem selo colorido
+    expect(screen.getByRole("region", { name: "Resumo do orçamento" })).toHaveTextContent(/inicial R\$\s50\.000 \+ aditivos R\$\s50\.000/);
     expect(screen.queryByText(/8\.666|limite legal|obra pública/)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("sem aditivo, sem selo de aditivo", async () => {
     montar(orc("planilha.xlsx", [500]));
-    await screen.findByText(/maior etapa/);
+    await screen.findByRole("table");
     expect(screen.queryByText(/aditivo/)).toBeNull();
   });
 
@@ -112,7 +113,7 @@ describe("Desfazer da aprovação pela metade", () => {
   it("avisa quantos itens ficaram, sem oferecer aprovar nem comprar", async () => {
     abrir(() => json({}));
     expect(await screen.findByText(/parou no meio: 2 itens ainda em Compras/)).toBeInTheDocument();
-    expect(screen.getByText("desfazendo a aprovação")).toBeInTheDocument();
+    expect(screen.getByText(/· desfazendo a aprovação/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Aprovar orçamento" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Comprar o que vem primeiro" })).toBeNull();
   });
@@ -324,13 +325,13 @@ describe("ordem das etapas antes de aprovar", () => {
 
   it("aprovado: sem as setas", async () => {
     montarOrdem({ ...OBRA, status: "em_andamento" } as Obra);
-    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(await screen.findByText(/Serviços preliminares/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
   });
 
   it("viewer não vê as setas", async () => {
     montarOrdem(OBRA, { ...USUARIO, papel: "viewer" });
-    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(await screen.findByText(/Serviços preliminares/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
   });
 });

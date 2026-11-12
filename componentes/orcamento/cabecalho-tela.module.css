@@ -1,0 +1,11 @@
+/* O cabeçalho do protótipo: título de página, contexto embaixo e as ações alinhadas ao pé do texto. */
+.cab{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:0}
+.texto{flex:1 1 420px;min-width:0}
+.titulo{margin:0;font:600 var(--t-h1)/1.2 var(--serif);letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
+.contexto{margin:2px 0 0;font-size:var(--t-body);color:var(--ink2)}
+.acoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.esp{flex:1 1 auto}
+@media (max-width:760px){
+  .cab{align-items:center;gap:8px;flex-wrap:nowrap}
+  .titulo{font-size:24px}
+}

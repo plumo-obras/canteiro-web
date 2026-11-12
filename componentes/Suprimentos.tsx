@@ -8,10 +8,11 @@ import { useEffect, useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, Obra } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { uuid7 } from "@/lib/ids";
-import { CabecalhoPagina } from "./CabecalhoPagina";
+import { CabecalhoTela } from "./orcamento/CabecalhoTela";
+import { useCelular } from "./midia";
+import { inicioEtapaDemo } from "@/lib/simulado/compras";
 import { useCasca } from "./contexto";
 import { Icone } from "./Icone";
-import { ProximoPasso } from "./ProximoPasso";
 import { useCarregar } from "./useCarregar";
 import { ModalMovimento } from "./formularios/ModalMovimento";
 import { ModalNovoPedido } from "./formularios/ModalNovoPedido";
@@ -25,14 +26,17 @@ import { BaseOrcamento } from "./cronograma/BaseOrcamento";
 import { BotaoPlumo } from "./BotaoPlumo";
 import s from "./suprimentos/compras.module.css";
 
-type Secao = "compras" | "estoque" | "fornecedores";
+type Secao = "compras" | "pedidos" | "estoque" | "fornecedores";
 
 // Etapas e fornecedores são da Fase 2: se a rota ainda não existir (API antiga), a tela segue sem eles.
 const ouVazio = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
 
 export function Suprimentos({ obra }: { obra: Obra }) {
-  const { versao, podeOperar } = useCasca();
-  const [secao, setSecao] = useState<Secao>("compras");
+  const { versao, podeOperar, demo } = useCasca();
+  const celular = useCelular();
+  const [secaoEscolhida, setSecao] = useState<Secao>("compras");
+  // Pedidos só é aba no celular; no computador ele é a coluna ao lado do que falta comprar.
+  const secao: Secao = !celular && secaoEscolhida === "pedidos" ? "compras" : secaoEscolhida;
   const [lancando, setLancando] = useState<Lancar | null>(null);
   const [marcados, setMarcados] = useState<ItemInsumo[] | null>(null);
   // Sobe a cada pedido criado: as marcações só saem aí, e "Voltar" no pedido não perde nada.
@@ -51,40 +55,72 @@ export function Suprimentos({ obra }: { obra: Obra }) {
         api.listarPedidos(obra.id, { status: ABERTOS, limite: 500 }),
         ouVazio<EtapaObra>(api.etapas(obra.id)),
         ouVazio<Fornecedor>(api.listarFornecedores()),
+        // o "precisa até" de cada item sai do cronograma; sem ele (ou com erro), a linha só não diz a data
+        api.cronograma(obra.id).catch(() => null),
       ]),
     [obra.id, versao],
   );
-  const [itens, pedidos, etapas, fornecedores] = dado ?? [[], [], [], []];
+  const [itens, pedidos, etapas, fornecedores, cronograma] = dado ?? [[], [], [], [], null];
+  const inicioEtapa = (etapa: string): string | null => {
+    const e = cronograma?.etapas.find((x) => x.etapa === etapa);
+    const i = e ? e.percentuais.findIndex((p) => p > 0) : -1;
+    if (e && i >= 0) return cronograma?.mensal[i]?.mes ?? null;
+    // a demonstração não tem cronograma: as datas são de mentira e o arquivo do simulado diz isso
+    if (demo && !cronograma?.etapas.some((x) => x.percentuais.some((p) => p > 0))) {
+      const pos = etapas.findIndex((x) => x.etapa === etapa);
+      return pos >= 0 ? inicioEtapaDemo(pos, new Date()) : null;
+    }
+    return null;
+  };
 
   const nFalta = itens.filter((i) => i.conta.comprar > 0).length;
+  const novoItemFora = podeOperar && dado && !desfazendo ? () => setLancando({ tipo: "pedido" }) : null;
   const acao =
     podeOperar && dado ? (
       secao === "compras" ? (
-        desfazendo ? null : (
-          <button type="button" className="btn" onClick={() => setLancando({ tipo: "pedido" })}>
+        novoItemFora ? (
+          <button type="button" className="btn" onClick={novoItemFora}>
             <Icone nome="plus" tam={15} />
             Item fora do orçamento
           </button>
-        )
+        ) : null
       ) : secao === "fornecedores" ? (
         <button type="button" className="btn amb" onClick={() => setModal({ k: "fornecedor" })}>
           <Icone nome="plus" tam={15} />
           Novo fornecedor
         </button>
-      ) : itens.some((i) => !ehServico(i)) ? (
+      ) : secao === "estoque" && itens.some((i) => !ehServico(i)) ? (
         <button type="button" className="btn amb" onClick={() => setLancando({ tipo: "saida" })}>
           Lançar entrada ou saída
         </button>
       ) : null
     ) : null;
-  const menu = secao === "estoque" && podeOperar && dado ? [{ rotulo: "Novo item", acao: () => setModal({ k: "item" }) }] : [];
-  const SECOES: { k: Secao; rotulo: string; n?: number }[] = [
-    { k: "compras", rotulo: "Comprar", n: nFalta },
-    { k: "estoque", rotulo: "Estoque" },
-    { k: "fornecedores", rotulo: "Fornecedores" },
-  ];
+  // No celular o cabeçalho é só o título: o que no computador fica à vista vai para o "⋯" (Fornecedores inclusive,
+  // que ali não cabe como aba).
+  const menu = celular
+    ? [
+        ...(novoItemFora && secao !== "fornecedores" ? [{ rotulo: "Item fora do orçamento", acao: novoItemFora }] : []),
+        ...(secao === "estoque" && podeOperar && dado && itens.some((i) => !ehServico(i)) ? [{ rotulo: "Lançar entrada ou saída", acao: () => setLancando({ tipo: "saida" }) }] : []),
+        ...(secao === "estoque" && podeOperar && dado ? [{ rotulo: "Novo item", acao: () => setModal({ k: "item" }) }] : []),
+        ...(secao === "fornecedores" && podeOperar && dado ? [{ rotulo: "Novo fornecedor", acao: () => setModal({ k: "fornecedor" }) }] : []),
+        ...(secao !== "fornecedores" ? [{ rotulo: "Fornecedores", acao: () => setSecao("fornecedores") }] : []),
+      ]
+    : secao === "estoque" && podeOperar && dado
+      ? [{ rotulo: "Novo item", acao: () => setModal({ k: "item" }) }]
+      : [];
+  const SECOES: { k: Secao; rotulo: string; n?: number }[] = celular
+    ? [
+        { k: "compras", rotulo: "Comprar", n: nFalta },
+        { k: "pedidos", rotulo: "Pedidos" },
+        { k: "estoque", rotulo: "Estoque" },
+      ]
+    : [
+        { k: "compras", rotulo: "Comprar", n: nFalta },
+        { k: "estoque", rotulo: "Estoque" },
+        { k: "fornecedores", rotulo: "Fornecedores" },
+      ];
   const abas = (
-    <div className="seg" role="tablist" aria-label="Seções de Compras">
+    <div className={`seg ${s.seg}`} role="tablist" aria-label="Seções de Compras">
       {SECOES.map((x) => (
         <button
           key={x.k}
@@ -96,33 +132,46 @@ export function Suprimentos({ obra }: { obra: Obra }) {
           onClick={() => setSecao(x.k)}
         >
           {x.rotulo}
-          {x.n ? <small className="seg-n">{x.n.toLocaleString("pt-BR")}</small> : null}
+          {x.n ? celular ? ` · ${x.n.toLocaleString("pt-BR")}` : <small className={s.segN}>{x.n.toLocaleString("pt-BR")}</small> : null}
         </button>
       ))}
     </div>
   );
+  const faltaComprar = (
+    <FaltaComprar
+      key={pedidosFeitos}
+      itens={itens}
+      etapas={etapas}
+      fazerPedido={setMarcados}
+      desfazendo={desfazendo}
+      etapa={etapaRecorte}
+      verTudo={() => setEtapaRecorte(null)}
+      inicioEtapa={inicioEtapa}
+    />
+  );
+  const listaPedidos = (titulo: boolean) => <ListaPedidos obra={obra} pedidos={pedidos} itens={itens} etapas={etapas} fornecedores={fornecedores} titulo={titulo} />;
 
   return (
-    <div className="page">
-      <CabecalhoPagina
+    <div className={`page ${s.tela}`}>
+      <CabecalhoTela
         titulo="Compras"
-        sub={
+        contexto={
           secao === "compras"
             ? "O que falta comprar sai do orçamento aprovado, na ordem das etapas."
             : secao === "estoque"
               ? "Entradas, saídas e contagem do que está na obra."
               : "Quem fornece para a obra."
         }
-        acao={
+        acoes={
           <>
-            {secao === "compras" ? <BotaoPlumo rotulo="Perguntar ao Plumo" /> : null}
+            {secao === "compras" ? <BotaoPlumo rotulo="Pedir ao Plumo uma cotação" /> : null}
             {acao}
           </>
         }
         menu={menu}
         rotuloMenu="Mais ações de Compras"
-        barra={abas}
       />
+      {abas}
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -136,27 +185,22 @@ export function Suprimentos({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         secao === "compras" ? (
-          // lado a lado no computador: o que falta (a coluna larga) e os pedidos em cartões; no celular, um embaixo do outro
-          <div className={s.duas}>
-            <FaltaComprar key={pedidosFeitos} itens={itens} etapas={etapas} fazerPedido={setMarcados} desfazendo={desfazendo} etapa={etapaRecorte} verTudo={() => setEtapaRecorte(null)} />
-            <ListaPedidos obra={obra} pedidos={pedidos} itens={itens} etapas={etapas} fornecedores={fornecedores} />
-          </div>
+          celular ? (
+            faltaComprar
+          ) : (
+            // lado a lado: o que falta (a coluna larga) e os pedidos em cartões
+            <div className={s.duas}>
+              {faltaComprar}
+              {listaPedidos(true)}
+            </div>
+          )
+        ) : secao === "pedidos" ? (
+          listaPedidos(false)
         ) : secao === "estoque" ? (
           <Itens obra={obra} itens={itens} etapas={etapas} lancar={setLancando} lancando={!!lancando} />
         ) : (
           <ListaFornecedores fornecedores={fornecedores} editar={podeOperar ? (f) => setModal({ k: "fornecedor", f }) : null} />
         )
-      ) : null}
-
-      {secao === "compras" && itens.length ? (
-        <ProximoPasso
-          obraId={obra.id}
-          para="cronograma"
-          acao="Ver o cronograma"
-          secundario
-          titulo="Quando cada compra precisa chegar?"
-          texto="O cronograma distribui as etapas do orçamento pelos meses da obra."
-        />
       ) : null}
 
       {marcados ? <ModalPedidoMarcados obraId={obra.id} marcados={marcados} etapas={etapas} fornecedores={fornecedores} pedidos={pedidos} chave={chavePedido} fechar={() => setMarcados(null)} criado={() => setPedidosFeitos((n) => n + 1)} /> : null}

@@ -12,11 +12,12 @@ import { uuid7 } from "@/lib/ids";
 import { fmtQtd, fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { ROTULO_STATUS } from "../CartaoProposta";
 import { mensagemDe, useCasca } from "../contexto";
-import { BarraFiltros } from "../CabecalhoPagina";
 import { Icone } from "../Icone";
 import { CelulaEditavel } from "./CelulaEditavel";
 import { useCelular } from "../midia";
 import { Barra, fmtPct, linhasAndamento, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
+import { PilulaPedido, hojeSP, seloDoPedido, type SeloPedido } from "../suprimentos/Pedidos";
+import { pedidosDoItem } from "@/lib/simulado/orcamento";
 import s from "./orcamento.module.css";
 
 export type ItemDaEtapa = Orcamento["itens"][number];
@@ -32,8 +33,10 @@ export interface EtapaDaLista {
 export interface FiltroLista {
   busca: string;
   curva: CurvaABC | null;
-  ordem: "desvio" | "planilha";
+  ordem: Ordem;
 }
+
+export type Ordem = "planilha" | "abc" | "desvio";
 
 const semAcento = (t: string) =>
   t
@@ -56,31 +59,29 @@ export function montarLista(orc: Orcamento, f: FiltroLista): EtapaDaLista[] {
   const q = semAcento(f.busca.trim());
   const filtrando = !!q || !!f.curva;
   const base = linhasAndamento(orc);
-  const ls = f.ordem === "desvio" ? [...base].sort(porDesvio) : base;
+  // Curva ABC: onde está o dinheiro primeiro, a etapa pelo orçado e o item pelo total (os títulos de sub-etapa saem,
+  // porque a ordem já não é a da planilha)
+  const ls = f.ordem === "desvio" ? [...base].sort(porDesvio) : f.ordem === "abc" ? [...base].sort((a, b) => b.atual - a.atual) : base;
+  const ordenar = (xs: ItemDaEtapa[]) => (f.ordem === "abc" ? xs.filter((i) => i.tipo === "item").sort((a, b) => b.total - a.total) : xs);
   const out: EtapaDaLista[] = [];
   for (const linha of ls) {
     const todos = linha.semEtapa ? [] : (porEtapa.get(linha.etapa) ?? []);
     if (!filtrando) {
-      out.push({ linha, itens: todos, achou: false });
+      out.push({ linha, itens: ordenar(todos), achou: false });
       continue;
     }
     const itens = todos.filter(
       (i) => i.tipo === "item" && (!f.curva || i.curva === f.curva) && (!q || semAcento(`${i.descricao} ${i.codigo} ${i.numero} ${i.fonte}`).includes(q)),
     );
-    if (itens.length) out.push({ linha, itens, achou: true });
+    if (itens.length) out.push({ linha, itens: ordenar(itens), achou: true });
   }
   return out;
 }
 
-const CURVAS: { k: CurvaABC | null; rotulo: string }[] = [
-  { k: null, rotulo: "Todas" },
-  { k: "A", rotulo: "A" },
-  { k: "B", rotulo: "B" },
-  { k: "C", rotulo: "C" },
-];
-const ORDENS: { k: "desvio" | "planilha"; rotulo: string }[] = [
+const ORDENS: { k: Ordem; rotulo: string }[] = [
+  { k: "planilha", rotulo: "Ordem" },
+  { k: "abc", rotulo: "Curva ABC" },
   { k: "desvio", rotulo: "Maior desvio" },
-  { k: "planilha", rotulo: "Da planilha" },
 ];
 type Vista = "itens" | "andamento";
 const VISTAS: { k: Vista; rotulo: string }[] = [
@@ -90,8 +91,8 @@ const VISTAS: { k: Vista; rotulo: string }[] = [
 
 export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
   const { podeOperar, mudou, avisar } = useCasca();
-  // Antes de aprovar não há gasto para dar desvio: a ordem que importa é a da obra, e é ela que se arruma aqui.
-  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: obra.status === "em_orcamento" ? "planilha" : "desvio" });
+  // A ordem da planilha é a da obra (e a das compras); desvio e curva ABC são um toque na barra.
+  const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: "planilha" });
   // Com uma etapa só (ex.: a Estrutura do projeto), já abre: a quantidade e o unitário de cada item ficam à vista
   // sem precisar clicar para expandir.
   const [abertas, setAbertas] = useState<Set<string>>(() => {
@@ -110,9 +111,9 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
   const versoes = useMemo(() => new Map(orc.versoes.map((v) => [v.id, v])), [orc.versoes]);
   const chave = (l: LinhaAndamento) => (l.semEtapa ? "_sem" : l.etapa);
 
-  // Os pedidos da obra só vêm quando a primeira etapa é aberta (a lista fechada não precisa deles).
+  // Os pedidos da obra vêm com a planilha (a coluna Pedidos) ou quando a primeira etapa do Andamento é aberta.
   const [pedidos, setPedidos] = useState<{ dado: Pedido[] | null; erro: string | null }>({ dado: null, erro: null });
-  const precisaPedidos = abertas.size > 0 && pedidos.dado === null && !pedidos.erro;
+  const precisaPedidos = (abertas.size > 0 || vista === "itens") && pedidos.dado === null && !pedidos.erro;
   useEffect(() => {
     if (!precisaPedidos) return;
     let vivo = true;
@@ -206,24 +207,29 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
 
   return (
     <section aria-label="Etapas do orçamento">
-      <div className={s.barra}>
-        {celular ? null : (
-          <div className="seg" role="group" aria-label="Vista do orçamento">
+      {/* no celular não há barra: a lista é curta (uma linha por etapa) e o item aparece ao abrir a etapa */}
+      {celular ? null : (
+        <div className={s.barra}>
+          <div className={`seg ${s.seg}`} role="group" aria-label="Vista do orçamento">
             {VISTAS.map((v) => (
               <button key={v.k} type="button" className={vista === v.k ? "on" : ""} aria-pressed={vista === v.k} onClick={() => setVista(v.k)}>
                 {v.rotulo}
               </button>
             ))}
           </div>
-        )}
-        <BarraFiltros
-          busca={{ valor: filtro.busca, mudar: (t) => setFiltro((f) => ({ ...f, busca: t })), placeholder: "Buscar item: descrição, código ou nº", rotulo: "Buscar item do orçamento" }}
-          grupos={[
-            { rotulo: "Curva", valor: filtro.curva, opcoes: CURVAS, mudar: (k: CurvaABC | null) => setFiltro((f) => ({ ...f, curva: k })) },
-            { rotulo: "Ordem", valor: filtro.ordem, opcoes: ORDENS, mudar: (k: "desvio" | "planilha") => setFiltro((f) => ({ ...f, ordem: k })) },
-          ]}
-        />
-      </div>
+          <label className={s.busca}>
+            <Icone nome="busca" tam={16} />
+            <input type="search" placeholder="Descrição, código ou nº" aria-label="Buscar no orçamento" value={filtro.busca} onChange={(e) => setFiltro((f) => ({ ...f, busca: e.target.value }))} />
+          </label>
+          <div className={`seg ${s.seg}`} role="group" aria-label="Ordem dos itens">
+            {ORDENS.map((o) => (
+              <button key={o.k} type="button" className={filtro.ordem === o.k ? "on" : ""} aria-pressed={filtro.ordem === o.k} onClick={() => setFiltro((f) => ({ ...f, ordem: o.k }))}>
+                {o.rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {filtrando ? (
         <p className="mut sm le-achados" role="status">
           {achados ? `${achados} ${achados === 1 ? "item" : "itens"} em ${lista.length} ${lista.length === 1 ? "etapa" : "etapas"}` : "Nenhum item encontrado."}
@@ -231,8 +237,11 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
       ) : null}
 
       {podeOrdenar ? <p className="mut sm">Use as setas para pôr as etapas na ordem em que a obra acontece: as compras seguem essa ordem.</p> : null}
-      {vista === "itens" ? (
+      {celular ? (
+        <EtapasCelular obra={obra} lista={lista} versoes={versoes} nomeVersao={nomeVersao} />
+      ) : vista === "itens" ? (
         <TabelaItens
+          pedidos={pedidos.dado ?? []}
           obra={obra}
           lista={lista}
           versoes={versoes}
@@ -447,12 +456,13 @@ function useCelulasItem(obra: Obra, versoes: MapaVersoes) {
       throw e;
     }
   };
-  const qtd = (i: ItemDaEtapa): ReactNode => {
+  /** `comUnidade` falso: a tabela tem a coluna Un. e a quantidade vai sozinha. */
+  const qtd = (i: ItemDaEtapa, comUnidade = true): ReactNode => {
     const v = versoes.get(i.versao_id);
     const texto = (
       <>
         {fmtQtd(i.quantidade)}
-        <span className="eap-un"> {i.unidade}</span>
+        {comUnidade ? <span className="eap-un"> {i.unidade}</span> : null}
       </>
     );
     return qtdEditavel ? (
@@ -488,8 +498,16 @@ function useCelulasItem(obra: Obra, versoes: MapaVersoes) {
 }
 
 /** Descrição do item com a curva, o selo do aditivo e o código da fonte. */
-function DescricaoItem({ i, versoes, nomeVersao }: { i: ItemDaEtapa; versoes: MapaVersoes; nomeVersao: NomeVersao }) {
+function DescricaoItem({ i, versoes, nomeVersao, enxuta = false }: { i: ItemDaEtapa; versoes: MapaVersoes; nomeVersao: NomeVersao; enxuta?: boolean }) {
   const v = versoes.get(i.versao_id);
+  // enxuta (a tabela do computador): só a descrição e o selo do aditivo; curva e código continuam valendo na busca
+  if (enxuta)
+    return (
+      <>
+        {i.descricao}
+        {v?.tipo === "aditivo" ? <span className="pill eap-adt">{nomeVersao(v)}</span> : null}
+      </>
+    );
   return (
     <>
       {i.descricao}
@@ -511,9 +529,29 @@ function DescricaoItem({ i, versoes, nomeVersao }: { i: ItemDaEtapa; versoes: Ma
   );
 }
 
+/** O selo da etapa na coluna Pedidos: quanto do orçado já está comprometido (verde passada a metade, vermelho no estouro). */
+function SeloEtapa({ l }: { l: LinhaAndamento }) {
+  if (!l.comprometido) return null;
+  const tom = l.comprometido > l.atual ? "bad" : l.pct >= 0.5 ? "ok" : s.cinza;
+  return <span className={`pill ${s.pil} ${tom}`}>{l.pct === Infinity ? "sem orçado" : `${Math.round(l.pct * 100)}%`}</span>;
+}
+
+/** O pedido do item que mais pede atenção: atrasado, depois falta aprovar, depois a caminho, depois o que chegou. */
+const PESO: Record<SeloPedido["tom"], number> = { bad: 0, warn: 1, info: 2, ok: 3, neutro: 4 };
+function SeloItem({ ps, hoje }: { ps: Pedido[]; hoje: string }) {
+  if (!ps.length) return null;
+  const [p, selo] = ps.map((x) => [x, seloDoPedido(x, hoje)] as const).sort((a, b) => PESO[a[1].tom] - PESO[b[1].tom])[0]!;
+  return (
+    <span title={`${p.numero} · ${p.fornecedor}${ps.length > 1 ? ` e mais ${ps.length - 1}` : ""}`}>
+      <PilulaPedido selo={selo} curto />
+    </span>
+  );
+}
+
 /**
- * Vista "Itens por etapa" (computador): a planilha numa tabela só, a etapa como linha de grupo com orçado,
- * comprometido e saldo, e os itens embaixo. As setas de ordem ficam na linha da etapa, como na lista.
+ * Vista "Itens por etapa" (computador), como no protótipo: a planilha numa tabela só, a etapa como linha de grupo com
+ * orçado, comprometido, saldo e o % comprometido; os itens embaixo com o comprometido e os pedidos de cada um (ligados
+ * pelo nome enquanto a API não liga item e pedido: ver lib/simulado/orcamento.ts). As setas de ordem ficam na etapa.
  */
 function TabelaItens(props: {
   obra: Obra;
@@ -526,10 +564,12 @@ function TabelaItens(props: {
   movida: string | null;
   guardar: (el: HTMLElement | null) => void;
   vazio: boolean;
+  pedidos: Pedido[];
 }) {
-  const { obra, lista, versoes, nomeVersao, fechada, alternar, ordem, movida, guardar, vazio } = props;
+  const { obra, lista, versoes, nomeVersao, fechada, alternar, ordem, movida, guardar, vazio, pedidos } = props;
   const celulas = useCelulasItem(obra, versoes);
-  const colunas = ordem ? 8 : 7;
+  const colunas = ordem ? 9 : 8;
+  const hoje = hojeSP();
   return (
     <div className={s.tabela} ref={guardar}>
       <table aria-label="Itens do orçamento por etapa">
@@ -552,6 +592,7 @@ function TabelaItens(props: {
             <th scope="col" className={s.num}>
               Saldo
             </th>
+            <th scope="col">Pedidos</th>
             {ordem ? (
               <th scope="col">
                 <span className="sr-only">Ordem</span>
@@ -566,52 +607,59 @@ function TabelaItens(props: {
           const estouro = l.comprometido > l.atual;
           return (
             <tbody key={k}>
-              <tr className={`${s.etapa}${semCompra ? ` ${s.semCompra}` : ""}${estouro ? ` ${s.estouro}` : ""}${movida && movida === l.etapa ? ` ${s.movida} movida` : ""}`}>
+              <tr className={`${s.etapa}${estouro ? ` ${s.estouro}` : ""}${movida && movida === l.etapa ? ` ${s.movida} movida` : ""}`}>
                 <td colSpan={4}>
                   <button type="button" className={s.abrir} aria-expanded={aberta} onClick={() => alternar(k)}>
-                    <Icone nome="chevRight" tam={14} className="le-seta" />
-                    {l.etapa ? <span className="eap-num">{l.etapa}</span> : null}
+                    <Icone nome="chevDown" tam={14} className={s.seta} />
+                    {l.etapa ? `${l.etapa} · ` : ""}
                     {l.descricao}
-                    {itens.length ? <span className="mut sm"> ({itens.filter((i) => i.tipo === "item").length})</span> : null}
                   </button>
                 </td>
-                <td className={s.num}>{l.atual ? fmtReais(l.atual) : "—"}</td>
-                <td className={`${s.num} ${s.comp}`}>
-                  {semCompra ? (
-                    "—"
-                  ) : (
-                    <>
-                      {fmtReais(l.comprometido)}
-                      <span className={s.pct}>{fmtPct(l.pct)}</span>
-                    </>
-                  )}
+                <td className={s.num} title={fmtReais(l.atual)}>
+                  {l.atual ? reaisInteiros(l.atual) : "—"}
                 </td>
-                <td className={`${s.num}${l.saldo < 0 ? " t-neg" : ""}`}>{semCompra ? "—" : fmtReais(l.saldo)}</td>
+                <td className={`${s.num} ${s.comp}`} title={fmtReais(l.comprometido)}>
+                  {semCompra ? "—" : reaisInteiros(l.comprometido)}
+                </td>
+                <td className={`${s.num}${l.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(l.saldo)}>
+                  {semCompra ? reaisInteiros(l.atual) : reaisInteiros(l.saldo)}
+                </td>
+                <td>
+                  <SeloEtapa l={l} />
+                </td>
                 {ordem ? <td className={s.ordem}>{l.semEtapa ? null : ordem(l)}</td> : null}
               </tr>
               {aberta
-                ? itens.map((i) =>
-                    i.tipo === "etapa" ? (
-                      <tr key={i.id} className={s.sub}>
-                        <td colSpan={colunas}>
-                          {i.numero} {i.descricao}
-                        </td>
-                      </tr>
-                    ) : (
+                ? itens.map((i) => {
+                    if (i.tipo === "etapa")
+                      return (
+                        <tr key={i.id} className={s.sub}>
+                          <td colSpan={colunas}>
+                            {i.numero} {i.descricao}
+                          </td>
+                        </tr>
+                      );
+                    const doItem = pedidosDoItem(i, pedidos);
+                    return (
                       <tr key={i.id} className={s.item}>
                         <td className={s.descricao}>
-                          <span className="eap-n">{i.numero}</span> <DescricaoItem i={i} versoes={versoes} nomeVersao={nomeVersao} />
+                          <DescricaoItem i={i} versoes={versoes} nomeVersao={nomeVersao} enxuta />
                         </td>
                         <td>{i.unidade}</td>
-                        <td className={s.num}>{celulas.qtd(i)}</td>
+                        <td className={s.num}>{celulas.qtd(i, false)}</td>
                         <td className={s.num}>{celulas.preco(i)}</td>
-                        <td className={s.num}>{fmtReais(i.total)}</td>
-                        <td />
-                        <td />
+                        <td className={s.num} title={fmtReais(i.total)}>
+                          {reaisInteiros(i.total)}
+                        </td>
+                        <td className={s.num}>{doItem.comprometido ? reaisInteiros(doItem.comprometido) : "—"}</td>
+                        <td className={s.num}>{i.total - doItem.comprometido > 0 ? reaisInteiros(i.total - doItem.comprometido) : "—"}</td>
+                        <td>
+                          <SeloItem ps={doItem.pedidos} hoje={hoje} />
+                        </td>
                         {ordem ? <td /> : null}
                       </tr>
-                    ),
-                  )
+                    );
+                  })
                 : null}
               {aberta && !itens.length ? (
                 <tr>
@@ -634,6 +682,56 @@ function TabelaItens(props: {
         ) : null}
       </table>
     </div>
+  );
+}
+
+/**
+ * Celular, como no protótipo: uma linha por etapa (nome, orçado, barra do comprometido e o %), sem tabela que role de
+ * lado. Tocar abre a etapa ali mesmo com os itens em duas linhas.
+ */
+function EtapasCelular(props: { obra: Obra; lista: EtapaDaLista[]; versoes: MapaVersoes; nomeVersao: NomeVersao }) {
+  const { obra, lista, versoes, nomeVersao } = props;
+  // começa fechada mesmo com uma etapa só: no celular a lista de etapas é a tela, o item é o detalhe
+  const [abertas, setAbertas] = useState<ReadonlySet<string>>(() => new Set());
+  const aberta = (k: string) => abertas.has(k);
+  const alternar = (k: string) =>
+    setAbertas((x) => {
+      const n = new Set(x);
+      if (!n.delete(k)) n.add(k);
+      return n;
+    });
+  return (
+    <ul className={s.etapasCel} aria-label="Etapas do orçamento">
+      {lista.map(({ linha: l, itens, achou }) => {
+        const k = l.semEtapa ? "_sem" : l.etapa;
+        const aberto = achou || aberta(k);
+        const estouro = l.comprometido > l.atual;
+        const largura = l.pct === Infinity ? 100 : Math.min(100, Math.round(l.pct * 100));
+        return (
+          <li key={k}>
+            <button type="button" className={s.etapaCel} aria-expanded={aberto} aria-controls={`etc-${k}`} onClick={() => alternar(k)}>
+              <span className={s.etapaCelLinha}>
+                <b>
+                  {l.etapa ? `${l.etapa} · ` : ""}
+                  {l.descricao}
+                </b>
+                <span className="num">{reaisInteiros(l.atual)}</span>
+                <Icone nome="chevRight" tam={16} className={s.setaCel} />
+              </span>
+              <span className={s.barraCel} aria-hidden="true">
+                <i className={estouro ? s.barraRuim : l.pct >= 0.5 ? s.barraOk : undefined} style={{ width: `${largura}%` }} />
+              </span>
+              <span className={s.metaCel}>{l.pct === Infinity ? "gasto sem orçado" : `${fmtPct(l.pct)} comprometido`}</span>
+            </button>
+            {aberto ? (
+              <div id={`etc-${k}`} className={s.corpoCel}>
+                {itens.length ? <ItensDaEtapa obra={obra} itens={itens} versoes={versoes} nomeVersao={nomeVersao} celular /> : <p className="mut sm">Sem itens nesta etapa.</p>}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

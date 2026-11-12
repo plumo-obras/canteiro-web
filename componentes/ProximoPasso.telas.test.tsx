@@ -50,14 +50,14 @@ describe("faixa no Orçamento", () => {
     expect(faixa).toHaveTextContent("2 itens ainda não foram comprados.");
     expect(screen.getByRole("link", { name: "Comprar o que vem primeiro" })).toHaveAttribute("href", "/?obra=o1&tela=suprimentos");
     // no topo, antes das etapas: no fim da tela ficava a 1.800 px e quem acabava de aprovar não via
-    const etapa = screen.getByText("Estrutura", { selector: "b" });
+    const etapa = screen.getByRole("table");
     expect(faixa.compareDocumentPosition(etapa) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("antes de aprovar não sugere comprar", async () => {
     rede([insumo(1000)]);
     noCasca(<Orcamento obra={obra("em_orcamento")} />);
-    await screen.findByText("Estrutura", { selector: "b" });
+    await screen.findByRole("table");
     expect(screen.queryByRole("region", PASSO)).toBeNull();
   });
 });
