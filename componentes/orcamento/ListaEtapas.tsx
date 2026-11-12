@@ -439,17 +439,20 @@ function ItensDaEtapa({
                   </tr>
                 );
               return (
-                <tr key={i.id}>
+                <tr key={i.id} className={i.fonte === "estimativa" ? "eap-estimado" : undefined}>
                   <td className="eap-n">{i.numero}</td>
                   <td className="eap-d">
                     {i.descricao}
+                    {i.fonte === "estimativa" ? (
+                      <span className="pill estimativa" title="Valor estimado pela IA; vira real quando você detalhar a fase">estimativa</span>
+                    ) : null}
                     {i.curva ? (
                       <span className={`curva c${i.curva}`} title={`Curva ${i.curva}`}>
                         {i.curva}
                       </span>
                     ) : null}
                     {v?.tipo === "aditivo" ? <span className="pill eap-adt">{nomeVersao(v)}</span> : null}
-                    {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
+                    {i.codigo || (i.fonte && i.fonte !== "estimativa") ? <span className="eap-cod">{[i.codigo && `SINAPI ${i.codigo}`, i.fonte !== "estimativa" ? i.fonte : null].filter(Boolean).join(" · ")}</span> : null}
                   </td>
                   <td>{i.unidade}</td>
                   <td className="num">

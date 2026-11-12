@@ -88,6 +88,10 @@ export function Orcamento({ obra }: { obra: Obra }) {
 
   const t = dado?.totais;
   const temOrcamento = !!dado?.versoes.length;
+  // Estimativa × realidade: quanto do orçamento já é real (detalhado) e quanto ainda é estimativa da IA.
+  const estimadoTotal = (dado?.itens ?? []).filter((i) => i.tipo === "item" && i.fonte === "estimativa").reduce((s, i) => s + i.total, 0);
+  const totalOrc = t?.atual ?? 0;
+  const pctReal = totalOrc ? Math.round(((totalOrc - estimadoTotal) / totalOrc) * 100) : 100;
   const [historico, setHistorico] = useState(false);
   // Um botão só no cabeçalho: as ações de arquivo e o histórico vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
   const menu = [
@@ -121,6 +125,20 @@ export function Orcamento({ obra }: { obra: Obra }) {
       ) : null}
 
       {desfazendo ? <AvisoDesfazendo obra={obra} nItens={materiais.length} /> : null}
+
+      {/* Estimativa × realidade: a 1ª previsão é especulação; conforme a pessoa detalha cada fase, vira real. */}
+      {estimadoTotal > 0 ? (
+        <div className="est-resumo">
+          <div className="est-topo">
+            <span><b>{pctReal}% detalhado</b> <span className="mut">· {100 - pctReal}% estimado pela IA</span></span>
+            <span className="mut sm">{fmtReais(estimadoTotal)} em serviços estimados</span>
+          </div>
+          <div className="est-barra" role="progressbar" aria-valuenow={pctReal} aria-valuemin={0} aria-valuemax={100}>
+            <span style={{ width: `${pctReal}%` }} />
+          </div>
+          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da IA (padrão de obra, cruzado com o SINAPI). Conforme você detalha cada fase, viram reais e o cronograma se ajusta.</p>
+        </div>
+      ) : null}
 
       {/* Logo abaixo do cabeçalho, onde estava o Aprovar: no fim da tela ficava a 1.800 px e quem aprovava não via.
           Antes de aprovar, o próximo passo é o próprio Aprovar; comprar só existe depois dele. */}
