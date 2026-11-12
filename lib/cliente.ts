@@ -217,8 +217,8 @@ export const api = {
   orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
   /** Reorganiza os serviços do orçamento em etapas por fase de obra (Fundação, Estrutura... Entrega). */
   organizarFases: (obraId: string) =>
-    semRota(chamar<{ itens: number; fases: string[]; registro_id: string | null }>("POST", `/obras/${seg(obraId)}/orcamento/organizar-fases`, {}),
-            "Organizar o orçamento em fases ainda não está disponível."),
+    semRota(chamar<{ itens: number; estimadas?: number; fases: string[]; registro_id: string | null }>("POST", `/obras/${seg(obraId)}/orcamento/organizar-fases`, {}),
+            "Prever a obra completa ainda não está disponível."),
   /** Contrato ou aditivo. `aplicar: false` é a prévia; com `aplicar: true` a chave de idempotência é obrigatória. */
   versaoOrcamento: (obraId: string, arquivo: File, corpo: CorpoVersao) => {
     const f = new FormData();
