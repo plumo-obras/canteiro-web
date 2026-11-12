@@ -1,0 +1,66 @@
+/* Orçamento: a faixa de números em células, os avisos em etiquetas, a barra de vista e a tabela de itens por etapa. */
+
+/* faixa única: uma grade de células separadas por um fio (o fundo da grade aparece no vão de 1px) */
+.faixa{margin:0 0 14px}
+.celulas{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;margin:0;border-radius:var(--ri);overflow:hidden;border:1px solid var(--edge);background:var(--line2)}
+.celulas>div{display:flex;flex-direction:column;gap:2px;min-width:0;padding:12px 16px;background:var(--cardSolido)}
+.celulas dt{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:500;color:var(--muted)}
+.celulas dd{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin:0;min-width:0}
+.celulas dd :global(.of-valor){font-size:20px}
+.celulas small{font-size:12px;color:var(--faint)}
+.contrato{margin:6px 2px 0;font-size:12px;color:var(--muted)}
+
+/* avisos compactos: pílula com ponto; o texto quebra, a etiqueta não vira um bloco largo */
+.etiquetas{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.etq{display:inline-flex;align-items:flex-start;gap:8px;max-width:100%;margin:0;padding:6px 12px;border-radius:14px;border:1px solid color-mix(in srgb,currentColor 24%,transparent);font-size:var(--t-meta);line-height:1.45}
+.etq b{font-weight:600}
+.bola{flex:0 0 7px;width:7px;height:7px;margin-top:.5em;border-radius:50%;background:currentColor}
+.info{background:var(--blueSoft);color:var(--blueInk)}
+.atencao{background:var(--amberSoft);color:var(--amberInk)}
+.neutro{background:var(--graySoft);color:var(--grayInk)}
+.etqAcao{margin-left:6px;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.etqAcao:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* barra: vista à esquerda, busca e ordem ao lado */
+.barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 12px}
+.barra :global(.seg){margin-top:0}
+.barra>:last-child{flex:1 1 320px;min-width:0}
+
+/* Itens por etapa: tabela enxuta, a etapa como linha de grupo e os itens embaixo */
+.tabela{overflow-x:auto;border-radius:var(--ri);border:1px solid var(--edge);background:var(--cardSolido)}
+.tabela table{width:100%;border-collapse:collapse;font-size:var(--t-meta)}
+.tabela th{position:sticky;top:0;padding:10px 12px;text-align:left;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap;background:var(--sunk);border-bottom:1px solid var(--line2)}
+.tabela td{padding:8px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.tabela tbody:last-child tr:last-child td{border-bottom:0}
+.tabela .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.etapa td{background:var(--sunk);font-weight:600;color:var(--ink)}
+.etapa.semCompra td{color:var(--muted)}
+.etapa.estouro .comp{color:var(--redInk)}
+.etapa.movida td{box-shadow:inset 0 0 0 9999px var(--hover)}
+.etapa.movida td:first-child{box-shadow:inset 3px 0 0 var(--accent),inset 0 0 0 9999px var(--hover)}
+.abrir{display:inline-flex;align-items:center;gap:6px;padding:4px 0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.abrir:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.abrir :global(.le-seta){transition:transform .15s var(--ease)}
+.abrir[aria-expanded=true] :global(.le-seta){transform:rotate(90deg)}
+.pct{display:block;font-size:11px;font-weight:400;color:var(--muted)}
+.item td:first-child{padding-left:34px}
+.sub td{padding-left:34px;font-weight:600;color:var(--ink2);font-size:12px}
+.descricao{min-width:220px}
+.ordem{width:1%;white-space:nowrap}
+.ordem :global(.le-ordem){padding-right:0}
+
+/* celular: o item da planilha em duas linhas, sem tabela */
+.itensCel{list-style:none;margin:0;padding:0;border:1px solid var(--line2);border-radius:var(--ri);background:var(--cardSolido)}
+.itensCel li{display:grid;gap:4px;padding:10px 12px;border-bottom:1px solid var(--line2);font-size:var(--t-meta)}
+.itensCel li:last-child{border-bottom:0}
+.itensCel .valores{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.itensCel .valores b{margin-left:auto}
+.itensCel .subCel{font-weight:600;color:var(--ink2);background:var(--sunk)}
+
+@media (max-width:760px){
+  .celulas{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .celulas>div{padding:10px 12px}
+  .celulas dd :global(.of-valor){font-size:16px}
+  .etq{min-height:44px;align-items:center}
+  .bola{margin-top:0}
+}

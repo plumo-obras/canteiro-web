@@ -56,11 +56,16 @@ export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; 
       return novo;
     });
 
+  // a etapa que vem primeiro na lista: é por ela que a compra começa
+  const primeira = grupos[0];
   return (
-    <section className={`card ${s.bloco}`} aria-labelledby="falta-titulo">
-      <h2 id="falta-titulo" className={s.titulo}>
-        Falta comprar {todos.length ? <small>· {todos.length === 1 ? "1 item" : `${todos.length.toLocaleString("pt-BR")} itens`} do orçamento</small> : null}
-      </h2>
+    <section className={`card ${s.bloco} ${s.falta}`} aria-labelledby="falta-titulo">
+      <div className={s.cabBloco}>
+        <h2 id="falta-titulo" className={s.titulo}>
+          Falta comprar {todos.length ? <small>· {todos.length === 1 ? "1 item" : `${todos.length.toLocaleString("pt-BR")} itens`} do orçamento</small> : null}
+        </h2>
+        {primeira && !recorte && grupos.length > 1 ? <span className={s.meta}>{primeira.nome} vem primeiro</span> : null}
+      </div>
       {!todos.length ? (
         <p className={`mut ${s.vazio}`}>{itens.length ? "Tudo o que a obra precisa já foi comprado ou está a caminho." : "Os itens aparecem aqui quando o orçamento for aprovado."}</p>
       ) : (
@@ -81,9 +86,11 @@ export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; 
                 {g.itens.map((i) => {
                   const conteudo = (
                     <>
-                      <span>{i.insumo.nome}</span>
-                      <span className={`num ${s.qtd}`}>{fmtQtdUn(i.conta.comprar, i.insumo.unidade)}</span>
-                      <span className={`num ${s.valor}`}>{i.insumo.valor_unitario ? fmtReais(valorPeloOrcamento(i)) : "sem preço"}</span>
+                      <span className={s.nome}>{i.insumo.nome}</span>
+                      <span className={s.dir}>
+                        <span className={`num ${s.qtd}`}>{fmtQtdUn(i.conta.comprar, i.insumo.unidade)}</span>
+                        <span className={`num ${s.valor}`}>{i.insumo.valor_unitario ? fmtReais(valorPeloOrcamento(i)) : "sem preço"}</span>
+                      </span>
                     </>
                   );
                   const marcado = ids.has(i.insumo.id);
@@ -103,20 +110,22 @@ export function FaltaComprar(props: { itens: ItemInsumo[]; etapas: EtapaObra[]; 
               </ul>
             </div>
           ))}
-          {n ? (
+          {/* o pé fica no fim do cartão (e preso embaixo ao rolar): o botão do pedido está sempre no mesmo lugar */}
+          {podeOperar ? (
             <div className={s.barra}>
               <p>
-                <b>{n === 1 ? "1 item marcado" : `${n} itens marcados`}</b> <span className="mut">· {fmtReais(total)} pelo orçamento</span>
+                {n ? (
+                  <>
+                    <b>{n === 1 ? "1 item marcado" : `${n} itens marcados`}</b> <span className="mut">· {fmtReais(total)} pelo orçamento</span>
+                  </>
+                ) : (
+                  <span className="mut">Marque o que vai comprar.</span>
+                )}
                 {demais ? <span className="campo-erro"> Até {MAX_LINHAS} itens por pedido.</span> : null}
               </p>
-              <button
-                type="button"
-                className="btn amb"
-                disabled={demais}
-                onClick={() => fazerPedido(marcados)}
-              >
+              <button type="button" className="btn amb" disabled={!n || demais} onClick={() => fazerPedido(marcados)}>
                 <Icone nome="plus" tam={15} />
-                {n === 1 ? "Fazer pedido do item" : `Fazer pedido dos ${n} itens`}
+                {n === 1 ? "Fazer pedido do item" : n ? `Fazer pedido dos ${n} itens` : "Fazer pedido"}
               </button>
             </div>
           ) : null}

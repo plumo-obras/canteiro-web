@@ -59,7 +59,8 @@ describe("Compras", () => {
     const u = userEvent.setup();
     expect(await screen.findByRole("heading", { name: /Falta comprar · 3 itens do orçamento/ })).toBeInTheDocument();
     expect(screen.queryByText("Pago já")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Fazer pedido/ })).toBeNull();
+    // o pé do cartão fica no lugar: sem nada marcado, o botão espera desligado
+    expect(screen.getByRole("button", { name: "Fazer pedido" })).toBeDisabled();
 
     const grupo = screen.getByRole("group", { name: "Serviços preliminares" });
     await u.click(within(grupo).getByRole("checkbox", { name: /Tapume/ }));
@@ -195,8 +196,8 @@ describe("Compras", () => {
     const u = userEvent.setup();
     expect(await screen.findByText(/Termine-o no Orçamento/)).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).toBeNull();
-    await u.click(screen.getByRole("button", { name: "Mais ações de Compras" }));
-    expect(screen.queryByRole("menuitem", { name: "Pedido de item fora do orçamento" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Item fora do orçamento" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Fazer pedido/ })).toBeNull();
   });
 
   it("a etapa da linha vem do item e pode ser trocada no pedido", async () => {
@@ -258,17 +259,19 @@ describe("Compras", () => {
     expect(corpos[1]!.chave_idempotencia).toBe(corpos[0]!.chave_idempotencia);
   });
 
-  it("estoque e fornecedores ficam no ⋯; viewer vê tudo sem marcar nem Chegou", async () => {
+  it("estoque e fornecedores são abas de Compras; viewer vê tudo sem marcar nem Chegou", async () => {
     montar({}, { ...USUARIO, papel: "viewer" });
     const u = userEvent.setup();
     await screen.findByRole("heading", { name: /Falta comprar/ });
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Chegou: PED-0001" })).toBeNull();
 
-    await u.click(screen.getByRole("button", { name: "Mais ações de Compras" }));
-    await u.click(screen.getByRole("menuitem", { name: "Estoque: entradas e saídas" }));
-    expect(screen.getByRole("heading", { name: "Estoque" })).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "← Compras" }));
+    expect(screen.queryByRole("button", { name: "Item fora do orçamento" })).toBeNull();
+
+    await u.click(screen.getByRole("tab", { name: "Estoque" }));
+    expect(screen.getByRole("tab", { name: "Estoque" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("heading", { name: /Falta comprar/ })).toBeNull();
+    await u.click(screen.getByRole("tab", { name: /^Comprar/ }));
     expect(await screen.findByRole("heading", { name: /Falta comprar/ })).toBeInTheDocument();
   });
 });

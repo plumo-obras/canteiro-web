@@ -1,8 +1,8 @@
 "use client";
 /**
- * Compras: marcar o que falta comprar do orçamento, fazer o pedido e dizer quando chegou. Estoque (entradas, saídas,
- * contagem) e fornecedores ficam no "⋯": são consulta, não o trabalho do dia. A tela carrega uma vez o que as seções
- * usam, e a "versão" da casca recarrega tudo depois de cada escrita.
+ * Compras: marcar o que falta comprar do orçamento, fazer o pedido e dizer quando chegou. Três abas internas: Comprar
+ * (o trabalho do dia: o que falta ao lado dos pedidos), Estoque (entradas, saídas, contagem) e Fornecedores. A tela
+ * carrega uma vez o que as seções usam, e a "versão" da casca recarrega tudo depois de cada escrita.
  */
 import { useEffect, useRef, useState } from "react";
 import type { EtapaObra, Fornecedor, ItemInsumo, Obra } from "@/lib/contrato";
@@ -22,6 +22,8 @@ import { ModalNovoItem } from "./suprimentos/ModalNovoItem";
 import { ModalPedidoMarcados } from "./suprimentos/ModalPedidoMarcados";
 import { ABERTOS, ListaPedidos } from "./suprimentos/Pedidos";
 import { BaseOrcamento } from "./cronograma/BaseOrcamento";
+import { BotaoPlumo } from "./BotaoPlumo";
+import s from "./suprimentos/compras.module.css";
 
 type Secao = "compras" | "estoque" | "fornecedores";
 
@@ -54,9 +56,17 @@ export function Suprimentos({ obra }: { obra: Obra }) {
   );
   const [itens, pedidos, etapas, fornecedores] = dado ?? [[], [], [], []];
 
+  const nFalta = itens.filter((i) => i.conta.comprar > 0).length;
   const acao =
-    podeOperar && dado && secao !== "compras" ? (
-      secao === "fornecedores" ? (
+    podeOperar && dado ? (
+      secao === "compras" ? (
+        desfazendo ? null : (
+          <button type="button" className="btn" onClick={() => setLancando({ tipo: "pedido" })}>
+            <Icone nome="plus" tam={15} />
+            Item fora do orçamento
+          </button>
+        )
+      ) : secao === "fornecedores" ? (
         <button type="button" className="btn amb" onClick={() => setModal({ k: "fornecedor" })}>
           <Icone nome="plus" tam={15} />
           Novo fornecedor
@@ -67,31 +77,52 @@ export function Suprimentos({ obra }: { obra: Obra }) {
         </button>
       ) : null
     ) : null;
-  const menu =
-    secao === "compras"
-      ? [
-          ...(podeOperar && dado && !desfazendo ? [{ rotulo: "Pedido de item fora do orçamento", acao: () => setLancando({ tipo: "pedido" }) }] : []),
-          { rotulo: "Estoque: entradas e saídas", acao: () => setSecao("estoque") },
-          { rotulo: "Fornecedores", acao: () => setSecao("fornecedores") },
-        ]
-      : secao === "estoque" && podeOperar && dado
-        ? [{ rotulo: "Novo item", acao: () => setModal({ k: "item" }) }]
-        : [];
+  const menu = secao === "estoque" && podeOperar && dado ? [{ rotulo: "Novo item", acao: () => setModal({ k: "item" }) }] : [];
+  const SECOES: { k: Secao; rotulo: string; n?: number }[] = [
+    { k: "compras", rotulo: "Comprar", n: nFalta },
+    { k: "estoque", rotulo: "Estoque" },
+    { k: "fornecedores", rotulo: "Fornecedores" },
+  ];
+  const abas = (
+    <div className="seg" role="tablist" aria-label="Seções de Compras">
+      {SECOES.map((x) => (
+        <button
+          key={x.k}
+          type="button"
+          role="tab"
+          aria-selected={secao === x.k}
+          aria-label={x.n ? `${x.rotulo} (${x.n})` : x.rotulo}
+          className={secao === x.k ? "on" : ""}
+          onClick={() => setSecao(x.k)}
+        >
+          {x.rotulo}
+          {x.n ? <small className="seg-n">{x.n.toLocaleString("pt-BR")}</small> : null}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="page">
       <CabecalhoPagina
-        titulo={secao === "compras" ? "Compras" : secao === "estoque" ? "Estoque" : "Fornecedores"}
-        sub={secao === "compras" ? "Marque o que vai comprar do orçamento e faça o pedido." : undefined}
-        acao={acao}
+        titulo="Compras"
+        sub={
+          secao === "compras"
+            ? "O que falta comprar sai do orçamento aprovado, na ordem das etapas."
+            : secao === "estoque"
+              ? "Entradas, saídas e contagem do que está na obra."
+              : "Quem fornece para a obra."
+        }
+        acao={
+          <>
+            {secao === "compras" ? <BotaoPlumo rotulo="Perguntar ao Plumo" /> : null}
+            {acao}
+          </>
+        }
         menu={menu}
         rotuloMenu="Mais ações de Compras"
+        barra={abas}
       />
-      {secao !== "compras" ? (
-        <button type="button" className="voltar-link" onClick={() => setSecao("compras")}>
-          ← Compras
-        </button>
-      ) : null}
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -105,12 +136,11 @@ export function Suprimentos({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         secao === "compras" ? (
-          <>
+          // lado a lado no computador: o que falta (a coluna larga) e os pedidos em cartões; no celular, um embaixo do outro
+          <div className={s.duas}>
             <FaltaComprar key={pedidosFeitos} itens={itens} etapas={etapas} fazerPedido={setMarcados} desfazendo={desfazendo} etapa={etapaRecorte} verTudo={() => setEtapaRecorte(null)} />
             <ListaPedidos obra={obra} pedidos={pedidos} itens={itens} etapas={etapas} fornecedores={fornecedores} />
-            {/* a base: os serviços de cada etapa do orçamento, para ver de onde vem cada compra sem voltar ao Orçamento */}
-            <BaseOrcamento obraId={obra.id} />
-          </>
+          </div>
         ) : secao === "estoque" ? (
           <Itens obra={obra} itens={itens} etapas={etapas} lancar={setLancando} lancando={!!lancando} />
         ) : (

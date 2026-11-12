@@ -1,0 +1,4 @@
+/* ocre suave: secundário, mas reconhecível como o caminho para o Plumo */
+.plumo{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accentInk);box-shadow:none}
+@media (hover:hover){ .plumo:hover{background:var(--accentSoft);border-color:var(--accent)} }
+@media (max-width:760px){ .plumo{display:none} }

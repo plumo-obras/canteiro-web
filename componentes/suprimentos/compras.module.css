@@ -1,35 +1,46 @@
-/* Compras: a lista do que falta, por etapa, com a barra do pedido; e os pedidos em dois estados. */
-.bloco{padding:0;margin-top:var(--s4)}
-.titulo{font-size:var(--t-bloco);margin:0;padding:18px 20px 8px}
+/* Compras: a lista do que falta, por etapa, com o pé do pedido; ao lado, os pedidos em cartões. */
+.duas{display:flex;flex-wrap:wrap;align-items:flex-start;gap:18px;margin-top:var(--s2)}
+.bloco{padding:0}
+.falta{flex:999 1 560px;min-width:0;display:flex;flex-direction:column}
+.cabBloco{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.falta .cabBloco{padding:18px 20px 8px}
+.titulo{font-size:var(--t-bloco);margin:0;flex:1 1 auto}
 .titulo small{font:400 var(--t-body) var(--sans);color:var(--muted)}
+.meta{font-size:var(--t-meta);color:var(--muted)}
 .vazio{padding:4px 20px 20px;margin:0}
 
 .recorte{margin:0;padding:0 20px 4px}
 .grupo{margin:0;padding:14px 20px 6px;font-size:var(--t-meta);font-weight:600;color:var(--muted)}
 .lista{list-style:none;margin:0;padding:0}
-.linha{display:grid;grid-template-columns:22px minmax(0,1fr) 110px 150px;gap:14px;align-items:center;padding:12px 20px;border-top:1px solid var(--line2);cursor:pointer}
+.linha{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 20px;border-top:1px solid var(--line2);cursor:pointer}
 .linha input{width:18px;height:18px;margin:0;accent-color:var(--accentInk)}
 .linha.marcada{background:var(--accentSoft)}
-.linha.leitura{grid-template-columns:minmax(0,1fr) 110px 150px;cursor:default}
-.qtd{text-align:right;color:var(--muted)}
-.valor{text-align:right}
+.linha.leitura{grid-template-columns:minmax(0,1fr) auto;cursor:default}
+.nome{min-width:0;font-weight:500}
+.dir{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
+.qtd{color:var(--ink2)}
+.valor{font-size:12px;color:var(--muted)}
 
-.barra{position:sticky;bottom:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid var(--line);
+/* o pé do cartão: no fim dele e preso embaixo ao rolar uma lista longa */
+.barra{position:sticky;bottom:0;margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid var(--line);
   background:var(--cardSolido);border-radius:0 0 var(--r) var(--r)}
 .barra p{margin:0}
 
-.pedidos{list-style:none;margin:0;padding:0}
-.ped{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 140px minmax(170px,1fr) 150px;gap:14px;align-items:center;padding:14px 20px;border-top:1px solid var(--line2)}
-.pedItem{display:grid;gap:2px;min-width:0}
-.pedAbrir{border:0;background:none;padding:0;color:var(--ink);font:inherit;font-weight:600;text-align:left;cursor:pointer}
+/* pedidos: coluna estreita de cartões, status no selo, a ação certa embaixo */
+.colPedidos{flex:1 1 320px;max-width:420px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.colPedidos .cabBloco{padding:18px 4px 0}
+.vazioPed{margin:0;padding:14px 16px}
+.pedidos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.ped{display:flex;flex-direction:column;gap:4px;padding:12px 14px;margin:0}
+.pedTopo{display:flex;align-items:flex-start;gap:8px}
+.pedTopo :global(.pill){flex:none;margin-left:auto}
+.pedAbrir{flex:1 1 auto;min-width:0;border:0;background:none;padding:0;color:var(--ink);font:inherit;font-weight:600;text-align:left;cursor:pointer;overflow-wrap:anywhere}
 @media (hover:hover){.pedAbrir:hover{color:var(--accentInk)}}
 .pedAbrir:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.pedForn{min-width:0;overflow-wrap:anywhere}
-.pedValor{text-align:right}
-.pedAcoes{display:flex;align-items:center;justify-content:flex-end;gap:6px}
-.ped :global(.pill){justify-self:start}
-.cancelados{padding:0 20px 12px}
-.cancelados .pedidos{margin:0 -20px}
+.pedMeta{font-size:var(--t-meta);color:var(--muted);min-width:0}
+.pedForn{overflow-wrap:anywhere}
+.pedAcoes{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px}
+.cancelados{padding:0 4px 12px}
 
 /* o pedido dos itens marcados */
 .fornecedores{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
@@ -47,15 +58,14 @@
 .nota{margin:12px 0 0}
 
 @media (max-width:760px){
-  .linha{grid-template-columns:22px minmax(0,1fr) auto;padding:12px 16px;min-height:44px}
-  .linha.leitura{grid-template-columns:minmax(0,1fr) auto}
-  .linha .valor{grid-column:2/-1;text-align:left;color:var(--muted);font-size:var(--t-meta)}
-  .linha.leitura .valor{grid-column:1/-1}
+  .duas{gap:14px}
+  .colPedidos{max-width:none}
+  .linha{padding:12px 16px;min-height:44px}
   .barra{padding:12px 16px}
-  .barra :global(.btn){width:100%}
-  .ped{grid-template-columns:minmax(0,1fr);padding:14px 16px;gap:6px}
-  .pedValor{text-align:left}
-  .pedAcoes{justify-content:flex-start}
+  .barra :global(.btn){box-sizing:border-box;width:100%}
+  .ped{padding:14px 16px}
+  /* os botões do cartão dividem a largura; o "⋯" fica do tamanho dele */
+  .pedAcoes>:global(.btn){flex:1 1 0;min-height:44px}
   .linhaPed{grid-template-columns:repeat(2,minmax(0,1fr))}
   .linhaPed.cab{display:none}
   .nomePed,.total{grid-column:1/-1}

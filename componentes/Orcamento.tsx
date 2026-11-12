@@ -5,7 +5,7 @@
  * vêm prontas da API (GET /obras/{id}/orcamento), a tela só agrupa e filtra o que já chegou. Comprometido e Realizado
  * dependem de pedidos e notas, então só aparecem quando a obra estiver andando: aqui não se inventa número.
  */
-import { useState } from "react";
+import { Children, useState, type ReactNode } from "react";
 import type { Obra, Orcamento as DadosOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtReais } from "@/lib/formato";
@@ -23,7 +23,9 @@ import { MenuMais } from "./MenuMais";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
 import { Ajuda } from "./Ajuda";
 import { ProximoPasso } from "./ProximoPasso";
+import { BotaoPlumo } from "./BotaoPlumo";
 import { situacao } from "./suprimentos/Itens";
+import s from "./orcamento/orcamento.module.css";
 
 
 export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Orçamento inicial" : `${v.numero}º aditivo`);
@@ -101,23 +103,41 @@ export function Orcamento({ obra }: { obra: Obra }) {
     ...(dado && dado.versoes.length ? [{ rotulo: "Histórico de versões", acao: () => setHistorico(true) }] : []),
   ];
 
+  const vigentes = dado?.versoes.filter((v) => v.ativa) ?? [];
+  const nAditivos = vigentes.filter((v) => v.tipo === "aditivo").length;
+  const contrato = vigentes.find((v) => v.tipo === "contrato");
+  const ultimaData = vigentes.map((v) => v.data ?? "").sort().at(-1);
+  // A linha de contexto diz qual orçamento é este (inicial + aditivos) e de quando; o estado já está no selo.
+  const contexto = temOrcamento
+    ? [
+        `${contrato ? rotuloVersao(contrato) || "Orçamento inicial" : "Orçamento"}${nAditivos ? ` + ${plural(nAditivos, "aditivo", "aditivos")}` : ""}`,
+        ultimaData ? `atualizado em ${fmtData(ultimaData)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
+
   return (
     <div className="page">
       <CabecalhoPagina
         titulo="Orçamento"
         selo={dado ? <span className={`pill ${emOrcamento || desfazendo ? "st-orc" : "st-ok"}`}>{desfazendo ? "desfazendo a aprovação" : !emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
+        sub={contexto}
         acao={
-          podeOperar && podeAprovar ? (
-            <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
-              <Icone nome="check" tam={15} />
-              Aprovar
-            </button>
-          ) : null
+          <>
+            <BotaoPlumo rotulo="Perguntar ao Plumo" />
+            {podeOperar && podeAprovar ? (
+              <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
+                <Icone nome="check" tam={15} />
+                Aprovar orçamento
+              </button>
+            ) : null}
+          </>
         }
         menu={menu}
         rotuloMenu="Mais ações do orçamento"
-        {...(t && temOrcamento ? numerosOrcamento(t, obra) : {})}
       />
+      {t && temOrcamento ? <FaixaOrcamento t={t} obra={obra} /> : null}
       {historico && dado ? (
         <Drawer titulo="Histórico de versões" fechar={() => setHistorico(false)}>
           <Versoes versoes={dado.versoes} atual={dado.totais.atual} todas />
@@ -186,37 +206,28 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         <>
-          {soDasPranchas(dado.versoes) ? (
-            <div className="aviso-atencao" role="note">
-              <Icone nome="alert" tam={15} />
-              <div>
-                <p>
-                  <b>Este orçamento tem só o que as pranchas trazem: estrutura e fundações.</b> Cobertura, piso, instalações e mão de obra ainda não estão nele.
-                  {podeOperar && emOrcamento ? " Para completar, some a planilha da obra a ele." : ""}
-                </p>
+          <Etiquetas>
+            {soDasPranchas(dado.versoes) ? (
+              <Etiqueta tom="info">
+                Tem só o que as pranchas trazem: estrutura e fundações. Cobertura, piso, instalações e mão de obra ainda não estão nele.
                 {/* direto ao somar: é o caminho de quem quer completar, sem a pergunta "o que é esta planilha" */}
                 {podeOperar && emOrcamento ? (
-                  <button type="button" className="btn sm" onClick={() => setModal("somar")}>
+                  <button type="button" className={s.etqAcao} onClick={() => setModal("somar")}>
                     Somar a planilha da obra
                   </button>
                 ) : null}
-              </div>
-            </div>
-          ) : null}
-          {nSemPreco ? (
-            <div className="aviso-atencao" role="note">
-              <Icone nome="alert" tam={15} />
-              <p>
-                <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}.</b> {nSemPreco === 1 ? "Ele entra" : "Eles entram"} com R$ 0,00, e o orçado atual fica abaixo do custo real.
+              </Etiqueta>
+            ) : null}
+            {nSemPreco ? (
+              <Etiqueta tom="atencao">
+                <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}</b>: {nSemPreco === 1 ? "entra" : "entram"} com R$ 0,00 e o orçado atual fica abaixo do custo real.
                 {podeOperar && !desfazendo ? " Toque no preço, na linha do item, para preencher." : ""}
-              </p>
-            </div>
-          ) : null}
-          {emOrcamento ? (
-            <p className="mut sm">
-              Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
-            </p>
-          ) : null}
+              </Etiqueta>
+            ) : null}
+            {emOrcamento ? (
+              <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.</Etiqueta>
+            ) : null}
+          </Etiquetas>
           {dado.etapas.length ? <ResumoOrcamento orc={dado} /> : null}
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
           <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
@@ -337,10 +348,10 @@ function Valor({ c, classe = "" }: { c: number; classe?: string }) {
 }
 
 /**
- * Os números do Orçamento na faixa do cabeçalho: o orçado atual grande (com a pílula do aditivo, o detalhe num toque)
- * e comprometido · realizado · saldo embaixo. A linha do contrato fecha a faixa.
+ * Os quatro números do Orçamento numa faixa só, cada um na sua célula: orçado atual (com inicial + aditivos embaixo e
+ * o selo do aditivo, o detalhe num toque), comprometido, realizado e saldo. A linha do contrato fecha a faixa.
  */
-function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros" | "rodapeNumeros"> {
+function FaixaOrcamento({ t, obra }: { t: DadosOrcamento["totais"]; obra: Obra }) {
   const saldo = t.saldo;
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
   const verba = tagVerba(t.atual, obra.verba);
@@ -348,46 +359,84 @@ function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Paramet
   const pilula = t.aditivos ? `${fmtPctAditivo(t.aditivos_pct)} aditivo` : verba && verba.texto !== "bate com o contrato" ? verba.texto : null;
   // O vermelho é da comparação com o valor fechado; no selo de aditivo, o % é só informação.
   const acima = !t.aditivos && verba?.tom === "acima";
-  return {
-    principal: {
-      rotulo: "Orçado atual",
-      valor: fmtReais(t.atual),
-      tag: pilula ? (
-        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${acima ? " t-acima" : ""}`}>
-          Orçamento inicial {fmtReais(t.contratado)}
-          {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
-          {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}
-        </Ajuda>
-      ) : undefined,
-    },
-    numeros: [
-      { rotulo: "Comprometido", valor: <Valor c={t.comprometido} />, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` },
-      {
-        rotulo: (
-          <>
-            <span className="fx-rt">Realizado</span>
+  const contrato = textoContrato(obra);
+  return (
+    <section className={s.faixa} aria-label="Resumo do orçamento">
+      <dl className={s.celulas}>
+        <div>
+          <dt>Orçado atual</dt>
+          <dd>
+            <Valor c={t.atual} />
+            {pilula ? (
+              <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${acima ? " t-acima" : ""}`}>
+                Orçamento inicial {fmtReais(t.contratado)}
+                {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
+                {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}
+              </Ajuda>
+            ) : null}
+          </dd>
+          {t.aditivos ? (
+            <small>
+              inicial <span className="fx-nw">{fmtReais(t.contratado)}</span> {t.aditivos < 0 ? "−" : "+"} aditivos{" "}
+              <span className="fx-nw">{fmtReais(Math.abs(t.aditivos))}</span>
+            </small>
+          ) : null}
+        </div>
+        <div>
+          <dt>Comprometido</dt>
+          <dd>
+            <Valor c={t.comprometido} />
+          </dd>
+          <small>{pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado</small>
+        </div>
+        <div>
+          <dt>
+            Realizado
             <Ajuda rotulo="o realizado">
-              Compras e serviços recebidos, pelo preço do pedido. O orçado é preço de contrato (com BDI e mão de obra), então o realizado de uma etapa não é o
-              % executado dela: a medição física fica no Cronograma.
+              Compras e serviços recebidos, pelo preço do pedido. O orçado é preço de contrato (com BDI e mão de obra), então o realizado de uma etapa não é o %
+              executado dela: a medição física fica no Cronograma.
             </Ajuda>
-          </>
-        ),
-        valor: <Valor c={t.realizado} />,
-      },
-      { rotulo: "Saldo", valor: <Valor c={saldo} classe={saldo < 0 ? "t-neg" : ""} /> },
-    ],
-    // cada valor numa peça sem quebra ("R$ 2.035.001,59" nunca parte); quem quebra é o separador
-    rodapeNumeros: textoContrato(obra)
-      ? textoContrato(obra)
-          .split(" · ")
-          .map((t, i) => (
+          </dt>
+          <dd>
+            <Valor c={t.realizado} />
+          </dd>
+        </div>
+        <div>
+          <dt>Saldo a comprometer</dt>
+          <dd>
+            <Valor c={saldo} classe={saldo < 0 ? "t-neg" : ""} />
+          </dd>
+        </div>
+      </dl>
+      {/* cada valor numa peça sem quebra ("R$ 2.035.001,59" nunca parte); quem quebra é o separador */}
+      {contrato ? (
+        <p className={s.contrato}>
+          {contrato.split(" · ").map((x, i) => (
             <span key={i}>
               {i ? " · " : ""}
-              <span className="fx-nw">{t}</span>
+              <span className="fx-nw">{x}</span>
             </span>
-          ))
-      : undefined,
-  };
+          ))}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/** Os avisos da tela em etiquetas curtas, numa linha que quebra: avisam sem empurrar a planilha para baixo. */
+function Etiquetas({ children }: { children: ReactNode }) {
+  const itens = Children.toArray(children).filter(Boolean);
+  return itens.length ? <div className={s.etiquetas}>{itens}</div> : null;
+}
+
+function Etiqueta({ tom, children }: { tom: "info" | "atencao" | "neutro"; children: ReactNode }) {
+  return (
+    // a dica neutra não é aviso: só o que pede atenção é anunciado como nota
+    <p className={`${s.etq} ${s[tom]}`} role={tom === "neutro" ? undefined : "note"}>
+      <span className={s.bola} aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
 }
 
 /** Os dados do contrato à vista, só leitura (antes ficavam na linha de dados da obra): o engenheiro consulta sem abrir a edição. */

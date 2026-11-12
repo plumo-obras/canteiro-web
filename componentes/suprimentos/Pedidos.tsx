@@ -161,27 +161,32 @@ function LinhaDoPedido({ p, etapas, abrir }: { p: Pedido; etapas: EtapaObra[]; a
     }
   };
 
+  // Aprovar é a decisão que espera alguém: vai em ocre. Chegou e o resto são registro do que já aconteceu.
+  const destaque = pri?.tipo === "avancar" && pri.para === "aprovado";
   return (
-    <li className={s.ped}>
-      <div className={s.pedItem}>
+    <li className={`card ${s.ped}`}>
+      <div className={s.pedTopo}>
         <button type="button" className={s.pedAbrir} onClick={abrir}>
           {r.primeira}
           {r.mais ? ` + ${r.mais} ${r.mais === 1 ? "item" : "itens"}` : ""}
         </button>
-        <span className="mut sm">{[etapa, `pedido em ${fDiaMes.format(new Date(p.criado_em))}`].filter(Boolean).join(" · ")}</span>
+        <span className={`pill ${est.tom}`}>{est.texto}</span>
       </div>
-      <span className={s.pedForn}>{p.fornecedor}</span>
-      <span className={`num ${s.pedValor}`}>{fmtReais(p.valor)}</span>
-      <span className={`pill ${est.tom}`}>{est.texto}</span>
-      <div className={s.pedAcoes}>
-        {pri ? (
-          <button type="button" className="btn sm" disabled={ocupado} aria-busy={ocupado} aria-label={`${pri.rotulo}: ${p.numero}`} onClick={() => executar(pri)}>
-            {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
-            {pri.rotulo}
-          </button>
-        ) : null}
-        {resto.length ? <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((a) => ({ rotulo: a.rotulo, acao: () => void executar(a) }))} /> : null}
-      </div>
+      <span className={s.pedMeta}>
+        {p.numero} · <span className={s.pedForn}>{p.fornecedor}</span> · <span className="num">{fmtReais(p.valor)}</span>
+      </span>
+      <span className={s.pedMeta}>{[etapa, `pedido em ${fDiaMes.format(new Date(p.criado_em))}`].filter(Boolean).join(" · ")}</span>
+      {pri || resto.length ? (
+        <div className={s.pedAcoes}>
+          {pri ? (
+            <button type="button" className={`btn sm${destaque ? " amb" : ""}`} disabled={ocupado} aria-busy={ocupado} aria-label={`${pri.rotulo}: ${p.numero}`} onClick={() => executar(pri)}>
+              {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
+              {pri.rotulo}
+            </button>
+          ) : null}
+          {resto.length ? <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((a) => ({ rotulo: a.rotulo, acao: () => void executar(a) }))} /> : null}
+        </div>
+      ) : null}
       {detalhe === "entrega" ? <ModalRecebimento pedido={p} fechar={() => setDetalhe(null)} /> : null}
       {detalhe === "encerrar" ? <ConfirmarEncerrar pedido={p} fechar={() => setDetalhe(null)} /> : null}
     </li>
@@ -200,11 +205,14 @@ export function ListaPedidos(props: Contexto & { pedidos: Pedido[] }) {
   const lista = [...pedidos, ...(chegaram.itens ?? [])];
   const linha = (p: Pedido) => <LinhaDoPedido key={p.id} p={p} etapas={ctx.etapas} abrir={() => setAberto(p)} />;
   return (
-    <section className={`card ${s.bloco}`} aria-labelledby="pedidos-titulo">
-      <h2 id="pedidos-titulo" className={s.titulo}>
-        Pedidos
-      </h2>
-      {lista.length ? <ul className={s.pedidos}>{lista.map(linha)}</ul> : <p className={`mut ${s.vazio}`}>Nenhum pedido ainda. Marque acima o que vai comprar.</p>}
+    <section className={s.colPedidos} aria-labelledby="pedidos-titulo">
+      <div className={s.cabBloco}>
+        <h2 id="pedidos-titulo" className={s.titulo}>
+          Pedidos
+        </h2>
+        {pedidos.length ? <span className={s.meta}>{pedidos.length === 1 ? "1 em aberto" : `${pedidos.length.toLocaleString("pt-BR")} em aberto`}</span> : null}
+      </div>
+      {lista.length ? <ul className={s.pedidos}>{lista.map(linha)}</ul> : <p className={`card mut ${s.vazioPed}`}>Nenhum pedido ainda. Marque o que vai comprar e faça o pedido.</p>}
       {!chegaram.acabou && chegaram.itens?.length ? <BotaoMais acabou={chegaram.acabou} buscando={chegaram.buscando} carregarMais={chegaram.carregarMais} rotulo="Mostrar mais antigos" /> : null}
       {cancelados.itens?.length ? (
         <details className={`cobertos ${s.cancelados}`}>
