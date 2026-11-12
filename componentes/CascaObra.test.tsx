@@ -5,7 +5,7 @@ import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
 import { Casca, lerPainel } from "./Casca";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 
 const obra = (id: string, nome: string): Obra =>
   ({ id, tenant_id: "t-1", criado_em: "", nome, cidade: "", cep: "", status: "em_andamento" }) as unknown as Obra;

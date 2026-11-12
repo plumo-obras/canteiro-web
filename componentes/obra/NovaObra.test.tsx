@@ -6,7 +6,7 @@ import { criarRede, json, renovarOk, USUARIO } from "@/testes/rede";
 import { NovaObra } from "./NovaObra";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push }) }));
 
 beforeEach(() => {
   limparSessao();
