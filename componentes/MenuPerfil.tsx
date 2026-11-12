@@ -5,7 +5,9 @@
  */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import type { Usuario } from "@/lib/contrato";
+import { sair } from "@/lib/sessao";
 import { Icone } from "./Icone";
 import { trocarTema, useTema } from "./tema";
 
@@ -56,8 +58,11 @@ function ItemTemaMenu() {
   );
 }
 
-export function MenuPerfil({ usuario, sair }: { usuario: Usuario; sair: () => void }) {
+/** Sair mora aqui (e não numa prop) para nenhuma tela esquecer de voltar ao login depois de encerrar a sessão. */
+export function MenuPerfil({ usuario }: { usuario: Usuario }) {
   const { aberto, setAberto, caixa, tecla } = useMenu();
+  const router = useRouter();
+  const naConta = usePathname() === "/conta";
   const PAPEL = { viewer: "leitura", admin: "admin", master: "master" } as const;
   return (
     <div className="perfil" ref={caixa} onKeyDown={tecla}>
@@ -78,12 +83,21 @@ export function MenuPerfil({ usuario, sair }: { usuario: Usuario; sair: () => vo
           <div className="pop-sec" aria-hidden="true">
             {usuario.nome} · {PAPEL[usuario.papel]}
           </div>
-          <Link href="/conta" role="menuitem" tabIndex={-1}>
+          {/* já em /conta a navegação não desmonta o menu: fecha à mão */}
+          <Link href="/conta" role="menuitem" tabIndex={-1} aria-current={naConta ? "page" : undefined} onClick={() => setAberto(false)}>
             <Icone nome="user" tam={15} />
             Conta e créditos
           </Link>
           <ItemTemaMenu />
-          <button type="button" role="menuitem" tabIndex={-1} onClick={sair}>
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={async () => {
+              await sair();
+              router.replace("/entrar");
+            }}
+          >
             <Icone nome="logout" tam={15} />
             Sair
           </button>

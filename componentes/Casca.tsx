@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import type { Obra, ResumoDaObra, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { formatarHistorico } from "@/lib/historico";
-import { sair } from "@/lib/sessao";
 import { Aprovacoes } from "./Aprovacoes";
 import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
 import { Conversa } from "./Conversa";
@@ -94,8 +93,6 @@ export function lerPainel() {
     return false;
   }
 }
-
-/** Fecha o menu ao clicar fora ou apertar Esc (devolvendo o foco ao botão que abriu); setas andam entre os itens. */
 
 function App({ usuario }: { usuario: Usuario }) {
   const { demo, versao, cartoes, receberPropostas, registrarNavegacao, podeOperar, fecharAvisoFixo } = useCasca();
@@ -354,10 +351,6 @@ function App({ usuario }: { usuario: Usuario }) {
         demo={demo}
         abrirDados={() => setDadosObra(true)}
         inerte={movel && gaveta}
-        sair={async () => {
-          await sair();
-          router.replace("/entrar");
-        }}
       />
       <nav className="trilho" aria-label="Atalhos">
         <Link href="/inicio" className="tr-btn" aria-label="Início" title="Início">
@@ -649,7 +642,6 @@ function Topo(p: {
   demo: boolean;
   abrirDados: () => void;
   inerte: boolean;
-  sair: () => void;
 }) {
   const { obra, tela } = p;
   const nav = useRef<HTMLDivElement>(null);
@@ -741,7 +733,7 @@ function Topo(p: {
             {ROTULOS.conversa.rotulo}
           </button>
         ) : null}
-        <MenuPerfil usuario={p.usuario} sair={p.sair} />
+        <MenuPerfil usuario={p.usuario} />
       </div>
     </header>
   );
@@ -853,5 +845,3 @@ function SeletorObra({ obras, obra, resumo, trocar }: { obras: Obra[]; obra: Obr
     </div>
   );
 }
-
-

@@ -96,6 +96,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .perfil{position:relative}
 .ca-menu-pop.perfil-pop{top:calc(100% + 8px);bottom:auto;left:auto;right:0;min-width:240px;transform-origin:top right}
 .perfil-pop [role=menuitem]{white-space:nowrap}
+@media (max-width:760px){ .perfil-pop [role=menuitem]{min-height:44px} }
 .sp{flex:1}
 
 /* ---------- trilho ---------- */

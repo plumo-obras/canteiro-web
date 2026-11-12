@@ -7,11 +7,9 @@
  */
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Usuario } from "@/lib/contrato";
 import { ProvedorCasca } from "../contexto";
 import { Icone, Logo } from "../Icone";
-import { sair } from "@/lib/sessao";
 import { MenuPerfil } from "../MenuPerfil";
 import { useSessaoGarantida } from "../useSessaoGarantida";
 import s from "./moldura.module.css";
@@ -20,7 +18,6 @@ export type Rota = "inicio" | "conta";
 
 export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; children: (u: Usuario) => ReactNode }) {
   const usuario = useSessaoGarantida();
-  const router = useRouter();
 
   if (!usuario) {
     return (
@@ -54,13 +51,7 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
               <Icone nome="message" tam={15} />
               <span className={s.workT}>Abrir workspace</span>
             </Link>
-            <MenuPerfil
-              usuario={usuario}
-              sair={async () => {
-                await sair();
-                router.replace("/entrar");
-              }}
-            />
+            <MenuPerfil usuario={usuario} />
           </div>
         </header>
         <main className={s.conteudo}>{children(usuario)}</main>
