@@ -99,7 +99,7 @@ export function Gastos({ obra }: { obra: Obra }) {
       {celular ? (
         <button type="button" className={s.fotografar} onClick={() => setEnviando(true)}>
           <span className={s.fotografarIc} aria-hidden="true">
-            <Icone nome="recibo" tam={20} />
+            <Icone nome="camera" tam={20} />
           </span>
           <span className={s.fotografarTexto}>
             <b>Fotografar comprovante</b>

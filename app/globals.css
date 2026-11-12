@@ -1237,10 +1237,7 @@ polyline.cs-base{fill:none;stroke:var(--faint);stroke-width:1.25;opacity:.8}
   .med-t{flex:1 1 100%}
 }
 
-/* ---------------- Cronograma: Gantt e cartões do celular ---------------- */
-.gantt-cab{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:24px 0 10px}
-.gantt-cab .sectit{margin:0 auto 0 0}
-.gantt-cab .seg{margin-top:0}
+/* ---------------- Cronograma: Gantt (no celular a lista mora em cronograma.module.css) ---------------- */
 .gantt{--esq:250px;--dir:210px;position:relative;border-radius:var(--r);background:var(--cardSolido);border:1px solid var(--edge);box-shadow:var(--hl);overflow-x:auto}
 .g-l{display:grid;grid-template-columns:var(--esq) minmax(calc(var(--n) * 40px),1fr) var(--dir);align-items:center;min-height:46px;border-bottom:1px solid var(--line2)}
 .g-l:last-of-type{border-bottom:0}
@@ -1278,38 +1275,21 @@ button.g-nome{cursor:pointer}
 .g-i-prev{background:var(--blue)}
 .g-i-med{background:var(--accent)}
 .g-dica{position:absolute;z-index:6;transform:translate(-50%,calc(-100% - 8px));padding:6px 10px;border-radius:10px;background:var(--cardSolido);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadowUp,0 8px 24px rgba(0,0,0,.25));font-size:12px;white-space:nowrap;pointer-events:none}
-.gantt-cartoes{display:none;list-style:none;margin:0;padding:0}
 .tbl-g-etapa{font-size:var(--t-meta)}
 .tbl-g-etapa tr.mut td{color:var(--muted)}
 @media (max-width:1179px){ .gantt{--esq:210px;--dir:190px} }
 @media (max-width:759px){
   .gantt{display:none}
-  .gantt-cartoes{display:grid;gap:8px}
-  .gantt-cab .sectit{flex:1 1 100%}
-  .g-cartao{display:flex;flex-direction:column;gap:8px;width:100%;padding:12px 14px;border-radius:var(--ri);border:1px solid var(--edge);background:var(--cardSolido);color:var(--ink);font:inherit;text-align:left}
-  .g-c-cab{display:flex;align-items:center;gap:8px;min-width:0}
-  .g-c-cab .g-n{flex:1;font-size:var(--t-body)}
-  .g-prog{position:relative;display:block;height:8px;border-radius:99px;background:var(--line2);overflow:hidden}
-  .g-prog-prev{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--blue) 45%,transparent);border-radius:99px}
-  .g-prog-med{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:99px}
-  .g-c-pe{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--ink2)}
 }
 .g-head{min-height:44px}
 .g-mes.hoje{display:flex;flex-direction:column;align-items:center;line-height:1.1}
 .g-mes.hoje small{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
-@media (max-width:759px){
-  .gantt-cartoes li{min-width:0}
-  .g-cartao{min-width:0;overflow:hidden}
-  .g-c-cab .g-n{min-width:0}
-}
 /* HOJE: uma linha fina no fim do mês da última medição, não mais a coluna inteira pintada. */
 .g-hoje{justify-self:end;width:2px;margin-right:-1px;background:var(--accent);box-shadow:none;opacity:.75;z-index:3}
 .g-mes.hoje{color:var(--accentInk)}
 .tbl-g-rola{border-radius:var(--ri)}
 .tbl-g-etapa{font-size:var(--t-meta);min-width:440px}
 .tbl-g-etapa th{white-space:normal;line-height:1.25}
-.gantt-cartoes-vazio{display:none}
-@media (max-width:759px){ .gantt-cartoes-vazio{display:block;margin:4px 0 0} }
 .g-tot{font-size:10.5px}
 .g-tot .g-tot-prev{font-weight:500;color:var(--ink)}
 @media (max-width:760px){
@@ -1323,19 +1303,7 @@ button.g-nome{cursor:pointer}
   .tbl-g-etapa th:first-child,.tbl-g-etapa td:first-child{padding-left:8px}
   .tbl-g-etapa th:last-child,.tbl-g-etapa td:last-child{padding-right:8px}
 }
-.g-grupo{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-@media (max-width:759px){
-  .gantt-cartoes{display:grid;gap:12px}
-  .g-grupo-rec>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;cursor:pointer;font-weight:600;font-size:var(--t-meta);color:var(--ink2);list-style:none}
-  .g-grupo-rec>summary::-webkit-details-marker{display:none}
-  .g-grupo-rec>summary::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s var(--ease)}
-  .g-grupo-rec[open]>summary::before{transform:rotate(45deg)}
-}
 @media (max-width:760px){
-  /* filtro do cronograma: ocupa a largura, botões dividem por igual, nada cortado (e rola se a fonte for grande) */
-  .gantt-cab .seg{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
-  .gantt-cab .seg::-webkit-scrollbar{display:none}
-  .gantt-cab .seg button{flex:1 0 auto;padding:0 10px;font-size:13px;white-space:nowrap}
   /* gaveta do cronograma: R$ sem corte */
   .tbl-g-etapa td{white-space:nowrap}
 }
@@ -1368,7 +1336,6 @@ button.g-nome{cursor:pointer}
 .g-l{min-height:50px}
 .g-sit{flex-wrap:wrap;row-gap:2px}
 .g-conta{white-space:normal}
-.gantt-cab .filtros{margin:0}
 @media (max-width:1179px){ .gantt{--esq:240px;--dir:180px} }
 .g-dica{z-index:70;white-space:normal;max-width:min(360px,calc(100vw - 16px))}
 

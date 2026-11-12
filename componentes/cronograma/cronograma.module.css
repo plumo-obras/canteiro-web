@@ -4,8 +4,6 @@
 .linhaPrazo b { font-weight: 600; color: var(--ink); }
 
 /* o convite à conversa: secundário, em ocre suave (a ação principal é a medição) */
-.btPlumo { color: var(--accentInk); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accentSoft); }
-@media (hover: hover) { .btPlumo:hover { color: var(--accentInk); background: color-mix(in srgb, var(--accent) 24%, transparent); } }
 
 .legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 10px 2px 0; }
 .legenda > span { display: inline-flex; align-items: center; gap: 6px; }

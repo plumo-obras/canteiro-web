@@ -15,6 +15,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { CartaoProposta } from "../CartaoProposta";
 import { BaseOrcamento } from "./BaseOrcamento";
 import { Modal } from "../Dialogo";
+import { BotaoPlumo } from "../BotaoPlumo";
 import { Icone } from "../Icone";
 import { useCelular } from "../midia";
 import { ProximoPasso } from "../ProximoPasso";
@@ -214,10 +215,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
             <>
               {/* no celular o convite à conversa vai para o pé da lista, grande */}
               {!celular ? (
-                <button type="button" className={`btn ${c.btPlumo}`} onClick={conversar}>
-                  <Icone nome="spark" tam={15} />
-                  Atualizar o andamento conversando
-                </button>
+                <BotaoPlumo rotulo="Atualizar o andamento conversando" />
               ) : null}
               {podeOperar ? (
                 <button type="button" className="btn amb" onClick={() => setModal("medicao")}>
