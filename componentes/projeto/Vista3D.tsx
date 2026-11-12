@@ -3,8 +3,10 @@
  * O esqueleto da obra em 3D a partir do modelo do tradutor (contrato 1.0: só caixas e prismas, em cm, z para cima).
  * O three.js só é baixado quando esta tela abre: o resto do app não paga pelo peso dele.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Elemento3D, Modelo3D, TipoElemento } from "@/lib/tradutor";
+import { Icone } from "../Icone";
+import { useCelular } from "../midia";
 import s from "./projeto.module.css";
 
 type Camada = TipoElemento | "morre" | "solo";
@@ -50,6 +52,11 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
   const [visiveis, setVisiveis] = useState<Record<Camada, boolean>>({ sapata: true, pilar: true, morre: true, viga: true, laje: true, solo: true });
   const [sel, setSel] = useState<Elemento3D | null>(null);
   const [falhou, setFalhou] = useState(false);
+  // as camadas cobrem um canto do modelo: abertas no computador, recolhidas no celular (onde a tela é o modelo)
+  const celular = useCelular();
+  const [verCamadas, setVerCamadas] = useState<boolean | null>(null);
+  const camadasAbertas = verCamadas ?? !celular;
+  const idCamadas = useId();
   // a cena só é montada uma vez por modelo; o callback mais novo fica no ref
   const aoEscolherRef = useRef(aoEscolher);
   useEffect(() => {
@@ -226,41 +233,52 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
 
   return (
     <section className={s.vista} aria-label="Estrutura da obra em 3D">
-      <div className={s.camadas}>
-        {presentes.map((c) => (
-          <label key={c}>
-            <input
-              type="checkbox"
-              checked={visiveis[c]}
-              onChange={(e) => {
-                setVisiveis((v) => ({ ...v, [c]: e.target.checked }));
-                ctl.current?.mostrar(c, e.target.checked);
-              }}
-            />
-            <span className={s.amostra} style={{ background: `#${CORES[c].toString(16).padStart(6, "0")}` }} />
-            {ROTULO[c]}
-          </label>
-        ))}
-        <span className={`seg seg-pq ${s.vistas}`} role="group" aria-label="Câmera">
-          {(["3d", "topo", "frente"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={camera === v}
-              className={camera === v ? "on" : ""}
-              onClick={() => {
-                setCamera(v);
-                ctl.current?.vista(v);
-              }}
-            >
-              {v === "3d" ? "Perspectiva" : v === "topo" ? "Topo" : "Frente"}
-            </button>
-          ))}
+      <div ref={palco} className={s.palco}>
+        <span className={s.dica}>
+          {celular ? "Arraste para girar · pinça para aproximar · toque num elemento" : "Arraste para girar · role para aproximar · botão direito para mover · clique num elemento"}
         </span>
       </div>
-      <div ref={palco} className={s.palco}>
-        <span className={s.dica}>Arraste para girar · role para aproximar · botão direito para mover · clique num elemento</span>
+      <div className={s.camadas3d}>
+        <button type="button" className={s.camadasB} aria-expanded={camadasAbertas} aria-controls={idCamadas} onClick={() => setVerCamadas(!camadasAbertas)}>
+          Camadas
+          <Icone nome="chevDown" tam={14} className={s.setaCamadas} />
+        </button>
+        {camadasAbertas ? (
+          <fieldset id={idCamadas} className={s.listaCamadas}>
+            <legend className="sr-only">Camadas visíveis no 3D</legend>
+            {presentes.map((c) => (
+              <label key={c}>
+                <input
+                  type="checkbox"
+                  checked={visiveis[c]}
+                  onChange={(e) => {
+                    setVisiveis((v) => ({ ...v, [c]: e.target.checked }));
+                    ctl.current?.mostrar(c, e.target.checked);
+                  }}
+                />
+                <span className={s.amostra} style={{ background: `#${CORES[c].toString(16).padStart(6, "0")}` }} />
+                {ROTULO[c]}
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
       </div>
+      <span className={`seg seg-pq ${s.cameras}`} role="group" aria-label="Câmera">
+        {(["3d", "topo", "frente"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={camera === v}
+            className={camera === v ? "on" : ""}
+            onClick={() => {
+              setCamera(v);
+              ctl.current?.vista(v);
+            }}
+          >
+            {v === "3d" ? "Perspectiva" : v === "topo" ? "Planta" : "Frente"}
+          </button>
+        ))}
+      </span>
       {sel ? (
         <div className={s.ficha} role="status">
           <h4>

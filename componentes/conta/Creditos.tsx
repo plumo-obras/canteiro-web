@@ -30,12 +30,12 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
 
   return (
     <section className={className} aria-labelledby="t-creditos">
-      <div className={s.cabBloco}>
+      <div className={s.cabCartao}>
         <h2 id="t-creditos" className={s.h2}>
-          Créditos de IA
+          Créditos e uso de IA
         </h2>
         <div className={s.comprar}>
-          <button type="button" className="btn" aria-expanded={emBreve} aria-controls={idBreve} onClick={() => setEmBreve((v) => !v)}>
+          <button type="button" className="btn sm" aria-expanded={emBreve} aria-controls={idBreve} onClick={() => setEmBreve((v) => !v)}>
             Comprar créditos
             <span className={s.breve}>em breve</span>
           </button>
@@ -51,13 +51,16 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
         </div>
       ) : null}
 
-      <div className={s.saldo}>
+      {/* Os três números numa faixa: o que sobra, quanto da franquia já foi e o gasto do período do gráfico. */}
+      <div className={s.numeros}>
         <div>
-          <div className={s.rotuloPeq}>Saldo</div>
-          <div className={s.grande}>{fmtDolares(saldo)}</div>
-          <div className={s.diz}>de {fmtDolares(franquia)} de franquia</div>
+          <span className={s.rotuloPeq}>Saldo</span>
+          <b className={s.grande}>{fmtDolares(saldo)}</b>
+          <span className={s.diz}>de {fmtDolares(franquia)} de franquia</span>
         </div>
-        <div className={s.medidor}>
+        <div>
+          <span className={s.rotuloPeq}>Franquia usada</span>
+          <b className={s.grande}>{pct}%</b>
           <div
             className={s.barra}
             data-nivel={nivel}
@@ -70,18 +73,16 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
           >
             <span style={{ width: `${pct}%` }} />
           </div>
-          <div className={s.legBarra}>
-            <span>
-              <b>{fmtDolares(usado)}</b> usados
-            </span>
-            <span>{pct}%</span>
-          </div>
+          <span className={s.diz}>{fmtDolares(usado)} usados</span>
+        </div>
+        <div>
+          <span className={s.rotuloPeq}>Últimos 30 dias</span>
+          <b className={s.grande}>{r ? fmtDolares(r.total.custo) : "…"}</b>
+          <span className={s.diz}>{r ? `${fmtTokens(r.total.tokens)} tokens` : "carregando"}</span>
         </div>
       </div>
       {chaveAtiva ? (
-        <p className={s.texto}>
-          A chave própria está ativa: as conversas são cobradas pela Anthropic e não descontam deste saldo.
-        </p>
+        <p className={s.meta}>A chave própria está ativa: as conversas são cobradas pela Anthropic e não descontam deste saldo.</p>
       ) : saldo <= 0 ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -89,43 +90,36 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
         </div>
       ) : null}
 
-      <div className={s.consumo}>
-        <div className={s.cabBloco}>
-          <h3 className={s.h3}>Consumo nos últimos 30 dias</h3>
-          {r ? (
-            <span className={s.total}>
-              <b>{fmtDolares(r.total.custo)}</b> · {fmtTokens(r.total.tokens)} tokens
-            </span>
-          ) : null}
+      {uso.erro && !r ? (
+        <div className="aviso-erro" role="alert">
+          <Icone nome="alert" tam={15} />
+          Não consegui carregar o consumo: {uso.erro}
         </div>
-        {uso.erro && !r ? (
-          <div className="aviso-erro" role="alert">
-            <Icone nome="alert" tam={15} />
-            Não consegui carregar o consumo: {uso.erro}
-          </div>
-        ) : !r ? (
-          <div className="carregando" role="status">
-            <Icone nome="loader" className="spin" tam={15} />
-            Carregando o consumo…
-          </div>
-        ) : (
-          <>
+      ) : !r ? (
+        <div className="carregando" role="status">
+          <Icone nome="loader" className="spin" tam={15} />
+          Carregando o consumo…
+        </div>
+      ) : (
+        <div className={s.uso}>
+          <div className={s.usoDias}>
+            <h3 className={s.h4}>Por dia</h3>
             <GraficoDias dias={dias} r={r} />
-            <div className={s.listas}>
-              <Lista
-                titulo="Por obra"
-                total={r.total.custo}
-                itens={r.por_obra.map((x) => ({ k: x.obra_id ?? "-", nome: nomeObra(x.obra_id), custo: x.custo }))}
-              />
-              <Lista
-                titulo="Por rota"
-                total={r.total.custo}
-                itens={r.por_rota.map((x) => ({ k: x.rota, nome: rotuloRota(x.rota), custo: x.custo }))}
-              />
-            </div>
-          </>
-        )}
-      </div>
+          </div>
+          <div className={s.usoListas}>
+            <Lista
+              titulo="Por obra"
+              total={r.total.custo}
+              itens={r.por_obra.map((x) => ({ k: x.obra_id ?? "-", nome: nomeObra(x.obra_id), custo: x.custo }))}
+            />
+            <Lista
+              titulo="Por rota"
+              total={r.total.custo}
+              itens={r.por_rota.map((x) => ({ k: x.rota, nome: rotuloRota(x.rota), custo: x.custo }))}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -157,24 +151,33 @@ function GraficoDias({ dias, r }: { dias: string[]; r: RelatorioUso }) {
     }
   };
 
+  // o pico ganha cor cheia e o valor escrito: é o dia que explica o total
+  const pico = serie.reduce((m, d, i) => (d.custo > (serie[m]?.custo ?? 0) ? i : m), 0);
+  const temPico = serie[pico]!.custo > 0;
+  const ladoDe = (i: number) => (i < serie.length * 0.25 ? "dir" : i > serie.length * 0.75 ? "esq" : "meio");
+  const meio = Math.floor(dias.length / 2);
+
   return (
     <figure className={s.grafico}>
       <div className={s.eixoY} aria-hidden="true">
         <span>{fmtDolares(max)}</span>
+        <span>{fmtDolares(max / 2)}</span>
         <span>US$ 0</span>
       </div>
       <div
         className={s.plot}
         tabIndex={0}
         role="img"
-        aria-label={`Consumo por dia. Maior dia: ${fmtDolares(max)}. Use as setas para ver cada dia.`}
+        aria-label={`Consumo por dia, de ${diaCurto(dias[0]!)} a ${diaCurto(dias.at(-1)!)}.${
+          temPico ? ` Pico de ${fmtDolares(serie[pico]!.custo)} em ${diaCurto(serie[pico]!.dia)}.` : " Sem consumo no período."
+        } Use as setas para ver cada dia.`}
         onPointerMove={mover}
         onPointerLeave={() => setFoco(null)}
         onKeyDown={tecla}
         onBlur={() => setFoco(null)}
       >
         {serie.map((d, i) => (
-          <span key={d.dia} className={s.col} data-on={foco === i || undefined}>
+          <span key={d.dia} className={s.col} data-on={foco === i || undefined} data-pico={(temPico && i === pico) || undefined}>
             <span className={s.barraDia} data-zero={d.custo === 0 || undefined} style={{ height: d.custo ? `${Math.max(3, (d.custo / max) * 100)}%` : undefined }} />
           </span>
         ))}
@@ -187,12 +190,16 @@ function GraficoDias({ dias, r }: { dias: string[]; r: RelatorioUso }) {
           >
             <b>{diaCurto(atual.dia)}</b> {atual.custo ? `${fmtDolares(atual.custo)} · ${fmtTokens(atual.tokens)} tokens` : "sem consumo"}
           </span>
+        ) : temPico ? (
+          <span className={s.rotPico} aria-hidden="true" data-lado={ladoDe(pico)} style={{ left: `${((pico + 0.5) / serie.length) * 100}%` }}>
+            pico <b>{fmtDolares(serie[pico]!.custo)}</b> · {diaCurto(serie[pico]!.dia)}
+          </span>
         ) : null}
       </div>
       <div className={s.eixoX} aria-hidden="true">
         <span>{diaCurto(dias[0]!)}</span>
-        <span>{diaCurto(dias[Math.floor(dias.length / 2)]!)}</span>
-        <span>hoje</span>
+        <span>{diaCurto(dias[meio]!)}</span>
+        <span>{diaCurto(dias.at(-1)!)}</span>
       </div>
       <table className="sr-only">
         <caption>Consumo de IA por dia</caption>
@@ -219,24 +226,26 @@ function GraficoDias({ dias, r }: { dias: string[]; r: RelatorioUso }) {
   );
 }
 
+/** Barras deitadas: o maior item enche o trilho, os outros na proporção dele (o % do total vai no texto). */
 function Lista({ titulo, total, itens }: { titulo: string; total: number; itens: { k: string; nome: string; custo: number }[] }) {
+  const maior = Math.max(...itens.map((x) => x.custo), 1);
   return (
     <div>
       <h4 className={s.h4}>{titulo}</h4>
       {itens.length ? (
-        <ul className={s.lista}>
+        <ul className={s.barrasH}>
           {itens.map((x) => {
             const pct = total ? Math.round((x.custo / total) * 100) : 0;
             return (
               <li key={x.k}>
-                <div className={s.itemT}>
-                  <span className={s.itemNome}>{x.nome}</span>
-                  <span>
-                    {fmtDolares(x.custo)} <span className={s.diz}>· {pct}%</span>
-                  </span>
-                </div>
+                <span className={s.itemNome} title={x.nome}>
+                  {x.nome}
+                </span>
                 <span className={s.trilho} aria-hidden="true">
-                  <span style={{ width: `${Math.max(pct, 1)}%` }} />
+                  <span style={{ width: `${Math.max((x.custo / maior) * 100, 2)}%` }} />
+                </span>
+                <span className={s.itemValor}>
+                  {fmtDolares(x.custo)} <span className={s.diz}>· {pct}%</span>
                 </span>
               </li>
             );

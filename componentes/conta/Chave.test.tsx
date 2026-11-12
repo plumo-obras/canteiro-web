@@ -54,6 +54,6 @@ describe("chave própria da Anthropic", () => {
 
   it("mostra quem conectou a chave", () => {
     montar({ situacao: { ativa: true, final: "abcd", cadastrada_em: null, conectada_por: "Marina Duarte" }, podeTrocar: false });
-    expect(screen.getByText(/conectada por Marina Duarte/)).toBeTruthy();
+    expect(screen.getByText(/por Marina Duarte/)).toBeTruthy();
   });
 });

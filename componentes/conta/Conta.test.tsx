@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Papel } from "@/lib/contrato";
 import { ProvedorCasca } from "../contexto";
 import { criarRede, json, USUARIO } from "@/testes/rede";
 import { Conta } from "./Conta";
 
-vi.mock("@/lib/sessao", () => ({ comAcesso: (u: string, i: RequestInit) => fetch(u, i), trocarSenha: vi.fn() }));
+const sair = vi.hoisted(() => vi.fn());
+const replace = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sessao", () => ({ comAcesso: (u: string, i: RequestInit) => fetch(u, i), trocarSenha: vi.fn(), sair }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 afterEach(() => vi.unstubAllGlobals());
 
 const CREDITOS = { saldo_microdolares: 15_000_000, franquia: 20_000_000, chave_propria: false, usuario_id: "u-1", tenant_id: "t-1" };
@@ -46,5 +50,19 @@ describe("/conta: quem troca a chave da Anthropic", () => {
     const chave = await screen.findByRole("button", { name: "Conectar chave" });
     const senha = screen.getByRole("button", { name: "Trocar senha" });
     expect(chave.compareDocumentPosition(senha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("/conta no celular", () => {
+  it("Trocar senha, Tema e Sair viram uma lista; Sair volta ao login", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 760px"), addEventListener() {}, removeEventListener() {} }));
+    sair.mockResolvedValue(undefined);
+    montar("admin");
+    const lista = await screen.findByRole("group", { name: "Opções da conta" });
+    expect(within(lista).getByRole("button", { name: "Trocar senha" })).toBeTruthy();
+    expect(within(lista).getByRole("button", { name: /^Tema/ })).toBeTruthy();
+    await userEvent.click(within(lista).getByRole("button", { name: "Sair" }));
+    expect(sair).toHaveBeenCalled();
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/entrar"));
   });
 });

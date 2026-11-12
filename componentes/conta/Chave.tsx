@@ -74,105 +74,46 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
   };
 
   const final = situacao?.final?.replace(/^…/, "");
+  const quem = [situacao?.conectada_por ? `por ${situacao.conectada_por}` : "", situacao?.cadastrada_em ? fmtDiaHora(situacao.cadastrada_em) : ""]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <section className={props.className} aria-labelledby="t-chave">
-      <h2 id="t-chave" className={s.h2}>
-        Chave própria da Anthropic
-      </h2>
-      <p className={s.situacao} data-ativa={ativa}>
-        <span className={s.sinal} aria-hidden="true" />
-        {ativa ? (
-          <span>
-            <b>Ativa</b>, termina em <code className={s.final}>…{final}</code>
-            {situacao?.conectada_por || situacao?.cadastrada_em ? (
-              <span className={s.diz}>
-                {" · conectada"}
-                {situacao.conectada_por ? ` por ${situacao.conectada_por}` : ""}
-                {situacao.cadastrada_em ? ` em ${fmtDiaHora(situacao.cadastrada_em)}` : ""}
-              </span>
-            ) : null}
-          </span>
-        ) : (
-          <span>
-            <b>Nenhuma chave conectada.</b> As conversas usam os créditos da empresa.
-          </span>
-        )}
+      <div className={s.cabCartao}>
+        <h2 id="t-chave" className={s.h2}>
+          Chave da Anthropic
+        </h2>
+        <span className={s.selo} data-tom={ativa ? "ok" : "neutro"}>
+          {ativa ? "Ativa" : "Não conectada"}
+        </span>
+      </div>
+      <p className={s.meta}>
+        {ativa
+          ? "O Plumo usa esta chave: as conversas são cobradas pela Anthropic e não descontam os créditos da empresa."
+          : "Nenhuma chave conectada. As conversas usam os créditos da empresa."}
       </p>
-      {/* Estado + um botão; o formulário só aparece quando a pessoa vai conectar ou trocar. */}
-      {podeTrocar && !aberto ? (
-        <div className={s.acoesChave}>
-          <button type="button" className="btn" onClick={() => setAberto(true)}>
-            {ativa ? "Trocar chave" : "Conectar chave"}
-          </button>
-          {ativa ? (
-            <button type="button" className={`btn ${s.remover}`} onClick={() => setRemover(true)} disabled={ocupado}>
-              Remover chave
-            </button>
-          ) : null}
-        </div>
-      ) : podeTrocar ? (
-        <form className={s.form} onSubmit={salvar} noValidate>
-          <label className={s.rotulo} htmlFor="chave-anthropic">
-            {ativa ? "Trocar por outra chave" : "Colar a chave"}
-          </label>
-          <div className={s.linha}>
-            <input
-              ref={campo}
-              id="chave-anthropic"
-              className={`f ${s.campo}`}
-              type="password"
-              name="chave-anthropic"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              data-1p-ignore
-              data-lpignore="true"
-              placeholder="sk-ant-…"
-              value={valor}
-              onChange={(e) => {
-                setValor(e.target.value);
-                if (erro) setErro(null);
-              }}
-              aria-invalid={!!erro}
-              aria-describedby={erro ? "erro-chave" : "dica-chave"}
-            />
-            <button type="submit" className="btn pri" disabled={ocupado || !valor} aria-busy={ocupado}>
-              {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
-              {/* a API confere a chave na Anthropic antes de guardar: pode levar alguns segundos */}
-              {ocupado ? "Conferindo…" : ativa ? "Trocar chave" : "Conectar chave"}
-            </button>
+      {ativa ? (
+        <dl className={s.dados}>
+          <div>
+            <dt>Termina em</dt>
+            <dd>
+              <code className={s.final}>…{final}</code>
+            </dd>
           </div>
-          {erro ? (
-            <div id="erro-chave" className="campo-erro" role="alert">
-              {erro}
+          {quem ? (
+            <div>
+              <dt>Conectada</dt>
+              <dd>{quem}</dd>
             </div>
-          ) : (
-            <div id="dica-chave" className={s.dica}>
-              A chave é guardada cifrada e nunca mais aparece na tela, nem para você.
-            </div>
-          )}
-          <button
-            type="button"
-            className="link"
-            onClick={() => {
-              setAberto(false);
-              setValor("");
-              setErro(null);
-            }}
-          >
-            Cancelar
-          </button>
-        </form>
-      ) : (
-        <p className={s.so}>
-          <Icone nome="info" tam={15} />
-          Só admin ou master conecta, troca ou remove a chave.
-        </p>
-      )}
+          ) : null}
+        </dl>
+      ) : null}
 
       <details className={s.como}>
-        <summary>Como conseguir a chave</summary>
+        <summary>
+          Como conseguir a chave
+          <Icone nome="chevDown" tam={15} className={s.seta} />
+        </summary>
         <p className={s.texto}>
           Com uma chave própria, o Plumo usa a sua conta da Anthropic e não desconta créditos; a cobrança vem da Anthropic direto para você.
         </p>
@@ -181,6 +122,81 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
           assinatura Pro ou Max do Claude não serve.
         </p>
       </details>
+
+      {/* O pé do cartão: os botões, o formulário que entra no lugar deles ou o aviso de quem só lê. */}
+      <div className={s.pe}>
+        {podeTrocar && !aberto ? (
+          <div className={s.acoesChave}>
+            <button type="button" className="btn" onClick={() => setAberto(true)}>
+              {ativa ? "Trocar chave" : "Conectar chave"}
+            </button>
+            {ativa ? (
+              <button type="button" className={`btn ${s.remover}`} onClick={() => setRemover(true)} disabled={ocupado}>
+                Remover chave
+              </button>
+            ) : null}
+          </div>
+        ) : podeTrocar ? (
+          <form className={s.form} onSubmit={salvar} noValidate>
+            <label className={s.rotulo} htmlFor="chave-anthropic">
+              {ativa ? "Trocar por outra chave" : "Colar a chave"}
+            </label>
+            <div className={s.linha}>
+              <input
+                ref={campo}
+                id="chave-anthropic"
+                className={`f ${s.campo}`}
+                type="password"
+                name="chave-anthropic"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-1p-ignore
+                data-lpignore="true"
+                placeholder="sk-ant-…"
+                value={valor}
+                onChange={(e) => {
+                  setValor(e.target.value);
+                  if (erro) setErro(null);
+                }}
+                aria-invalid={!!erro}
+                aria-describedby={erro ? "erro-chave" : "dica-chave"}
+              />
+              <button type="submit" className="btn pri" disabled={ocupado || !valor} aria-busy={ocupado}>
+                {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
+                {/* a API confere a chave na Anthropic antes de guardar: pode levar alguns segundos */}
+                {ocupado ? "Conferindo…" : ativa ? "Trocar chave" : "Conectar chave"}
+              </button>
+            </div>
+            {erro ? (
+              <div id="erro-chave" className="campo-erro" role="alert">
+                {erro}
+              </div>
+            ) : (
+              <div id="dica-chave" className={s.dica}>
+                A chave é guardada cifrada e nunca mais aparece na tela, nem para você.
+              </div>
+            )}
+            <button
+              type="button"
+              className={`link ${s.cancelar}`}
+              onClick={() => {
+                setAberto(false);
+                setValor("");
+                setErro(null);
+              }}
+            >
+              Cancelar
+            </button>
+          </form>
+        ) : (
+          <p className={s.so}>
+            <Icone nome="info" tam={15} />
+            Só admin ou master conecta, troca ou remove a chave.
+          </p>
+        )}
+      </div>
 
       {remover ? (
         <Modal

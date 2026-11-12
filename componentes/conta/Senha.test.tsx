@@ -19,7 +19,7 @@ function montar() {
 }
 
 const abrir = () => userEvent.click(screen.getByRole("button", { name: "Trocar senha" }));
-const enviar = () => screen.getByRole("button", { name: "Trocar senha" }) as HTMLButtonElement;
+const enviar = () => screen.getByRole("button", { name: "Salvar a nova senha" }) as HTMLButtonElement;
 const atual = () => screen.getByLabelText("Senha atual") as HTMLInputElement;
 const nova = () => screen.getByLabelText("Nova senha") as HTMLInputElement;
 const confirmar = () => screen.getByLabelText("Confirmar a nova senha") as HTMLInputElement;

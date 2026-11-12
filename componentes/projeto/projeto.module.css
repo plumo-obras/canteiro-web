@@ -1,19 +1,25 @@
-/* Projeto 3D: uma mesa de trabalho. À esquerda, a estrutura (3D ou o CAD) ocupando a altura da tela; à direita, o
-   painel do pacote (o que já veio, o que falta, conferências, folhas), que rola sozinho. Nada pede rolar a página
-   para chegar ao modelo. No celular, a vista vem primeiro e o painel desce. */
+/* Projeto: uma mesa de trabalho. O modelo (3D, CAD ou os dois lado a lado) ocupa a maior parte, na altura da tela; à
+   esquerda, uma coluna compacta com a disciplina Estrutura (pacote, materiais, conferências, folhas e o envio), que
+   rola sozinha. Nada pede rolar a página para chegar ao modelo. No celular, a vista vem primeiro e a coluna desce. */
 .tela{display:flex;flex-direction:column;gap:0;--mesaAlt:clamp(520px,calc(100dvh - 210px),980px)}
 .mesaCheia{grid-template-columns:minmax(0,1fr)!important}
-.mesa{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:var(--s4);margin-top:var(--s4);align-items:stretch}
-@media (min-width:1481px){.mesa{grid-template-columns:minmax(0,1fr) 420px}}
+.mesa{display:grid;grid-template-columns:340px minmax(0,1fr);gap:var(--s4);margin-top:var(--s4);align-items:stretch}
+@media (min-width:1481px){.mesa{grid-template-columns:380px minmax(0,1fr)}}
+.lado{display:flex;flex-direction:column;gap:8px;min-width:0;height:var(--mesaAlt)}
+.lado[hidden]{display:none}
 
 /* ---- a vista ---- */
 .visor{display:flex;flex-direction:column;gap:10px;min-width:0;height:var(--mesaAlt)}
 .visorCab{display:flex;align-items:center;gap:12px;min-height:38px;flex-wrap:wrap}
 .visorCab :global(.seg){margin-top:0}
+.visorT{font-size:var(--t-body);font-weight:600}
+.soComputador{font-size:var(--t-meta);color:var(--muted);margin-left:auto}
+/* lado a lado: o 3D e o CAD dividem a largura, cada um com o próprio cartão */
+.visorCorpo.visorLado{flex-direction:row;gap:var(--s3)}
+.visorLado>*{flex:1 1 0;min-width:0}
 .selecao{display:inline-flex;align-items:center;gap:10px;font-size:var(--t-meta);color:var(--ink2);min-width:0}
 .selecao b{font:600 var(--t-body) var(--mono);color:var(--ink);padding:2px 10px;border-radius:var(--rp);background:var(--accentSoft)}
 .mostrarPacote{margin-left:auto}
-.painel[hidden]{display:none}
 .dicaVista{font-size:var(--t-meta);color:var(--muted);min-width:0}
 .visorCorpo{flex:1;min-height:0;display:flex;flex-direction:column}
 .visorVazio{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--s4);justify-content:center;align-items:stretch;
@@ -47,14 +53,26 @@
 .semCad small{color:var(--muted);font-size:12px}
 .avisoCad{color:var(--ink2);font-size:var(--t-meta);flex:1;min-width:0}
 
-/* ---- o painel do pacote ---- */
-.painel{display:flex;flex-direction:column;min-width:0;height:var(--mesaAlt);padding:0;overflow:hidden}
-.abas{margin:var(--s3) var(--s3) 0;align-self:stretch;display:flex}
+/* ---- a coluna da estrutura ---- */
+.painel{display:flex;flex-direction:column;min-width:0;flex:1;min-height:0;padding:0;overflow:hidden}
+.discCab{display:flex;align-items:center;gap:8px;padding:var(--s3) var(--s4) 0}
+.discT{flex:1;min-width:0;margin:0;font:600 var(--t-sec)/1.3 var(--serif)}
+.discSelo{flex:none;font-size:12px;font-weight:600;padding:1px 10px;border-radius:var(--rp);line-height:1.7;white-space:nowrap;background:var(--graySoft);color:var(--grayInk)}
+.discSelo[data-tom="ok"]{background:var(--greenSoft);color:var(--greenInk)}
+.discSelo[data-tom="atencao"]{background:var(--amberSoft);color:var(--amberInk)}
+.discSelo[data-tom="info"]{background:var(--blueSoft);color:var(--blueInk)}
+.discResumo{margin:2px var(--s4) var(--s2);font-size:var(--t-meta);color:var(--muted)}
+.peEnvio{padding:var(--s3);border-top:1px solid var(--line2)}
+.peEnvio .soltar{margin-top:0}
+.outras{display:flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border:1px dashed var(--line);border-radius:var(--ri);font-size:var(--t-meta);color:var(--muted)}
+.outras span:first-of-type{flex:1;min-width:0}
+.breve{flex:none;font-size:12px;font-weight:500;color:var(--grayInk);background:var(--graySoft);border-radius:var(--rp);padding:0 8px;line-height:1.7}
+.abas{margin:0 var(--s3);align-self:stretch;display:flex}
 /* quatro abas no painel estreito: cada uma encolhe até o rótulo, e o número vai junto sem empurrar a vizinha */
 .abas button{flex:1 1 auto;min-width:0;justify-content:center;padding:0 7px;font-size:var(--t-meta);white-space:nowrap}
 .abas :global(.seg-n){margin-left:4px;padding:0 5px}
 .painelCorpo{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:var(--s3) var(--s4) var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
-.lendo{display:flex;gap:10px;align-items:flex-start;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);background:var(--blueSoft);color:var(--blueInk);font-size:var(--t-meta)}
+.lendo{display:flex;gap:10px;align-items:flex-start;padding:var(--s3) var(--s4);margin-bottom:var(--s2);border-block:1px solid var(--line2);background:var(--blueSoft);color:var(--blueInk);font-size:var(--t-meta)}
 .lendo span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .lendo small{color:var(--ink2);font-size:12px}
 
@@ -118,15 +136,17 @@
 .soltarSobre{border-color:var(--amber);background:var(--amberSoft)}
 .soltar[disabled]{opacity:.6;cursor:progress}
 
-/* notebook: o painel estreita um pouco */
-@media (min-width:900px) and (max-width:1180px){.mesa{grid-template-columns:minmax(0,1fr) 340px}}
-/* abaixo de 900: uma coluna, a vista primeiro com boa altura, o painel na altura do conteúdo */
+/* notebook: a coluna estreita um pouco */
+@media (min-width:900px) and (max-width:1180px){.mesa{grid-template-columns:300px minmax(0,1fr)}}
+/* abaixo de 900: uma coluna, a vista primeiro com boa altura, a coluna da estrutura na altura do conteúdo */
 @media (max-width:899px){
   .mesa{grid-template-columns:minmax(0,1fr)}
-  .visor{height:auto}
-  .visorCorpo{height:62dvh;min-height:380px;flex:none}
+  .visor{height:auto;order:-1}
+  .visorCorpo{height:56dvh;min-height:320px;flex:none}
+  .visorCorpo.visorLado{flex-direction:column}
   .visorVazio{padding:var(--s4);min-height:300px}
-  .painel{height:auto}
+  .lado{height:auto}
+  .painel{flex:none}
   .painelCorpo{overflow:visible}
   .abas button{min-height:44px}
 }
@@ -134,6 +154,26 @@
 @media (max-width:899px){.dicaVista{display:none}}
 /* notebook: o painel é estreito para quatro abas com contador; o número continua no nome acessível da aba */
 @media (min-width:900px) and (max-width:1180px){.abas :global(.seg-n){display:none}}
+
+/* ---- sobre o 3D: camadas à esquerda, câmeras à direita, a ficha do elemento embaixo delas ---- */
+.camadas3d{position:absolute;left:12px;top:12px;z-index:1;display:flex;flex-direction:column;gap:2px;max-width:calc(100% - 24px);padding:6px;
+  border-radius:var(--rc);background:var(--cardForte);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);
+  box-shadow:var(--shadowLeve);font-size:var(--t-meta)}
+.camadasB{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 8px;border:0;border-radius:8px;background:none;color:var(--ink2);
+  font:600 var(--t-meta) var(--sans);cursor:pointer}
+.camadasB:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.camadasB[aria-expanded="true"] .setaCamadas{transform:rotate(180deg)}
+.setaCamadas{color:var(--muted);transition:transform var(--mv-rapido) var(--ease)}
+.listaCamadas{display:flex;flex-direction:column;gap:0;margin:0;padding:0;border:0;min-width:0}
+.listaCamadas label{display:flex;gap:8px;align-items:center;min-height:32px;padding:0 8px;border-radius:8px;cursor:pointer;color:var(--ink2)}
+@media (hover:hover){.listaCamadas label:hover{background:var(--hover)}}
+.vista .cameras{position:absolute;right:12px;top:12px;z-index:1;margin:0;width:auto;background:var(--cardForte);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.vista .ficha{top:60px}
+@media (max-width:760px){
+  .vista .cameras{left:12px;right:12px;display:flex}
+  .camadas3d{top:auto;bottom:12px;left:auto;right:12px}
+  .vista .ficha{top:auto;bottom:12px;right:auto;left:12px;max-width:calc(100% - 110px);min-width:0}
+}
 
 .jaNaObra{display:inline-flex;align-items:center;gap:4px;font-size:var(--t-meta);color:var(--greenInk)}
 .incluir{display:flex;align-items:flex-start;gap:8px;margin:8px 0 4px;font-size:var(--t-meta);color:var(--ink2);line-height:1.4;cursor:pointer}

@@ -1,6 +1,6 @@
 "use client";
 /**
- * Aba Projeto 3D: o pacote do projeto estrutural da obra. Cada parte do pacote (locação, formas, fundações, pilares,
+ * Aba Projeto: o pacote do projeto estrutural da obra. Cada parte do pacote (locação, formas, fundações, pilares,
  * vigas, lajes, cortes) é responsável por um pedaço do modelo; a pessoa envia as pranchas (por parte ou várias de uma
  * vez) e o tradutor reconhece o que cada uma traz — uma prancha costuma cobrir várias partes. Com locação e formas, a
  * estrutura aparece em 3D; as outras partes completam o modelo (sapata com a medida real, armação) e as contas.
@@ -13,6 +13,7 @@ import { CabecalhoPagina } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
 import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
+import { useCelular } from "./midia";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
 import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
@@ -55,14 +56,18 @@ export function Projeto({ obra }: { obra: Obra }) {
   const entrada = useRef<HTMLInputElement>(null);
   const [sobre, setSobre] = useState(false);
   const [baixando, setBaixando] = useState(false);
-  const [vista, setVista] = useState<"3d" | "2d">("3d");
+  // 3D, o CAD sozinho ou os dois lado a lado (o clique no 3D leva o CAD ao elemento na hora)
+  const [vista, setVista] = useState<"3d" | "cad" | "lado">("3d");
   const [cadMontado, setCadMontado] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
   const [aba, setAba] = useState<"pacote" | "materiais" | "conferencias" | "folhas">("pacote");
-  // no 2D o CAD precisa da largura toda (ele tem os próprios painéis): o pacote recolhe e volta por um botão
+  // com o CAD à vista ele precisa da largura toda (tem os próprios painéis): a coluna da estrutura recolhe e volta por um botão
   const [pacoteNo2d, setPacoteNo2d] = useState(false);
   const [apagando, setApagando] = useState(false);
   const { podeOperar, avisar } = useCasca();
+  // o CAD (CADCraft num iframe) pede mouse e tela larga: no celular a vista é só o 3D
+  const celular = useCelular();
+  const modo = celular ? "3d" : vista;
   const vivo = useRef(true);
   const obraIdRef = useRef(obra.id);
   obraIdRef.current = obra.id;
@@ -257,12 +262,35 @@ export function Projeto({ obra }: { obra: Obra }) {
   const lendoNomes = [...enviando, ...(projeto?.em_andamento ?? []).filter((a) => a.status !== "falhou").map((a) => a.nome ?? nomeFolha(a.id))];
   const verificar = (projeto?.conferencias.filter((c) => !c.ok).length ?? 0) + (projeto?.modelo3d?.avisos.length ?? 0);
   const temModelo = Boolean(projeto?.modelo3d);
-  const painelVisivel = !temModelo || vista === "3d" || pacoteNo2d;
+  const painelVisivel = !temModelo || modo === "3d" || pacoteNo2d;
 
-  function abrir2d() {
+  function abrirCad(m: "cad" | "lado" = "cad") {
     setCadMontado(true);
-    setVista("2d");
+    setVista(m);
   }
+  const MODOS = [
+    { k: "3d", rotulo: "3D" },
+    { k: "cad", rotulo: "CAD" },
+    { k: "lado", rotulo: "Lado a lado" },
+  ] as const;
+
+  // o selo da disciplina: o que a pessoa precisa saber dela num relance
+  const seloEstrutura = lendoNomes.length
+    ? { tom: "info", t: "Lendo" }
+    : !projeto
+      ? { tom: "neutro", t: "Sem pranchas" }
+      : cobertas === projeto.pacote.length
+        ? { tom: "ok", t: "Completa" }
+        : projeto.pronto_para_3d
+          ? { tom: "atencao", t: "Em 3D, incompleta" }
+          : { tom: "atencao", t: "Falta para o 3D" };
+  const resumoEstrutura = [
+    `${folhas.length} prancha${folhas.length === 1 ? "" : "s"}`,
+    `pacote ${cobertas}/${(projeto?.pacote ?? PACOTE_VAZIO).length}`,
+    verificar ? `${verificar} para verificar` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const abas = [
     { k: "pacote", rotulo: "Pacote", n: projeto ? `${cobertas}/${projeto.pacote.length}` : null, dica: `${cobertas} de ${projeto?.pacote.length ?? 0} partes cobertas` },
@@ -345,7 +373,6 @@ export function Projeto({ obra }: { obra: Obra }) {
         })}
       </ul>
       {projeto?.nao_lidos_ainda.length ? <p className={s.explica}>Ainda não lidas, se o projeto tiver: {projeto.nao_lidos_ainda.join(", ")}.</p> : null}
-      {temModelo && podeOperar ? soltar : null}
     </>
   );
 
@@ -422,7 +449,13 @@ export function Projeto({ obra }: { obra: Obra }) {
 
   return (
     <div className={s.tela}>
-      <CabecalhoPagina titulo="Projeto 3D" sub={sub} acao={acao} menu={menu} rotuloMenu="Mais ações do Projeto 3D" />
+      <CabecalhoPagina
+        titulo="Projeto"
+        sub={sub ?? "As pranchas viram o modelo 3D da obra e a lista de materiais que vai para o orçamento."}
+        acao={acao}
+        menu={menu}
+        rotuloMenu="Mais ações do Projeto"
+      />
 
       {erro ? (
         <div className="aviso-erro" role="alert">
@@ -435,23 +468,85 @@ export function Projeto({ obra }: { obra: Obra }) {
       {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
 
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
-        <section className={s.visor} aria-label="Estrutura">
+        {/* À esquerda, as disciplinas do projeto; por enquanto só a estrutura existe de fato. */}
+        <div className={s.lado} hidden={!painelVisivel}>
+          <aside id="painel-pacote" className={`card ${s.painel}`} aria-label="Pacote do projeto" {...soltarAqui}>
+            <div className={s.discCab}>
+              <h2 className={s.discT}>Estrutura</h2>
+              <span className={s.discSelo} data-tom={seloEstrutura.tom}>
+                {seloEstrutura.t}
+              </span>
+            </div>
+            <p className={s.discResumo}>{resumoEstrutura}</p>
+            {lendoNomes.length ? (
+              <div className={s.lendo} role="status">
+                <Icone nome="loader" tam={16} className="spin" />
+                <span>
+                  <b>Lendo {lendoNomes.join(", ")}</b>
+                  <small>PDF leva uns 20 s; imagem, alguns minutos. Pode trocar de aba.</small>
+                </span>
+              </div>
+            ) : null}
+            <div className={`seg seg-pq ${s.abas}`} role="tablist" aria-label="Seções do pacote">
+              {abas.map((a) => (
+                <button key={a.k} type="button" role="tab" id={`aba-${a.k}`} aria-selected={aba === a.k} aria-controls="aba-painel" className={aba === a.k ? "on" : ""} onClick={() => setAba(a.k)} aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo}>
+                  {a.rotulo}
+                  {a.n ? <small className="seg-n">{a.n}</small> : null}
+                </button>
+              ))}
+            </div>
+            <div id="aba-painel" role="tabpanel" aria-labelledby={`aba-${aba}`} className={s.painelCorpo}>
+              {aba === "pacote" ? (
+                painelPacote
+              ) : aba === "materiais" ? (
+                <Materiais {...materiais} />
+              ) : aba === "conferencias" ? (
+                painelConferencias
+              ) : (
+                painelFolhas
+              )}
+            </div>
+            {/* o envio fica sempre à mão no pé da coluna, qualquer que seja a aba: mais pranchas ou o DXF editado */}
+            {temModelo && podeOperar ? <div className={s.peEnvio}>{soltar}</div> : null}
+          </aside>
+          {/* Hidráulica, elétrica e incêndio ainda não existem na API: só o aviso, sem botão nem estado de mentira. */}
+          <p className={s.outras}>
+            <Icone nome="plus" tam={14} />
+            <span>Outras disciplinas (hidráulica, elétrica, incêndio)</span>
+            <span className={s.breve}>em breve</span>
+          </p>
+        </div>
+
+        <section className={s.visor} aria-label="Modelo da obra">
           {projeto?.modelo3d ? (
             <>
               <div className={s.visorCab}>
-                <div className="seg seg-pq" role="tablist" aria-label="Vista da estrutura">
-                  <button type="button" role="tab" id="vista-3d" aria-selected={vista === "3d"} aria-controls="vista-painel" className={vista === "3d" ? "on" : ""} onClick={() => setVista("3d")}>
-                    3D
-                  </button>
-                  <button type="button" role="tab" id="vista-2d" aria-selected={vista === "2d"} aria-controls="vista-painel" className={vista === "2d" ? "on" : ""} onClick={abrir2d}>
-                    2D · editar no CAD
-                  </button>
-                </div>
-                {foco ? (
+                <b className={s.visorT}>Modelo da obra</b>
+                {celular ? (
+                  <span className={s.soComputador}>Editar no CAD: só no computador</span>
+                ) : (
+                  <div className="seg seg-pq" role="tablist" aria-label="Vista da estrutura">
+                    {MODOS.map((m) => (
+                      <button
+                        key={m.k}
+                        type="button"
+                        role="tab"
+                        id={`vista-${m.k}`}
+                        aria-selected={modo === m.k}
+                        aria-controls="vista-painel"
+                        className={modo === m.k ? "on" : ""}
+                        onClick={() => (m.k === "3d" ? setVista("3d") : abrirCad(m.k))}
+                      >
+                        {m.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {celular ? null : foco ? (
                   <span className={s.selecao} role="status">
                     <b>{foco.id}</b>
-                    {vista === "3d" ? (
-                      <button type="button" className="btn sm" onClick={abrir2d}>
+                    {modo === "3d" ? (
+                      <button type="button" className="btn sm" onClick={() => abrirCad()}>
                         Editar {foco.id} no CAD
                       </button>
                     ) : (
@@ -459,18 +554,24 @@ export function Projeto({ obra }: { obra: Obra }) {
                     )}
                   </span>
                 ) : (
-                  <span className={s.dicaVista}>{vista === "3d" ? "Clique num elemento para vê-lo e editá-lo no CAD." : "Salve no CAD (Ctrl+S) para levar a edição ao 3D."}</span>
+                  <span className={s.dicaVista}>
+                    {modo === "3d"
+                      ? "Clique num elemento para vê-lo e editá-lo no CAD."
+                      : modo === "lado"
+                        ? "Clique no 3D e o CAD vai ao elemento. Salve no CAD (Ctrl+S) para levar a edição ao 3D."
+                        : "Salve no CAD (Ctrl+S) para levar a edição ao 3D."}
+                  </span>
                 )}
-                {vista === "2d" ? (
+                {modo !== "3d" ? (
                   <button type="button" className={`btn sm ${s.mostrarPacote}`} aria-expanded={pacoteNo2d} aria-controls="painel-pacote" onClick={() => setPacoteNo2d((v) => !v)}>
                     <Icone nome="planilha" tam={14} />
                     {pacoteNo2d ? "Esconder o pacote" : "Mostrar o pacote"}
                   </button>
                 ) : null}
               </div>
-              <div id="vista-painel" role="tabpanel" aria-labelledby={vista === "3d" ? "vista-3d" : "vista-2d"} className={s.visorCorpo}>
-                {vista === "3d" ? <Vista3D modelo={projeto.modelo3d} aoEscolher={escolher3d} /> : null}
-                {cadMontado ? <EditorCad espelho={baixarEspelho} aoSalvar={aoSalvarNoCad} foco={foco} visivel={vista === "2d"} /> : null}
+              <div id="vista-painel" role="tabpanel" aria-labelledby={celular ? undefined : `vista-${modo}`} className={`${s.visorCorpo} ${modo === "lado" ? s.visorLado : ""}`}>
+                {modo !== "cad" ? <Vista3D modelo={projeto.modelo3d} aoEscolher={escolher3d} /> : null}
+                {cadMontado && !celular ? <EditorCad espelho={baixarEspelho} aoSalvar={aoSalvarNoCad} foco={foco} visivel={modo !== "3d"} /> : null}
               </div>
             </>
           ) : (
@@ -486,37 +587,6 @@ export function Projeto({ obra }: { obra: Obra }) {
             </div>
           )}
         </section>
-
-        <aside id="painel-pacote" className={`card ${s.painel}`} aria-label="Pacote do projeto" hidden={!painelVisivel} {...soltarAqui}>
-          {lendoNomes.length ? (
-            <div className={s.lendo} role="status">
-              <Icone nome="loader" tam={16} className="spin" />
-              <span>
-                <b>Lendo {lendoNomes.join(", ")}</b>
-                <small>PDF leva uns 20 s; imagem, alguns minutos. Pode trocar de aba.</small>
-              </span>
-            </div>
-          ) : null}
-          <div className={`seg seg-pq ${s.abas}`} role="tablist" aria-label="Seções do pacote">
-            {abas.map((a) => (
-              <button key={a.k} type="button" role="tab" id={`aba-${a.k}`} aria-selected={aba === a.k} aria-controls="aba-painel" className={aba === a.k ? "on" : ""} onClick={() => setAba(a.k)} aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo}>
-                {a.rotulo}
-                {a.n ? <small className="seg-n">{a.n}</small> : null}
-              </button>
-            ))}
-          </div>
-          <div id="aba-painel" role="tabpanel" aria-labelledby={`aba-${aba}`} className={s.painelCorpo}>
-            {aba === "pacote" ? (
-              painelPacote
-            ) : aba === "materiais" ? (
-              <Materiais {...materiais} />
-            ) : aba === "conferencias" ? (
-              painelConferencias
-            ) : (
-              painelFolhas
-            )}
-          </div>
-        </aside>
       </div>
 
       {apagando ? (

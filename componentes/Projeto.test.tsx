@@ -65,7 +65,7 @@ describe("Projeto 3D", () => {
     expect(screen.queryByRole("tab", { name: "3D" })).not.toBeInTheDocument();
   });
 
-  it("com o modelo: 3D e o pacote lado a lado; no 2D o pacote recolhe e volta pelo botão", async () => {
+  it("com o modelo: a estrutura ao lado do 3D; no CAD a coluna recolhe e volta pelo botão", async () => {
     localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
     const rede = criarRede({
       "POST /srv/auth/renovar": renovarOk,
@@ -85,7 +85,7 @@ describe("Projeto 3D", () => {
     const itens = within(screen.getByRole("tabpanel", { name: /Conferências/ })).getAllByRole("listitem");
     expect(itens[0]).toHaveTextContent("Verificar");
 
-    await u.click(screen.getByRole("tab", { name: "2D · editar no CAD" }));
+    await u.click(screen.getByRole("tab", { name: "CAD" }));
     expect(screen.getByText("editor cad")).toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Pacote do projeto" })).not.toBeInTheDocument();
     const mostrar = screen.getByRole("button", { name: "Mostrar o pacote" });
@@ -93,6 +93,41 @@ describe("Projeto 3D", () => {
     await u.click(mostrar);
     expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Esconder o pacote" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("lado a lado: o 3D e o CAD juntos, e a coluna da estrutura recolhe", async () => {
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    const u = userEvent.setup();
+    montar();
+    await screen.findByText("vista 3d");
+    expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
+    await u.click(screen.getByRole("tab", { name: "Lado a lado" }));
+    expect(screen.getByText("vista 3d")).toBeInTheDocument();
+    expect(screen.getByText("editor cad")).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Pacote do projeto" })).not.toBeInTheDocument();
+    // de volta ao 3D, o CAD sai de vista e a coluna volta
+    await u.click(screen.getByRole("tab", { name: "3D" }));
+    expect(screen.queryByText("editor cad")).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
+  });
+
+  it("no celular não há CAD: só o 3D, com o aviso de onde editar", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 760px"), addEventListener() {}, removeEventListener() {} }));
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    montar();
+    await screen.findByText("vista 3d");
+    expect(screen.getByText("Editar no CAD: só no computador")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "CAD" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Lado a lado" })).not.toBeInTheDocument();
+  });
+
+  it("outras disciplinas: só o aviso, sem botão", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    montar();
+    expect(screen.getByText(/Outras disciplinas/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /hidráulica|elétrica|incêndio/i })).not.toBeInTheDocument();
   });
 
   it("próximo passo só com pranchas lidas: nem no vazio, nem com folha sendo lida", async () => {
@@ -117,7 +152,7 @@ describe("Projeto 3D", () => {
     expect(within(await screen.findByRole("region", passo)).getByRole("link", { name: "Ver o orçamento" })).toHaveAttribute("href", "/?obra=o-1&tela=orcamento");
     // o passo vem antes da mesa, e o Enviar pranchas deixa de ser o dourado da tela
     const passoNaTela = screen.getByRole("region", passo);
-    expect(passoNaTela.compareDocumentPosition(screen.getByRole("region", { name: "Estrutura" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(passoNaTela.compareDocumentPosition(screen.getByRole("region", { name: "Modelo da obra" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("button", { name: "Enviar pranchas" })).not.toHaveClass("amb");
   });
 
@@ -133,14 +168,14 @@ describe("Projeto 3D", () => {
     montar();
     await screen.findByText("vista 3d");
 
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     await u.click(screen.getByRole("menuitem", { name: "Apagar o projeto" }));
     const dialogo = screen.getByRole("dialog", { name: "Apagar o projeto desta obra?" });
     // Voltar não apaga nada
     await u.click(within(dialogo).getByRole("button", { name: "Voltar" }));
     expect(rede.chamadas.some((c) => c.metodo === "DELETE")).toBe(false);
 
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     await u.click(screen.getByRole("menuitem", { name: "Apagar o projeto" }));
     await u.click(screen.getByRole("button", { name: "Apagar 2 pranchas" }));
 
@@ -161,7 +196,7 @@ describe("Projeto 3D", () => {
     const u = userEvent.setup();
     montar();
     await screen.findByText("vista 3d");
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     await u.click(screen.getByRole("menuitem", { name: "Apagar o projeto" }));
     await u.click(screen.getByRole("button", { name: "Apagar 1 prancha" }));
     expect(await within(screen.getByRole("dialog")).findByText("O tradutor de pranchas não respondeu.")).toBeInTheDocument();
@@ -175,7 +210,7 @@ describe("Projeto 3D", () => {
     montar({ ...USUARIO, papel: "viewer" });
     await screen.findByText("vista 3d");
     expect(screen.queryByRole("button", { name: /Enviar pranchas/ })).not.toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     expect(screen.queryByRole("menuitem", { name: "Apagar o projeto" })).not.toBeInTheDocument();
     await u.keyboard("{Escape}");
     await u.click(screen.getByRole("tab", { name: /Folhas/ }));
