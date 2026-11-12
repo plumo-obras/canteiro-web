@@ -6,6 +6,7 @@ const CAMINHOS = {
   // a marca do Plumo: o fio de prumo com o peso, a mesma da landing (site/build.py)
   spark:
     '<path d="M12 1.6v8" stroke-width="1.5"/><rect x="9.5" y="9" width="5" height="2.3" rx=".5" fill="currentColor" stroke="none"/><path d="M8.6 12.1h6.8L12 23z" fill="currentColor" stroke="none"/>',
+  clipe: '<path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/>',
   camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
   sino: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   message: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',

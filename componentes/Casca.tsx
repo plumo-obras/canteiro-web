@@ -369,14 +369,12 @@ function App({ usuario }: { usuario: Usuario }) {
         abrirDados={() => setDadosObra(true)}
         inerte={movel && gaveta}
       />
+      {obra && !conteudo ? <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} /> : null}
       <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
         <div className="painel-cab">
-          <div>
-            <div className="painel-t">Conversas</div>
-            {obra ? <div className="painel-sub">{obra.nome}</div> : null}
-          </div>
-          <button type="button" className="tr-btn painel-x" aria-label="Fechar as conversas" onClick={() => (movel ? fecharGaveta() : alternarPainel())}>
-            <Icone nome="x" tam={16} />
+          <div className="painel-t">Conversas</div>
+          <button type="button" className="tr-btn painel-x" aria-label="Recolher as conversas" onClick={() => (movel ? fecharGaveta() : alternarPainel())}>
+            <Icone nome={movel ? "x" : "painel"} tam={16} />
           </button>
         </div>
         {obra ? (
@@ -463,7 +461,6 @@ function App({ usuario }: { usuario: Usuario }) {
         {conteudo ??
           (sessao && obra ? (
             <>
-              <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} />
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
               <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o Plumo" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">
@@ -473,12 +470,14 @@ function App({ usuario }: { usuario: Usuario }) {
                   <button
                     type="button"
                     className={`btn sm conversa-lista${painelAberto ? " on" : ""}`}
+                    aria-label="Conversas"
+                    title="Conversas"
                     aria-expanded={painelAberto}
                     aria-controls="painel-conversas"
                     onClick={alternarPainel}
                   >
-                    <Icone nome="painel" tam={15} />
-                    Conversas
+                    <Icone nome="painel" tam={16} />
+                    <span className="rot">Conversas</span>
                   </button>
                 </div>
                 <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} visivel={tela === "conversa"} />

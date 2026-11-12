@@ -40,7 +40,8 @@
   --shadowUp:0 2px 4px rgba(0,0,0,.3),0 24px 64px -20px rgba(0,0,0,.65);
   --glass:rgba(24,28,36,.55); --glassStrong:rgba(24,28,36,.80); --menu:rgba(30,35,44,.86); --blur:blur(24px) saturate(140%);
   --veu:rgba(5,7,10,.45); --toast:rgba(30,35,44,.92); --msgMe:linear-gradient(160deg,#323d55,#222a3b);
-  --fundo:linear-gradient(180deg,rgba(10,12,16,.12),rgba(10,12,16,.60)),url(/fundo-escuro.jpg);
+  /* escuro liso com um brilho azul no alto (o desenho do redesenho): a foto antiga deixava tudo azulado */
+  --fundo:radial-gradient(1200px 600px at 70% -10%,#26324a 0%,rgba(13,16,22,0) 60%);
   --ativo:rgba(255,255,255,.16);
   --accentSoft:rgba(232,176,74,.16); --accentInk:#f2c46e;
   --pine:#f3f4f6; --pineSoft:rgba(255,255,255,.10); --pineLine:rgba(255,255,255,.18);
@@ -200,6 +201,8 @@ p{text-wrap:pretty}
 @media (min-width:900px){ .msgs.com-casa{padding-left:max(28px,calc((100% - 1080px)/2));padding-right:max(28px,calc((100% - 1080px)/2))} }
 .conv-sob-casa{width:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
 .conv-sugestoes{justify-content:center}
+/* na casa da obra as sugestões ficam sob a mensagem do Plumo, alinhadas a ela (como no desenho) */
+.com-casa .conv-sugestoes{justify-content:flex-start}
 .composer{margin:8px auto 20px;width:calc(100% - 56px);max-width:760px;padding:12px 14px 10px;position:relative;isolation:isolate;border:1px solid var(--edgeHi);border-radius:24px;background:var(--glassStrong);
   box-shadow:var(--hl),0 0 0 1px var(--edge),var(--shadowUp)}
 @media (min-width:900px){ .composer{background:none} }

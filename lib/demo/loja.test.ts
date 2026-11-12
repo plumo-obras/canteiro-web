@@ -192,8 +192,11 @@ describe("demonstração: histórico da conversa", () => {
     for await (const ev of roteiroDemo({ texto: "quanto falta de bloco?", obra_id: obraId(), sessao_id: "s-demo" }, admin(), 0)) evs.push(ev);
     const prop = evs.find((x) => x.evento === "proposta")!.dados as Proposta;
     const lista = chamar("GET", "sessoes").corpo as SessaoApi[];
-    expect(lista.map((s) => [s.id, s.titulo, s.total_mensagens])).toEqual([["s-demo", "quanto falta de bloco?", 5]]);
-    expect(chamar("GET", "sessoes", undefined, leitura()).corpo).toEqual([]); // sessão é de quem criou
+    // a gravada vem primeiro (a mais recente); as outras são as conversas de exemplo da demonstração
+    expect([lista[0]!.id, lista[0]!.titulo, lista[0]!.total_mensagens]).toEqual(["s-demo", "quanto falta de bloco?", 5]);
+    expect(lista.slice(1).every((s) => s.id.startsWith("demo-conversa-"))).toBe(true);
+    // sessão é de quem criou: quem só lê vê apenas os próprios exemplos
+    expect((chamar("GET", "sessoes", undefined, leitura()).corpo as SessaoApi[]).some((s) => s.id === "s-demo")).toBe(false);
     expect(chamar("GET", "sessoes/s-demo/mensagens", undefined, leitura()).status).toBe(404);
 
     const msgs = chamar("GET", "sessoes/s-demo/mensagens?depois_de=-1&limite=200").corpo as MensagemSessao[];

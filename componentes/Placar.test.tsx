@@ -13,9 +13,9 @@ const valores = (...a: Parameters<typeof celulasPlacar>) => celulasPlacar(...a).
 describe("o placar da obra", () => {
   it("com orçamento mostra o que a API mandou, sem conta na tela", () => {
     expect(valores({ verba: 52000000 }, r(), false)).toEqual([
-      ["R$ 520.000,00", "com o cliente"],
-      ["R$ 21.337,30", "4,8% do orçado"],
-      ["R$ 419.107,70", "de R$ 440.445,00 orçados"],
+      ["R$ 520.000", "com o cliente"],
+      ["R$ 440.445", "falta gastar R$ 419.107,70"],
+      ["R$ 21.337", "4,8% do orçado"],
       ["Sem medição", "entrega 03/2027"],
     ]);
   });
@@ -24,23 +24,23 @@ describe("o placar da obra", () => {
     const sem = r({ tem_orcamento: false, realizado: 0, orcado_atual: 0, falta_gastar: 0, realizado_pct: null }, { cadastrado: false, termino_contratual: null });
     expect(valores({ verba: 0 }, sem, false)).toEqual([
       ["—", "não informado"],
-      ["R$ 0,00", "nenhum gasto lançado"],
       ["—", "aparece com o orçamento"],
+      ["R$ 0", "nenhum gasto lançado"],
       ["—", "aparece com o cronograma"],
     ]);
   });
 
-  it("API antiga, sem os campos novos: — no Falta e sem o %", () => {
+  it("API antiga, sem os campos novos: sem o falta e sem o %", () => {
     const c = valores({ verba: 1 }, r({ falta_gastar: undefined, realizado_pct: undefined }), false);
-    expect(c[1]).toEqual(["R$ 21.337,30", ""]);
-    expect(c[2]).toEqual(["—", ""]);
+    expect(c[1]).toEqual(["R$ 440.445", ""]);
+    expect(c[2]).toEqual(["R$ 21.337", ""]);
   });
 
   it("com entregue a pagar, o gasto diz de que é feito (pago + entregue a pagar)", () => {
     const c = valores({ verba: 1 }, r({ realizado: 2_698_530, pago: 201_090, entregue_a_pagar: 2_497_440 }), false);
-    expect(c[1]).toEqual(["R$ 26.985,30", "R$ 2.010,90 pago + R$ 24.974,40 entregue a pagar"]);
+    expect(c[2]).toEqual(["R$ 26.985", "R$ 2.010,90 pago + R$ 24.974,40 entregue a pagar"]);
     // tudo pago: volta ao % do orçado
-    expect(valores({ verba: 1 }, r({ pago: 2133730, entregue_a_pagar: 0 }), false)[1]).toEqual(["R$ 21.337,30", "4,8% do orçado"]);
+    expect(valores({ verba: 1 }, r({ pago: 2133730, entregue_a_pagar: 0 }), false)[2]).toEqual(["R$ 21.337", "4,8% do orçado"]);
   });
 
   it("medição define o prazo; só ela diz se está no prazo", () => {
@@ -67,10 +67,10 @@ describe("o placar no celular", () => {
     vi.restoreAllMocks();
   });
 
-  it("recolhido numa linha: gasto e falta", () => {
+  it("recolhido numa linha: gasto e orçado", () => {
     celular();
     montar();
-    expect(linha().textContent).toBe("Gasto R$ 21.337,30 · Falta R$ 419.107,70");
+    expect(linha().textContent).toBe("Gasto R$ 21.337 · Orçado R$ 440.445");
     expect(document.querySelector("dl")).toBeNull();
   });
 
@@ -113,7 +113,7 @@ describe("o placar no celular", () => {
   it("sem resposta da API, a linha não inventa valor", () => {
     celular();
     render(<Placar obra={obra("o-1")} resumo={null} falhou />);
-    expect(linha().textContent).toBe("Gasto — · Falta —");
+    expect(linha().textContent).toBe("Gasto — · Orçado —");
   });
 
   it("no desktop continua com os 4 números, sem o toque", () => {

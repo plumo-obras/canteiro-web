@@ -95,7 +95,7 @@ function ConversaVazia({ sugestoes, perguntar }: { sugestoes: string[]; pergunta
 }
 
 export function Conversa({ sessao, obra, resumo = null, despachar, visivel = true }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; visivel?: boolean; despachar: Dispatch<AcaoSessoes> }) {
-  const { receberPropostas } = useCasca();
+  const { receberPropostas, avisar } = useCasca();
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   // Se a pessoa trocou de sessão no meio da resposta, o fluxo continua; o campo segue travado até o fim dele.
@@ -261,9 +261,11 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
             onKeyDown={tecla}
           />
           <div className="row">
-            <span className="ca-dica">
-              <kbd>Enter</kbd> envia <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha
-            </span>
+            {/* SIMULADO: anexar foto, comprovante ou planta direto na conversa ainda não existe (lib/simulado) */}
+            <button type="button" className="ca-anexo" aria-label="Anexar foto, comprovante ou planta" onClick={() => avisar("Prévia: anexar na conversa ainda não existe; nada foi enviado.")}>
+              <Icone nome="clipe" tam={18} />
+            </button>
+            <span className="ca-dica">Enter envia · Shift+Enter quebra a linha</span>
             <span className="sp" />
             {falando && parar ? (
               <button type="button" className="btn sm" onClick={() => parar.abort()}>

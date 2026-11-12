@@ -95,6 +95,8 @@ interface EstadoDemo {
   obrasPorChave: Map<string, Obra>;
   /** Histórico das conversas no formato que o agente grava (um item por mensagem, como na coleção `mensagens`). */
   sessoes: Map<string, { sessao: SessaoApi; mensagens: MensagemSessao[] }>;
+  /** Quem já recebeu as conversas de exemplo (uma vez por pessoa, na primeira lista). */
+  conversasDemo: Set<string>;
   /** E-mail com que cada pessoa entrou (o Usuario do contrato não traz e-mail; GET /conta traz). */
   emails: Map<string, string>;
   /** Da chave própria a demonstração guarda só o final, como a tela enxerga: a chave em si é descartada. */
@@ -755,6 +757,7 @@ function semear(): EstadoDemo {
     idempotencia: new Map(),
     obrasPorChave: new Map(),
     sessoes: new Map(),
+    conversasDemo: new Set(),
     emails: new Map(),
     chave: null,
     creditos: { saldo: 0, franquia: 20_000_000 },
@@ -1005,6 +1008,37 @@ export function gravarNaSessao(id: string, u: Usuario, obraId: string | null, ti
     x.mensagens.push({ id: `${id}-${String(seq).padStart(6, "0")}`, sessao_id: id, seq, criado_em: agora, ...m });
   }
   x.sessao.atualizado_em = agora;
+}
+
+/**
+ * Conversas de exemplo para a lista do Plumo não abrir vazia na demonstração: algumas de hoje, da semana e do mês
+ * passado, cada uma com a pergunta e a resposta. Só na primeira lista de cada pessoa; o que ela conversar depois soma.
+ */
+function semearConversas(e: EstadoDemo, u: Usuario) {
+  // estado criado antes deste campo existir (servidor de dev recarregado a quente)
+  e.conversasDemo ??= new Set();
+  if (e.conversasDemo.has(u.id)) return;
+  e.conversasDemo.add(u.id);
+  const obraId = e.obras[0]!.id;
+  const dia = 86_400_000;
+  const exemplos: [string, number, string][] = [
+    ["Hidráulica: o que muda", 0.1, "Quando a planta da hidráulica chegar, refaço orçamento, compras e cronograma e te mostro antes de mudar."],
+    ["Comprovante do Depósito São Jorge", 2, "Li o comprovante: R$ 1.283,00 para o Depósito São Jorge. Está em Gastos para você conferir."],
+    ["Atraso do aço da Aço Forte", 3, "O pedido de aço passou da data. Quer que eu prepare a mensagem para o fornecedor?"],
+    ["O que falta para a laje?", 4, "Para a laje faltam forma, laje treliçada e aço CA-60. Posso montar o pedido."],
+    ["Orçamento da estrutura", 24, "O orçamento da estrutura saiu das seis pranchas: 4 materiais, R$ 53.084,00."],
+    ["Cronograma inicial", 26, "Montei o cronograma inicial em 11 meses. Ajuste o que não bater com a obra."],
+  ];
+  exemplos.forEach(([titulo, diasAtras, resposta], i) => {
+    const quando = new Date(Date.now() - diasAtras * dia).toISOString();
+    const id = `demo-conversa-${u.id}-${i}`;
+    gravarNaSessao(id, u, obraId, titulo, [
+      { papel: "user", conteudo: titulo },
+      { papel: "assistant", conteudo: [{ type: "text", text: resposta }] },
+    ]);
+    const x = e.sessoes.get(id)!;
+    x.sessao.criado_em = x.sessao.atualizado_em = quando;
+  });
 }
 
 /* ---------- escrita (o que a API faria) ---------- */
@@ -1859,6 +1893,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "POST" && id && b === "desfazer") return ok(desfazer(id, u));
     }
     if (metodo === "GET" && a === "sessoes" && !id) {
+      semearConversas(e, u);
       const ob = params.get("obra_id");
       const lim = Math.min(100, Number(params.get("limite") ?? 30) || 30);
       return ok(

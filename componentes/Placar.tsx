@@ -1,6 +1,6 @@
 "use client";
 /**
- * O placar fixo no topo de toda tela da obra: Valor fechado · Gasto até hoje · Falta gastar · Prazo. É onde o "gasto" é um
+ * O placar fixo no topo de toda tela da obra: Valor fechado · Orçado · Gasto até hoje · Prazo. É onde o "gasto" é um
  * número só no app: o realizado do orçamento, igual ao da API para o agente. A casca busca o resumo; aqui só formata.
  */
 import { useId, useState } from "react";
@@ -18,6 +18,9 @@ export interface Celula {
   /** O sub continua à vista no celular, onde os outros somem para caber. */
   fixo?: boolean;
 }
+
+/** Centavos → "R$ 480.000": na linha fina os centavos só atrapalham a leitura (o valor exato está nas telas). */
+const reaisInteiros = (c: number) => `R$ ${Math.round(c / 100).toLocaleString("pt-BR")}`;
 
 /** "2027-03" → "03/2027" (o cronograma é mensal: a API não tem o dia da entrega). */
 const mes = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
@@ -37,11 +40,11 @@ function prazo(c: ResumoDaObra["cronograma"]): Celula {
 /** As quatro células. `r` null = ainda não veio (ou a API falhou): nada de "R$ 0,00" que pareça dado. */
 export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null, falhou: boolean): Celula[] {
   const contrato: Celula = obra.verba
-    ? { rotulo: "Valor fechado", valor: fmtReais(obra.verba), sub: "com o cliente" }
+    ? { rotulo: "Valor fechado", valor: reaisInteiros(obra.verba), sub: "com o cliente" }
     : { rotulo: "Valor fechado", valor: "—", sub: "não informado", tom: "mut" };
   if (!r) {
     const sub = falhou ? "não carregou" : "";
-    return [contrato, { rotulo: "Gasto até hoje", valor: "—", sub, tom: "mut" }, { rotulo: "Falta gastar", valor: "—", sub, tom: "mut" }, { rotulo: "Prazo", valor: "—", sub, tom: "mut" }];
+    return [contrato, { rotulo: "Orçado", valor: "—", sub, tom: "mut" }, { rotulo: "Gasto até hoje", valor: "—", sub, tom: "mut" }, { rotulo: "Prazo", valor: "—", sub, tom: "mut" }];
   }
   const f = r.financeiro;
   const pct = f.tem_orcamento && f.realizado_pct != null ? `${(f.realizado_pct / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "";
@@ -50,16 +53,15 @@ export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null,
   const partes = f.entregue_a_pagar && f.pago != null ? `${fmtReais(f.pago)} pago + ${fmtReais(f.entregue_a_pagar)} entregue a pagar` : null;
   const gasto: Celula = {
     rotulo: "Gasto até hoje",
-    valor: fmtReais(f.realizado),
+    valor: reaisInteiros(f.realizado),
     sub: !f.realizado ? "nenhum gasto lançado" : (partes ?? (f.tem_orcamento ? pct : "sem orçamento para comparar")),
     ...(partes ? { fixo: true } : {}),
   };
-  const falta: Celula = !f.tem_orcamento
-    ? { rotulo: "Falta gastar", valor: "—", sub: "aparece com o orçamento", tom: "mut" }
-    : f.falta_gastar == null
-      ? { rotulo: "Falta gastar", valor: "—", sub: "", tom: "mut" }
-      : { rotulo: "Falta gastar", valor: fmtReais(f.falta_gastar), sub: `de ${fmtReais(f.orcado_atual)} orçados` };
-  return [contrato, gasto, falta, prazo(r.cronograma)];
+  // o que falta gastar continua no subtítulo do Orçado: a linha fina mostra só os quatro números do desenho
+  const orcado: Celula = !f.tem_orcamento
+    ? { rotulo: "Orçado", valor: "—", sub: "aparece com o orçamento", tom: "mut" }
+    : { rotulo: "Orçado", valor: reaisInteiros(f.orcado_atual), sub: f.falta_gastar == null ? "" : `falta gastar ${fmtReais(f.falta_gastar)}` };
+  return [contrato, orcado, gasto, prazo(r.cronograma)];
 }
 
 const chaveAberto = (obraId: string) => `plumo.placar.${obraId}`;
@@ -115,9 +117,9 @@ export function Placar(p: { obra: Obra; resumo: ResumoDaObra | null; falhou: boo
               "Placar da obra"
             ) : (
               <>
-                <span className="fx-nw">Gasto {celulas[1]!.valor}</span>
+                <span className="fx-nw">Gasto {celulas[2]!.valor}</span>
                 {" · "}
-                <span className="fx-nw">Falta {celulas[2]!.valor}</span>
+                <span className="fx-nw">Orçado {celulas[1]!.valor}</span>
               </>
             )}
           </span>

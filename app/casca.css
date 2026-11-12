@@ -6,12 +6,14 @@
    pílulas numa linha que rola na horizontal; ≤ 760 px, barra fixa embaixo.
    ===================================================================================================== */
 html:has(.app),html:has(.app) body{overflow:hidden}
-.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
+.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
   padding:14px 18px}
-.app.com-painel{grid-template-columns:272px minmax(0,1fr)}
+.app.com-painel{grid-template-columns:300px minmax(0,1fr)}
 .app>.topo{grid-column:1/-1;grid-row:1}
-.app>.painel{grid-column:1;grid-row:2}
-.app>.palco{grid-column:-2/-1;grid-row:2}
+/* a linha dos números fica logo abaixo do topo, de ponta a ponta; a lista de conversas e o palco vêm embaixo dela */
+.app>.placar{grid-column:1/-1;grid-row:2;margin-bottom:-4px}
+.app>.painel{grid-column:1;grid-row:3}
+.app>.palco{grid-column:-2/-1;grid-row:3}
 @media (prefers-reduced-motion:no-preference){ .app{transition:grid-template-columns var(--mv-base) var(--ease)} }
 
 /* a barra do topo tem fundo próprio, como a da landing: escura no tema escuro, vidro claro no claro */
@@ -300,3 +302,21 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .topo .seletor{flex:1 1 auto;min-width:0}
   html:has(.crono-editor) .app,html:has(.crono-editor) .app.com-painel{padding-bottom:env(safe-area-inset-bottom)}
 }
+
+/* ---------- redesenho: a conversa solta sobre o fundo, como no protótipo ---------- */
+@media (min-width:900px){
+  .palco-conversa{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:0;overflow:visible}
+  .conversa-cab{border-bottom:0;padding:4px max(28px,calc((100% - 780px)/2)) 0}
+  .conversa-t{font:600 22px/1.3 var(--serif);letter-spacing:-.02em}
+  .msgs.com-casa{padding-left:max(28px,calc((100% - 780px)/2));padding-right:max(28px,calc((100% - 780px)/2))}
+  .painel{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border-color:var(--line2)}
+}
+/* com a lista aberta o botão Conversas some do título: quem recolhe é o ícone do próprio painel */
+.app.com-painel .conversa-lista{display:none}
+.conversa-lista{order:-1;width:40px;height:40px;padding:0;justify-content:center}
+.conversa-lista .rot{display:none}
+.painel-nova{background:var(--accentSoft);color:var(--accentInk);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:12px;font-weight:600}
+@media (hover:hover){ .painel-nova:hover{filter:none;border-color:var(--accent)} }
+.painel-cab{align-items:center}
+.ca-anexo{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;margin-left:-6px}
+@media (hover:hover){ .ca-anexo:hover{background:var(--sunk);color:var(--ink)} }

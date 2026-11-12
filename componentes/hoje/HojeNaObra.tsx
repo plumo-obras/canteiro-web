@@ -234,16 +234,18 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
             Esta semana{dado.semana.length ? ` · ${dado.semana.length}` : ""}
           </button>
         </div>
+        {/* o resumo do dia é uma mensagem do Plumo, não um título: a conversa continua embaixo dela */}
         <section className={s.hoje} aria-labelledby="hoje-titulo">
           <div className={s.cabeca}>
             <span className={s.mestre} aria-hidden="true">
-              <Icone nome="spark" tam={18} />
+              <Icone nome="spark" tam={16} />
             </span>
-            <div>
-              <h1 id="hoje-titulo" className={s.titulo}>
+            <div className={s.corpoMsg}>
+              <span className={s.metaMsg}>Plumo · {linhaDoDia(dado.hoje, dado.resumo)}</span>
+              <p id="hoje-titulo" className={s.titulo}>
                 {saudacao()} {podeOperar ? fraseDoDia(dado.resumo) : dado.resumo.frase}
-              </h1>
-              <p className="mut">{linhaDoDia(dado.hoje, dado.resumo)}. Olhei compras, cronograma e gastos. O que importa hoje:</p>
+              </p>
+              <p className={s.sub}>Olhei compras, cronograma e gastos. O que importa hoje:</p>
             </div>
           </div>
           {pontos.length ? (
@@ -260,7 +262,6 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
           )}
           {dado.mais ? <p className={`mut sm ${s.mais}`}>E mais {dado.mais === 1 ? "1 ponto" : `${dado.mais} pontos`} depois destes.</p> : null}
         </section>
-        <p className={`mut sm ${s.nota}`}>O Plumo só propõe. Nada é pedido, pago ou mudado sem o seu toque, e tudo fica no Histórico com Desfazer.</p>
         {abaixo ? <div className={s.nota}>{abaixo}</div> : null}
       </div>
       {gaveta ? (

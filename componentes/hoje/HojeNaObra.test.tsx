@@ -55,7 +55,7 @@ afterEach(() => {
 describe("HojeNaObra", () => {
   it("mostra a frase pronta, os pontos e a semana; o botão leva à tela", async () => {
     montar(() => json(HOJE));
-    expect(await screen.findByRole("heading", { level: 1, name: /A obra está no prazo, com 1 coisa esperando você\./ })).toBeInTheDocument();
+    expect(await screen.findByText(/A obra está no prazo, com 1 coisa esperando você\./)).toBeInTheDocument();
     const pontos = screen.getByRole("list", { name: "Hoje na obra" });
     expect(within(pontos).getByText("2 comprovantes para conferir.")).toBeInTheDocument();
     expect(screen.getByText("E mais 2 pontos depois destes.")).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe("HojeNaObra", () => {
         <HojeNaObra obra={OBRA} alternativa={null} />
       </ProvedorCasca>,
     );
-    const titulo = await screen.findByRole("heading", { level: 1 });
+    const titulo = await screen.findByText(/A obra está no prazo/);
     expect(titulo).toHaveTextContent("A obra está no prazo.");
     expect(titulo).not.toHaveTextContent("esperando");
     expect(screen.getByText("2 comprovantes para conferir.")).toBeInTheDocument();
