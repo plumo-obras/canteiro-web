@@ -34,7 +34,7 @@ describe("Nova obra", () => {
     // o contrato vem recolhido: abre para lançar o valor
     await u.click(screen.getByText("Contrato"));
     await u.type(screen.getByLabelText("Valor do contrato (R$)"), "520.000");
-    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await u.click(screen.getByRole("button", { name: /^Criar obra/ }));
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-9&tela=projeto"));
     expect(rede.chamadas.find((c) => c.caminho === "/srv/api/obras")!.corpo).toMatchObject({
@@ -53,7 +53,7 @@ describe("Nova obra", () => {
     render(<NovaObra usuario={USUARIO} />);
     expect(screen.getByLabelText(/BDI/).closest("details")!.open).toBe(false);
 
-    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await u.click(screen.getByRole("button", { name: /^Criar obra/ }));
     expect(await screen.findByText(/Dê um nome para a obra/)).toBeInTheDocument();
     expect(rede.chamadas.some((c) => c.caminho === "/srv/api/obras")).toBe(false);
     expect(push).not.toHaveBeenCalled();
@@ -69,7 +69,7 @@ describe("Nova obra", () => {
     await u.click(screen.getByText("Contrato"));
     expect(contrato.open).toBe(false);
     await u.type(screen.getByLabelText("Nome da obra"), "Obra Inventada");
-    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await u.click(screen.getByRole("button", { name: /^Criar obra/ }));
     expect(await screen.findByText(/BDI em %/)).toBeInTheDocument();
     expect(contrato.open).toBe(true);
   });
@@ -85,7 +85,7 @@ describe("Nova obra", () => {
     const planilha = screen.getByRole("button", { name: "Já tenho a planilha do orçamento" });
     await u.click(planilha);
     expect(planilha.getAttribute("aria-pressed")).toBe("true");
-    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await u.click(screen.getByRole("button", { name: /^Criar obra/ }));
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-7&tela=orcamento"));
     expect(destinoDe("o-7", "cadastrar")).toBe("/inicio");
   });
@@ -104,7 +104,7 @@ describe("Nova obra", () => {
     expect(screen.getByText("1 prancha escolhida")).toBeInTheDocument();
     // nada sobe antes de a obra existir
     expect(rede.chamadas.some((c) => c.caminho === "/srv/tradutor/traducoes")).toBe(false);
-    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await u.click(screen.getByRole("button", { name: /^Criar obra/ }));
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-5&tela=projeto"));
     expect(rede.chamadas.filter((c) => c.caminho === "/srv/tradutor/traducoes")).toHaveLength(1);
     expect(JSON.parse(localStorage.getItem("canteiro:projeto:o-5:folhas")!)).toEqual([{ id: "tr-1", nome: "E-01 fundacoes.pdf" }]);

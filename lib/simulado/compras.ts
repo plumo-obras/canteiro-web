@@ -6,7 +6,7 @@
  */
 import { cronogramaSimulado } from "./cronograma";
 
-export const AVISO_PREVIA = "Prévia: ainda não é salvo.";
+export { AVISO_PREVIA, AVISO_PREVIA_ENVIO } from "./aviso";
 
 /**
  * Na demonstração, o mês em que a etapa começa no cronograma simulado (lib/simulado/cronograma.ts): Compras e

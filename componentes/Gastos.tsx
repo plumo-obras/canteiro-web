@@ -549,5 +549,10 @@ function fmtDiaCurto(iso: string): string {
 const semCentavos = (c: number) => `R$ ${Math.round(c / 100).toLocaleString("pt-BR")}`;
 
 function Vazio({ texto }: { texto: string }) {
-  return <div className="card vazio sm">{texto}</div>;
+  return (
+    <div className="card vazio sm">
+      <Icone nome="recibo" tam={22} />
+      <p>{texto}</p>
+    </div>
+  );
 }

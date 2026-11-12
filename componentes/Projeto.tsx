@@ -18,6 +18,7 @@ import { EditorCad, type Foco } from "./projeto/EditorCad";
 import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
 import { gravarFolhas, lerFolhas, LIMITE_PRANCHA, type Folha } from "./obra/pranchas";
+import { AVISO_PREVIA } from "@/lib/simulado/aviso";
 import { DISCIPLINAS_SIMULADAS, FOLHAS_DEMO, type SituacaoDisciplina } from "@/lib/simulado/projeto";
 import s from "./projeto/projeto.module.css";
 
@@ -525,7 +526,7 @@ export function Projeto({ obra }: { obra: Obra }) {
                         aria-pressed={d.situacao === op}
                         onClick={() => {
                           setDisciplinas((ds) => ds.map((x) => (x.id === d.id ? { ...x, situacao: x.situacao === op ? "nao_confirmada" : op } : x)));
-                          avisar("Prévia: ainda não é salvo.");
+                          avisar(AVISO_PREVIA);
                         }}
                       >
                         {op === "vai_ter" ? "Vai ter" : "Não vai ter"}
@@ -537,7 +538,7 @@ export function Projeto({ obra }: { obra: Obra }) {
             </section>
           ))}
           {podeOperar ? (
-            <button type="button" className={`btn sm ${s.outraDisc}`} onClick={() => avisar("Prévia: ainda não é salvo.")}>
+            <button type="button" className={`btn sm ${s.outraDisc}`} onClick={() => avisar(AVISO_PREVIA)}>
               <Icone nome="plus" tam={14} />
               Outra disciplina
             </button>

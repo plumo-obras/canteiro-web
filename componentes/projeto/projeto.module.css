@@ -1,7 +1,7 @@
 /* Projeto: uma mesa de trabalho. O modelo (3D, CAD ou os dois lado a lado) ocupa a maior parte, na altura da tela; à
    esquerda, uma coluna compacta com a disciplina Estrutura (pacote, materiais, conferências, folhas e o envio), que
    rola sozinha. Nada pede rolar a página para chegar ao modelo. No celular, a vista vem primeiro e a coluna desce. */
-.tela{display:flex;flex-direction:column;gap:0;--mesaAlt:clamp(480px,calc(100dvh - 300px),980px)}
+.tela{display:flex;flex-direction:column;gap:0;max-width:1320px;width:100%;margin:0 auto;--mesaAlt:clamp(480px,calc(100dvh - 300px),980px)}
 .mesaCheia{grid-template-columns:minmax(0,1fr)!important}
 .mesa{display:grid;grid-template-columns:340px minmax(0,1fr);gap:var(--s4);margin-top:var(--s4);align-items:stretch}
 @media (min-width:1481px){.mesa{grid-template-columns:380px minmax(0,1fr)}}
@@ -194,7 +194,7 @@
 .discTexto{margin:0;font-size:var(--t-meta);color:var(--muted);line-height:1.45}
 .discPe{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .discPe :global(.btn.sm)[aria-pressed="true"]{background:var(--ativo);border-color:var(--ink2);color:var(--ink)}
-.discN{margin-left:4px;padding:0 6px;border-radius:var(--rp);background:var(--sunk);font-size:11px;font-weight:600}
+.discN{margin-left:4px;padding:0 6px;border-radius:var(--rp);background:var(--sunk);font-size:12px;font-weight:600}
 .outraDisc{align-self:flex-start;flex:none}
 .disc .lendo{margin:2px 0 0}
 
@@ -211,8 +211,9 @@
 .camadaFalta{color:var(--faint)!important;cursor:default!important}
 .discProximo{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;min-height:32px;padding:0 12px;border-radius:var(--rp);border:0;background:var(--amberSoft);color:var(--amberInk);font:500 var(--t-meta) var(--sans);cursor:pointer}
 .bola{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
-.grupoCamada{display:block;padding:6px 8px 2px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.grupoCamada{display:block;padding:6px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
 .zoom{position:absolute;right:12px;bottom:12px;z-index:1;display:flex;flex-direction:column;gap:6px}
 .zoom button{width:40px;height:40px;display:grid;place-items:center;border-radius:12px;border:1px solid var(--line);background:var(--cardForte);color:var(--ink2);cursor:pointer}
 @media (hover:hover){.zoom button:hover{color:var(--ink);border-color:var(--ink2)}}
 @media (max-width:760px){.zoom{bottom:64px}}
+@media (max-width:760px){ .tela :global(.cab-sub){display:none} }

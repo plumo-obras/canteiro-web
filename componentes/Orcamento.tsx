@@ -214,21 +214,21 @@ export function Orcamento({ obra }: { obra: Obra }) {
               </Etiqueta>
             ) : null}
             {emOrcamento ? (
-              <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.</Etiqueta>
+              <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer em Versões do orçamento, no fim da tela.</Etiqueta>
             ) : null}
           </Etiquetas>
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
           {/* Versões, aditivos e os dados do contrato não estão no protótipo: ficam recolhidos no fim, para conferir */}
-          {dado.versoes.length > 1 || nAditivos || textoContrato(obra) ? (
+          {dado.versoes.length >= 1 || nAditivos || textoContrato(obra) ? (
             <details className={s.recolhido}>
               <summary>
                 <Icone nome="chevRight" tam={14} />
-                {dado.versoes.length > 1 ? `Versões e aditivos (${dado.versoes.length})` : "Dados do contrato"}
+                {nAditivos ? `Versões e aditivos (${dado.versoes.length})` : dado.versoes.length ? "Versões do orçamento" : "Dados do contrato"}
               </summary>
               <div className={s.recolhidoCorpo}>
                 {textoContrato(obra) ? <p className={s.contrato}>{textoContrato(obra)}</p> : null}
                 <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
-                {dado.versoes.length > 1 ? <Versoes versoes={dado.versoes} atual={dado.totais.atual} /> : null}
+                {dado.versoes.length ? <Versoes versoes={dado.versoes} atual={dado.totais.atual} /> : null}
               </div>
             </details>
           ) : null}

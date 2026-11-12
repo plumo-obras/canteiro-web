@@ -3,7 +3,7 @@
  * "Editar nome" da Conta: o protótipo tem o botão, a API ainda não tem a rota. A tela muda só o nome mostrado ali,
  * avisa que é prévia e nada sai do navegador; ao recarregar, volta o nome que a API devolve.
  */
-export const AVISO_PREVIA = "Prévia: ainda não é salvo.";
+export { AVISO_PREVIA } from "./aviso";
 
 /** O que a tela recusa antes de mostrar a prévia (a mesma ideia da validação de nome do cadastro). */
 export function problemaNoNome(nome: string): string | null {

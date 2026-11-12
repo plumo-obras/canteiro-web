@@ -5,13 +5,14 @@
  * registra a entrega do que falta em cada linha, com Desfazer. Entrega pela metade e NF ficam no "⋯" e no detalhe.
  */
 import { useRef, useState, type ReactNode } from "react";
-import { AVISO_PREVIA } from "@/lib/simulado/compras";
+import { AVISO_PREVIA_ENVIO } from "@/lib/simulado/compras";
 import type { EtapaObra, Fornecedor, ItemInsumo, Obra, Pedido, StatusPedido } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtPrevisao, fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
 import { mensagemDe, useCasca } from "../contexto";
 import { Confirmar } from "../Dialogo";
+import { MenuMais } from "../MenuMais";
 import { Icone } from "../Icone";
 import { useCelular } from "../midia";
 import { BotaoMais, useMaisAntigos } from "../Paginacao";
@@ -47,7 +48,8 @@ export function acoesDe(p: Pedido): AcaoPedido[] {
     case "parcial":
       return [{ tipo: "chegou", rotulo: "Chegou o resto" }, parte, { tipo: "encerrar", rotulo: "O resto não vem" }];
     case "recebido":
-      return [chegou];
+      // já chegou: o que falta é conferir a entrega (quantidade e NF), não dizer "Chegou" de novo
+      return [{ tipo: "chegou", rotulo: "Conferir entrega" }];
     default:
       return [];
   }
@@ -164,7 +166,7 @@ export function seloDoPedido(p: Pedido, hoje: string): SeloPedido {
   const atraso = diasDeAtraso(p, hoje);
   if (atraso) return { texto: `atrasado ${atraso} ${atraso === 1 ? "dia" : "dias"}`, curto: "atrasado", tom: "bad" };
   if (p.status === "parcial") return { texto: progressoParcial(p), curto: "chegou em parte", tom: "warn" };
-  if (p.status === "recebido") return { texto: "chegou · falta conferir", curto: "chegou", tom: "warn" };
+  if (p.status === "recebido") return { texto: "chegou · falta conferir", curto: "conferir", tom: "warn" };
   const t = p.previsao ? fmtPrevisao(p.previsao) : "a caminho";
   return { texto: t, curto: t, tom: "info" };
 }
@@ -240,7 +242,7 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
       <>
         {atraso ? (
           // a cobrança ainda não existe na API: a tela mostra o caminho e avisa que é prévia
-          <button type="button" className={bt(`${s.plumo}`)} onClick={() => avisar(AVISO_PREVIA)}>
+          <button type="button" className={bt(`${s.plumo}`)} onClick={() => avisar(AVISO_PREVIA_ENVIO)}>
             {celular ? "Cobrar" : "Cobrar pelo Plumo"}
           </button>
         ) : null}
@@ -259,6 +261,7 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
     );
   }
 
+  const resto = podeOperar ? acoesDe(p).slice(p.status === "em_cotacao" ? 2 : 1) : [];
   // no celular o meta diz o que importa para o estado: o valor a aprovar, a data que passou
   const meta = [p.numero, p.fornecedor, celular ? (atraso && p.previsao ? `era ${diaMes(p.previsao)}` : p.status === "em_cotacao" ? reaisInteiros(p.valor) : null) : reaisInteiros(p.valor)].filter(Boolean);
   return (
@@ -278,7 +281,13 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
           </span>
         ))}
       </span>
-      {acoes ? <div className={s.pedAcoes}>{acoes}</div> : null}
+      {acoes || resto.length ? (
+        <div className={s.pedAcoes}>
+          {acoes}
+          {/* o resto das ações (parte com NF, cancelar, o resto não vem) mora no detalhe do pedido; o ⋯ leva até ele */}
+          {resto.length ? <MenuMais rotulo={`Mais ações do ${p.numero}`} itens={resto.map((a) => ({ rotulo: a.rotulo, acao: abrir }))} /> : null}
+        </div>
+      ) : null}
       {recusando ? (
         <Confirmar titulo={`Recusar o ${p.numero}?`} confirmar="Recusar pedido" fechar={() => setRecusando(false)} aoConfirmar={() => avancar("cancelado", `${p.numero} recusado.`, true).then(() => setRecusando(false))}>
           <p style={{ margin: "4px 0 0" }}>

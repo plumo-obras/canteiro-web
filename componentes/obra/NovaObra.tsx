@@ -43,6 +43,10 @@ export function NovaObra({ usuario }: { usuario: Usuario }) {
   const chave = useRef(uuid7());
   const mudar = (p: Partial<FormObra>) => setF((x) => ({ ...x, ...p }));
   const [comeco, setComeco] = useState<Comeco>("pranchas");
+  const trocarCaminho = (c: Comeco) => {
+    setComeco(c);
+    if (c !== "pranchas") setPranchas([]);
+  };
   // As pranchas ficam aqui até a obra existir; sobem para o tradutor logo depois do cadastro.
   const [pranchas, setPranchas] = useState<File[]>([]);
   const [erroPrancha, setErroPrancha] = useState<string | null>(null);
@@ -177,16 +181,21 @@ export function NovaObra({ usuario }: { usuario: Usuario }) {
                 Tirar as pranchas escolhidas
               </button>
             ) : null}
-            <button type="button" className={`btn ${s.caminho}`} aria-pressed={comeco === "planilha"} onClick={() => setComeco("planilha")}>
+            {/* escolher outro caminho tira as pranchas da lista: elas só sobem no caminho das pranchas */}
+            <button type="button" className={`btn ${s.caminho}`} aria-pressed={comeco === "planilha"} onClick={() => trocarCaminho("planilha")}>
               Já tenho a planilha do orçamento
             </button>
-            <button type="button" className={`btn ${s.caminho}`} aria-pressed={comeco === "cadastrar"} onClick={() => setComeco("cadastrar")}>
+            <button type="button" className={`btn ${s.caminho}`} aria-pressed={comeco === "cadastrar"} onClick={() => trocarCaminho("cadastrar")}>
               Só cadastrar por enquanto
             </button>
           </section>
           <button type="submit" form="form-nova-obra" className={`btn amb ${s.criar}`} disabled={ocupado} aria-busy={ocupado}>
             {ocupado ? <Icone nome="loader" className="spin" tam={14} /> : null}
-            {enviando ? "Enviando as pranchas…" : "Criar obra"}
+            {enviando
+              ? "Enviando as pranchas…"
+              : comeco === "pranchas" && pranchas.length
+                ? `Criar obra e enviar ${plural(pranchas.length, "prancha", "pranchas")}`
+                : "Criar obra"}
           </button>
         </aside>
       </div>

@@ -297,7 +297,7 @@ describe("Compras", () => {
     expect(await screen.findByText(/^atrasado \d+ dias$/)).toBeInTheDocument();
     const antes = rede.chamadas.length;
     await userEvent.setup().click(screen.getByRole("button", { name: "Cobrar pelo Plumo" }));
-    expect(await screen.findByText("Prévia: ainda não é salvo.")).toBeInTheDocument();
+    expect(await screen.findByText("Prévia: nada foi enviado ao fornecedor.")).toBeInTheDocument();
     expect(rede.chamadas.slice(antes).filter((c) => c.metodo !== "GET")).toEqual([]);
   });
 });

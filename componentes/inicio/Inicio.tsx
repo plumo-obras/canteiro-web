@@ -321,8 +321,9 @@ function CartaoObra({ r, href, celular }: { r: ResumoObra; href: string; celular
         </li>
       ))}
     </ul>
-  ) : (
-    // "Tudo em dia" ao lado de "0,9 mês de atraso" se contradiz: com atraso, só "Sem pendências".
+  ) : obra.status === "concluida" || r.tem_orcamento === false ? null : (
+    // "Tudo em dia" ao lado de "0,9 mês de atraso" se contradiz: com atraso, só "Sem pendências". Obra concluída ou
+    // sem orçamento não está "em dia" de nada: fica sem selo.
     <span className={s.pends}>
       <span className={`pill ${atrasada ? s.neutro : "ok"}`}>{atrasada ? "Sem pendências" : "Tudo em dia"}</span>
     </span>

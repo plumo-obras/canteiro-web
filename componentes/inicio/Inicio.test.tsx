@@ -67,8 +67,8 @@ describe("Inicio", () => {
     expect(abrir[1]!.getAttribute("href")).toBe("/?obra=b");
     expect(within(cartoes[0]!).getByText("2 aprovações")).toBeTruthy();
     expect(await screen.findByText("Duas obras, três coisas esperando você.")).toBeTruthy();
-    // sem pendência nenhuma: uma linha só, nada de "nenhuma/nada"
-    expect(cartoes.at(-1)!.textContent).toContain("Tudo em dia");
+    // obra concluída não está "em dia" de nada: sem selo de pendência e nada de "nenhuma/nada"
+    expect(cartoes.at(-1)!.textContent).not.toContain("Tudo em dia");
     expect(cartoes.at(-1)!.textContent).not.toMatch(/nenhum|nada/);
     expect(cartoes.at(-1)!.textContent).toContain("Sem atividade ainda");
     // com uma obra só esperando, a etiqueta do topo leva direto à tela dela

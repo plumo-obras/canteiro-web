@@ -653,8 +653,8 @@ function TabelaItens(props: {
                         </td>
                         {/* o comprometido por item é regra da API (maior entre pedido e entregue, encerrado com sobra…): sem o vínculo
                             item→pedido na resposta, a tela não faz a conta — mostra só os pedidos casados, no selo */}
-                        <td className={s.num}>—</td>
-                        <td className={s.num}>—</td>
+                        <td className={s.num} />
+                        <td className={s.num} />
                         <td>
                           <SeloItem ps={doItem.pedidos} hoje={hoje} />
                         </td>

@@ -9,7 +9,7 @@
 import type { Cronograma, Medicao, MesCronograma } from "@/lib/contrato";
 import { CEM, listaMeses, somarMes, valorDe, valoresMes } from "@/lib/cronograma";
 
-export const AVISO_PREVIA = "Prévia: ainda não é salvo.";
+export { AVISO_PREVIA } from "./aviso";
 
 /** Etapa, orçado (R$ inteiros) e % por mês, a partir do 1º mês; o resto dos meses fica zero. */
 const ETAPAS: [string, string, number, number[]][] = [
