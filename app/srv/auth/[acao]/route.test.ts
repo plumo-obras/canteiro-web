@@ -327,3 +327,33 @@ describe("POST /srv/auth/* — modo de demonstração", () => {
     expect(pote.valores.has(COOKIE)).toBe(false);
   });
 });
+
+describe("POST /srv/auth/entrar — Manter conectado", () => {
+  it("desmarcado: o cookie vira de sessão (sem maxAge) e continua assim nas renovações", async () => {
+    criarRede({
+      "POST /auth/entrar": () => json(RESPOSTA_ENTRAR),
+      "POST /auth/renovar": () => json({ ...RESPOSTA_ENTRAR, renovacao: "renovacao-2" }),
+    });
+    expect((await chamar("entrar", { email: "a@b.com", senha: "s", manter: false })).status).toBe(200);
+    const doEntrar = pote.set.mock.calls.find(([n]) => n === COOKIE)!;
+    expect(doEntrar[2]?.maxAge).toBeUndefined();
+    expect(doEntrar[2]?.httpOnly).toBe(true);
+
+    pote.set.mockClear();
+    expect((await chamar("renovar")).status).toBe(200);
+    const daRenovacao = pote.set.mock.calls.find(([n]) => n === COOKIE)!;
+    expect(daRenovacao[1]).toBe("renovacao-2");
+    expect(daRenovacao[2]?.maxAge).toBeUndefined();
+  });
+
+  it("marcado (ou cliente antigo, sem o campo): os 30 dias de sempre, e a marca de sessão curta sai", async () => {
+    criarRede({ "POST /auth/entrar": () => json(RESPOSTA_ENTRAR) });
+    pote.valores.set(`${COOKIE}_curta`, "1");
+    await chamar("entrar", { email: "a@b.com", senha: "s", manter: true });
+    expect(pote.set.mock.calls.find(([n]) => n === COOKIE)![2]?.maxAge).toBeGreaterThan(0);
+    expect(pote.valores.has(`${COOKIE}_curta`)).toBe(false);
+    pote.set.mockClear();
+    await chamar("entrar", { email: "a@b.com", senha: "s" });
+    expect(pote.set.mock.calls.find(([n]) => n === COOKIE)![2]?.maxAge).toBeGreaterThan(0);
+  });
+});

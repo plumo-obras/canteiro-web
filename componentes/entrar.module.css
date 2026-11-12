@@ -1,45 +1,61 @@
 /* Tela de entrar: a tela inteira, sem cartão. Formulário à esquerda e a vitrine (o modelo da estrutura e a promessa) à
    direita; no celular a vitrine sobe para o topo, menor, e o formulário vem embaixo. */
-.pagina{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(380px,560px) minmax(0,1fr);background:var(--cardSolido)}
+.pagina{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(380px,420px) minmax(0,1fr);background:var(--cardSolido)}
 
-.lado{display:flex;flex-direction:column;padding:28px clamp(24px,4vw,56px)}
+.lado{display:flex;flex-direction:column;padding:32px 48px}
 .topo{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .marca{display:flex;align-items:center;gap:10px;font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-weight:600;
-  font-size:22px;letter-spacing:-.01em;color:var(--ink)}
-.marca :global(.logo){width:34px;height:34px;border-radius:10px}
+  font-size:20px;letter-spacing:-.01em;color:var(--ink)}
+.marca :global(.logo){width:36px;height:36px;border-radius:10px}
 .tema{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--campo);
   color:var(--ink2);cursor:pointer}
 .tema:hover{color:var(--ink)}
 
-.form{width:min(380px,100%);margin:auto;padding:40px 0;display:flex;flex-direction:column}
-.titulo{font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-size:30px;font-weight:600;letter-spacing:-.02em;
+.form{width:min(380px,100%);margin:auto 0;padding:40px 0;display:flex;flex-direction:column}
+.titulo{font-family:var(--fonte-bricolage),var(--fonte-figtree),sans-serif;font-size:32px;font-weight:600;letter-spacing:-.02em;
   line-height:1.15;margin:0;color:var(--ink)}
-.sub{margin:8px 0 28px;color:var(--muted)}
+.sub{margin:6px 0 10px;color:var(--ink2)}
 
-.rotulo{font-weight:500;color:var(--ink2);margin:14px 0 6px}
+.rotulo{font-weight:500;color:var(--ink2);margin:16px 0 6px}
 .campo{position:relative}
-.campo input{width:100%;height:48px;padding:0 46px 0 14px;border:1px solid var(--line);border-radius:14px;background:var(--campo);
+.campo input{width:100%;box-sizing:border-box;height:48px;padding:0 46px 0 14px;border:1px solid var(--line);border-radius:14px;background:var(--campo);
   color:var(--ink);font:inherit;transition:border-color .15s,box-shadow .15s}
 .campo input::placeholder{color:var(--faint)}
 .campo input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accentSoft)}
-.icone,.olho{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:grid;place-items:center;
+.olho{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:grid;place-items:center;
   color:var(--faint)}
-.icone{pointer-events:none}
 .olho{border:0;background:none;border-radius:10px;cursor:pointer}
 .olho:hover{color:var(--ink2)}
 .olho:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
 .erro{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--redSoft,rgba(220,60,60,.12));color:var(--redInk);
   font-size:var(--t-meta)}
-.botao{margin-top:24px;height:50px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #d39a35;
+.botao{margin-top:16px;height:50px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #d39a35;
   border-radius:14px;background:var(--ocre);color:var(--onAccent);font:inherit;font-weight:600;font-size:16px;cursor:pointer;
   box-shadow:0 8px 22px -12px rgba(232,176,74,.8);transition:filter .15s,transform .15s}
 .botao:hover:not(:disabled){filter:brightness(1.05)}
 .botao:active:not(:disabled){transform:translateY(1px)}
 .botao:disabled{opacity:.75;cursor:progress}
-.ajuda{margin:18px 0 0;text-align:center;color:var(--muted);font-size:var(--t-meta)}
-.nota{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line2);font-size:var(--t-meta);color:var(--muted);line-height:1.5}
-.rodape{text-align:center;color:var(--faint);font-size:12px}
+/* Manter conectado e o lembrete da senha numa linha, entre a senha e o Entrar */
+.linha{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:16px;font-size:var(--t-meta);color:var(--ink2)}
+.manter{display:flex;align-items:center;gap:8px;min-height:32px;cursor:pointer}
+.manter input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.ajuda{color:var(--muted)}
+.ajudaCel{margin:16px 0 0;text-align:center;color:var(--muted);font-size:var(--t-meta)}
+.nota{margin:18px 0 0;font-size:var(--t-meta);color:var(--muted);line-height:1.5}
+.nota summary{cursor:pointer;min-height:32px;display:inline-flex;align-items:center}
+.nota p{margin:4px 0 0}
+.rodape{color:var(--faint);font-size:12px}
+
+/* Selos sobre o modelo: verde o que já saiu das pranchas, azul tracejado o que vem. A vitrine é marinho nos dois
+   temas, então as cores misturam o tom com branco em vez de usar os *Ink (pensados para fundo claro no tema claro). */
+.selo{position:absolute;z-index:1;display:inline-flex;align-items:center;padding:6px 10px;border-radius:var(--rp);font-size:12px;font-weight:600;
+  white-space:nowrap;pointer-events:none;background:color-mix(in srgb,var(--marinho) 80%,black);border:1px solid}
+.selo[data-tom="ok"]{color:color-mix(in srgb,var(--green) 55%,white);border-color:color-mix(in srgb,var(--green) 45%,transparent)}
+.selo[data-tom="vem"]{color:color-mix(in srgb,var(--blue) 45%,white);border-color:color-mix(in srgb,var(--blue) 45%,transparent);border-style:dashed}
+.seloFund{left:12%;top:58%}
+.seloLaje{right:16%;top:16%}
+.seloHidr{right:10%;top:44%}
 
 /* Vitrine: azul-marinho da obra nos dois temas (é a "prancheta"), com a grade de desenho e o modelo em perspectiva. As faces
    do modelo saem da mistura do branco com o marinho, e a sapata puxa para o ocre: nada de cor nova fora dos tokens. */
@@ -72,13 +88,23 @@
 @media (max-width:899px){
   .pagina{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   /* a vitrine vem primeiro só na tela: no DOM continua depois do formulário */
-  .vitrine{order:-1;min-height:clamp(220px,34dvh,300px);padding:20px}
-  .modelo{left:12%;top:6%;width:76%;height:70%}
-  .chamada{font-size:20px;line-height:1.15}
-  .passos{display:none}
-  .lado{padding:16px 20px}
-  .form{padding:24px 0}
+  .vitrine{order:-1;min-height:300px;padding:20px}
+  .modelo{left:12%;top:14%;width:76%;height:76%}
+  /* no celular a vitrine é só o modelo; a promessa vira o subtítulo do formulário */
+  .vitrineTexto,.selo{display:none}
+  /* a marca flutua sobre a vitrine, no canto, como no protótipo; o tema fica no menu depois de entrar */
+  .topo{position:absolute;top:16px;left:16px;right:16px;z-index:2}
+  .marca{color:color-mix(in srgb,white 94%,var(--accent))}
+  .tema{display:none}
+  .lado{padding:16px}
+  .form{width:100%;padding:16px 0 24px;margin:0}
   .titulo{font-size:26px}
+  .sub{margin:2px 0 4px}
+  .rotulo{margin-top:16px}
+  .botao{min-height:52px;border-radius:var(--rp)}
+  .manter{font-size:var(--t-body)}
+  .manter input{width:22px;height:22px}
+  .rodape{margin-top:auto;text-align:center}
 }
 @media (prefers-reduced-motion:reduce){
   .campo input,.botao{transition:none}

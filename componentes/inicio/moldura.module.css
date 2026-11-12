@@ -1,25 +1,32 @@
-/* Topo das páginas /inicio, /conta e /obras/nova: uma barra só, com fundo de vidro próprio, como a da landing — o
-   conteúdo rola por baixo dela sem se misturar. Marca e navegação à esquerda, o avatar à direita. */
+/* Topo das páginas /inicio, /conta e /obras/nova: uma barra só, de ponta a ponta, com fundo de vidro próprio — o
+   conteúdo rola por baixo dela sem se misturar. Marca e navegação à esquerda, o sino e o avatar à direita. */
 .pagina{height:100dvh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:none}
-.topo{position:sticky;top:0;z-index:5;padding:12px 16px 0}
-.topoIn{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;padding:7px 7px 7px 12px;border-radius:16px;
+.topo{position:sticky;top:0;z-index:5;padding:16px 24px 0}
+.topoIn{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;border-radius:var(--r);
   background:var(--barra);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);box-shadow:var(--sombraBarra)}
-.marca{display:flex;align-items:center;gap:10px;min-height:44px;min-width:44px;padding-right:6px;font:600 21px var(--sans);letter-spacing:-.02em;color:var(--ink);border-radius:12px}
+.marca{display:flex;align-items:center;gap:10px;min-height:44px;min-width:44px;padding-right:6px;font:600 18px var(--serif);letter-spacing:-.01em;color:var(--ink);border-radius:12px}
 .demo{font:500 12px var(--sans);color:var(--muted);border:1px solid var(--line);background:var(--sunk);border-radius:var(--rp);padding:1px 10px;white-space:nowrap}
 .navs{display:flex;gap:2px;margin-left:12px}
 .sp{flex:1}
-.nav{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:12px;color:var(--muted);font-weight:500;font-size:15px;
+.nav{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:var(--rp);color:var(--ink2);font-weight:500;font-size:15px;
   transition:background-color var(--mv-rapido) var(--ease),color var(--mv-rapido) var(--ease)}
 .nav[aria-current="page"]{background:var(--ativo);color:var(--ink)}
 @media (hover:hover){ .nav:not([aria-current="page"]):hover{background:var(--hover);color:var(--ink)} }
-.conteudo{max-width:1180px;margin:0 auto;padding:32px 18px calc(48px + env(safe-area-inset-bottom))}
+.conteudo{max-width:1240px;margin:0 auto;padding:26px 24px calc(48px + env(safe-area-inset-bottom))}
 
-@media (max-width:640px){
+/* celular, na Conta: voltar + título, sem marca nem avatar (Tema e Sair estão na lista da própria tela) */
+.voltar{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;color:var(--ink)}
+.voltar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.voltarIc{transform:rotate(180deg)}
+.titulo{font:600 17px var(--sans);color:var(--ink)}
+
+@media (max-width:760px){
   .topo{padding:8px 8px 0}
-  .topoIn{padding:6px 6px 6px 8px}
-  .topoIn{gap:6px}
-  .marcaT,.demo{display:none}
-  .nav{padding:0 14px}
-  .navs{margin-left:0}
-  .conteudo{padding:22px 14px calc(40px + env(safe-area-inset-bottom))}
+  .topoIn{padding:6px 6px 6px 8px;gap:6px;border-radius:18px}
+  /* no celular o topo é só a marca, o sino e o avatar: sem pílula ao fundo, como no protótipo */
+  .topoIn{background:none;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .topo{-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+  .demo{display:none}
+  .conteudo{padding:10px 16px calc(40px + env(safe-area-inset-bottom))}
 }
+.topoAjustes{gap:4px;padding-left:2px}

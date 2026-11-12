@@ -1,28 +1,32 @@
 /* /conta. Um nível de caixa: cada seção é um cartão; dentro dele, só fios e espaço. */
 .link{background:none;border:0;padding:0;color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 
-.grade{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
-/* Desktop: perfil e chave lado a lado (a grade estica os dois até a mesma altura); créditos e senha na largura toda. */
-@media (min-width:960px){
-  .grade{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-  .creditos,.senha,.opcoes{grid-column:1/-1}
-}
-.bloco{min-width:0;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:var(--r);padding:20px 22px;box-shadow:var(--hl),var(--shadow)}
-.h2{font:600 var(--t-sec)/1.3 var(--serif);margin:0;min-width:0}
+/* a largura do protótipo para Conta (mais estreita que a lista de obras) */
+.miolo{max-width:1080px;margin:0 auto}
+.grade{display:flex;flex-direction:column;gap:18px}
+/* perfil e chave lado a lado, esticados até a mesma altura; abaixo de ~1000 px, um embaixo do outro */
+.duas{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch}
+.duas>*{flex:1 1 420px}
+.bloco{min-width:0;background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);border-radius:20px;padding:16px 18px;box-shadow:var(--hl),var(--shadow)}
+.h2{font:600 17px/1.3 var(--serif);margin:0;min-width:0}
+.h2Cel{font:600 16px/1.3 var(--sans);margin:0;min-width:0;flex:1}
+.esp{flex:1;min-width:0}
+.total{font-weight:600;font-size:15px;white-space:nowrap}
+.btPeq{min-height:34px}
 .h4{font:600 var(--t-meta)/1.4 var(--sans);color:var(--muted);margin:0 0 10px;letter-spacing:0}
 .texto{margin:0 0 14px;color:var(--ink2);line-height:1.6}
 .meta{margin:0;color:var(--ink2);font-size:var(--t-meta);line-height:1.55}
 .diz{color:var(--muted);font-size:var(--t-meta)}
 
 /* o esqueleto comum de perfil, chave e créditos: título + selo, conteúdo, pé preso embaixo */
-.par{display:flex;flex-direction:column;gap:14px}
-.creditos{display:flex;flex-direction:column;gap:16px}
+.par{display:flex;flex-direction:column;gap:12px}
+.creditos{display:flex;flex-direction:column;gap:14px}
 .cabCartao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .pe{margin-top:auto}
 .selo{display:inline-flex;align-items:center;padding:1px 10px;border-radius:var(--rp);font-size:12px;font-weight:600;white-space:nowrap;line-height:1.7;
   background:var(--graySoft);color:var(--grayInk)}
 .selo[data-tom="ok"]{background:var(--greenSoft);color:var(--greenInk)}
-.selo[data-tom="marca"]{background:var(--accentSoft);color:var(--accentInk)}
+.selo[data-tom="marca"]{background:var(--amberSoft);color:var(--amberInk)}
 .seta{flex:none;color:var(--muted);transition:transform var(--mv-rapido) var(--ease)}
 
 /* perfil */
@@ -31,14 +35,13 @@
 .quemT{display:flex;flex-direction:column;min-width:0}
 .quemT b{font-size:15px}
 .quemT span{color:var(--muted);font-size:var(--t-meta);overflow-wrap:anywhere}
-.dados{margin:0;border-top:1px solid var(--line2)}
-.dados>div{display:grid;grid-template-columns:minmax(6.5em,max-content) minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--line2)}
-.dados dt{color:var(--muted);font-size:var(--t-meta);padding-top:1px}
-.dados dd{margin:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;min-width:0;overflow-wrap:anywhere;color:var(--ink2)}
-.papel{font-weight:600;color:var(--ink)}
+/* dados do cartão: rótulo e valor em duas colunas, sem fios (como no protótipo) */
+.dados{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;font-size:var(--t-meta)}
+.dados dt{color:var(--muted)}
+.dados dd{margin:0;min-width:0;overflow-wrap:anywhere;color:var(--ink2)}
 
 /* chave */
-.final{font:600 var(--t-body) var(--mono);color:var(--ink)}
+.final{font:500 var(--t-meta) var(--mono);color:var(--ink2)}
 .aviso{display:flex;gap:9px;align-items:flex-start;border-radius:var(--ri);padding:10px 14px;font-size:var(--t-meta);line-height:1.55;margin:0;background:var(--sunk);color:var(--ink2)}
 .aviso :global(.ic){margin-top:2px;color:var(--muted)}
 .texto code{white-space:nowrap;font:500 12px var(--mono);background:var(--sunk);border:1px solid var(--line2);border-radius:6px;padding:0 4px}
@@ -61,59 +64,51 @@
 .como[open] .seta{transform:rotate(180deg)}
 .como p{margin:6px 0 0}
 
-/* créditos: faixa de números (grade de células), gráfico por dia e as listas ao lado */
-.comprar :global(.btn){min-height:36px}
-.breve{font-size:12px;font-weight:500;color:var(--grayInk);background:var(--graySoft);border-radius:99px;padding:0 8px;line-height:1.7}
-.numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:1px;border-radius:var(--ri);overflow:hidden;
-  border:1px solid var(--line2);background:var(--line2)}
-.numeros>div{background:var(--cardSolido);padding:12px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
-.rotuloPeq{font-size:var(--t-meta);color:var(--muted)}
-.grande{font:600 20px/1.3 var(--sans);white-space:nowrap}
-.barra{height:6px;margin:4px 0 2px;border-radius:99px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line2);overflow:hidden}
-.barra span{display:block;height:100%;border-radius:inherit;background:var(--green);transition:width var(--mv-base) var(--ease)}
-.barra[data-nivel="atencao"] span{background:var(--amber)}
-.barra[data-nivel="alto"] span{background:var(--red)}
-
-.uso{display:grid;gap:20px 28px;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--line2);padding-top:16px}
-@media (min-width:960px){.uso{grid-template-columns:minmax(0,1fr) minmax(280px,360px);align-items:start}}
-.usoDias,.usoListas{min-width:0}
-.usoListas{display:flex;flex-direction:column;gap:18px}
+/* uso de IA: o gráfico ocupa o grosso, "Por obra" numa coluna estreita ao lado, as duas alinhadas pelo pé */
+.franquia{margin:0;color:var(--muted);font-size:12px}
+.uso{display:flex;flex-wrap:wrap;gap:20px 28px;align-items:flex-end}
+.uso>.grafico{flex:999 1 520px;min-width:0}
+.porObra{flex:1 1 300px;max-width:400px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.porObra .h4{margin:0;font-weight:400}
 
 /* o espaço em cima do gráfico é do rótulo do pico (e da dica do dia, que entra no mesmo lugar) */
-.grafico{margin:0;padding-top:26px;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:140px auto;column-gap:10px}
+.grafico{margin:0;display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:120px auto;column-gap:8px}
+.graficoCel{grid-template-columns:minmax(0,1fr);grid-template-rows:56px}
+.graficoCel .plot{grid-column:1;border-bottom:0;background:none}
 .eixoY{grid-row:1;display:flex;flex-direction:column;justify-content:space-between;font-size:12px;color:var(--muted);text-align:right;white-space:nowrap;
-  margin:-8px 0}
+  margin:-7px 0}
 .plot{grid-row:1;grid-column:2;position:relative;display:flex;align-items:stretch;gap:3px;border-bottom:1px solid var(--line);touch-action:pan-y;
   background:linear-gradient(var(--line2),var(--line2)) top/100% 1px no-repeat,linear-gradient(var(--line2),var(--line2)) center/100% 1px no-repeat}
+.plot{gap:5px}
+.graficoCel .plot{gap:3px}
 .plot:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
 .col{flex:1;display:flex;align-items:flex-end;min-width:0}
-.barraDia{display:block;width:100%;border-radius:3px 3px 0 0;background:var(--accent);opacity:.5;transition:opacity var(--mv-rapido) var(--ease)}
+.barraDia{display:block;width:100%;border-radius:3px 3px 0 0;background:var(--accent);opacity:.55;transition:opacity var(--mv-rapido) var(--ease)}
 .barraDia[data-zero]{height:2px;background:var(--line);border-radius:1px;opacity:1}
-.col[data-pico] .barraDia{opacity:1}
+.col[data-pico] .barraDia{opacity:.95}
+.graficoCel .barraDia{opacity:.6}
+.graficoCel .barraDia[data-zero]{background:none}
 .col[data-on] .barraDia{opacity:1;background:var(--accentInk)}
 .col[data-on] .barraDia[data-zero]{background:var(--muted)}
-.rotPico,.tip{position:absolute;top:-6px;pointer-events:none;white-space:nowrap;z-index:2}
-.rotPico{transform:translate(-50%,-100%);font-size:12px;color:var(--muted)}
-.rotPico b{color:var(--accentInk);font-weight:600}
-.rotPico[data-lado="dir"]{transform:translate(-8px,-100%)}
-.rotPico[data-lado="esq"]{transform:translate(calc(-100% + 8px),-100%)}
+.tip{position:absolute;top:-6px;pointer-events:none;white-space:nowrap;z-index:2}
 .tip{transform:translate(8px,-100%);background:var(--toast);color:#f3f4f6;font-size:var(--t-meta);padding:3px 12px;border-radius:var(--rp);box-shadow:var(--shadow)}
 .tip[data-lado="esq"]{transform:translate(calc(-100% - 8px),-100%)}
 .eixoX{grid-column:2;display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
 
-.barrasH{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
-.barrasH li{display:grid;grid-template-columns:minmax(0,9em) minmax(40px,1fr) auto;gap:10px;align-items:center;font-size:var(--t-meta)}
-.itemNome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
+.barrasH{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.barrasH li{display:grid;grid-template-columns:minmax(0,140px) minmax(40px,1fr) minmax(70px,auto);gap:10px;align-items:center;font-size:var(--t-meta)}
+.itemNome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .itemValor{white-space:nowrap;text-align:right}
 .trilho{display:block;height:8px;border-radius:4px;background:var(--sunk)}
-.trilho span{display:block;height:100%;border-radius:inherit;background:var(--accent);opacity:.7}
+.trilho{background:none}
+.trilho span{display:block;height:100%;border-radius:inherit;background:var(--accent);opacity:.6}
 
 /* senha: recolhida é uma faixa com seta; aberta, os três campos dividem a largura */
 .h2Senha{margin:0;font:inherit}
-.abreSenha{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.abreSenha{display:flex;align-items:center;gap:12px;width:100%;min-height:28px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .abreSenha:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
 .abreSenha[aria-expanded="true"] .seta{transform:rotate(180deg)}
-.abreSenhaT{font:600 var(--t-sec)/1.3 var(--serif);color:var(--ink);white-space:nowrap}
+.abreSenhaT{font:600 17px/1.3 var(--serif);color:var(--ink);white-space:nowrap}
 .abreSenhaMeta{flex:1;min-width:0;color:var(--muted);font-size:var(--t-meta)}
 .formSenha{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 /* três colunas só onde cabem as três; abaixo disso, uma: nunca 2 + 1 */
@@ -128,32 +123,34 @@
 .acoesSenha{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .acoesSenha :global(.btn){min-height:44px}
 
-/* celular: Trocar senha, Tema e Sair numa lista, cada linha um alvo de toque inteiro */
-.opcoes{display:flex;flex-direction:column;border-radius:var(--r);border:1px solid var(--edge);background:var(--card);overflow:hidden;box-shadow:var(--hl),var(--shadow)}
-.opcoes>*+*{border-top:1px solid var(--line2)}
-.opcaoSenha{padding:4px 16px}
-.opcaoSenha .abreSenhaT{font:500 15px var(--sans)}
+/* celular: os cartões do protótipo, mais justos */
+.blocoCel{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:18px}
+.blocoCel .av{width:48px;height:48px;font-size:16px}
+.blocoCel .quemT b{font-size:16px}
+.blocoCel .quem{gap:12px}
+.abreCel{display:flex;align-items:center;gap:10px;width:100%;min-height:28px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.abreCel:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
+.blocoCel .pe{margin-top:6px}
+
+/* celular: Trocar senha, Tema e Sair numa lista solta, cada linha um alvo de toque inteiro */
+.opcoes{display:flex;flex-direction:column}
+.opcoes>*{border-bottom:1px solid var(--line2)}
+.opcaoSenha{padding:0 4px}
+.opcaoSenha .abreSenha{min-height:52px}
+.opcaoSenha .abreSenhaT{font:400 16px var(--sans)}
 .opcaoSenha .abreSenhaMeta{display:none}
 .opcaoSenha .seta{margin-left:auto}
 .opcaoSenha[data-aberto="true"]{padding-bottom:16px}
-.opcao{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border:0;background:none;color:var(--ink);font:500 15px var(--sans);text-align:left;cursor:pointer}
+.opcao{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 4px;border:0;border-bottom:1px solid var(--line2);background:none;color:var(--ink);font:400 16px var(--sans);text-align:left;cursor:pointer}
 .opcao:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.opcao :global(.ic){color:var(--muted)}
 .opcaoT{flex:1}
-.opcaoSair,.opcaoSair :global(.ic){color:var(--redInk)}
+.opcaoSair{color:var(--redInk)}
 
 @media (max-width:640px){
-  .bloco{padding:16px}
   .linha :global(.btn){flex:1 1 100%;box-sizing:border-box}
   .acoesChave :global(.btn){flex:1 1 auto;min-height:44px}
-  .dados>div{grid-template-columns:minmax(5em,max-content) minmax(0,1fr)}
-  .grafico{grid-template-rows:110px auto}
-  /* os três números continuam numa faixa só, mais compactos */
-  .numeros{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .numeros>div{padding:10px 12px}
-  .grande{font-size:16px}
-  .numeros .diz,.numeros .rotuloPeq{font-size:12px}
   .barrasH li{grid-template-columns:minmax(0,8em) minmax(30px,1fr) auto}
   .acoesSenha :global(.btn){flex:1 1 100%;box-sizing:border-box}
   .abreSenhaMeta{display:none}
 }
+.quem>.selo{margin-left:auto}

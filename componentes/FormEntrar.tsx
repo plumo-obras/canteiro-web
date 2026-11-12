@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { entrar } from "@/lib/sessao";
 import { Icone, Logo } from "./Icone";
+import { useCelular } from "./midia";
 import { ModeloVitrine } from "./ModeloVitrine";
 import { BotaoTema } from "./tema";
 import s from "./entrar.module.css";
@@ -10,6 +11,12 @@ import s from "./entrar.module.css";
 // O que o Plumo faz, na ordem em que acontece: é a promessa da vitrine, não um menu.
 const PASSOS = ["Modelo 3D", "Orçamento e compras", "Cronograma", "Acompanhe conversando"];
 const FACES = [s.f0, s.f1, s.f2, s.f3, s.f4, s.f5, s.f6, s.f7, s.f8] as const;
+// As disciplinas sobre o modelo: o que já saiu das pranchas e o que vem em seguida (decorativo, como o próprio modelo).
+const SELOS = [
+  { texto: "E-01 Fundações", tom: "ok", classe: s.seloFund },
+  { texto: "E-05 Laje", tom: "ok", classe: s.seloLaje },
+  { texto: "H-01 Hidráulica · a seguir", tom: "vem", classe: s.seloHidr },
+] as const;
 
 export function FormEntrar({ demo }: { demo: boolean }) {
   const router = useRouter();
@@ -18,12 +25,14 @@ export function FormEntrar({ demo }: { demo: boolean }) {
   const [verSenha, setVerSenha] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [manter, setManter] = useState(true);
+  const celular = useCelular();
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setOcupado(true);
     setErro(null);
-    const r = await entrar(email, senha).catch(() => ({ ok: false as const, mensagem: "Sem conexão com o servidor. Tente de novo." }));
+    const r = await entrar(email, senha, manter).catch(() => ({ ok: false as const, mensagem: "Sem conexão com o servidor. Tente de novo." }));
     if (r.ok) router.replace("/inicio");
     else {
       setErro(r.mensagem);
@@ -44,7 +53,7 @@ export function FormEntrar({ demo }: { demo: boolean }) {
 
         <form className={s.form} onSubmit={enviar} aria-describedby={erro ? "erro-entrar" : undefined}>
           <h1 className={s.titulo}>Bem-vindo de volta</h1>
-          <p className={s.sub}>Entre para acompanhar suas obras.</p>
+          <p className={s.sub}>{celular ? "Mande a planta. O Plumo monta a obra." : "Entre para acompanhar suas obras."}</p>
 
           <label className={s.rotulo} htmlFor="email">
             E-mail
@@ -59,9 +68,6 @@ export function FormEntrar({ demo }: { demo: boolean }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <span className={s.icone}>
-              <Icone nome="email" tam={17} />
-            </span>
           </div>
 
           <label className={s.rotulo} htmlFor="senha">
@@ -94,19 +100,30 @@ export function FormEntrar({ demo }: { demo: boolean }) {
             </div>
           ) : null}
 
+          <div className={s.linha}>
+            <label className={s.manter}>
+              <input type="checkbox" checked={manter} onChange={(e) => setManter(e.target.checked)} />
+              Manter conectado
+            </label>
+            {/* Não há recuperação de senha por e-mail: quem cria e troca acesso é o master da conta. */}
+            {celular ? null : <span className={s.ajuda}>Esqueceu a senha? Fale com o admin da empresa.</span>}
+          </div>
+
           <button type="submit" className={s.botao} disabled={ocupado} aria-busy={ocupado}>
             {ocupado ? <Icone nome="loader" className="spin" tam={16} /> : null}
             Entrar
           </button>
+          {celular ? <p className={s.ajudaCel}>Esqueceu a senha? Fale com o admin da empresa.</p> : null}
 
-          {/* Não há recuperação de senha por e-mail: quem cria e troca acesso é o master da conta. */}
-          <p className={s.ajuda}>Esqueceu a senha? Fale com o administrador da sua empresa.</p>
-
+          {/* Só na demonstração, e recolhida: não é parte da tela de entrar de verdade. */}
           {demo ? (
-            <p className={s.nota}>
-              Modo de demonstração: qualquer e-mail e senha entram como admin. Um e-mail que começa com <b>leitura</b> entra com o
-              papel de leitura, e um que começa com <b>master</b> entra como master.
-            </p>
+            <details className={s.nota}>
+              <summary>Modo de demonstração</summary>
+              <p>
+                Qualquer e-mail e senha entram como admin. Um e-mail que começa com <b>leitura</b> entra com o papel de leitura, e um
+                que começa com <b>master</b> entra como master.
+              </p>
+            </details>
           ) : null}
         </form>
 
@@ -117,6 +134,11 @@ export function FormEntrar({ demo }: { demo: boolean }) {
           entrar); no celular sobe para o topo, menor, só pelo CSS. */}
       <aside className={s.vitrine} aria-label="O que o Plumo faz">
         <ModeloVitrine className={s.modelo} faces={FACES} />
+        {SELOS.map((x) => (
+          <span key={x.texto} className={`${s.selo} ${x.classe}`} data-tom={x.tom} aria-hidden="true">
+            {x.texto}
+          </span>
+        ))}
         <div className={s.vitrineTexto}>
           <h2 className={s.chamada}>
             Mande a planta.

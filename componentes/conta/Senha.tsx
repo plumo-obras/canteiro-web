@@ -110,7 +110,7 @@ export function Senha(props: { className: string; email: string }) {
         >
           <span className={s.abreSenhaT}>Trocar senha</span>
           <span id="senha-explica" className={s.abreSenhaMeta}>
-            Os outros aparelhos onde você entrou são desconectados; este continua.
+            Os outros aparelhos são desconectados.
           </span>
           <Icone nome="chevDown" tam={17} className={s.seta} />
         </button>

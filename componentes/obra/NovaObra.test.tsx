@@ -30,10 +30,10 @@ describe("Nova obra", () => {
     await u.type(screen.getByLabelText("Cidade"), "Cidade Inventada");
     await u.selectOptions(screen.getByLabelText("UF"), "RS");
     await u.click(screen.getByRole("radio", { name: "Galpão" }));
-    await u.type(screen.getByLabelText("Área construída (m²)"), "530");
+    await u.type(screen.getByLabelText("Área (m²)"), "530");
     // o contrato vem recolhido: abre para lançar o valor
     await u.click(screen.getByText("Contrato"));
-    await u.type(screen.getByLabelText("Valor fechado com o cliente (opcional)"), "520.000");
+    await u.type(screen.getByLabelText("Valor do contrato (R$)"), "520.000");
     await u.click(screen.getByRole("button", { name: "Criar obra" }));
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-9&tela=projeto"));
@@ -82,10 +82,42 @@ describe("Nova obra", () => {
     const u = userEvent.setup();
     render(<NovaObra usuario={USUARIO} />);
     await u.type(screen.getByLabelText("Nome da obra"), "Obra Inventada");
-    await u.click(screen.getByRole("radio", { name: /Já tenho a planilha do orçamento/ }));
+    const planilha = screen.getByRole("button", { name: "Já tenho a planilha do orçamento" });
+    await u.click(planilha);
+    expect(planilha.getAttribute("aria-pressed")).toBe("true");
     await u.click(screen.getByRole("button", { name: "Criar obra" }));
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-7&tela=orcamento"));
     expect(destinoDe("o-7", "cadastrar")).toBe("/inicio");
+  });
+
+  it("as pranchas arrastadas antes de a obra existir sobem depois do cadastro e entram no pacote do Projeto", async () => {
+    const rede = criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "POST /srv/api/obras": () => json({ id: "o-5", nome: "Obra Inventada" }, 201),
+      "POST /srv/tradutor/traducoes": () => json({ id: "tr-1", status: "pronto" }, 201),
+    });
+    const u = userEvent.setup();
+    render(<NovaObra usuario={USUARIO} />);
+    await u.type(screen.getByLabelText("Nome da obra"), "Obra Inventada");
+    const prancha = new File(["%PDF-1.4"], "E-01 fundacoes.pdf", { type: "application/pdf" });
+    await u.upload(screen.getByLabelText("Escolher pranchas"), prancha);
+    expect(screen.getByText("1 prancha escolhida")).toBeInTheDocument();
+    // nada sobe antes de a obra existir
+    expect(rede.chamadas.some((c) => c.caminho === "/srv/tradutor/traducoes")).toBe(false);
+    await u.click(screen.getByRole("button", { name: "Criar obra" }));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-5&tela=projeto"));
+    expect(rede.chamadas.filter((c) => c.caminho === "/srv/tradutor/traducoes")).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem("canteiro:projeto:o-5:folhas")!)).toEqual([{ id: "tr-1", nome: "E-01 fundacoes.pdf" }]);
+  });
+
+  it("prancha acima de 4 MB é recusada na hora, antes de criar a obra", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    const u = userEvent.setup();
+    render(<NovaObra usuario={USUARIO} />);
+    const grande = new File([new Uint8Array(4 * 1024 * 1024 + 1)], "foto.jpg", { type: "image/jpeg" });
+    await u.upload(screen.getByLabelText("Escolher pranchas"), grande);
+    expect(screen.getByRole("alert")).toHaveTextContent(/foto\.jpg: passa de 4 MB/);
+    expect(screen.getByText("Arraste as pranchas")).toBeInTheDocument();
   });
 
   it("viewer não cadastra", () => {

@@ -169,14 +169,8 @@ export async function buscarCep(cep: string): Promise<{ cidade: string; uf: stri
   }
 }
 
-/** Os tipos da Nova obra: sobrado e comercial, mais específicos, ficam para Dados da obra. */
-export const TIPOS_NOVA_OBRA: { k: Tipologia; rotulo: string }[] = [
-  { k: "casa", rotulo: "Casa" },
-  { k: "predio", rotulo: "Prédio" },
-  { k: "galpao", rotulo: "Galpão" },
-  { k: "reforma", rotulo: "Reforma" },
-  { k: "outro", rotulo: "Outro" },
-];
+/** Os tipos da Nova obra: os sete, como no protótipo ("Casa" curto; "Casa térrea" fica para Dados da obra). */
+export const TIPOS_NOVA_OBRA: { k: Tipologia; rotulo: string }[] = TIPOLOGIAS.map((x) => (x.k === "casa" ? { ...x, rotulo: "Casa" } : x));
 
 export const UFS = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"];
 
@@ -301,8 +295,9 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
             />
           )}
         </Campo>
-        <div className={s.cepEndereco}>
-          <Campo rotulo="CEP (opcional)" erro={erros.cep}>
+        {/* CEP, endereço, cidade e UF numa linha (como no protótipo); o cliente embaixo, na largura toda. */}
+        <div className={s.endereco}>
+          <Campo rotulo="CEP" erro={erros.cep}>
             {(a) => (
               <input
                 {...a}
@@ -316,11 +311,9 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
               />
             )}
           </Campo>
-          <Campo rotulo="Endereço (opcional)" dica={dicaCep} alerta={!!dicaCep}>
+          <Campo rotulo="Endereço" dica={dicaCep} alerta={!!dicaCep}>
             {(a) => <input {...a} className="f" autoComplete="street-address" value={f.endereco} onChange={(e) => mudar({ endereco: e.target.value })} />}
           </Campo>
-        </div>
-        <div className={s.cidadeUfCliente}>
           <Campo rotulo="Cidade" erro={erros.cidade}>
             {(a) => <input {...a} className="f" autoComplete="address-level2" value={f.cidade} onChange={(e) => mudar({ cidade: e.target.value })} />}
           </Campo>
@@ -336,28 +329,29 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
               </select>
             )}
           </Campo>
-          <Campo rotulo="Cliente (opcional)">
-            {(a) => <input {...a} className="f" autoComplete="off" value={f.cliente} onChange={(e) => mudar({ cliente: e.target.value })} />}
-          </Campo>
         </div>
+        <Campo rotulo="Cliente (opcional)">
+          {(a) => <input {...a} className="f" autoComplete="off" value={f.cliente} onChange={(e) => mudar({ cliente: e.target.value })} />}
+        </Campo>
         <p className="mut sm">A UF define a tabela de preços de referência.</p>
       </section>
 
       <section className={`card ${s.bloco}`} aria-labelledby="bloco-tipo">
         <h2 id="bloco-tipo">Tipo e tamanho</h2>
-        <div className="campo">
-          <span className="l">O que vai ser construído</span>
-          <Escolha rotulo="O que vai ser construído" grade opcoes={TIPOS_NOVA_OBRA} valor={f.tipologia} mudar={(k) => mudar({ tipologia: k })} />
-        </div>
-        <div className="campo">
-          <span className="l">Padrão de acabamento</span>
-          <Escolha rotulo="Padrão de acabamento" opcoes={PADROES} valor={f.padrao} mudar={(k) => mudar({ padrao: k })} />
-          {padrao ? <p className="seg-dica mut sm">{padrao.dica}</p> : null}
-        </div>
+        {/* As escolhas são botões, sem rótulo à vista (o protótipo deixa as opções falarem); o nome do grupo vai no aria. */}
+        <Escolha rotulo="Tipo de obra" classe={s.esc} opcoes={TIPOS_NOVA_OBRA} valor={f.tipologia} mudar={(k) => mudar({ tipologia: k })} />
+        <Escolha
+          rotulo="Padrão de acabamento"
+          classe={s.esc}
+          opcoes={PADROES.map((p) => ({ k: p.k, rotulo: `Padrão ${p.rotulo.toLowerCase()}`, dica: p.dica }))}
+          valor={f.padrao}
+          mudar={(k) => mudar({ padrao: k })}
+        />
+        {padrao ? <p className={`mut sm ${s.dicaPadrao}`}>{padrao.dica}</p> : null}
         <div className={s.quatro}>
-          <Campo rotulo="Área construída (m²)" erro={erros.area}>
+          <Campo rotulo="Área (m²)" erro={erros.area}>
             {(a) => (
-              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 142,5" value={f.area} onChange={(e) => mudar({ area: e.target.value })} />
+              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 180" value={f.area} onChange={(e) => mudar({ area: e.target.value })} />
             )}
           </Campo>
           <Campo rotulo="Pavimentos" erro={erros.pavimentos}>
@@ -370,10 +364,10 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
               <input {...a} className="f" inputMode="numeric" autoComplete="off" placeholder="Ex.: 14" value={f.prazo} onChange={(e) => mudar({ prazo: e.target.value })} />
             )}
           </Campo>
-          <Campo rotulo="Início previsto">
-            {(a) => <input {...a} type="date" className="f" value={f.inicio} onChange={(e) => mudar({ inicio: e.target.value })} />}
-          </Campo>
         </div>
+        <Campo rotulo="Início previsto">
+          {(a) => <input {...a} type="date" className="f" value={f.inicio} onChange={(e) => mudar({ inicio: e.target.value })} />}
+        </Campo>
       </section>
 
       <details className={`card ${s.bloco} ${s.recolhido}`} open={contratoAberto || erroNoContrato} onToggle={(e) => setContratoAberto(e.currentTarget.open)}>
@@ -384,13 +378,10 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
             <Icone nome="chevDown" tam={16} />
           </span>
         </summary>
-        <div className="campo">
-          <span className="l">Regime de contratação</span>
-          <Escolha rotulo="Regime de contratação" opcoes={REGIMES} valor={f.regime} mudar={(k) => mudar({ regime: k })} />
-          {regime ? <p className="seg-dica mut sm">{regime.dica}</p> : null}
-        </div>
+        <Escolha rotulo="Regime de contratação" classe={s.esc} opcoes={REGIMES} valor={f.regime} mudar={(k) => mudar({ regime: k })} />
+        {regime ? <p className={`mut sm ${s.dicaPadrao}`}>{regime.dica}</p> : null}
         <div className={s.quatro}>
-          <Campo rotulo="Valor fechado com o cliente (opcional)" erro={erros.verba} dica="O orçamento é comparado com ele.">
+          <Campo rotulo="Valor do contrato (R$)" erro={erros.verba}>
             {(a) => (
               <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 850.000" value={f.verba} onChange={(e) => mudar({ verba: e.target.value })} />
             )}
@@ -428,10 +419,12 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
 /** Grupo de escolha única em botões (role=radio), com setas como num radio nativo. */
 export function Escolha<K extends string>(props: {
   rotulo: string;
-  opcoes: { k: K; rotulo: string }[];
+  opcoes: { k: K; rotulo: string; dica?: string }[];
   valor: K | null;
   mudar: (k: K | null) => void;
   grade?: boolean;
+  /** Classe própria do grupo (a Nova obra usa os botões quadrados do protótipo). */
+  classe?: string;
 }) {
   const { opcoes, valor, mudar } = props;
   const mover = (e: React.KeyboardEvent, i: number) => {
@@ -447,7 +440,7 @@ export function Escolha<K extends string>(props: {
     opcoes.findIndex((o) => o.k === valor),
   );
   return (
-    <div className={props.grade ? "escolha-grade" : "seg"} role="radiogroup" aria-label={props.rotulo}>
+    <div className={props.classe ?? (props.grade ? "escolha-grade" : "seg")} role="radiogroup" aria-label={props.rotulo}>
       {opcoes.map((o, i) => (
         <button
           key={o.k}
@@ -456,6 +449,7 @@ export function Escolha<K extends string>(props: {
           aria-checked={valor === o.k}
           tabIndex={i === foco ? 0 : -1}
           className={valor === o.k ? "on" : ""}
+          title={o.dica}
           // Clicar de novo na escolhida desmarca: nenhum destes campos é obrigatório.
           onClick={() => mudar(valor === o.k ? null : o.k)}
           onKeyDown={(e) => mover(e, i)}
