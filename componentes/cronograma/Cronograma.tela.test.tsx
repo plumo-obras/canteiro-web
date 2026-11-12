@@ -49,6 +49,38 @@ afterEach(() => {
 });
 
 describe("tela do cronograma", () => {
+  it("na demonstração sem cronograma, entra o simulado; com dado real, nunca", async () => {
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/cronograma": () => json({ ...CRONO, inicio: null, meses: 0, mensal: [] }),
+    });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo>
+        <Cronograma obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    expect(await screen.findByRole("button", { name: /^7 · Acabamento/ })).toBeInTheDocument();
+    expect(screen.getByText(/Valores fictícios/)).toBeInTheDocument();
+    // lançar a medição no simulado não grava nada: só avisa que é prévia
+    await userEvent.click(screen.getByRole("button", { name: "Lançar medição" }));
+    expect(await screen.findByText("Prévia: ainda não é salvo.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("fora da demonstração, sem cronograma é o estado vazio (o simulado não aparece)", async () => {
+    criarRede({
+      "POST /srv/auth/renovar": renovarOk,
+      "GET /srv/api/obras/o1/cronograma": () => json({ ...CRONO, inicio: null, meses: 0, mensal: [] }),
+    });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Cronograma obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    expect(await screen.findByRole("heading", { name: "Sem cronograma ainda" })).toBeInTheDocument();
+    expect(screen.queryByText(/Valores fictícios/)).toBeNull();
+  });
+
   it("o topo diz término, situação e medido; a ação principal é lançar a medição", async () => {
     abrir();
     expect(await screen.findByText("em dia")).toBeInTheDocument();
@@ -64,11 +96,20 @@ describe("tela do cronograma", () => {
     // a Fundação tem 20% medido e 50% previsto em out: atrasada; o contador vai no botão
     expect(within(screen.getByRole("button", { name: /Atrasadas/ })).getByText("1")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Próximas/ }));
-    expect(screen.getByRole("button", { name: /^2 Estrutura/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^1 Fundações/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^2 · Estrutura/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^1 · Fundações/ })).toBeNull();
     await userEvent.click(screen.getByRole("tab", { name: "Curva S" }));
     expect(screen.getByRole("img", { name: /Curva S/ })).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Mostrar" })).toBeNull();
+  });
+
+  it("as medições saem da tela e ficam no ⋯, numa gaveta", async () => {
+    abrir();
+    await screen.findByRole("tab", { name: "Etapas" });
+    expect(screen.queryByRole("heading", { name: "Medições" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Mais ações do cronograma" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Ver medições" }));
+    expect(await screen.findByRole("dialog", { name: "Medições" })).toHaveTextContent("Nenhuma medição ainda");
   });
 
   it("no celular, no lugar do Gantt, a lista Agora / Próximas / Todas com o convite ao Plumo", async () => {

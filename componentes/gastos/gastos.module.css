@@ -136,75 +136,107 @@ span.topicoNome { cursor: default; padding-right: 12px; }
 .novaEtapa{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
 .novaEtapa input{flex:1 1 200px;min-width:0}
 
-/* ---------- redesenho: "A conferir" em destaque, lançados em colunas, ação grande no celular ---------- */
+/* ---------- redesenho (protótipo): cabeçalho, faixa de números, "A conferir" em destaque, lançados em tabela ---------- */
 .sp { flex: 1; }
+.tela { width: 100%; max-width: 1240px; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; }
+.cab { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.cabTxt { flex: 1 1 420px; min-width: 0; }
+.cabTxt h1 { margin: 0; font: 600 var(--t-h1)/1.2 var(--serif); letter-spacing: -.02em; color: var(--ink); }
+.cabTxt p { margin: 2px 0 0; color: var(--muted); }
+.cabAcoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cabAcoes :global(.btn) { min-height: 40px; padding: 0 14px; box-shadow: none; }
+.selo { font-weight: 600; padding: 2px 10px; line-height: 1.5; }
+.neutro { background: var(--sunk); color: var(--ink2); }
+
+/* os três números numa faixa só, células coladas */
+.faixa { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; margin: 0; border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--edge); background: var(--edge); }
+.faixa > div { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; background: var(--cardSolido); }
+.faixa dt { color: var(--muted); font-size: var(--t-meta); }
+.faixa dd { margin: 0; font: 600 20px/1.3 var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.faixa small { color: var(--faint); font-size: 12px; }
 
 /* o bloco que pede a pessoa: borda ocre, à frente de tudo */
-section.conferir { border-color: color-mix(in srgb, var(--accent) 45%, var(--edge)); box-shadow: var(--hl), 0 0 0 3px var(--accentSoft); }
+.conferir { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border-radius: 20px; background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); }
 .conferirCab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.conferirT { margin: 0 auto 0 0; font: 600 var(--t-sec) var(--serif); letter-spacing: -.01em; }
+.conferirT { margin: 0 auto 0 0; font: 600 17px/1.3 var(--serif); }
 section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-top: 12px; padding-bottom: 12px; color: var(--ink2); font-size: var(--t-meta); }
 .conferirVazio :global(.ic) { flex: none; color: var(--greenInk); }
-.filaT { margin: 18px 0 6px; font-size: var(--t-meta); font-weight: 600; color: var(--ink2); }
+.filaT { margin: 6px 0 0; font-size: var(--t-meta); font-weight: 600; color: var(--ink2); }
 .fila { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line2); border-radius: var(--ri); overflow: hidden; }
 .fila .linha { padding: 10px 14px; }
 .linhaAberta { background: var(--sunk); }
 
-/* revisão na página: a foto mais baixa (os campos ao lado cabem sem rolar a página inteira) e os botões no pé */
-.embutida .rev { margin-top: 14px; }
-.arquivoEmbutido { position: static; min-height: 200px; }
-.arquivoEmbutido .foto { max-height: 420px; }
-.arquivoEmbutido .pdf { height: 420px; }
-.embutidaPe { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line2); }
+/* o cartão do computador: a foto e, ao lado, os campos já preenchidos */
+.cc { display: flex; gap: 16px; align-items: flex-start; }
+.ccFoto { flex: 0 0 160px; height: 210px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; cursor: zoom-in;
+  display: grid; place-items: center; background: var(--sunk); color: var(--muted); }
+.ccFoto img { width: 100%; height: 100%; object-fit: cover; }
+.ccFoto:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ccCorpo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.ccTopo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.ccCampos { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.ccCampo { grid-column: span 2; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ccLargo, .ccLargo + .ccCampo { grid-column: span 3; }
+.ccCampo > label { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: var(--t-meta); color: var(--ink2); }
+.ccCampo :global(.f) { min-height: 44px; box-sizing: border-box; }
+.ccLeituras { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ccPe { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ccPe :global(.btn) { min-height: 40px; padding: 0 14px; box-shadow: none; }
+.ccPedido { display: inline-flex; align-items: center; gap: 6px; }
+.ccPedido select { field-sizing: content; max-width: 280px; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 0; }
+.ccPedido select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* compacto (celular): miniatura, valor e uma linha; Corrigir e Confirmar dividindo a largura */
-.compacto { display: grid; gap: 10px; margin-top: 10px; }
+.compacto { display: grid; gap: 12px; }
 .compactoLinha { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .compactoTexto { display: flex; flex-direction: column; min-width: 0; }
 .compactoTexto > b { font-size: var(--t-sec); }
 .compactoTexto > span { overflow-wrap: anywhere; }
-.miniatura { flex: none; width: 56px; height: 56px; border-radius: 10px; background: var(--sunk); border: 1px solid var(--line2); display: grid; place-items: center; overflow: hidden; color: var(--muted); }
+.miniatura { flex: none; width: 56px; height: 72px; border-radius: 10px; background: var(--sunk); display: grid; place-items: center; overflow: hidden; color: var(--muted); }
 .miniatura img { width: 100%; height: 100%; object-fit: cover; }
 .compactoAcoes { display: flex; gap: 8px; }
 .compactoAcoes :global(.btn) { flex: 1 1 0; min-width: 0; min-height: 44px; box-sizing: border-box; }
 .compacto .falta { margin: 0; }
 
-/* celular: a ação principal grande, no topo */
-.fotografar { display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; min-height: 72px; margin: 0 0 14px; padding: 14px 16px;
-  border-radius: var(--ri); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--edge)); background: var(--accentSoft); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.fotografarIc { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--ocre); color: var(--onAccent); }
-.fotografarTexto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.fotografarTexto > b { font-size: var(--t-sec); color: var(--ink); }
+/* celular: título e a ação principal grande, centrada, no topo */
+.celCab { display: flex; align-items: center; gap: 10px; }
+.celCab h1 { flex: 1; margin: 0; font: 600 var(--t-bloco)/1.2 var(--serif); letter-spacing: -.02em; }
+.fotografar { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; box-sizing: border-box; padding: 22px 16px; text-align: center;
+  border-radius: 20px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); background: var(--accentSoft); color: var(--ink); font: inherit; cursor: pointer; }
+.fotografar > b { font-size: var(--t-sec); }
+.fotografarIc { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 6px; border-radius: 50%; background: var(--ocre); color: var(--onAccent); }
 .fotografar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* lançados */
-.lancadosSec { margin-top: 8px; }
-.lancadosCab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 24px 0 10px; }
-.lancadosT { margin: 0; }
-div.lancados { padding: 0; overflow: hidden; }
+.lancadosSec { display: flex; flex-direction: column; gap: 12px; }
+.lancadosCab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.lancadosCab :global(.seg) { margin-top: 0; }
+.lancadosCab :global(.btn) { min-height: 34px; padding: 0 12px; font-size: var(--t-meta); box-shadow: none; }
+.secT { margin: 0; font: 600 17px/1.3 var(--serif); }
+div.lancados { border-radius: 16px; border: 1px solid var(--line2); background: var(--card); overflow: hidden; }
 .lancLista { list-style: none; margin: 0; padding: 0; }
-/* uma grade por linha com colunas de largura fixa: as linhas alinham como tabela sem virar tabela (no celular empilha) */
-.lancCab, .lanc { display: grid; grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.6fr) 120px 132px; gap: 4px 14px; align-items: center; padding: 12px 20px; }
-.semAcao .lancCab, .semAcao .lanc { grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.6fr) 120px; }
-.lancCab { padding-top: 10px; padding-bottom: 10px; background: var(--sunk); border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 500; color: var(--muted); }
-.lanc { border-top: 1px solid var(--line2); }
+/* uma grade por linha com colunas fixas: as linhas alinham como tabela sem virar tabela */
+.lancCab, .lanc { display: grid; grid-template-columns: 80px minmax(0, 2.4fr) minmax(0, 2.6fr) minmax(0, 1.4fr) minmax(0, 1.6fr) 130px; gap: 4px 12px; align-items: center; padding: 10px 12px; font-size: var(--t-meta); }
+.lancCab { background: var(--sunk); border-bottom: 1px solid var(--line2); font-weight: 600; color: var(--faint); }
+.lanc { border-top: 1px solid var(--line2); color: var(--ink2); }
 .lanc:first-child { border-top: 0; }
 .lData { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.lDesc { display: flex; flex-direction: column; min-width: 0; }
-.lDesc > strong { font-weight: 500; overflow-wrap: anywhere; }
+.lDesc { min-width: 0; overflow-wrap: anywhere; }
 .lEtapa { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
 .lValor { text-align: right; }
-.lAcao { display: flex; justify-content: flex-end; }
+.lLink { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lLink:hover { text-decoration: underline; text-underline-offset: 3px; }
+.celLanc { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line2); }
+.celLancTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.celLancTxt > strong { font-weight: 500; font-size: var(--t-sec); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.celLanc .valor { font-size: var(--t-sec); }
 
 @media (max-width: 760px) {
-  .lancCab { display: none; }
-  .lanc, .semAcao .lanc { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "desc desc valor" "data etapa etapa" "acao acao acao"; padding: 12px 16px; }
-  .lDesc { grid-area: desc; }
-  .lValor { grid-area: valor; align-self: start; }
-  .lData { grid-area: data; }
-  .lEtapa { grid-area: etapa; }
-  .lAcao { grid-area: acao; justify-content: flex-start; }
-  .lAcao:empty { display: none; }
-  .lancadosCab .sp { display: none; }
-  .embutidaPe { justify-content: stretch; }
+  .tela { gap: 14px; }
+  div.lancados { border: 0; border-radius: 0; background: none; }
+  .cc { flex-direction: column; }
+  /* no celular a ação de destaque é o Fotografar; o cartão a conferir fica com a borda comum */
+  .conferir { border-color: var(--edge); }
 }

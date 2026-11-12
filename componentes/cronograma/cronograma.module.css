@@ -1,34 +1,74 @@
-/* Cronograma: a linha do prazo no cabeçalho, a legenda do Gantt e a lista do celular. Só tokens da casca (globals.css). */
+/* Cronograma no desenho do protótipo: cabeçalho, barra de vistas, Gantt e a lista do celular. Só tokens da casca. */
 
-.linhaPrazo { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.linhaPrazo b { font-weight: 600; color: var(--ink); }
+/* a tela numa coluna central, como as outras do redesenho */
+.tela { width: 100%; max-width: 1240px; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; }
 
-/* o convite à conversa: secundário, em ocre suave (a ação principal é a medição) */
+/* cabeçalho: título e a linha do prazo à esquerda, as ações à direita, alinhadas ao pé do texto */
+.cab { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.cabTxt { flex: 1 1 420px; min-width: 0; }
+.cabTxt h1 { margin: 0; font: 600 var(--t-h1)/1.2 var(--serif); letter-spacing: -.02em; color: var(--ink); }
+.cabTxt p { margin: 2px 0 0; color: var(--muted); }
+.cabAcoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cabAcoes :global(.btn) { min-height: 40px; padding: 0 14px; box-shadow: none; }
+.cabAcoes :global(.mm-b) { width: 40px; height: 40px; box-shadow: none; }
+.atraso { color: var(--redInk); font-weight: 600; }
 
-.legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 10px 2px 0; }
-.legenda > span { display: inline-flex; align-items: center; gap: 6px; }
-.legPrev, .legMed { display: inline-block; width: 14px; height: 8px; border-radius: 4px; }
-.legPrev { background: color-mix(in srgb, var(--blue) 55%, var(--cardSolido)); }
-.legMed { background: var(--accent); }
-.legRef { display: inline-block; width: 2px; height: 12px; background: var(--accent); }
-.legHoje { display: inline-block; width: 0; height: 12px; border-left: 2px dashed var(--ink2); }
-.legRisco { display: inline-block; width: 2px; height: 12px; border-radius: 1px; background: var(--ink); }
+/* vistas e o filtro Mostrar lado a lado */
+.barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.barra :global(.seg) { margin-top: 0; }
+.barra :global(.seg button) { min-height: 34px; padding: 0 14px; font-size: var(--t-body); }
 
-/* celular: no lugar do Gantt, uma etapa por linha com a barra do feito e o risco do previsto até hoje */
-.celTopo { display: flex; flex-direction: column; gap: 4px; }
-.celTopo :global(.seg) { display: flex; width: 100%; box-sizing: border-box; margin-top: 0; }
-.celTopo :global(.seg button) { flex: 1 1 0; min-height: 44px; padding: 0 8px; }
-.celTopo .legenda { margin-top: 6px; }
-.celLista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
-.celItem { display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; min-height: 44px; padding: 12px 14px; border-radius: var(--ri);
-  border: 1px solid var(--edge); background: var(--cardSolido); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+/* selos do protótipo: pílula cheia, texto em 600 */
+.selo { font-weight: 600; padding: 2px 10px; line-height: 1.5; }
+.neutro { background: var(--sunk); color: var(--ink2); }
+
+/* ---------- Gantt ---------- */
+.gantt { --nomeW: 240px; position: relative; overflow-x: auto; border-radius: 16px; border: 1px solid var(--line2); background: var(--card); }
+.gGrade { position: relative; min-width: 900px; }
+.gLinha { display: grid; grid-template-columns: var(--nomeW) minmax(0, 1fr); align-items: center; min-height: 52px; border-bottom: 1px solid var(--line2); }
+.gCab { min-height: 0; border-bottom-color: var(--line); }
+.meta { color: var(--muted); font-size: var(--t-meta); }
+.gMeses { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); align-self: stretch; align-items: stretch; }
+.gMes { padding: 6px 0 6px 6px; border-left: 1px solid var(--line2); white-space: nowrap; overflow: hidden; }
+.gCel { min-height: 22px; border-left: 1px solid var(--line2); }
+.gNome { padding: 6px 12px; min-width: 0; }
+.gNomeBt { display: block; padding: 0; border: 0; background: none; color: var(--ink); font: 500 var(--t-body)/1.5 var(--sans); text-align: left; cursor: pointer; }
+.gNomeBt:hover { text-decoration: underline; text-underline-offset: 3px; }
+.gConta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+/* a barra prevista em azul translúcido e, dentro dela, o medido em ocre */
+.gBarra { position: absolute; top: 50%; height: 18px; margin-top: -9px; box-sizing: border-box; border-radius: 8px; overflow: hidden;
+  background: color-mix(in srgb, var(--blue) 22%, transparent); border: 1px solid color-mix(in srgb, var(--blue) 45%, transparent); }
+.gMedido { height: 100%; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+/* hoje: uma linha ocre do cabeçalho ao total, no dia certo do mês */
+.gHoje { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; z-index: 1; }
+.gTotal { min-height: 40px; border-bottom: 0; }
+.gTotal .gMeses { align-items: center; font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.gTotal .gMeses > span { padding-left: 6px; white-space: nowrap; }
+.gVazio { margin: 0; padding: 14px 12px; }
+.legenda { margin: 0; color: var(--muted); font-size: var(--t-meta); }
+
+/* ---------- celular ---------- */
+.celCab { display: flex; align-items: center; gap: 10px; }
+.celCab h1 { flex: 1; margin: 0; font: 600 var(--t-bloco)/1.2 var(--serif); letter-spacing: -.02em; }
+.celPrazo { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px; border-radius: 20px; border: 1px solid var(--edge); background: var(--card); }
+.celPrazo b { font: 600 18px/1.3 var(--sans); color: var(--ink); }
+.celLegenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; color: var(--muted); font-size: 12px; }
+.celLegenda > span { display: inline-flex; align-items: center; gap: 6px; }
+.legMed { display: inline-block; width: 14px; height: 6px; border-radius: 3px; background: var(--accent); }
+.legRisco { display: inline-block; width: 2px; height: 12px; border-radius: 1px; background: var(--blue); }
+.celSeg { display: flex; width: 100%; box-sizing: border-box; margin-top: 0; }
+.celSeg button { flex: 1 1 0; min-height: 44px; padding: 0 8px; }
+.celLista { list-style: none; margin: 0; padding: 0; }
+.celLista > li { border-bottom: 1px solid var(--line2); }
+.celItem { display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; min-height: 44px; padding: 14px 0; border: 0; background: none;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .celItem:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.celCab { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.celNome { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
-.celNome :global(.eap-num) { margin-right: 4px; }
-.celBarra { position: relative; display: block; height: 10px; border-radius: 99px; background: var(--line2); }
+.celTopo { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.celNome { flex: 1; min-width: 0; font-weight: 600; font-size: var(--t-sec); overflow-wrap: anywhere; }
+.celBarra { position: relative; display: block; height: 6px; border-radius: 99px; background: var(--line); }
 .celFeito { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--accent); }
 /* o risco passa um pouco da barra, para ser visto mesmo quando o feito já o cobre */
-.celRisco { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); }
-.celPlumo { width: 100%; box-sizing: border-box; min-height: 48px; margin-top: 16px; }
-.celNota { margin: 8px 0 0; text-align: center; }
+.celRisco { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--blue); }
+.celPlumo { width: 100%; box-sizing: border-box; min-height: 48px; font-size: var(--t-sec); }
+.celNota { margin: 0; text-align: center; color: var(--muted); font-size: var(--t-meta); }
+.cont { margin-left: 6px; font-size: 12px; color: var(--faint); }

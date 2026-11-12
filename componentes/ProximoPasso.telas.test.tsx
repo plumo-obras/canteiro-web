@@ -69,11 +69,11 @@ describe("faixa no Cronograma", () => {
   };
   const OBRA = { id: "o1", nome: "Casa Inventada" } as Obra;
 
-  it("com cronograma montado, leva à conversa com o Plumo", async () => {
+  it("com cronograma montado, o caminho ao Plumo é o botão do cabeçalho, não a faixa (o protótipo não tem faixa)", async () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/cronograma": () => json(CRONO) });
     noCasca(<Cronograma obra={OBRA} />);
-    await screen.findByRole("region", PASSO);
-    expect(screen.getByRole("link", { name: "Ir para o Plumo" })).toHaveAttribute("href", "/?obra=o1&tela=conversa");
+    expect(await screen.findByRole("button", { name: "Atualizar o andamento conversando" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", PASSO)).toBeNull();
   });
 
   it("sem cronograma, o próximo passo é montá-lo", async () => {

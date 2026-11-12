@@ -6,20 +6,22 @@
  * etapa) e, numa gaveta, as etapas e tópicos onde eles entram.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Comprovante, GastoObra, Obra, ResumoGastos } from "@/lib/contrato";
+import type { Comprovante, GastoObra, Obra, Pedido, ResumoGastos } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
+import { fmtPct } from "@/lib/cronograma";
 import { fmtDiaHora, fmtReais } from "@/lib/formato";
-import { CabecalhoPagina, type Numero } from "./CabecalhoPagina";
+import { BotaoPlumo } from "./BotaoPlumo";
 import { useCasca } from "./contexto";
 import { Drawer } from "./Dialogo";
 import { Icone } from "./Icone";
+import { MenuMais } from "./MenuMais";
 import { useCelular } from "./midia";
 import { BotaoMais, useMaisAntigos } from "./Paginacao";
 import { useCarregar } from "./useCarregar";
 import { Arvore } from "./gastos/Arvore";
 import { EnviarComprovante } from "./gastos/EnviarComprovante";
 import { MudarEtapa } from "./gastos/MudarEtapa";
-import { ConferirCompacto, Revisao, RevisaoEmbutida } from "./gastos/Revisao";
+import { ConferirCartao, ConferirCompacto, Revisao } from "./gastos/Revisao";
 import { fmtDia, foraDoOrcamento, lidoNaFila, rotuloEtapa } from "./gastos/escolhas";
 import s from "./gastos/gastos.module.css";
 
@@ -49,10 +51,18 @@ export function Gastos({ obra }: { obra: Obra }) {
   const blocoConferir = useRef<HTMLElement>(null);
   const { dado, erro, carregando } = useCarregar(
     () =>
-      Promise.all([api.listarComprovantes(obra.id, "a_revisar"), api.resumoGastos(obra.id), api.arvore(obra.id)]),
+      Promise.all([
+        api.listarComprovantes(obra.id, "a_revisar"),
+        api.resumoGastos(obra.id),
+        api.arvore(obra.id),
+        // o "Gasto até hoje" é o realizado da obra, o mesmo número do placar; sem ele a célula fica com traço
+        api.resumoObra(obra.id).catch(() => null),
+        // só para escrever o número do pedido na coluna Origem
+        api.listarPedidos(obra.id, { limite: 200 }).catch(() => [] as Pedido[]),
+      ]),
     [obra.id, versao],
   );
-  const [filaToda, resumo, arvore] = dado ?? [[], null, []];
+  const [filaToda, resumo, arvore, resumoObra, pedidos] = dado ?? [[], null, [], null, []];
   const fila = filaToda.filter((c) => !feitos.includes(c.id));
   // nomes de etapa e tópico já arquivados: só o resumo ainda os tem
   const nomesResumo = useMemo(() => {
@@ -63,50 +73,54 @@ export function Gastos({ obra }: { obra: Obra }) {
     }
     return m;
   }, [resumo]);
-
-  const numeros: Numero[] = [];
-  if (resumo) {
-    // Sem total aqui: o gasto da obra é um número só, o "Gasto até hoje" do placar. resumo.total é só o avulso.
-    if (resumo.a_revisar) numeros.push({ rotulo: "A conferir", valor: `${resumo.a_revisar}`, tag: "não contam ainda", tom: "atencao" });
-    if (resumo.pagamentos_de_pedidos) numeros.push({ rotulo: "Pagamentos de pedidos", valor: fmtReais(resumo.pagamentos_de_pedidos), sub: "já contam pela entrega" });
-    // sem isto, quem compara com o placar não acha o que foi entregue e não pago ("onde foram parar os 25 mil?")
-    if (resumo.entregue_a_pagar) numeros.push({ rotulo: "Entregue, ainda a pagar", valor: fmtReais(resumo.entregue_a_pagar), sub: "já conta no gasto" });
-    // só marca: o vidro comprado sem pedido conta na etapa como qualquer gasto, mas não estava no que se orçou
-    if (resumo.fora_do_orcado) numeros.push({ rotulo: "Fora de pedido", valor: fmtReais(resumo.fora_do_orcado), sub: "lançado sem pedido de compra" });
-  }
+  const numeroPedido = useMemo(() => new Map(pedidos.map((p) => [p.id, p.numero])), [pedidos]);
+  const realizado = resumoObra?.financeiro.realizado ?? null;
 
   const terminou = (id: string) => {
     setFeitos((f) => [...f, id]);
     setAtual(null);
   };
 
-  return (
-    <div className="page">
-      <CabecalhoPagina
-        titulo="Gastos"
-        sub={celular ? undefined : "Mande a foto de uma nota, Pix, boleto ou recibo. O Plumo lê e preenche; você confere e confirma."}
-        acao={
-          celular ? null : (
-            <button type="button" className="btn amb" onClick={() => setEnviando(true)}>
-              <Icone nome="plus" tam={15} />
-              Enviar comprovante
-            </button>
-          )
-        }
-        numeros={numeros}
-      />
+  const cabecalho = celular ? (
+    <>
+      <header className={s.celCab}>
+        <h1>Gastos</h1>
+        <MenuMais
+          rotulo="Mais ações dos gastos"
+          itens={[
+            { rotulo: agrupar === "data" ? "Lançados por etapa" : "Lançados por data", acao: () => setAgrupar(agrupar === "data" ? "etapa" : "data") },
+            { rotulo: "Etapas e tópicos", acao: () => setVerArvore(true) },
+          ]}
+        />
+      </header>
       {/* no celular a ação vem antes de tudo, grande: é o que se faz na obra, com o comprovante na mão */}
-      {celular ? (
-        <button type="button" className={s.fotografar} onClick={() => setEnviando(true)}>
-          <span className={s.fotografarIc} aria-hidden="true">
-            <Icone nome="camera" tam={20} />
-          </span>
-          <span className={s.fotografarTexto}>
-            <b>Fotografar comprovante</b>
-            <span className="mut sm">Nota, Pix, boleto ou recibo. O Plumo lê e preenche.</span>
-          </span>
+      <button type="button" className={s.fotografar} onClick={() => setEnviando(true)}>
+        <span className={s.fotografarIc} aria-hidden="true">
+          <Icone nome="camera" tam={22} />
+        </span>
+        <b>Fotografar comprovante</b>
+        <span className="mut sm">Nota, Pix, boleto ou recibo. O Plumo lê e preenche.</span>
+      </button>
+    </>
+  ) : (
+    <header className={s.cab}>
+      <div className={s.cabTxt}>
+        <h1>Gastos</h1>
+        <p>Mande a foto de uma nota, Pix, boleto ou recibo. O Plumo lê e preenche; você confere e confirma.</p>
+      </div>
+      <div className={s.cabAcoes}>
+        <BotaoPlumo rotulo="Perguntar sobre os gastos" />
+        <button type="button" className="btn amb" onClick={() => setEnviando(true)}>
+          <Icone nome="camera" tam={16} />
+          Enviar comprovante
         </button>
-      ) : null}
+      </div>
+    </header>
+  );
+
+  return (
+    <div className={`page ${s.tela}`}>
+      {cabecalho}
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -120,6 +134,27 @@ export function Gastos({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         <>
+          {!celular && resumo ? (
+            <dl className={s.faixa} aria-label="Resumo">
+              <div>
+                <dt>Gasto até hoje</dt>
+                <dd>{realizado === null ? "—" : fmtReais(realizado)}</dd>
+                <small>
+                  {!realizado ? "nenhum gasto lançado" : resumoObra?.financeiro.realizado_pct != null ? `${fmtPct(resumoObra.financeiro.realizado_pct)} do orçado` : "pago e entregue"}
+                </small>
+              </div>
+              <div>
+                <dt>Entregue, ainda a pagar</dt>
+                <dd>{fmtReais(resumo.entregue_a_pagar ?? 0)}</dd>
+                <small>já conta pela entrega</small>
+              </div>
+              <div>
+                <dt>Fora de pedido</dt>
+                <dd>{fmtReais(resumo.fora_do_orcado ?? 0)}</dd>
+                <small>mão de obra e avulsos</small>
+              </div>
+            </dl>
+          ) : null}
           <AConferir
             ref={blocoConferir}
             obra={obra}
@@ -132,29 +167,37 @@ export function Gastos({ obra }: { obra: Obra }) {
           />
           <section className={s.lancadosSec} aria-labelledby="gastos-lancados">
             <div className={s.lancadosCab}>
-              <h2 className={`sectit ${s.lancadosT}`} id="gastos-lancados">
+              <h2 className={s.secT} id="gastos-lancados">
                 Lançados
               </h2>
-              <div className="seg seg-pq" role="tablist" aria-label="Agrupar os lançados">
-                {AGRUPAR.map((x) => (
-                  <button key={x.k} type="button" role="tab" aria-selected={agrupar === x.k} className={agrupar === x.k ? "on" : ""} onClick={() => setAgrupar(x.k)}>
-                    {x.rotulo}
-                  </button>
-                ))}
-              </div>
               <span className={s.sp} />
-              <button type="button" className="btn sm" aria-haspopup="dialog" onClick={() => setVerArvore(true)}>
-                Etapas e tópicos
-              </button>
+              {celular ? (
+                realizado !== null ? <span className="mut sm">{semCentavos(realizado)} até hoje</span> : null
+              ) : (
+                <>
+                  <div className="seg" role="tablist" aria-label="Agrupar os lançados">
+                    {AGRUPAR.map((x) => (
+                      <button key={x.k} type="button" role="tab" aria-selected={agrupar === x.k} className={agrupar === x.k ? "on" : ""} onClick={() => setAgrupar(x.k)}>
+                        {x.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" className="btn" aria-haspopup="dialog" onClick={() => setVerArvore(true)}>
+                    Etapas e tópicos
+                  </button>
+                </>
+              )}
             </div>
-            <div role="tabpanel" aria-label={AGRUPAR.find((x) => x.k === agrupar)!.rotulo}>
+            <div role={celular ? undefined : "tabpanel"} aria-label={AGRUPAR.find((x) => x.k === agrupar)!.rotulo}>
               {agrupar === "etapa" ? (
                 <PorEtapa resumo={resumo} />
               ) : (
                 <Lancados
                   obra={obra}
+                  celular={celular}
                   semEtapa={(resumo?.etapas ?? []).filter((e) => foraDoOrcamento(arvore, e.etapa)).reduce((t, e) => t + e.total, 0)}
                   etapaDe={(g) => (g.etapa === null ? (g.etapa_nome ?? "Sem etapa") : rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo))}
+                  pedidoDe={(id) => numeroPedido.get(id) ?? "pedido"}
                   aDefinir={resumo?.a_definir ?? 0}
                   soSemEtapa={soSemEtapa}
                   verTodos={() => setSoSemEtapa(false)}
@@ -194,9 +237,19 @@ export function Gastos({ obra }: { obra: Obra }) {
   );
 }
 
+/** "hoje 14:02" · "ontem 09:10" · "05/11 10:00": quando o comprovante chegou, como se fala. */
+export function quandoEnviado(iso: string, agora = new Date()): string {
+  const dia = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
+  const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  const d = dia(new Date(iso));
+  if (d === dia(agora)) return `hoje ${hora}`;
+  if (d === dia(new Date(agora.getTime() - 864e5))) return `ontem ${hora}`;
+  return fmtDiaHora(iso);
+}
+
 /**
- * O bloco "A conferir", em destaque: o comprovante aberto (a revisão inteira no computador; o compacto no celular) e,
- * se houver mais de um, a fila logo abaixo para trocar. Sem nada na fila, uma linha só, sem disputar atenção.
+ * O bloco "A conferir", em destaque: o comprovante aberto (foto e campos no computador; o compacto no celular) e, se
+ * houver mais de um, a fila logo abaixo para trocar. Sem nada na fila, uma linha só, sem disputar atenção.
  */
 function AConferir(p: {
   ref: React.Ref<HTMLElement>;
@@ -221,22 +274,25 @@ function AConferir(p: {
     );
   const c = p.fila.find((x) => x.id === aberto);
   return (
-    <section ref={p.ref} className={`card ${s.conferir}`} aria-labelledby="gastos-conferir">
+    <section ref={p.ref} className={s.conferir} aria-labelledby="gastos-conferir">
       <div className={s.conferirCab}>
         <h2 className={s.conferirT} id="gastos-conferir">
           A conferir · {n}
         </h2>
-        {c ? <SeloLeitura c={c} /> : null}
-        {c ? (
-          <span className="mut sm">
-            {c.quem || "Alguém"} · enviado {fmtDiaHora(c.criado_em)}
-          </span>
-        ) : null}
+        {p.celular && c ? <SeloLeitura c={c} curto /> : null}
       </div>
       {p.celular ? (
         <ConferirCompacto key={aberto} comprovanteId={aberto} obra={p.obra} corrigir={() => p.abrirModal(aberto)} terminou={() => p.terminou(aberto)} />
       ) : (
-        <RevisaoEmbutida key={aberto} comprovanteId={aberto} obra={p.obra} terminou={() => p.terminou(aberto)} />
+        <ConferirCartao
+          key={aberto}
+          comprovanteId={aberto}
+          obra={p.obra}
+          selo={c ? <SeloLeitura c={c} /> : null}
+          enviado={c ? `${c.quem ? `por ${c.quem} ` : ""}${quandoEnviado(c.criado_em)}` : ""}
+          abrir={() => p.abrirModal(aberto)}
+          terminou={() => p.terminou(aberto)}
+        />
       )}
       {n > 1 ? (
         <>
@@ -252,8 +308,8 @@ function lendoAgora(c: Comprovante) {
   return !c.leitura && !c.erro_leitura && Date.now() - new Date(c.criado_em).getTime() < LENDO_MS;
 }
 
-function SeloLeitura({ c }: { c: Comprovante }) {
-  if (c.leitura) return <span className="pill info">lido pelo Plumo</span>;
+function SeloLeitura({ c, curto = false }: { c: Comprovante; curto?: boolean }) {
+  if (c.leitura) return <span className={`pill info ${s.selo}`}>{curto ? "lido" : "lido pelo Plumo"}</span>;
   if (c.erro_leitura) return <span className="pill warn">sem leitura: preencher à mão</span>;
   return <span className="pill">{lendoAgora(c) ? "lendo" : "ainda não lido"}</span>;
 }
@@ -354,6 +410,9 @@ function Lancados(p: {
   soSemEtapa: boolean;
   verTodos: () => void;
   etapaDe: (g: GastoObra) => string;
+  /** O número do pedido (PED-0150) para a coluna Origem. */
+  pedidoDe: (id: string) => string;
+  celular: boolean;
   fora: (g: GastoObra) => boolean;
   podeMudar: boolean;
   mudar: (g: GastoObra) => void;
@@ -401,61 +460,71 @@ function Lancados(p: {
           </button>
         </p>
       ) : null}
-      <div className={`card ${s.lancados}${p.podeMudar ? "" : ` ${s.semAcao}`}`}>
+      <div className={s.lancados}>
         {/* os rótulos das colunas só no computador; cada linha já diz o que é para o leitor de tela */}
-        <div className={s.lancCab} aria-hidden="true">
-          <span>Data</span>
-          <span>O que foi pago</span>
-          <span>Etapa · origem</span>
-          <span className={s.lValor}>Valor</span>
-          {p.podeMudar ? <span /> : null}
-        </div>
+        {!p.celular ? (
+          <div className={s.lancCab} aria-hidden="true">
+            <span>Data</span>
+            <span>O que foi pago</span>
+            <span>Quem recebeu</span>
+            <span>Etapa</span>
+            <span>Origem</span>
+            <span className={s.lValor}>Valor</span>
+          </div>
+        ) : null}
         <ul className={s.lancLista} role="list" aria-label="Gastos lançados">
           {visiveis.map((g) => {
             const fora = p.fora(g);
+            // a descrição abre o comprovante (quando há); a etapa, para quem opera, abre o "mudar etapa"
+            const desc = g.comprovante_id ? (
+              <button type="button" className={s.lLink} onClick={() => p.verComprovante(g.comprovante_id!)} title="Ver o comprovante">
+                {g.descricao}
+              </button>
+            ) : (
+              g.descricao
+            );
+            const etapa =
+              g.etapa === null ? (
+                p.podeMudar ? (
+                  <button type="button" className={s.link} onClick={() => p.mudar(g)} aria-label={`Definir etapa de ${g.descricao}`}>
+                    Sem etapa · definir
+                  </button>
+                ) : (
+                  <span className="pill warn">Sem etapa</span>
+                )
+              ) : (
+                <>
+                  {fora ? <span className="pill warn">sem etapa do orçamento</span> : null}{" "}
+                  {p.podeMudar ? (
+                    <button type="button" className={`${s.lLink}${fora ? ` ${s.etapaVelha}` : ""}`} onClick={() => p.mudar(g)} aria-label={`Mudar etapa de ${g.descricao}`} title="Mudar a etapa">
+                      {p.etapaDe(g)}
+                    </button>
+                  ) : (
+                    <span className={fora ? s.etapaVelha : undefined}>{p.etapaDe(g)}</span>
+                  )}
+                </>
+              );
+            const origem = g.pedido_id ? <span className={`pill ${s.selo} ${s.neutro}`}>{p.pedidoDe(g.pedido_id)}</span> : <span className={`pill ${s.selo} ${s.neutro}`}>avulso</span>;
+            if (p.celular)
+              return (
+                <li key={g.id} className={`${s.celLanc}${fora ? ` ${s.linhaFora}` : ""}`}>
+                  <span className={s.celLancTxt}>
+                    <strong>{desc}</strong>
+                    <span className="mut sm">
+                      {fmtDiaCurto(g.data_pagamento)} · {etapa}
+                    </span>
+                  </span>
+                  <b className={s.valor}>{semCentavos(g.valor)}</b>
+                </li>
+              );
             return (
               <li key={g.id} className={`${s.lanc}${fora ? ` ${s.linhaFora}` : ""}`}>
-                <span className={`mut sm ${s.lData}`}>{fmtDia(g.data_pagamento)}</span>
-                <span className={s.lDesc}>
-                  <strong>{g.descricao}</strong> <span className="mut sm">{g.favorecido}</span>
-                </span>
-                <span className={`sm ${s.lEtapa}`}>
-                  {g.etapa === null ? (
-                    p.podeMudar ? (
-                      <button type="button" className={s.link} onClick={() => p.mudar(g)} aria-label={`Definir etapa de ${g.descricao}`}>
-                        Sem etapa · definir
-                      </button>
-                    ) : (
-                      <span className="pill warn">Sem etapa</span>
-                    )
-                  ) : fora ? (
-                    <>
-                      <span className="pill warn">sem etapa do orçamento</span> <span className={s.etapaVelha}>{p.etapaDe(g)}</span>
-                    </>
-                  ) : (
-                    <span className="mut">{p.etapaDe(g)}</span>
-                  )}
-                  {g.pedido_id ? (
-                    <span className="pill info">pagamento de pedido</span>
-                  ) : g.fora_do_orcado ? (
-                    <span className="pill">fora de pedido</span>
-                  ) : null}
-                  {g.comprovante_id ? (
-                    <button type="button" className={s.link} onClick={() => p.verComprovante(g.comprovante_id!)}>
-                      ver comprovante
-                    </button>
-                  ) : null}
-                </span>
+                <span className={s.lData}>{fmtDiaCurto(g.data_pagamento)}</span>
+                <span className={s.lDesc}>{desc}</span>
+                <span className={s.lDesc}>{g.favorecido}</span>
+                <span className={s.lEtapa}>{etapa}</span>
+                <span>{origem}</span>
                 <span className={`${s.valor} ${s.lValor}`}>{fmtReais(g.valor)}</span>
-                {p.podeMudar ? (
-                  <span className={s.lAcao}>
-                    {g.etapa !== null ? (
-                      <button type="button" className={`btn sm${fora ? " amb" : ""}`} onClick={() => p.mudar(g)} aria-label={`Mudar etapa de ${g.descricao}`}>
-                        Mudar etapa
-                      </button>
-                    ) : null}
-                  </span>
-                ) : null}
               </li>
             );
           })}
@@ -466,6 +535,15 @@ function Lancados(p: {
     </>
   );
 }
+
+/** "08/11" no ano corrente, "08/11/2025" fora dele: a coluna é estreita e o ano quase sempre é o de agora. */
+function fmtDiaCurto(iso: string): string {
+  const d = fmtDia(iso);
+  return iso.slice(0, 4) === String(new Date().getFullYear()) ? d.slice(0, 5) : d;
+}
+
+/** "R$ 9.620": no celular a lista mostra o valor sem os centavos; o cheio está no comprovante. */
+const semCentavos = (c: number) => fmtReais(c).replace(/,\d{2}$/, "");
 
 function Vazio({ texto }: { texto: string }) {
   return <div className="card vazio sm">{texto}</div>;

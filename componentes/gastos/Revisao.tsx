@@ -54,7 +54,7 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [esc, setEsc] = useState<Escolhas | null>(null);
-  const [ocupado, setOcupado] = useState<"confirmar" | "ler" | "descartar" | null>(null);
+  const [ocupado, setOcupado] = useState<"confirmar" | "depois" | "ler" | "descartar" | null>(null);
   const [erroApi, setErroApi] = useState<string | null>(null);
   const [descartando, setDescartando] = useState(false);
   const [confirmarLer, setConfirmarLer] = useState(false);
@@ -79,7 +79,7 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
   }, [comprovanteId]);
 
   const falta = c && esc ? pendencias(c.revisao, esc, hoje) : [];
-  const corpo = c && esc ? corpoConfirmar(c.revisao, esc, hoje) : null;
+  const corpoBase = c && esc ? corpoConfirmar(c.revisao, esc, hoje) : null;
   const revisavel = !!c && c.status === "a_revisar";
 
   const mudar = (patch: Partial<Escolhas>) => setEsc((e) => (e ? { ...e, ...patch } : e));
@@ -91,9 +91,13 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
       return { ...e, propria: { ...e.propria, [k]: v }, ...(v ? { [campo]: "propria" as const } : {}) };
     });
 
-  const confirmar = async () => {
+  // "Ver depois" no cartão: o mesmo gasto, sem etapa (a pessoa define depois, em Lançados)
+  const corpoSemEtapa = c && esc ? corpoConfirmar(c.revisao, { ...esc, etapa: "depois" }, hoje) : null;
+
+  const confirmar = async (semEtapa = false) => {
+    const corpo = semEtapa ? corpoSemEtapa : corpoBase;
     if (!corpo) return;
-    setOcupado("confirmar");
+    setOcupado(semEtapa ? "depois" : "confirmar");
     setErroApi(null);
     try {
       const r = await api.confirmarComprovante(comprovanteId, corpo);
@@ -142,7 +146,7 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
 
   return {
     podeOperar, c, arvore, setArvore, pedidos, erro, esc, mudar, proprio, ocupado, erroApi, descartando, setDescartando,
-    confirmarLer, setConfirmarLer, motivo, setMotivo, hoje, falta, corpo, revisavel, confirmar, pedirLerDeNovo, lerDeNovo, descartar,
+    confirmarLer, setConfirmarLer, motivo, setMotivo, hoje, falta, corpo: corpoBase, corpoSemEtapa, revisavel, confirmar, pedirLerDeNovo, lerDeNovo, descartar,
   };
 }
 
@@ -200,7 +204,7 @@ function BotoesRevisao({ r, fechar }: { r: EstadoRevisao; fechar?: () => void })
         {r.ocupado === "ler" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="spark" tam={14} />}
         {r.ocupado === "ler" ? "Lendo…" : "Ler de novo"}
       </button>
-      <button type="button" className="btn amb" disabled={!r.corpo || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={r.confirmar}>
+      <button type="button" className="btn amb" disabled={!r.corpo || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={() => r.confirmar()}>
         {r.ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="check" tam={14} />}
         Confirmar gasto
       </button>
@@ -208,8 +212,8 @@ function BotoesRevisao({ r, fechar }: { r: EstadoRevisao; fechar?: () => void })
   );
 }
 
-/** O arquivo ao lado dos campos: o mesmo corpo no modal e no bloco "A conferir". */
-function CorpoRevisao({ r, obra, embutida = false }: { r: EstadoRevisao; obra: Obra; embutida?: boolean }) {
+/** O arquivo ao lado dos campos, no modal da revisão. */
+function CorpoRevisao({ r, obra }: { r: EstadoRevisao; obra: Obra }) {
   const idMotivo = useId();
   const { c, esc } = r;
   if (r.erro)
@@ -228,7 +232,7 @@ function CorpoRevisao({ r, obra, embutida = false }: { r: EstadoRevisao; obra: O
     );
   return (
     <div className={s.rev}>
-      <Arquivo id={c.id} tipo={c.tipo_conteudo} embutida={embutida} />
+      <Arquivo id={c.id} tipo={c.tipo_conteudo} />
       <div className={s.revCampos}>
         <Cabecalho c={c} />
         {!r.revisavel ? (
@@ -367,19 +371,242 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
 }
 
 /**
- * A revisão dentro da página, no bloco "A conferir" (computador): a foto e os campos à vista, sem abrir janela. Os
- * botões ficam no pé do bloco, na mesma ordem do modal.
+ * O comprovante a conferir no computador, como no protótipo: a foto à esquerda e, ao lado, os campos que o Plumo leu
+ * já preenchidos (valor, data, quem recebeu, o que foi pago e a etapa), prontos para corrigir no próprio campo. Campo
+ * em dúvida vem vazio, com o que o Plumo leu em botões logo abaixo: na dúvida, quem decide é a pessoa. Tocar na foto
+ * abre a revisão inteira (com as opções e o "ler de novo"). "Ver depois" lança o gasto sem etapa.
  */
-export function RevisaoEmbutida({ comprovanteId, obra, terminou }: { comprovanteId: string; obra: Obra; terminou: () => void }) {
-  const r = useRevisao(comprovanteId, obra, terminou);
+export function ConferirCartao(p: { comprovanteId: string; obra: Obra; selo: ReactNode; enviado: string; abrir: () => void; terminou: () => void }) {
+  const r = useRevisao(p.comprovanteId, p.obra, p.terminou);
+  const idMotivo = useId();
+  const idPedido = useId();
+  const { c, esc } = r;
+  if (r.erro)
+    return (
+      <div className="aviso-erro" role="alert">
+        <Icone nome="alert" tam={15} />
+        {r.erro}
+      </div>
+    );
+  if (!c || !esc)
+    return (
+      <div className="carregando" role="status">
+        <Icone nome="loader" className="spin" tam={15} />
+        Abrindo o comprovante…
+      </div>
+    );
+  const tipo = c.revisao.tipo_documento ? TIPO_DOC[c.revisao.tipo_documento] : null;
+  const pode = r.revisavel && r.podeOperar;
+  // digitar no campo já é a resposta própria, mesmo apagando tudo: senão o campo vazio voltaria a mostrar a leitura
+  const digitar = (k: "valor" | "data" | "favorecido" | "descricao") => (v: string) => {
+    r.proprio(k, v);
+    r.mudar({ [k]: "propria" });
+  };
+  const rv = c.revisao;
   return (
-    <div className={s.embutida}>
-      <CorpoRevisao r={r} obra={obra} embutida />
-      {r.c ? (
-        <div className={s.embutidaPe}>
-          <BotoesRevisao r={r} />
+    <div className={s.cc}>
+      <button type="button" className={s.ccFoto} onClick={p.abrir} aria-label="Abrir o comprovante inteiro">
+        <FotoCartao id={c.id} tipo={c.tipo_conteudo} />
+      </button>
+      <div className={s.ccCorpo}>
+        <div className={s.ccTopo}>
+          {p.selo}
+          <span className="mut sm">{[tipo, `enviado ${p.enviado}`].filter(Boolean).join(" · ")}</span>
         </div>
+        {rv.avisos.length ? (
+          <ul className={s.aviso} role="list" aria-label="Atenção">
+            {rv.avisos.map((a) => (
+              <li key={a}>
+                <Icone nome="alert" tam={14} />
+                {a}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <fieldset disabled={!pode || !!r.ocupado} className={s.ccCampos}>
+          <legend className="sr-only">O que o Plumo leu</legend>
+          <CampoLido rotulo="Valor pago" campo={rv.valor} escolha={esc.valor} propria={esc.propria.valor} texto={(o) => o.rotulo} escolher={(x) => r.mudar({ valor: x })} digitar={digitar("valor")} inputMode="decimal" placeholder="R$ 0,00" />
+          <CampoLido rotulo="Data" campo={rv.data_pagamento} escolha={esc.data} propria={esc.propria.data} texto={(o) => String(o.valor)} escolher={(x) => r.mudar({ data: x })} digitar={digitar("data")} tipo="date" max={r.hoje} />
+          <CampoLido rotulo="Quem recebeu" campo={rv.favorecido} escolha={esc.favorecido} propria={esc.propria.favorecido} texto={(o) => String(o.valor)} escolher={(x) => r.mudar({ favorecido: x })} digitar={digitar("favorecido")} placeholder="Loja, empresa ou pessoa" />
+          <CampoLido largo rotulo="O que foi pago" campo={rv.descricao} escolha={esc.descricao} propria={esc.propria.descricao} texto={(o) => String(o.valor)} escolher={(x) => r.mudar({ descricao: x })} digitar={digitar("descricao")} placeholder="Ex.: cimento e areia" />
+          <EtapaLida r={r} />
+        </fieldset>
+        {pode && r.falta.length ? (
+          <p className={s.falta} role="status">
+            Para confirmar, falta: {r.falta.join(", ")}.
+          </p>
+        ) : null}
+        {r.descartando ? (
+          <div className="campo">
+            <label className="l" htmlFor={idMotivo}>
+              Por que não é gasto da obra? (opcional)
+            </label>
+            <input id={idMotivo} className="f" maxLength={200} placeholder="Ex.: foto repetida, gasto pessoal" value={r.motivo} onChange={(e) => r.setMotivo(e.target.value)} />
+          </div>
+        ) : null}
+        {r.erroApi ? (
+          <div className="aviso-erro form-erro" role="alert">
+            {r.erroApi}
+          </div>
+        ) : null}
+        <div className={s.ccPe}>
+          {r.pedidos.length ? (
+            <label className={`mut sm ${s.ccPedido}`} htmlFor={idPedido}>
+              É de um pedido?
+              <select id={idPedido} disabled={!pode || !!r.ocupado} value={esc.pedido} onChange={(e) => r.mudar({ pedido: e.target.value })}>
+                <option value="">Não, gasto avulso.</option>
+                {[...r.pedidos]
+                  .sort((a, b) => b.criado_em.localeCompare(a.criado_em))
+                  .map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.numero} · {x.fornecedor} · {fmtReais(x.valor)}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ) : (
+            <span className="mut sm">É de um pedido? Não, gasto avulso.</span>
+          )}
+          <span className={s.sp} />
+          {!pode ? (
+            <span className="mut sm">{r.revisavel ? "Só quem opera a obra confirma o gasto." : "Este comprovante já saiu da fila."}</span>
+          ) : r.descartando ? (
+            <>
+              <button type="button" className="btn" onClick={() => r.setDescartando(false)}>
+                Voltar
+              </button>
+              <button type="button" className="btn" disabled={!!r.ocupado} aria-busy={r.ocupado === "descartar"} onClick={r.descartar}>
+                {r.ocupado === "descartar" ? <Icone nome="loader" className="spin" tam={14} /> : null}
+                Descartar comprovante
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="btn"
+                disabled={!r.corpoSemEtapa || !!r.ocupado}
+                aria-busy={r.ocupado === "depois"}
+                title="Lança o gasto sem etapa; você define a etapa depois, em Lançados."
+                onClick={() => r.confirmar(true)}
+              >
+                Ver depois
+              </button>
+              <button type="button" className="btn" disabled={!!r.ocupado} onClick={() => r.setDescartando(true)}>
+                Não é gasto…
+              </button>
+              <button type="button" className="btn amb" disabled={!r.corpo || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={() => r.confirmar()}>
+                {r.ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : null}
+                Confirmar gasto
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Um campo do cartão: o que o Plumo leu já no campo, para corrigir digitando (digitar troca para a resposta própria).
+ * Em dúvida, o campo fica vazio e as leituras viram botões embaixo dele.
+ */
+function CampoLido(p: {
+  rotulo: string;
+  campo: CampoRevisao;
+  escolha: Escolha;
+  propria: string;
+  texto: (o: CampoRevisao["opcoes"][number]) => string;
+  escolher: (e: Escolha) => void;
+  digitar: (v: string) => void;
+  tipo?: "text" | "date";
+  max?: string;
+  inputMode?: "decimal";
+  placeholder?: string;
+  largo?: boolean;
+}) {
+  const id = useId();
+  const op = typeof p.escolha === "number" ? p.campo.opcoes[p.escolha] : undefined;
+  const valor = op ? p.texto(op) : p.escolha === "propria" ? p.propria : "";
+  const duvida = p.escolha === null && p.campo.opcoes.length > 0;
+  return (
+    <div className={`${s.ccCampo}${p.largo ? ` ${s.ccLargo}` : ""}`} data-estado={p.campo.estado}>
+      <label htmlFor={id}>
+        {p.rotulo}
+        {duvida ? <span className="pill warn">confira</span> : null}
+      </label>
+      <input
+        id={id}
+        className="f"
+        type={p.tipo ?? "text"}
+        max={p.max}
+        inputMode={p.inputMode}
+        placeholder={p.placeholder}
+        value={valor}
+        onChange={(e) => p.digitar(e.target.value)}
+      />
+      {duvida ? (
+        <span className={s.ccLeituras}>
+          <span className="mut sm">O Plumo leu:</span>
+          {p.campo.opcoes.map((o, i) => (
+            <button key={i} type="button" className="btn sm" onClick={() => p.escolher(i)}>
+              {o.rotulo}
+            </button>
+          ))}
+        </span>
       ) : null}
+    </div>
+  );
+}
+
+/** A etapa num seletor só: as etapas da obra e, dentro delas, os tópicos; a sugestão do Plumo já vem marcada. */
+function EtapaLida({ r }: { r: EstadoRevisao }) {
+  const id = useId();
+  const esc = r.esc!;
+  const cl = r.c!.revisao.classificacao;
+  const chave = (etapa: string, topico: string | null | undefined) => `${etapa}|${topico ?? ""}`;
+  const atual =
+    typeof esc.etapa === "number" && cl.opcoes[esc.etapa]
+      ? chave(cl.opcoes[esc.etapa]!.etapa, cl.opcoes[esc.etapa]!.topico_id)
+      : esc.etapa === "propria" && esc.propria.etapa
+        ? chave(esc.propria.etapa, esc.propria.topico)
+        : "";
+  // a sugestão do Plumo pode ser de etapa que a árvore ainda não trouxe: entra como opção, com o rótulo dela
+  const naArvore = new Set(r.arvore.flatMap((e) => [chave(e.chave, null), ...e.topicos.map((t) => chave(e.chave, t.id))]));
+  const sugeridas = cl.opcoes.filter((o) => !naArvore.has(chave(o.etapa, o.topico_id)));
+  const escolher = (v: string) => {
+    const i = cl.opcoes.findIndex((o) => chave(o.etapa, o.topico_id) === v);
+    if (i >= 0) return r.mudar({ etapa: i });
+    const [etapa = "", topico = ""] = v.split("|");
+    r.proprio("etapa", etapa);
+    r.proprio("topico", topico);
+  };
+  const duvida = esc.etapa === null && cl.opcoes.length > 0;
+  return (
+    <div className={s.ccCampo} data-estado={cl.estado}>
+      <label htmlFor={id}>
+        Etapa
+        {duvida ? <span className="pill warn">confira</span> : null}
+      </label>
+      <select id={id} className="f" value={atual} onChange={(e) => escolher(e.target.value)}>
+        <option value="">{esc.etapa === "depois" ? "Sem etapa (ver depois)" : "Escolha a etapa…"}</option>
+        {sugeridas.map((o) => (
+          <option key={chave(o.etapa, o.topico_id)} value={chave(o.etapa, o.topico_id)}>
+            {o.rotulo}
+          </option>
+        ))}
+        {r.arvore.map((e) => [
+          <option key={e.chave} value={chave(e.chave, null)}>
+            {nomeComCodigo(e)}
+          </option>,
+          ...e.topicos.map((t) => (
+            <option key={`${e.chave}-${t.id}`} value={chave(e.chave, t.id)}>
+              {nomeComCodigo(e)} › {t.nome}
+            </option>
+          )),
+        ])}
+      </select>
+      {duvida ? <span className="mut sm">O Plumo sugere: {cl.opcoes.map((o) => o.rotulo).join(" ou ")}</span> : null}
     </div>
   );
 }
@@ -409,7 +636,7 @@ export function ConferirCompacto({ comprovanteId, obra, corrigir, terminou }: { 
   // sem o corpo completo, mostra a 1ª leitura de cada campo (o que a pessoa vai conferir em Corrigir)
   const lido = (k: "valor" | "favorecido" | "descricao" | "data_pagamento") => c.revisao[k].opcoes[0]?.rotulo ?? null;
   const valor = v ? fmtReais(v.valor) : (lido("valor") ?? "valor não lido");
-  const linha = [v?.favorecido ?? lido("favorecido"), v?.descricao ?? lido("descricao"), v ? fmtDia(v.data_pagamento) : lido("data_pagamento")].filter(Boolean).join(" · ");
+  const linha = [v?.favorecido ?? lido("favorecido"), v?.descricao ?? lido("descricao"), v ? fmtDia(v.data_pagamento).slice(0, 5) : lido("data_pagamento")].filter(Boolean).join(" · ");
   const pode = r.revisavel && r.podeOperar;
   return (
     <div className={s.compacto}>
@@ -431,8 +658,8 @@ export function ConferirCompacto({ comprovanteId, obra, corrigir, terminou }: { 
           {pode ? "Corrigir" : "Abrir"}
         </button>
         {pode ? (
-          <button type="button" className="btn amb" disabled={!v || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={r.confirmar}>
-            {r.ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : <Icone nome="check" tam={14} />}
+          <button type="button" className="btn amb" disabled={!v || !!r.ocupado} aria-busy={r.ocupado === "confirmar"} onClick={() => r.confirmar()}>
+            {r.ocupado === "confirmar" ? <Icone nome="loader" className="spin" tam={14} /> : null}
             Confirmar
           </button>
         ) : null}
@@ -636,11 +863,11 @@ function useArquivo(id: string | null) {
   return { url, erro };
 }
 
-/** A foto (ou o PDF) ao lado dos campos. Na página (embutida) fica mais baixa, para os campos caberem ao lado. */
-function Arquivo({ id, tipo, embutida = false }: { id: string; tipo: string; embutida?: boolean }) {
+/** A foto (ou o PDF) ao lado dos campos da revisão. */
+function Arquivo({ id, tipo }: { id: string; tipo: string }) {
   const { url, erro } = useArquivo(id);
   return (
-    <div className={`${s.arquivo}${embutida ? ` ${s.arquivoEmbutido}` : ""}`}>
+    <div className={s.arquivo}>
       {erro ? (
         <span className="mut sm">Não consegui abrir o arquivo.</span>
       ) : !url ? (
@@ -657,6 +884,13 @@ function Arquivo({ id, tipo, embutida = false }: { id: string; tipo: string; emb
       ) : null}
     </div>
   );
+}
+
+/** A foto no cartão "A conferir": recortada para caber; o inteiro abre na revisão. PDF mostra o ícone. */
+function FotoCartao({ id, tipo }: { id: string; tipo: string }) {
+  const pdf = tipo === "application/pdf";
+  const { url } = useArquivo(pdf ? null : id);
+  return !pdf && url ? <img src={url} alt="Foto do comprovante" /> : <Icone nome={pdf ? "planilha" : "recibo"} tam={22} />;
 }
 
 /** A miniatura do cartão compacto: a foto pequena; PDF não vira imagem, então mostra o ícone. */
