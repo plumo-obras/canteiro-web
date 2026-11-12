@@ -100,11 +100,11 @@ describe("a obra abre onde faz sentido", () => {
     await waitFor(() => expect(window.location.search).toBe("?obra=o-emei&tela=projeto"));
   });
 
-  it("com orçamento, abre no Mestre de obras", async () => {
+  it("com orçamento, abre no Plumo", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true) });
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
     expect(window.location.search).toBe("?obra=o-emei");
   });
 
@@ -112,7 +112,7 @@ describe("a obra abre onde faz sentido", () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", false) });
     window.history.replaceState(null, "", "/?obra=o-emei&tela=conversa");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
     await waitFor(() => expect(window.location.search).toBe("?obra=o-emei&tela=conversa"));
   });
 
@@ -145,11 +145,11 @@ describe("a obra abre onde faz sentido", () => {
       rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": lento.rota });
       window.history.replaceState(null, "", "/?obra=o-emei");
       render(<Casca demo={false} />);
-      await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+      await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
       fireEvent.click(document.querySelector(".seletor-bt")!);
       fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
       await waitFor(() => expect(document.querySelector(".seletor-nome")?.textContent).toBe("Casa Vila Nova"));
-      expect(telaAtiva()).toBe("Mestre de obras");
+      expect(telaAtiva()).toBe("Plumo");
       lento.soltar();
       await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
     });
@@ -174,11 +174,11 @@ describe("a obra abre onde faz sentido", () => {
       rede({ "GET /srv/api/obras/o-emei/resumo": lento.rota });
       window.history.replaceState(null, "", "/?obra=o-emei");
       render(<Casca demo={false} />);
-      await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
-      fireEvent.click(document.querySelector(".topo-mestre")!);
+      await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
+      fireEvent.click(document.querySelector(".pilula.plumo")!);
       lento.soltar();
       await waitFor(() => expect(window.location.search).toContain("tela=conversa"));
-      expect(telaAtiva()).toBe("Mestre de obras");
+      expect(telaAtiva()).toBe("Plumo");
     });
   });
 
@@ -187,9 +187,9 @@ describe("a obra abre onde faz sentido", () => {
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
     const doResumo = (id: string) => r.chamadas.filter((c) => c.caminho === `/srv/api/obras/${id}/resumo`);
-    // O Mestre já está ativo antes de o resumo sair (a chamada ainda espera o token): esperar a aba não garante a chamada.
+    // O Plumo já está ativo antes de o resumo sair (a chamada ainda espera o token): esperar a aba não garante a chamada.
     await waitFor(() => expect(doResumo("o-emei")).toHaveLength(1));
-    await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
     await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
@@ -202,7 +202,7 @@ describe("a obra abre onde faz sentido", () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Mestre de obras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
     await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
@@ -217,9 +217,19 @@ describe("a barra da obra", () => {
     await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
   };
 
-  it("cinco abas, nesta ordem e sem números", async () => {
+  it("o Plumo e as cinco abas, nesta ordem e sem números", async () => {
     await abrir();
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Projeto", "Cronograma", "Orçamento", "Compras", "Gastos"]);
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Plumo", "Projeto", "Cronograma", "Orçamento", "Compras", "Gastos"]);
+  });
+
+  it("sem trilho: a lista de conversas abre pelo botão da própria conversa", async () => {
+    await abrir();
+    expect(document.querySelector(".trilho")).toBeNull();
+    const bt = await screen.findByRole("button", { name: "Conversas" });
+    expect(bt.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(bt);
+    await waitFor(() => expect(bt.getAttribute("aria-expanded")).toBe("true"));
+    expect(document.getElementById("painel-conversas")?.hidden).toBe(false);
   });
 
   it("o sino conta as pendências da obra aberta e abre as Aprovações", async () => {
@@ -260,20 +270,20 @@ describe("a barra do celular", () => {
   };
   const barra = () => [...document.querySelectorAll(".barra-inf .bi-item")].map((b) => b.querySelector(".bi-rot")?.textContent);
 
-  it("orçamento aprovado: Mestre, Cronograma, Compras, Gastos e Mais", async () => {
+  it("orçamento aprovado: Plumo, Cronograma, Compras, Gastos e Mais", async () => {
     await abrir(resumo("o-emei", true));
-    await waitFor(() => expect(barra()).toEqual(["Mestre", "Cronograma", "Compras", "Gastos", "Mais"]));
-    expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Mestre de obras");
+    await waitFor(() => expect(barra()).toEqual(["Plumo", "Cronograma", "Compras", "Gastos", "Mais"]));
+    expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Plumo");
   });
 
-  it("sem orçamento: Mestre, Projeto, Orçamento, Gastos e Mais", async () => {
+  it("sem orçamento: Plumo, Projeto, Orçamento, Gastos e Mais", async () => {
     await abrir(resumo("o-emei", false));
-    await waitFor(() => expect(barra()).toEqual(["Mestre", "Projeto", "Orçamento", "Gastos", "Mais"]));
+    await waitFor(() => expect(barra()).toEqual(["Plumo", "Projeto", "Orçamento", "Gastos", "Mais"]));
   });
 
   it("orçamento ainda não aprovado também fica nos primeiros passos, e o resto vai para o Mais", async () => {
     await abrir(resumo("o-emei", true), "em_orcamento");
-    await waitFor(() => expect(barra()).toEqual(["Mestre", "Projeto", "Orçamento", "Gastos", "Mais"]));
+    await waitFor(() => expect(barra()).toEqual(["Plumo", "Projeto", "Orçamento", "Gastos", "Mais"]));
     fireEvent.click(screen.getByRole("button", { name: "Mais" }));
     expect([...document.querySelectorAll(".folha-item")].map((b) => b.textContent)).toEqual(expect.arrayContaining(["Compras", "Cronograma", "Tributos", "Histórico"]));
   });

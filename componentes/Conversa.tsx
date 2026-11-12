@@ -121,7 +121,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
     despachar({ tipo: "perguntou", sessaoId: sessao.id, eu, agente });
     setTexto("");
     setEnviando(true);
-    setAnuncio("O mestre de obras está respondendo.");
+    setAnuncio("O Plumo está respondendo.");
     colado.current = true;
     const ctl = new AbortController();
     fluxos.set(sessao.id, ctl);
@@ -131,7 +131,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         despachar({ tipo: "evento", sessaoId: sessao.id, msgId: agente.id, evento: e });
       }
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id });
-      setAnuncio("Resposta do mestre de obras pronta.");
+      setAnuncio("Resposta do Plumo pronta.");
     } catch (x) {
       const abortou = ctl.signal.aborted;
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id, erro: abortou ? "Você parou a resposta." : mensagemDe(x) });
@@ -246,14 +246,14 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
           }}
         >
           <label htmlFor={`campo-${sessao.id}`} className="sr-only">
-            Pergunte ao mestre de obras
+            Pergunte ao Plumo
           </label>
           <textarea
             id={`campo-${sessao.id}`}
             ref={campo}
             rows={1}
             value={texto}
-            placeholder={comCasa ? "Peça algo ao mestre de obras…" : "Pergunte sobre a obra…"}
+            placeholder={comCasa ? "Peça algo ao Plumo…" : "Pergunte sobre a obra…"}
             onChange={(e) => {
               setTexto(e.target.value);
               crescer(e.target);

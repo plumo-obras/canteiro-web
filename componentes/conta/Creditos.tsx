@@ -85,7 +85,7 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras }: 
       ) : saldo <= 0 ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
-          Sem créditos: o mestre de obras não responde até a franquia renovar ou uma chave própria ser conectada.
+          Sem créditos: o Plumo não responde até a franquia renovar ou uma chave própria ser conectada.
         </div>
       ) : null}
 

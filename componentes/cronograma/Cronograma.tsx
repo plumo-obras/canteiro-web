@@ -240,9 +240,9 @@ export function Cronograma({ obra }: { obra: Obra }) {
           <ProximoPasso
             obraId={obra.id}
             para="conversa"
-            acao="Ir para o mestre de obras"
+            acao="Ir para o Plumo"
             titulo="A obra está montada."
-            texto="Daqui pra frente o mestre de obras acompanha compras, prazos e gastos com você, e avisa o que precisa de decisão."
+            texto="Daqui pra frente o Plumo acompanha compras, prazos e gastos com você, e avisa o que precisa de decisão."
           />
         </>
       )}

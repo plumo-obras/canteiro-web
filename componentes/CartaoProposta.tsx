@@ -225,7 +225,7 @@ export function CartaoProposta({ id, foco = true, obraNome }: { id: string; foco
           <div className="ld-fonte">
             <Icone nome="spark" tam={13} />
             <span>
-              mestre de obras · {p.fonte}
+              Plumo · {p.fonte}
             </span>
           </div>
         ) : null}
@@ -251,7 +251,7 @@ function ModalRecusar({ titulo, fechar, confirmar }: { titulo: string; fechar: (
   const enviar = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!motivo.trim()) {
-      setErro("Diga o motivo: o mestre de obras usa para não propor a mesma coisa de novo.");
+      setErro("Diga o motivo: o Plumo usa para não propor a mesma coisa de novo.");
       campo.current?.focus();
       return;
     }

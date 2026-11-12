@@ -211,7 +211,7 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
           )}
         </section>
       </div>
-      <p className={`mut sm ${s.nota}`}>O mestre de obras só propõe. Nada é pedido, pago ou mudado sem o seu toque, e tudo fica no Histórico com Desfazer.</p>
+      <p className={`mut sm ${s.nota}`}>O Plumo só propõe. Nada é pedido, pago ou mudado sem o seu toque, e tudo fica no Histórico com Desfazer.</p>
       {abaixo ? <div className={s.nota}>{abaixo}</div> : null}
     </div>
   );

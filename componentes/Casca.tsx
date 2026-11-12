@@ -1,9 +1,9 @@
 "use client";
 /**
- * A casca do app: topo de vidro com a obra, as cinco telas em pílulas, o menu "⋯", o sino das aprovações e o Mestre de
- * obras (a conversa com o agente); trilho de atalhos à esquerda e o painel das conversas, que abre ao lado do trilho. Uma tela por vez no palco;
- * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
- * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
+ * A casca do app: topo de vidro com a obra, o Plumo (a conversa com o agente) e as cinco telas em pílulas, o menu "⋯" e
+ * o sino das aprovações; a lista das conversas abre à esquerda, só na tela do Plumo. Uma tela por vez no palco; a
+ * conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
+ * perderem. Início e Conta ficam no logo e no avatar. No celular a lista vira gaveta e as telas vão para a barra de baixo.
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
@@ -34,7 +34,7 @@ import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./
 
 // Rótulo e ícone de cada tela (para o título de seção e o aria-label).
 const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
-  conversa: { rotulo: "Mestre de obras", icone: "mestre" },
+  conversa: { rotulo: "Plumo", icone: "spark" },
   projeto: { rotulo: "Projeto", icone: "predio" },
   orcamento: { rotulo: "Orçamento", icone: "calc" },
   suprimentos: { rotulo: "Compras", icone: "package" },
@@ -44,10 +44,11 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   aprovacoes: { rotulo: "Aprovações", icone: "checkCircle" },
   historico: { rotulo: "Histórico", icone: "history" },
 };
-// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados.
-// O projeto gera o cronograma estimado da obra toda; o orçamento é o detalhamento que a estimativa vai virando real.
-// Por isso Cronograma (a previsão da obra) vem antes do Orçamento (o detalhe), e depois Compras e Gastos (execução).
-const ABAS: AbaAtiva[] = ["projeto", "cronograma", "orcamento", "suprimentos", "gastos"];
+// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados. O Plumo
+// vem antes de tudo: é a casa da obra. O projeto gera o cronograma estimado da obra toda; o orçamento é o detalhamento
+// que a estimativa vai virando real. Por isso Cronograma (a previsão) vem antes do Orçamento (o detalhe), e depois
+// Compras e Gastos (execução).
+const ABAS: AbaAtiva[] = ["conversa", "projeto", "cronograma", "orcamento", "suprimentos", "gastos"];
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
@@ -78,7 +79,7 @@ export function Casca({ demo }: { demo: boolean }) {
   );
 }
 
-/** Abaixo disto o trilho some e o painel das conversas vira gaveta. */
+/** Abaixo disto o painel das conversas vira gaveta. */
 const MOVEL = "(max-width: 899px)";
 const CHAVE_PAINEL = "plumo.painel";
 // Última obra aberta neste navegador: uma aba nova em "/" volta nela, não na 1ª em andamento da lista.
@@ -119,7 +120,7 @@ function App({ usuario }: { usuario: Usuario }) {
   const [gaveta, setGaveta] = useState(false);
   const painel = useRef<HTMLElement>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
-  // No desktop o painel acompanha o Mestre de obras: nas outras telas o espaço é delas (o trilho reabre e leva a ele).
+  // No desktop o painel acompanha o Plumo: nas outras telas o espaço é delas.
   const painelAberto = movel ? gaveta : painelDesk && tela === "conversa";
   // Conversas mais antigas, por obra. A 1ª lista é global (as 30 mais recentes de todas as obras): tudo o que é mais
   // novo que a última dela já está aqui, então o cursor de TODAS as obras começa nessa data.
@@ -329,7 +330,7 @@ function App({ usuario }: { usuario: Usuario }) {
     <div className="card vazio">
       <Icone nome="predio" tam={24} />
       <h3>Nenhuma obra ainda</h3>
-      <p>Cadastre a primeira obra para começar pelo projeto. As conversas com o mestre de obras aparecem aqui.</p>
+      <p>Cadastre a primeira obra para começar pelo projeto. As conversas com o Plumo aparecem aqui.</p>
       {podeCadastrar ? (
         <Link href="/obras/nova" className="btn amb">
           Cadastrar obra
@@ -354,26 +355,6 @@ function App({ usuario }: { usuario: Usuario }) {
         abrirDados={() => setDadosObra(true)}
         inerte={movel && gaveta}
       />
-      <nav className="trilho" aria-label="Atalhos">
-        <Link href="/inicio" className="tr-btn" aria-label="Início" title="Início">
-          <Icone nome="home" tam={18} />
-        </Link>
-        <button
-          type="button"
-          className={`tr-btn${painelAberto ? " on" : ""}`}
-          aria-label={painelAberto ? "Esconder as conversas" : "Mostrar as conversas"}
-          aria-expanded={painelAberto}
-          aria-controls="painel-conversas"
-          title="Conversas com o mestre de obras"
-          onClick={alternarPainel}
-        >
-          <Icone nome="conversas" tam={18} />
-        </button>
-        <span className="tr-sep" aria-hidden="true" />
-        <Link href="/conta" className="tr-btn" aria-label="Conta e créditos" title="Conta e créditos">
-          <Icone nome="user" tam={18} />
-        </Link>
-      </nav>
       <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
         <div className="painel-cab">
           <div>
@@ -453,13 +434,19 @@ function App({ usuario }: { usuario: Usuario }) {
             <>
               <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} />
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
-              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o mestre de obras" hidden={tela !== "conversa"}>
+              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o Plumo" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">
                   <h1 className="conversa-t" title={sessao.titulo}>
                     {sessao.titulo}
                   </h1>
-                  <button type="button" className="btn sm so-movel" onClick={alternarPainel}>
-                    <Icone nome="conversas" tam={15} />
+                  <button
+                    type="button"
+                    className={`btn sm conversa-lista${painelAberto ? " on" : ""}`}
+                    aria-expanded={painelAberto}
+                    aria-controls="painel-conversas"
+                    onClick={alternarPainel}
+                  >
+                    <Icone nome="painel" tam={15} />
                     Conversas
                   </button>
                 </div>
@@ -544,7 +531,7 @@ function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaA
           >
             <Icone nome={ROTULOS[k].icone} tam={20} />
             <span className="bi-rot" aria-hidden="true">
-              {k === "conversa" ? "Mestre" : ROTULOS[k].rotulo}
+              {ROTULOS[k].rotulo}
             </span>
           </button>
         ))}
@@ -697,10 +684,11 @@ function Topo(p: {
             <button
               key={k}
               type="button"
-              className={`pilula${tela === k ? " on" : ""}`}
+              className={`pilula${k === "conversa" ? " plumo" : ""}${tela === k ? " on" : ""}`}
               aria-current={tela === k ? "page" : undefined}
               onClick={() => p.setTela(k)}
             >
+              {k === "conversa" ? <Icone nome="spark" tam={16} /> : null}
               {ROTULOS[k].rotulo}
             </button>
           ))}
@@ -727,12 +715,6 @@ function Topo(p: {
                 {p.pendentes}
               </span>
             ) : null}
-          </button>
-        ) : null}
-        {obra && !p.semAbas ? (
-          <button type="button" className={`btn sm topo-mestre${tela === "conversa" ? " on" : ""}`} aria-current={tela === "conversa" ? "page" : undefined} onClick={() => p.setTela("conversa")}>
-            <Icone nome="mestre" tam={16} />
-            {ROTULOS.conversa.rotulo}
           </button>
         ) : null}
         <MenuPerfil usuario={p.usuario} />

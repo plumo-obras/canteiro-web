@@ -1,17 +1,16 @@
 /* =====================================================================================================
-   Casca do workspace: topo (marca · obra · telas em pílulas · ⋯ · sino · Mestre de obras · conta), trilho de atalhos, painel das conversas e o
+   Casca do workspace: topo (marca · obra · Plumo e telas em pílulas · ⋯ · sino · conta), painel das conversas e o
    palco. Tudo flutua em vidro sobre a foto desfocada do fundo. Os tokens (cores, vidro, sombras) vêm do globals.css,
    nos dois temas; aqui só a forma e o lugar das peças.
-   ≥ 900 px: trilho fixo à esquerda e painel ao lado dele (abre e fecha). < 900 px: sem trilho, painel em gaveta,
-   pílulas numa linha que rola na horizontal.
+   ≥ 900 px: painel das conversas à esquerda do palco, só na tela do Plumo (abre e fecha). < 900 px: painel em gaveta,
+   pílulas numa linha que rola na horizontal; ≤ 760 px, barra fixa embaixo.
    ===================================================================================================== */
 html:has(.app),html:has(.app) body{overflow:hidden}
-.app{display:grid;grid-template-columns:60px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
-  padding:14px 18px 14px 14px}
-.app.com-painel{grid-template-columns:60px 272px minmax(0,1fr)}
+.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
+  padding:14px 18px}
+.app.com-painel{grid-template-columns:272px minmax(0,1fr)}
 .app>.topo{grid-column:1/-1;grid-row:1}
-.app>.trilho{grid-column:1;grid-row:2}
-.app>.painel{grid-column:2;grid-row:2}
+.app>.painel{grid-column:1;grid-row:2}
 .app>.palco{grid-column:-2/-1;grid-row:2}
 @media (prefers-reduced-motion:no-preference){ .app{transition:grid-template-columns var(--mv-base) var(--ease)} }
 
@@ -26,16 +25,16 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   background:linear-gradient(150deg,#f5c978 0%,#e8b04a 55%,#d99a2e 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 2px 6px -1px rgba(0,0,0,.3)}
 
 /* vidro das peças que flutuam */
-.trilho,.painel,.palco-conversa,.placar{
+.painel,.palco-conversa,.placar{
   background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   border:1px solid var(--edge);box-shadow:var(--hl),var(--shadow)}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .trilho,.painel,.palco-conversa,.placar{background:var(--cardSolido,var(--card))}
+  .painel,.palco-conversa,.placar{background:var(--cardSolido,var(--card))}
   .topo{background:var(--cardSolido,var(--card))}
 }
 
 /* ---------- topo ---------- */
-/* acima do trilho e do painel: o vidro cria camada própria, e os menus do topo (obra, conta) têm de abrir por cima deles */
+/* acima do painel: o vidro cria camada própria, e os menus do topo (obra, conta) têm de abrir por cima deles */
 .topo{position:relative;z-index:20;display:flex;align-items:center;gap:10px;min-width:0;padding:7px 7px 7px 12px;border-radius:16px;
   background:var(--barra);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);box-shadow:var(--sombraBarra)}
 .topo-marca{display:flex;align-items:center;gap:10px;flex:none;font:600 21px var(--sans);letter-spacing:-.02em;color:var(--ink);padding-right:4px}
@@ -80,7 +79,9 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .topo-sino:active{transform:scale(.95)}
 .topo-sino.on{background:var(--ativo);color:var(--ink)}
 .topo-sino-n{position:absolute;top:3px;right:2px;min-width:18px;padding:0 4px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);font:700 11px/18px var(--sans);text-align:center}
-.topo-mestre.on{background:var(--ativo);border-color:var(--line)}
+/* o Plumo é a casa da obra: a pílula dele tem a cor da marca */
+.pilula.plumo{color:var(--accentInk)}
+.pilula.plumo.on{background:var(--accentSoft);color:var(--accentInk)}
 .topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
 .topo-nav + .topo-dir{margin-left:0}
 /* não coube: menos espaço entre as pílulas e seletor mais estreito (medido em Casca.tsx, classe "aperto") */
@@ -99,13 +100,11 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 @media (max-width:760px){ .perfil-pop [role=menuitem]{min-height:44px} }
 .sp{flex:1}
 
-/* ---------- trilho ---------- */
-.trilho{display:flex;flex-direction:column;align-items:center;gap:6px;align-self:start;padding:10px 0;border-radius:999px;max-height:100%;overflow:auto;scrollbar-width:none}
+/* ---------- botão redondo (fechar o painel) ---------- */
 .tr-btn{position:relative;display:grid;place-items:center;width:42px;height:42px;padding:0;border:0;border-radius:50%;background:none;color:var(--ink2);flex:none;
   transition:background-color .15s var(--ease),color .15s var(--ease),transform .12s var(--ease)}
 .tr-btn:active{transform:scale(.95)}
 .tr-btn.on{background:var(--ativo);color:var(--ink)}
-.tr-sep{width:26px;height:1px;background:var(--line);margin:4px 0;flex:none}
 @media (hover:hover){
   .tr-btn:hover,.pilula:not(.on):hover,.topo-sino:not(.on):hover{background:var(--sunk);color:var(--ink)}
   .seletor-bt:hover{background:var(--hover,var(--sunk))}
@@ -147,6 +146,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .palco-conversa{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:24px;overflow:hidden}
 .palco-conversa[hidden]{display:none}
 .conversa-cab{display:flex;align-items:center;gap:12px;padding:14px 22px 10px;border-bottom:1px solid var(--line2);flex:none}
+.conversa-lista.on{background:var(--ativo);color:var(--ink)}
 .conversa-t{margin:0;font:600 var(--t-sec) var(--sans);letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .palco>.card.vazio,.palco>.aviso-erro,.palco>.carregando{margin-top:24px}
 
@@ -167,7 +167,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
 .gaveta-fundo[hidden]{display:none}
 @media (min-width:900px){ .so-movel{display:none!important} }
-/* notebook de 1366: as cinco abas, o ⋯, o sino, o Mestre de obras e o nome da obra cabem sem cortar a última */
+/* notebook de 1366: o Plumo, as cinco abas, o ⋯, o sino e o nome da obra cabem sem cortar a última */
 @media (max-width:1480px) and (min-width:1181px){
   .topo-marca-t{display:none}
   .pilula{padding:0 12px}
@@ -181,7 +181,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 @media (max-width:899px){
   .app,.app.com-painel{grid-template-columns:minmax(0,1fr);gap:10px;padding:calc(8px + env(safe-area-inset-top)) 10px 0 10px}
   .app>.palco{grid-column:1}
-  .trilho{display:none}
   .topo{flex-wrap:wrap;gap:6px;padding:6px}
   .topo-marca .logo{width:32px;height:32px}
   .topo-marca{min-height:42px;min-width:42px;justify-content:center}
