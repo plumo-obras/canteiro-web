@@ -135,7 +135,7 @@ describe("HojeNaObra", () => {
   it("sem nada para hoje, diz isso", async () => {
     montar(() => json({ ...HOJE, pontos: [], mais: 0, semana: [] }));
     expect(await screen.findByText("Nada pedindo você hoje.")).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Nada esperando você" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Nenhuma aprovação" }));
     expect(screen.getByText("Nenhuma proposta para aprovar.")).toBeInTheDocument();
   });
 

@@ -205,9 +205,11 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { 
   if (!dado) return <>{alternativa}</>;
   const { pontos } = dado;
   const nPendentes = pendentesDa(cartoes, obra.id).length;
+  // A etiqueta conta só as aprovações (as propostas); o "esperando" da frase do dia soma também os pontos que pedem a
+  // pessoa (comprovante a conferir). Dizer "Nada esperando você" aqui desmentia a frase ao lado.
   const rotuloEsperando = podeOperar
     ? nPendentes === 0
-      ? "Nada esperando você"
+      ? "Nenhuma aprovação"
       : `${nPendentes} ${nPendentes === 1 ? "aprovação" : "aprovações"}`
     : nPendentes === 0
       ? "Nada aguardando aprovação"
