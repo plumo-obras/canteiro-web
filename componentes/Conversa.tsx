@@ -44,6 +44,7 @@ function BalaoAgente({ m }: { m: MsgAgente }) {
         <Icone nome="spark" tam={16} />
       </div>
       <div className="corpo">
+        <span className="ai-meta">Plumo</span>
         {m.ferramentas.length ? (
           <ul className="tools" aria-label="Ferramentas usadas">
             {m.ferramentas.map((f, i) => (
@@ -95,7 +96,7 @@ function ConversaVazia({ sugestoes, perguntar }: { sugestoes: string[]; pergunta
 }
 
 export function Conversa({ sessao, obra, resumo = null, despachar, visivel = true }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; visivel?: boolean; despachar: Dispatch<AcaoSessoes> }) {
-  const { receberPropostas } = useCasca();
+  const { receberPropostas, avisar } = useCasca();
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   // Se a pessoa trocou de sessão no meio da resposta, o fluxo continua; o campo segue travado até o fim dele.
@@ -121,7 +122,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
     despachar({ tipo: "perguntou", sessaoId: sessao.id, eu, agente });
     setTexto("");
     setEnviando(true);
-    setAnuncio("O mestre de obras está respondendo.");
+    setAnuncio("O Plumo está respondendo.");
     colado.current = true;
     const ctl = new AbortController();
     fluxos.set(sessao.id, ctl);
@@ -131,7 +132,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         despachar({ tipo: "evento", sessaoId: sessao.id, msgId: agente.id, evento: e });
       }
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id });
-      setAnuncio("Resposta do mestre de obras pronta.");
+      setAnuncio("Resposta do Plumo pronta.");
     } catch (x) {
       const abortou = ctl.signal.aborted;
       despachar({ tipo: "parou", sessaoId: sessao.id, msgId: agente.id, erro: abortou ? "Você parou a resposta." : mensagemDe(x) });
@@ -160,7 +161,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
   return (
     <>
       <div
-        className={`msgs${comCasa ? " com-casa" : ""}`}
+        className={`msgs${comCasa || obra ? " com-casa" : ""}`}
         ref={lista}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -169,7 +170,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         aria-label="Mensagens da conversa"
         role="log"
         // ao vivo, o resumo inteiro seria lido em voz alta ao carregar; quem avisa da resposta é o status abaixo
-        aria-live={comCasa ? "off" : undefined}
+        aria-live={comCasa || obra ? "off" : undefined}
       >
         {!sessao.carregada ? (
           sessao.erroCarga ? (
@@ -193,6 +194,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
             <HojeNaObra
               obra={obra}
               visivel={visivel}
+              soEtiquetas={sessao.mensagens.length > 0}
               alternativa={sessao.mensagens.length ? null : <ConversaVazia sugestoes={sugestoesDaObra(obra, resumo)} perguntar={(s) => void perguntar(s)} />}
               abaixo={
                 sessao.mensagens.length ? null : (
@@ -223,15 +225,19 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         ) : sessao.mensagens.length === 0 ? (
           <ConversaVazia sugestoes={obra ? sugestoesDaObra(obra, resumo) : []} perguntar={(s) => void perguntar(s)} />
         ) : (
-          sessao.mensagens.map((m) =>
-            m.papel === "eu" ? (
-              <div key={m.id} className="msg me mv-entra">
-                {m.texto}
-              </div>
-            ) : (
-              <BalaoAgente key={m.id} m={m} />
-            ),
-          )
+          <>
+            {/* numa conversa antiga as etiquetas da obra continuam no topo, como na conversa nova */}
+            {obra ? <HojeNaObra obra={obra} visivel={visivel} soEtiquetas alternativa={null} /> : null}
+            {sessao.mensagens.map((m) =>
+              m.papel === "eu" ? (
+                <div key={m.id} className="msg me mv-entra">
+                  {m.texto}
+                </div>
+              ) : (
+                <BalaoAgente key={m.id} m={m} />
+              ),
+            )}
+          </>
         )}
       </div>
       <div className="sr-only" role="status" aria-live="polite">
@@ -246,14 +252,14 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
           }}
         >
           <label htmlFor={`campo-${sessao.id}`} className="sr-only">
-            Pergunte ao mestre de obras
+            Pergunte ao Plumo
           </label>
           <textarea
             id={`campo-${sessao.id}`}
             ref={campo}
             rows={1}
             value={texto}
-            placeholder={comCasa ? "Peça algo ao mestre de obras…" : "Pergunte sobre a obra…"}
+            placeholder="Peça algo ao Plumo…"
             onChange={(e) => {
               setTexto(e.target.value);
               crescer(e.target);
@@ -261,9 +267,11 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
             onKeyDown={tecla}
           />
           <div className="row">
-            <span className="ca-dica">
-              <kbd>Enter</kbd> envia <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha
-            </span>
+            {/* SIMULADO: anexar foto, comprovante ou planta direto na conversa ainda não existe (lib/simulado) */}
+            <button type="button" className="ca-anexo" aria-label="Anexar foto, comprovante ou planta" onClick={() => avisar("Prévia: anexar na conversa ainda não existe; nada foi enviado.")}>
+              <Icone nome="clipe" tam={18} />
+            </button>
+            <span className="ca-dica">Enter envia · Shift+Enter quebra a linha</span>
             <span className="sp" />
             {falando && parar ? (
               <button type="button" className="btn sm" onClick={() => parar.abort()}>

@@ -3,12 +3,14 @@
  * O esqueleto da obra em 3D a partir do modelo do tradutor (contrato 1.0: só caixas e prismas, em cm, z para cima).
  * O three.js só é baixado quando esta tela abre: o resto do app não paga pelo peso dele.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Elemento3D, Modelo3D, TipoElemento } from "@/lib/tradutor";
+import { Icone } from "../Icone";
+import { useCelular } from "../midia";
 import s from "./projeto.module.css";
 
 type Camada = TipoElemento | "morre" | "solo";
-const CORES: Record<Camada, number> = { sapata: 0x8d928f, pilar: 0xc2c7c3, morre: 0xe8b04a, viga: 0x7fa9dc, laje: 0xd9dfe6, solo: 0x6e7a66 };
+const CORES: Record<Camada, number> = { sapata: 0x8d928f, pilar: 0xc2c7c3, morre: 0xe8b04a, viga: 0xb4bac4, laje: 0xd9dfe6, solo: 0x6e7a66 };
 const ROTULO: Record<Camada, string> = {
   sapata: "Sapatas",
   pilar: "Pilares",
@@ -43,13 +45,42 @@ function ficha(e: Elemento3D): [string, string][] {
   return linhas;
 }
 
-export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?: (e: Elemento3D | null) => void }) {
+/** Uma disciplina fora da estrutura nas camadas: a prévia liga e desliga; a que ainda não veio aparece apagada. */
+export interface OutraCamada {
+  rotulo: string;
+  ligada: boolean;
+  falta?: boolean;
+  alternar?: () => void;
+}
+
+export function Vista3D({
+  modelo,
+  aoEscolher,
+  previa = false,
+  outras = [],
+}: {
+  modelo: Modelo3D;
+  aoEscolher?: (e: Elemento3D | null) => void;
+  /** Prévia da hidráulica (SIMULADO): tubos tracejados e a caixa d'água sobre a estrutura, até a prancha chegar. */
+  previa?: boolean;
+  outras?: OutraCamada[];
+}) {
   const palco = useRef<HTMLDivElement>(null);
   const [camera, setCamera] = useState<"3d" | "topo" | "frente">("3d");
-  const ctl = useRef<{ vista: (v: "3d" | "topo" | "frente") => void; mostrar: (c: Camada, sim: boolean) => void } | null>(null);
+  const ctl = useRef<{ vista: (v: "3d" | "topo" | "frente") => void; mostrar: (c: Camada, sim: boolean) => void; previa: (sim: boolean) => void; zoom: (f: number) => void } | null>(null);
+  const previaRef = useRef(previa);
+  previaRef.current = previa;
+  useEffect(() => {
+    ctl.current?.previa(previa);
+  }, [previa]);
   const [visiveis, setVisiveis] = useState<Record<Camada, boolean>>({ sapata: true, pilar: true, morre: true, viga: true, laje: true, solo: true });
   const [sel, setSel] = useState<Elemento3D | null>(null);
   const [falhou, setFalhou] = useState(false);
+  // as camadas cobrem um canto do modelo: abertas no computador, recolhidas no celular (onde a tela é o modelo)
+  const celular = useCelular();
+  const [verCamadas, setVerCamadas] = useState<boolean | null>(null);
+  const camadasAbertas = verCamadas ?? !celular;
+  const idCamadas = useId();
   // a cena só é montada uma vez por modelo; o callback mais novo fica no ref
   const aoEscolherRef = useRef(aoEscolher);
   useEffect(() => {
@@ -139,9 +170,40 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
       cena.add(solo, grade);
       grupos.set("solo", [solo, grade]);
 
+      // prévia da hidráulica (SIMULADO): tubo de distribuição rente ao chão e sob a laje, uma prumada num canto e a
+      // caixa d'água sobre a cobertura. Tracejado e azul para nunca se confundir com o que veio das pranchas.
+      const previaG = new THREE.Group();
+      const tubo = new THREE.LineDashedMaterial({ color: 0x9cc4f5, dashSize: 60, gapSize: 30, depthTest: false });
+      const zTopo = modelo.limites.z1;
+      const zMeio = modelo.niveis[1]?.cota_cm ?? zTopo / 2;
+      const m = 60;
+      const linha = (pts: [number, number, number][]) => {
+        const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(([x, y, z]) => P(x, y, z))), tubo);
+        l.computeLineDistances();
+        previaG.add(l);
+      };
+      linha([[x0 + m, y0 + m, 20], [x1 - m, y0 + m, 20], [x1 - m, y1 - m, 20]]);
+      linha([[x0 + m, y0 + m, zMeio - 60], [x1 - m, y0 + m, zMeio - 60], [x1 - m, y1 - m, zMeio - 60]]);
+      linha([[x1 - m, y0 + m, 0], [x1 - m, y0 + m, zTopo + 60]]);
+      const caixaAgua = new THREE.Mesh(
+        new THREE.BoxGeometry(140, 110, 140),
+        new THREE.MeshBasicMaterial({ color: 0x7fa9dc, transparent: true, opacity: 0.22 }),
+      );
+      caixaAgua.position.copy(P(x1 - m - 70, y0 + m + 70, zTopo + 55));
+      caixaAgua.add(new THREE.LineSegments(new THREE.EdgesGeometry(caixaAgua.geometry), tubo));
+      (caixaAgua.children[0] as InstanceType<typeof THREE.LineSegments>).computeLineDistances();
+      previaG.add(caixaAgua);
+      previaG.visible = previaRef.current;
+      cena.add(previaG);
+
       const alvo = P(cx, cy, 120);
       const posicoes = {
-        "3d": () => P(cx + tam * 0.55, cy - tam * 0.7, tam * 0.5),
+        // de longe o bastante para a obra caber inteira com as camadas abertas no canto
+        "3d": () => {
+          // tela em pé (celular): a obra cabe na largura, então a câmera recua mais
+          const k = W() < H() ? 1.6 : 1;
+          return P(cx + tam * 0.95 * k, cy - tam * 1.15 * k, tam * 0.85 * k);
+        },
         topo: () => P(cx, cy - 1, tam * 1.7),
         frente: () => P(cx, cy - tam * 1.8, 150),
       };
@@ -152,6 +214,14 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
           orb.update();
         },
         mostrar: (c, sim) => (grupos.get(c) ?? []).forEach((o) => (o.visible = sim)),
+        previa: (sim) => {
+          previaG.visible = sim;
+        },
+        // aproxima/afasta ao longo da linha até o alvo, como a rodinha do mouse faz
+        zoom: (f) => {
+          cam.position.sub(orb.target).multiplyScalar(f).add(orb.target);
+          orb.update();
+        },
       };
       ctl.current.vista("3d");
 
@@ -226,41 +296,72 @@ export function Vista3D({ modelo, aoEscolher }: { modelo: Modelo3D; aoEscolher?:
 
   return (
     <section className={s.vista} aria-label="Estrutura da obra em 3D">
-      <div className={s.camadas}>
-        {presentes.map((c) => (
-          <label key={c}>
-            <input
-              type="checkbox"
-              checked={visiveis[c]}
-              onChange={(e) => {
-                setVisiveis((v) => ({ ...v, [c]: e.target.checked }));
-                ctl.current?.mostrar(c, e.target.checked);
-              }}
-            />
-            <span className={s.amostra} style={{ background: `#${CORES[c].toString(16).padStart(6, "0")}` }} />
-            {ROTULO[c]}
-          </label>
-        ))}
-        <span className={`seg seg-pq ${s.vistas}`} role="group" aria-label="Câmera">
-          {(["3d", "topo", "frente"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={camera === v}
-              className={camera === v ? "on" : ""}
-              onClick={() => {
-                setCamera(v);
-                ctl.current?.vista(v);
-              }}
-            >
-              {v === "3d" ? "Perspectiva" : v === "topo" ? "Topo" : "Frente"}
-            </button>
-          ))}
+      <div ref={palco} className={s.palco}>
+        <span className={s.dica}>
+          {celular ? "Arraste para girar · pinça para aproximar · toque num elemento" : "Arraste para girar · role para aproximar · botão direito para mover · clique num elemento"}
         </span>
       </div>
-      <div ref={palco} className={s.palco}>
-        <span className={s.dica}>Arraste para girar · role para aproximar · botão direito para mover · clique num elemento</span>
+      <div className={s.camadas3d}>
+        <button type="button" className={s.camadasB} aria-expanded={camadasAbertas} aria-controls={idCamadas} onClick={() => setVerCamadas(!camadasAbertas)}>
+          Camadas
+          <Icone nome="chevDown" tam={14} className={s.setaCamadas} />
+        </button>
+        {camadasAbertas ? (
+          <fieldset id={idCamadas} className={s.listaCamadas}>
+            <legend className="sr-only">Camadas visíveis no 3D</legend>
+            <span className={s.grupoCamada}>Estrutura</span>
+            {presentes.map((c) => (
+              <label key={c}>
+                <input
+                  type="checkbox"
+                  checked={visiveis[c]}
+                  onChange={(e) => {
+                    setVisiveis((v) => ({ ...v, [c]: e.target.checked }));
+                    ctl.current?.mostrar(c, e.target.checked);
+                  }}
+                />
+                <span className={s.amostra} style={{ background: `#${CORES[c].toString(16).padStart(6, "0")}` }} />
+                {ROTULO[c]}
+              </label>
+            ))}
+            {outras.length ? <span className={s.grupoCamada}>Outras disciplinas</span> : null}
+            {outras.map((o) => (
+              <label key={o.rotulo} className={o.falta ? s.camadaFalta : s.camadaPrevia}>
+                <input type="checkbox" checked={o.ligada} disabled={o.falta || !o.alternar} onChange={() => o.alternar?.()} />
+                <span className={o.falta ? s.amostraFalta : s.amostraPrevia} />
+                {o.rotulo}
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
       </div>
+      <div className={s.zoom} role="group" aria-label="Zoom">
+        <button type="button" aria-label="Aproximar" title="Aproximar" onClick={() => ctl.current?.zoom(0.8)}>
+          <Icone nome="plus" tam={16} />
+        </button>
+        <button type="button" aria-label="Afastar" title="Afastar" onClick={() => ctl.current?.zoom(1.25)}>
+          <Icone nome="menos" tam={16} />
+        </button>
+        <button type="button" aria-label="Voltar à vista inicial" title="Voltar à vista inicial" onClick={() => ctl.current?.vista(camera)}>
+          <Icone nome="undo" tam={16} />
+        </button>
+      </div>
+      <span className={`seg seg-pq ${s.cameras}`} role="group" aria-label="Câmera">
+        {(["3d", "topo", "frente"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={camera === v}
+            className={camera === v ? "on" : ""}
+            onClick={() => {
+              setCamera(v);
+              ctl.current?.vista(v);
+            }}
+          >
+            {v === "3d" ? "Perspectiva" : v === "topo" ? "Planta" : "Frente"}
+          </button>
+        ))}
+      </span>
       {sel ? (
         <div className={s.ficha} role="status">
           <h4>

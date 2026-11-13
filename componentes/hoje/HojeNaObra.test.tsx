@@ -55,12 +55,19 @@ afterEach(() => {
 describe("HojeNaObra", () => {
   it("mostra a frase pronta, os pontos e a semana; o botão leva à tela", async () => {
     montar(() => json(HOJE));
-    expect(await screen.findByRole("heading", { level: 1, name: /A obra está no prazo, com 1 coisa esperando você\./ })).toBeInTheDocument();
+    expect(await screen.findByText(/A obra está no prazo, com 1 coisa esperando você\./)).toBeInTheDocument();
     const pontos = screen.getByRole("list", { name: "Hoje na obra" });
     expect(within(pontos).getByText("2 comprovantes para conferir.")).toBeInTheDocument();
     expect(screen.getByText("E mais 2 pontos depois destes.")).toBeInTheDocument();
+    // a semana fica numa gaveta, atrás da etiqueta
+    expect(screen.queryByText("Entrega do aço")).toBeNull();
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole("button", { name: /Esta semana · / }));
     expect(screen.getByText("Entrega do aço")).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Conferir os 2" }));
+    await usuario.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByText("Entrega do aço")).toBeNull();
+    // o atalho do ponto é a etiqueta dele, no topo
+    await usuario.click(screen.getByRole("button", { name: "2 comprovantes para conferir" }));
     expect(ir).toHaveBeenCalledWith("gastos");
     expect(filtroLido()).toEqual({ status: "a_revisar" });
   });
@@ -110,11 +117,12 @@ describe("HojeNaObra", () => {
         <HojeNaObra obra={OBRA} alternativa={null} />
       </ProvedorCasca>,
     );
-    const titulo = await screen.findByRole("heading", { level: 1 });
+    const titulo = await screen.findByText(/A obra está no prazo/);
     expect(titulo).toHaveTextContent("A obra está no prazo.");
     expect(titulo).not.toHaveTextContent("esperando");
     expect(screen.getByText("2 comprovantes para conferir.")).toBeInTheDocument();
     expect(screen.queryByText("Falta você confirmar.")).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Nada aguardando aprovação" }));
     expect(screen.getByRole("heading", { name: /Aguardando aprovação/ })).toBeInTheDocument();
   });
 
@@ -127,6 +135,7 @@ describe("HojeNaObra", () => {
   it("sem nada para hoje, diz isso", async () => {
     montar(() => json({ ...HOJE, pontos: [], mais: 0, semana: [] }));
     expect(await screen.findByText("Nada pedindo você hoje.")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Nenhuma aprovação" }));
     expect(screen.getByText("Nenhuma proposta para aprovar.")).toBeInTheDocument();
   });
 
@@ -143,10 +152,12 @@ describe("HojeNaObra", () => {
 
   it("esperando você: cartões desta obra, até 3, e o caminho para o resto", async () => {
     montar(() => json(HOJE), [proposta("a"), proposta("b"), proposta("c"), proposta("d"), proposta("x", "outra")]);
-    await screen.findByRole("heading", { name: /Esperando você/ });
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Ver as outras 1 em Aprovações" }));
+    const usuario = userEvent.setup();
+    await usuario.click(await screen.findByRole("button", { name: "4 aprovações" }));
+    await screen.findByRole("heading", { name: "4 aprovações" });
+    await usuario.click(await screen.findByRole("button", { name: "Ver as outras 1 em Aprovações" }));
     expect(ir).toHaveBeenCalledWith("aprovacoes");
-    expect(screen.getByRole("heading", { name: /Esperando você · 4/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "4 aprovações" })).toBeInTheDocument();
   });
 });
 

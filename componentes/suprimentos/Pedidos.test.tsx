@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LinhaPedido, Pedido } from "@/lib/contrato";
 import { telaDe } from "../sessoes";
 import { totalLinha } from "../formularios/ModalNovoPedido";
-import { acoesDe, estadoDoPedido, linhasDaChegada, progressoParcial, resumoLinhas, valorAReceber } from "./Pedidos";
+import { acoesDe, diasDeAtraso, estadoDoPedido, linhasDaChegada, porUrgencia, progressoParcial, resumoLinhas, seloDoPedido, semOsAbertos, valorAReceber } from "./Pedidos";
 
 // falta_entregar vem da API (0 em conferido/cancelado); o padrão do dublê é o de um pedido aberto
 const linha = (nome: string, quantidade: number, recebida = 0, falta = Math.max(0, quantidade - recebida)): LinhaPedido => ({
@@ -64,5 +64,36 @@ describe("ações do pedido nomeadas pela consequência", () => {
     expect(telaDe("almoxarifado")).toBe("suprimentos");
     expect(telaDe("historico")).toBe("historico");
     expect(telaDe("xyz")).toBeUndefined();
+  });
+
+  it("o selo do cartão fala como o protótipo, e o atraso sai da previsão contra hoje", () => {
+    const hoje = "2026-11-12";
+    expect(seloDoPedido(ped("em_cotacao"), hoje)).toMatchObject({ texto: "falta aprovar", tom: "warn" });
+    expect(seloDoPedido({ ...ped("enviado"), previsao: "2026-11-14" }, hoje)).toMatchObject({ texto: "chega 14/11", tom: "info" });
+    expect(seloDoPedido({ ...ped("em_transito"), previsao: "2026-10-28" }, hoje)).toMatchObject({ texto: "atrasado 15 dias", curto: "atrasado", tom: "bad" });
+    expect(seloDoPedido({ ...ped("aprovado"), previsao: "2026-11-11" }, hoje).texto).toBe("atrasado 1 dia");
+    const chegou = ped("conferido", [linha("Areia", 25_000, 25_000, 0)]);
+    expect(seloDoPedido({ ...chegou, pago: chegou.valor }, hoje)).toMatchObject({ texto: "chegou · pago", curto: "chegou", tom: "ok" });
+    expect(seloDoPedido(ped("aprovado"), hoje)).toMatchObject({ texto: "a caminho", tom: "info" });
+  });
+
+  it("chegou ou em cotação não atrasam; previsão em texto livre (API antiga) também não", () => {
+    const hoje = "2026-11-12";
+    expect(diasDeAtraso({ ...ped("conferido"), previsao: "2026-10-01" }, hoje)).toBe(0);
+    expect(diasDeAtraso({ ...ped("em_cotacao"), previsao: "2026-10-01" }, hoje)).toBe(0);
+    expect(diasDeAtraso({ ...ped("enviado"), previsao: "chega quinta" }, hoje)).toBe(0);
+    expect(diasDeAtraso({ ...ped("parcial", [linha("Areia", 25_000, 18_000)]), previsao: "2026-11-02" }, hoje)).toBe(10);
+  });
+
+  it("pedido que chegou em parte e veio nas duas buscas aparece uma vez só (sem chave repetida)", () => {
+    const parcial = { ...ped("parcial"), id: "p-1" };
+    const chegou = { ...ped("conferido"), id: "p-2" };
+    expect(semOsAbertos([{ ...parcial, status: "conferido" as const }, chegou], [parcial]).map((p) => p.id)).toEqual(["p-2"]);
+  });
+
+  it("o que espera alguém vem primeiro: aprovar, depois o atrasado", () => {
+    const hoje = "2026-11-12";
+    const lista = [{ ...ped("enviado"), id: "a", previsao: "2026-11-20" }, { ...ped("enviado"), id: "b", previsao: "2026-11-01" }, { ...ped("em_cotacao"), id: "c" }];
+    expect([...lista].sort(porUrgencia(hoje)).map((p) => p.id)).toEqual(["c", "b", "a"]);
   });
 });

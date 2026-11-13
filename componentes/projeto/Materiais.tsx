@@ -163,8 +163,18 @@ function ListaMateriais({ dados }: { dados: MateriaisProjeto }) {
  * O próximo passo do Projeto, um por vez e no topo da tela: primeiro levar os materiais; levados, ver o orçamento.
  * Pranchas que mudaram depois de levar não empurram outro aditivo: levar de novo fica como opção, sem destaque.
  */
-export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: MateriaisProjeto | null; erro?: string | null }) {
-  const { podeOperar, versao, mudou, avisarFeito, irParaTela } = useCasca();
+/**
+ * Onde os materiais das pranchas estão em relação ao orçamento e ao cronograma, e a entrada automática da 1ª vez.
+ *
+ * O upload do projeto é a aprovação: na 1ª vez (orçamento ainda sem nenhuma versão) os materiais das pranchas entram
+ * no orçamento sozinhos, sem passo manual — toda escrita cai no Histórico com Desfazer. Só na 1ª vez: depois o
+ * orçamento é reorganizado em fases (prever obra, cronograma), e re-levar aqui apagaria esse trabalho.
+ *
+ * `autoFluir` é de quem fica montado com a página (o Projeto); o cartão da gaveta só lê, para a entrada não ser feita
+ * duas vezes por dois donos.
+ */
+export function useFluxoMateriais(obra: Obra, dados: MateriaisProjeto | null, autoFluir = true) {
+  const { podeOperar, versao, mudou, avisarFeito } = useCasca();
   const todos = useMemo(() => (dados ? paraAObra(dados.itens) : []), [dados]);
   const tem = todos.length > 0;
   const orc = useCarregar(() => (tem ? api.orcamento(obra.id) : Promise.resolve(null)), [obra.id, versao, tem]);
@@ -172,23 +182,13 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
   const situacao = situacaoNoOrcamento(todos, orc.dado);
   const levado = !!orc.dado && situacao === "igual";
   const temCronograma = !!cron.dado?.inicio && (cron.dado.meses ?? 0) > 0;
-  // Entrados os materiais, o foco vai para o próximo passo (o cronograma), não para o aviso.
-  const irAoProximo = useRef<HTMLButtonElement>(null);
-  const acabouDeFluir = useRef(false);
-  useEffect(() => {
-    if (!levado || !acabouDeFluir.current) return;
-    acabouDeFluir.current = false;
-    irAoProximo.current?.focus({ preventScroll: true });
-  }, [levado]);
-  const [vendo, setVendo] = useState(false);
-
-  // O upload do projeto é a aprovação: na 1ª vez (orçamento ainda sem nenhuma versão) os materiais das pranchas entram
-  // no orçamento sozinhos, sem passo manual — toda escrita cai no Histórico com Desfazer. Só na 1ª vez: depois o
-  // orçamento é reorganizado em fases (prever obra, cronograma), e re-levar aqui apagaria esse trabalho.
-  const autoFluiu = useRef(false);
   const orcVazio = !!orc.dado && !(orc.dado.versoes ?? []).some((v) => v.ativa);
+  // Enquanto a entrada da 1ª vez roda, quem mostra o próximo passo diz "Entrando…".
+  const entrando = orcVazio && situacao === "fora" && podeOperar;
+  const acabouDeFluir = useRef(false);
+  const autoFluiu = useRef(false);
   useEffect(() => {
-    if (autoFluiu.current || !podeOperar || !tem || !orcVazio || situacao !== "fora") return;
+    if (!autoFluir || autoFluiu.current || !podeOperar || !tem || !orcVazio || situacao !== "fora") return;
     autoFluiu.current = true;
     void (async () => {
       try {
@@ -201,21 +201,49 @@ export function CartaoMateriais({ obra, dados, erro }: { obra: Obra; dados: Mate
         autoFluiu.current = false;
       }
     })();
-  }, [podeOperar, tem, orcVazio, situacao, obra.id, todos, mudou, avisarFeito]);
+  }, [autoFluir, podeOperar, tem, orcVazio, situacao, obra.id, todos, mudou, avisarFeito]);
+  return { todos, tem, orc, situacao, levado, temCronograma, entrando, acabouDeFluir };
+}
+
+/**
+ * `listaAoLado`: o cartão está na gaveta de Materiais, que já mostra a lista; o "Ver" abriria outra gaveta igual.
+ */
+export function CartaoMateriais({
+  obra,
+  dados,
+  erro,
+  autoFluir = true,
+  listaAoLado = false,
+}: {
+  obra: Obra;
+  dados: MateriaisProjeto | null;
+  erro?: string | null;
+  autoFluir?: boolean;
+  listaAoLado?: boolean;
+}) {
+  const { podeOperar, irParaTela } = useCasca();
+  const { todos, tem, orc, levado, temCronograma, entrando, acabouDeFluir } = useFluxoMateriais(obra, dados, autoFluir);
+  // Entrados os materiais, o foco vai para o próximo passo (o cronograma), não para o aviso.
+  const irAoProximo = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!levado || !acabouDeFluir.current) return;
+    acabouDeFluir.current = false;
+    irAoProximo.current?.focus({ preventScroll: true });
+  }, [levado, acabouDeFluir]);
+  const [vendo, setVendo] = useState(false);
 
   if (erro || (dados && !tem)) {
     return <ProximoPasso obraId={obra.id} para="orcamento" acao="Ver o orçamento" titulo="As pranchas estão lidas." texto="Confira no orçamento o que já entrou e o que falta lançar." />;
   }
   if (!dados || (!orc.dado && !orc.erro)) return null;
 
-  const ver = (
+  const ver = listaAoLado ? null : (
     <button type="button" className="btn" onClick={() => setVendo(true)}>
       Ver
     </button>
   );
-  // Enquanto o auto-fluxo da 1ª vez roda, mostra "Entrando…". Entrados os materiais, o próximo passo é a previsão de
-  // entrega: gerar o cronograma (ou, se já existe, abri-lo — sem oferecer "gerar" de novo). Viewer fica com o orçamento.
-  const entrando = orcVazio && situacao === "fora" && podeOperar;
+  // Entrados os materiais, o próximo passo é a previsão de entrega: gerar o cronograma (ou, se já existe, abri-lo — sem
+  // oferecer "gerar" de novo). Viewer fica com o orçamento.
   return (
     <>
       <Faixa

@@ -19,7 +19,7 @@ import { ROTULO_STATUS } from "./CartaoProposta";
 const LIMITE = 60;
 const POR_PAGINA = 20;
 
-const ORIGEM: Record<string, string> = { tela: "pela tela", agente: "aprovou do mestre de obras", whatsapp: "pelo WhatsApp", sistema: "sistema" };
+const ORIGEM: Record<string, string> = { tela: "pela tela", agente: "aprovou pelo Plumo", whatsapp: "pelo WhatsApp", sistema: "sistema" };
 
 // O registro grava o status como na API ("em_transito"); na tela vale o rótulo do quadro ("Em trânsito").
 const legivel = (t: string) =>

@@ -28,10 +28,16 @@ describe("demonstração: dados de exemplo do contrato (Casa Vila Nova)", () => 
 });
 
 describe("demonstração: resumo da obra (o placar e a abertura)", () => {
-  it("responde como a API, sem cronograma", () => {
+  it("responde como a API; o prazo vem do cronograma gravado (sem medição, sem projetado)", () => {
     const r = chamar("GET", `obras/${obraId()}/resumo`);
     expect(r.status).toBe(200);
-    expect(r.corpo).toMatchObject({ obra: { id: obraId() }, cronograma: { cadastrado: false }, financeiro: { tem_orcamento: expect.any(Boolean), falta_gastar: expect.any(Number) } });
+    expect(r.corpo).toMatchObject({
+      obra: { id: obraId() },
+      cronograma: { cadastrado: true, termino_contratual: expect.stringMatching(/^\d{4}-\d{2}$/), termino_projetado: null, atraso_decimos: null },
+      financeiro: { tem_orcamento: expect.any(Boolean), falta_gastar: expect.any(Number) },
+    });
+    const vitrine = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
+    expect(chamar("GET", `obras/${vitrine.id}/resumo`).corpo).toMatchObject({ cronograma: { cadastrado: false, termino_contratual: null } });
   });
 
   it("gasto = pago + entregue a pagar, igual ao desembolso (a demo não lança pagamento)", () => {
@@ -192,8 +198,11 @@ describe("demonstração: histórico da conversa", () => {
     for await (const ev of roteiroDemo({ texto: "quanto falta de bloco?", obra_id: obraId(), sessao_id: "s-demo" }, admin(), 0)) evs.push(ev);
     const prop = evs.find((x) => x.evento === "proposta")!.dados as Proposta;
     const lista = chamar("GET", "sessoes").corpo as SessaoApi[];
-    expect(lista.map((s) => [s.id, s.titulo, s.total_mensagens])).toEqual([["s-demo", "quanto falta de bloco?", 5]]);
-    expect(chamar("GET", "sessoes", undefined, leitura()).corpo).toEqual([]); // sessão é de quem criou
+    // a gravada vem primeiro (a mais recente); as outras são as conversas de exemplo da demonstração
+    expect([lista[0]!.id, lista[0]!.titulo, lista[0]!.total_mensagens]).toEqual(["s-demo", "quanto falta de bloco?", 5]);
+    expect(lista.slice(1).every((s) => s.id.startsWith("demo-conversa-"))).toBe(true);
+    // sessão é de quem criou: quem só lê vê apenas os próprios exemplos
+    expect((chamar("GET", "sessoes", undefined, leitura()).corpo as SessaoApi[]).some((s) => s.id === "s-demo")).toBe(false);
     expect(chamar("GET", "sessoes/s-demo/mensagens", undefined, leitura()).status).toBe(404);
 
     const msgs = chamar("GET", "sessoes/s-demo/mensagens?depois_de=-1&limite=200").corpo as MensagemSessao[];
@@ -665,17 +674,27 @@ describe("demonstração: orçamento por etapas", () => {
 });
 
 describe("demonstração: cronograma (Fase 4)", () => {
-  it("GET vem vazio com as etapas; a medição ainda responde 422 (fora do escopo da demo)", () => {
+  it("a obra em andamento nasce com cronograma; a vitrine vem vazia com as etapas; a medição ainda responde 422", () => {
     const c = chamar("GET", `obras/${obraId()}/cronograma`).corpo as import("../contrato").Cronograma;
-    expect(c).toMatchObject({ inicio: null, meses: 0, mensal: [], medicoes: [] });
-    expect(c.etapas.length).toBeGreaterThan(0);
+    expect(c).toMatchObject({ meses: 8, medicoes: [] });
+    expect(c.mensal).toHaveLength(8);
+    const vitrine = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
+    const v = chamar("GET", `obras/${vitrine.id}/cronograma`).corpo as import("../contrato").Cronograma;
+    expect(v).toMatchObject({ inicio: null, meses: 0, mensal: [], medicoes: [] });
+    expect(v.etapas.length).toBeGreaterThan(0);
     expect(chamar("POST", `obras/${obraId()}/medicoes`, {}).status).toBe(422);
   });
 
-  it("desembolso vem vazio, sem cronograma, em vez de rota inexistente", () => {
-    const r = chamar("GET", `obras/${obraId()}/desembolso`);
+  it("desembolso: sem cronograma vem vazio (não 404); com ele, segue o previsto e o que falta é o orçado", () => {
+    const vitrine = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
+    const r = chamar("GET", `obras/${vitrine.id}/desembolso`);
     expect(r.status).toBe(200);
     expect(r.corpo).toMatchObject({ base: "sem_cronograma", meses: [], termino_projetado: null });
+    const d = chamar("GET", `obras/${obraId()}/desembolso`).corpo as import("../contrato").Desembolso;
+    expect(d.meses).toHaveLength(8);
+    expect(d.totais.falta).toBe(d.totais.orcado);
+    // nada se perde: o que saía antes de hoje vai para o mês corrente
+    expect(d.meses.reduce((t, m) => t + m.projetado, 0)).toBe(d.meses.reduce((t, m) => t + m.previsto, 0));
   });
 });
 

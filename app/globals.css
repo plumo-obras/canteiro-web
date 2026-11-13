@@ -14,6 +14,7 @@
 /* Tokens nos dois temas. O escuro é o padrão (fica em :root e em [data-tema=escuro]); o claro sobrescreve. Toda
    cor de superfície, borda e sombra sai daqui: o CSS abaixo não tem branco nem marinho fixo. */
 :root{
+  --creme:#f6f2e8;--cremeSuave:rgba(246,242,232,.78);--marinhoClaro:#1d2d4d;--marinhoFundo:#0a1222;
   /* tipografia: 13 · 14 · 16 · 22 · 28 · 40 (nada abaixo de 12) */
   --sans:var(--fonte-figtree),"Figtree",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --serif:var(--fonte-bricolage),"Bricolage Grotesque","Figtree",-apple-system,sans-serif;
@@ -40,7 +41,8 @@
   --shadowUp:0 2px 4px rgba(0,0,0,.3),0 24px 64px -20px rgba(0,0,0,.65);
   --glass:rgba(24,28,36,.55); --glassStrong:rgba(24,28,36,.80); --menu:rgba(30,35,44,.86); --blur:blur(24px) saturate(140%);
   --veu:rgba(5,7,10,.45); --toast:rgba(30,35,44,.92); --msgMe:linear-gradient(160deg,#323d55,#222a3b);
-  --fundo:linear-gradient(180deg,rgba(10,12,16,.12),rgba(10,12,16,.60)),url(/fundo-escuro.jpg);
+  /* escuro liso com um brilho azul no alto (o desenho do redesenho): a foto antiga deixava tudo azulado */
+  --fundo:radial-gradient(1200px 600px at 70% -10%,#26324a 0%,rgba(13,16,22,0) 60%);
   --ativo:rgba(255,255,255,.16);
   --accentSoft:rgba(232,176,74,.16); --accentInk:#f2c46e;
   --pine:#f3f4f6; --pineSoft:rgba(255,255,255,.10); --pineLine:rgba(255,255,255,.18);
@@ -62,9 +64,10 @@
   --shadowUp:0 1px 2px rgba(15,26,46,.07),0 12px 32px -8px rgba(15,26,46,.16),0 28px 64px -24px rgba(15,26,46,.18);
   --glass:rgba(255,255,255,.72); --glassStrong:rgba(255,255,255,.86); --menu:rgba(255,255,255,.88);
   --veu:rgba(15,26,46,.28); --toast:rgba(17,28,48,.92); --msgMe:linear-gradient(160deg,#22304b,#0f1a2e);
-  --fundo:linear-gradient(180deg,rgba(238,240,238,.50),rgba(238,240,238,.62)),url(/fundo-claro.jpg);
+  /* liso, como o escuro: a foto deixava as superfícies translúcidas manchadas ao lado das sólidas */
+  --fundo:radial-gradient(1200px 600px at 70% -10%,#dfe6f1 0%,rgba(236,238,235,0) 60%);
   --ativo:#fff;
-  --accentSoft:#fbeed3; --accentInk:#94650f;
+  --accentSoft:#fbeed3; --accentInk:#885c0d;
   --pine:#0f1a2e; --pineSoft:#e3e8f0; --pineLine:#c5cede;
   --amber:#a06a16; --amberSoft:#fcecc6; --amberInk:#7a520f;
   --red:#b0472f;   --redSoft:#fae3dc;   --redInk:#923a26;
@@ -200,6 +203,8 @@ p{text-wrap:pretty}
 @media (min-width:900px){ .msgs.com-casa{padding-left:max(28px,calc((100% - 1080px)/2));padding-right:max(28px,calc((100% - 1080px)/2))} }
 .conv-sob-casa{width:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
 .conv-sugestoes{justify-content:center}
+/* na casa da obra as sugestões ficam sob a mensagem do Plumo, alinhadas a ela (como no desenho) */
+.com-casa .conv-sugestoes{justify-content:flex-start}
 .composer{margin:8px auto 20px;width:calc(100% - 56px);max-width:760px;padding:12px 14px 10px;position:relative;isolation:isolate;border:1px solid var(--edgeHi);border-radius:24px;background:var(--glassStrong);
   box-shadow:var(--hl),0 0 0 1px var(--edge),var(--shadowUp)}
 @media (min-width:900px){ .composer{background:none} }
@@ -316,6 +321,7 @@ tr.click{cursor:pointer}
 .btn.pri{background:var(--ink);border-color:var(--ink);color:var(--bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),var(--shadowLeve)}
 .btn.sm{padding:5px 12px;font-size:var(--t-meta);border-radius:var(--rp)}
 .btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn.amb[disabled]{background:var(--sunk);border-color:var(--line);color:var(--muted);box-shadow:none}
 .btn:active{transform:scale(.97)}
 .btn[disabled]:active{transform:none}
 .iconbtn{padding:6px;border:0;background:none;border-radius:var(--rp);color:var(--muted);display:inline-grid;place-items:center;transition:background-color .12s var(--ease),transform .12s var(--ease)}
@@ -867,7 +873,7 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .cab{margin:2px 0 14px}
 .cab-l1{display:flex;align-items:center;gap:10px;min-height:40px}
 .cab-l1 .sp{flex:1}
-.cab-t{margin:0;font:600 var(--t-bloco)/1.2 var(--sans);letter-spacing:-.01em;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.cab-t{margin:0;font:600 var(--t-h1)/1.2 var(--serif);letter-spacing:-.02em;color:var(--ink);min-width:0;overflow-wrap:anywhere}
 .cab-selo{display:inline-flex;align-items:center;gap:6px;flex:none}
 .cab-sub{margin-top:2px;font-size:var(--t-meta);color:var(--ink2)}
 .faixa{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 40px;margin:0 0 18px;padding:16px 20px;border-radius:var(--r);background:var(--card);border:1px solid var(--edge)}
@@ -975,7 +981,6 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
   .card.lista .tbl-orc tr td:nth-child(4){grid-column:2;grid-row:1;text-align:right;color:var(--ink);font-size:var(--t-body);font-weight:600}
   .card.lista .tbl-orc tr td:nth-child(5){display:none}
 }
-.orc-resumo{margin:0 0 12px;display:flex;flex-wrap:wrap;gap:4px 2px;align-items:baseline}
 .orc-versoes{margin:0;padding:0;list-style:none}
 .orc-v{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line2)}
 .orc-v:last-child{border-bottom:0}
@@ -1126,11 +1131,7 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 .orc-cab .sp{flex:1}
 .orc-faixa{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 40px;margin:0 0 20px;padding:16px 20px;border-radius:var(--r);background:var(--card);border:1px solid var(--edge)}
 .ajuda-g{border:0;font:inherit;cursor:pointer}
-.ajuda-g.of-pilula{padding:2px 10px;border-radius:var(--rp);background:var(--blueSoft);color:var(--blueInk);font:600 12px/1.6 var(--sans);white-space:nowrap}
-.ajuda-g.of-pilula.t-acima{background:var(--amberSoft);color:var(--amberInk)}
 .ajuda-g:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.of-valor{padding:0;border:0;background:none;color:var(--ink);font:600 var(--t-sec)/1.2 var(--sans);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:default}
-.of-valor.t-neg{color:var(--redInk)}
 .le-filtros{display:flex;align-items:center;gap:8px;margin:0 0 10px;flex-wrap:nowrap}
 .le-filtros .busca{flex:1 1 auto;min-width:0;max-width:420px}
 .le-chips{display:flex;gap:8px}
@@ -1148,12 +1149,10 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 @media (max-width:760px){
   .orc-cab{margin-bottom:10px}
   .orc-faixa{display:block;padding:12px 14px;margin-bottom:12px}
-  .of-valor{font-size:15px;cursor:pointer}
   .le-chips{display:none}
   .le-filtro-b{display:inline-grid}
   .le-filtros .busca{max-width:none}
 }
-.fx-valor .of-valor{font:inherit}
 @media (max-width:760px){
   /* itens da etapa no celular: quantidade e unitário visíveis na 2ª linha */
   .eap-rola .tbl-eap td:nth-child(4){grid-column:2;grid-row:2;text-align:left;color:var(--muted)}
@@ -1172,12 +1171,6 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
   .orc-v-t{flex:1 1 100%}
 }
 .chip-esc-pop{z-index:60;min-width:180px}
-@media (max-width:760px){
-  .fx-valor .of-valor{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;text-align:left}
-  .fx-valor .of-valor{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:normal;word-break:normal}
-  .of-valor{font-size:15px;text-align:left}
-  .of-valor.cheio{font-size:12px}
-}
 
 /* ---------------- Cronograma: resumo, curva S e medições ---------------- */
 .t-neg{color:var(--redInk)}
@@ -1237,10 +1230,7 @@ polyline.cs-base{fill:none;stroke:var(--faint);stroke-width:1.25;opacity:.8}
   .med-t{flex:1 1 100%}
 }
 
-/* ---------------- Cronograma: Gantt e cartões do celular ---------------- */
-.gantt-cab{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:24px 0 10px}
-.gantt-cab .sectit{margin:0 auto 0 0}
-.gantt-cab .seg{margin-top:0}
+/* ---------------- Cronograma: Gantt (no celular a lista mora em cronograma.module.css) ---------------- */
 .gantt{--esq:250px;--dir:210px;position:relative;border-radius:var(--r);background:var(--cardSolido);border:1px solid var(--edge);box-shadow:var(--hl);overflow-x:auto}
 .g-l{display:grid;grid-template-columns:var(--esq) minmax(calc(var(--n) * 40px),1fr) var(--dir);align-items:center;min-height:46px;border-bottom:1px solid var(--line2)}
 .g-l:last-of-type{border-bottom:0}
@@ -1278,38 +1268,21 @@ button.g-nome{cursor:pointer}
 .g-i-prev{background:var(--blue)}
 .g-i-med{background:var(--accent)}
 .g-dica{position:absolute;z-index:6;transform:translate(-50%,calc(-100% - 8px));padding:6px 10px;border-radius:10px;background:var(--cardSolido);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadowUp,0 8px 24px rgba(0,0,0,.25));font-size:12px;white-space:nowrap;pointer-events:none}
-.gantt-cartoes{display:none;list-style:none;margin:0;padding:0}
 .tbl-g-etapa{font-size:var(--t-meta)}
 .tbl-g-etapa tr.mut td{color:var(--muted)}
 @media (max-width:1179px){ .gantt{--esq:210px;--dir:190px} }
 @media (max-width:759px){
   .gantt{display:none}
-  .gantt-cartoes{display:grid;gap:8px}
-  .gantt-cab .sectit{flex:1 1 100%}
-  .g-cartao{display:flex;flex-direction:column;gap:8px;width:100%;padding:12px 14px;border-radius:var(--ri);border:1px solid var(--edge);background:var(--cardSolido);color:var(--ink);font:inherit;text-align:left}
-  .g-c-cab{display:flex;align-items:center;gap:8px;min-width:0}
-  .g-c-cab .g-n{flex:1;font-size:var(--t-body)}
-  .g-prog{position:relative;display:block;height:8px;border-radius:99px;background:var(--line2);overflow:hidden}
-  .g-prog-prev{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--blue) 45%,transparent);border-radius:99px}
-  .g-prog-med{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:99px}
-  .g-c-pe{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--ink2)}
 }
 .g-head{min-height:44px}
 .g-mes.hoje{display:flex;flex-direction:column;align-items:center;line-height:1.1}
 .g-mes.hoje small{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
-@media (max-width:759px){
-  .gantt-cartoes li{min-width:0}
-  .g-cartao{min-width:0;overflow:hidden}
-  .g-c-cab .g-n{min-width:0}
-}
 /* HOJE: uma linha fina no fim do mês da última medição, não mais a coluna inteira pintada. */
 .g-hoje{justify-self:end;width:2px;margin-right:-1px;background:var(--accent);box-shadow:none;opacity:.75;z-index:3}
 .g-mes.hoje{color:var(--accentInk)}
 .tbl-g-rola{border-radius:var(--ri)}
 .tbl-g-etapa{font-size:var(--t-meta);min-width:440px}
 .tbl-g-etapa th{white-space:normal;line-height:1.25}
-.gantt-cartoes-vazio{display:none}
-@media (max-width:759px){ .gantt-cartoes-vazio{display:block;margin:4px 0 0} }
 .g-tot{font-size:10.5px}
 .g-tot .g-tot-prev{font-weight:500;color:var(--ink)}
 @media (max-width:760px){
@@ -1323,19 +1296,7 @@ button.g-nome{cursor:pointer}
   .tbl-g-etapa th:first-child,.tbl-g-etapa td:first-child{padding-left:8px}
   .tbl-g-etapa th:last-child,.tbl-g-etapa td:last-child{padding-right:8px}
 }
-.g-grupo{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-@media (max-width:759px){
-  .gantt-cartoes{display:grid;gap:12px}
-  .g-grupo-rec>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;cursor:pointer;font-weight:600;font-size:var(--t-meta);color:var(--ink2);list-style:none}
-  .g-grupo-rec>summary::-webkit-details-marker{display:none}
-  .g-grupo-rec>summary::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s var(--ease)}
-  .g-grupo-rec[open]>summary::before{transform:rotate(45deg)}
-}
 @media (max-width:760px){
-  /* filtro do cronograma: ocupa a largura, botões dividem por igual, nada cortado (e rola se a fonte for grande) */
-  .gantt-cab .seg{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
-  .gantt-cab .seg::-webkit-scrollbar{display:none}
-  .gantt-cab .seg button{flex:1 0 auto;padding:0 10px;font-size:13px;white-space:nowrap}
   /* gaveta do cronograma: R$ sem corte */
   .tbl-g-etapa td{white-space:nowrap}
 }
@@ -1368,7 +1329,6 @@ button.g-nome{cursor:pointer}
 .g-l{min-height:50px}
 .g-sit{flex-wrap:wrap;row-gap:2px}
 .g-conta{white-space:normal}
-.gantt-cab .filtros{margin:0}
 @media (max-width:1179px){ .gantt{--esq:240px;--dir:180px} }
 .g-dica{z-index:70;white-space:normal;max-width:min(360px,calc(100vw - 16px))}
 
@@ -1575,14 +1535,22 @@ rect.db-falta{fill:var(--accentSoft);stroke:var(--accent);stroke-width:1;stroke-
 .base-orc-grade li em { color: var(--muted); font-style: normal; white-space: nowrap; }
 
 /* Itens estimados pela IA no orçamento: selo "estimativa" e linha levemente destacada (viram real ao detalhar a fase). */
-.pill.estimativa { background: color-mix(in srgb, var(--ocre) 22%, transparent); color: var(--ocre); border: 1px solid color-mix(in srgb, var(--ocre) 45%, transparent); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 8px; white-space: nowrap; }
+.pill.estimativa { background: var(--accentSoft); color: var(--accentInk); border: 1px solid var(--accentSoft); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 8px; white-space: nowrap; }
 .eap-estimado .eap-d { font-style: italic; color: var(--muted); }
-.eap-estimado td { background: color-mix(in srgb, var(--ocre) 5%, transparent); }
+.eap-estimado td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 
 /* Resumo estimativa × realidade no topo do Orçamento. */
 .est-resumo { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 14px 16px; margin-bottom: 14px; }
 .est-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.est-barra { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ocre) 18%, var(--sunk, #0003)); overflow: hidden; margin: 10px 0 8px; }
-.est-barra > span { display: block; height: 100%; border-radius: 999px; background: var(--green, #3ba55d); transition: width .3s var(--ease, ease); }
+.est-barra { height: 8px; border-radius: 999px; background: var(--accentSoft); overflow: hidden; margin: 10px 0 8px; }
+.est-barra > span { display: block; height: 100%; border-radius: 999px; background: var(--green); transition: width .3s var(--ease); }
 .est-resumo p { margin: 0; }
 .est-resumo .pill.estimativa { margin: 0 2px; }
+
+/* alvos de toque: 44 px em tudo que se toca abaixo de 900 px (celular e tablet), incluindo os segmentados e as pílulas */
+@media (max-width:899px){
+  .seg button,.seg-pq button,.pilula,.btn.sm,.btn,.chip,summary{min-height:44px}
+  .seg,.seg-pq{align-items:stretch}
+}
+/* texto clicável no computador nunca abaixo de 24 px de alvo (WCAG 2.5.8) */
+.link,button.link{min-height:24px}

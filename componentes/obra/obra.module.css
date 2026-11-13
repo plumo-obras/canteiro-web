@@ -1,8 +1,65 @@
-/* A UF é uma lista: precisa de largura para a sigla e a seta (a .campos-cidade, de 64 px, foi feita para texto). */
-.cidadeUf{display:grid;grid-template-columns:minmax(0,1fr) 104px;gap:0 12px}
+/* Nova obra: os blocos de dados à esquerda e "Por onde começar" à direita, com o Criar obra preso ao pé da coluna. */
+:global(.form-pagina).pagina{max-width:1080px}
+.cab{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.cabTexto{flex:1 1 420px;min-width:0}
+.cab h1{margin:0;font:600 var(--t-h1)/1.2 var(--serif);letter-spacing:-.02em}
+.cab p{margin:2px 0 0}
+.cancelar{min-height:40px}
 
-.rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:24px}
-.rodape p{margin:0;max-width:40ch}
-@media (max-width:760px){
-  .rodape .criar{width:100%}
+.duas{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:stretch}
+.campos{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* os cartões do protótipo: raio 20, título em 17px, 12px entre as linhas */
+.bloco{display:flex;flex-direction:column;gap:12px;border-radius:20px;padding:16px 18px}
+.bloco :global(.campo){margin:0}
+.bloco h2,.blocoT{margin:0;font:600 17px/1.3 var(--serif);color:var(--ink)}
+.bloco>p{margin:0}
+
+/* Contrato recolhido: o resumo é a linha inteira, com a seta virando ao abrir. */
+.recolhido>summary{list-style:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:44px;cursor:pointer;border-radius:var(--ri)}
+.recolhido>summary::-webkit-details-marker{display:none}
+.recolhido>summary .blocoT{margin:0}
+.recolhido>summary:focus-visible{outline:2px solid var(--accentInk);outline-offset:4px}
+.chev{margin-left:auto;display:grid;place-items:center;color:var(--muted);transition:transform var(--mv-rapido,.15s) var(--ease)}
+.recolhido[open]>summary .chev{transform:rotate(180deg)}
+.recolhido[open]>summary{margin-bottom:6px}
+
+/* CEP, endereço, cidade e UF numa linha; a UF é uma lista e precisa de largura para a sigla e a seta */
+.endereco{display:grid;grid-template-columns:160px minmax(0,1fr) minmax(0,1fr) 92px;gap:0 12px}
+.quatro{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px}
+
+/* escolhas em botões quadrados: a marcada ganha a borda ocre */
+.esc{display:flex;flex-wrap:wrap;gap:8px}
+.esc button{min-height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--sunk);color:var(--ink2);font:500 var(--t-body) var(--sans);cursor:pointer}
+.esc button.on,.esc button[aria-checked="true"]{border-color:var(--accent);background:var(--accentSoft);color:var(--accentInk)}
+.esc button:focus-visible{outline:2px solid var(--accentInk);outline-offset:2px}
+@media (hover:hover){ .esc button:not([aria-checked="true"]):hover{color:var(--ink);border-color:var(--edgeHi,var(--line))} }
+.dicaPadrao{margin:-4px 0 0}
+
+.lado{display:flex;flex-direction:column;gap:12px;min-width:0}
+.comeco{margin:0;min-width:0;display:flex;flex-direction:column;gap:12px;border-radius:20px;padding:16px 18px;border-color:color-mix(in srgb,var(--accent) 40%,var(--edge))}
+/* a área de arrastar é o destaque do cartão: tracejada, centrada, o alvo inteiro abre o seletor */
+.soltar{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:22px 16px;border-radius:20px;
+  border:1px dashed var(--line);cursor:pointer;color:var(--ink);transition:border-color var(--mv-rapido) var(--ease),background-color var(--mv-rapido) var(--ease)}
+.soltar[data-on]{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.soltar[data-sobre]{border-color:var(--accent);background:var(--accentSoft)}
+.soltar:has(input:focus-visible){outline:2px solid var(--accentInk);outline-offset:2px}
+.soltar b{font-weight:600}
+.soltarIc{color:var(--accentInk)}
+.arquivo{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.limpar{align-self:center;min-height:32px;font-size:var(--t-meta)}
+.caminho{width:100%;box-sizing:border-box;min-height:40px;height:auto;white-space:normal;line-height:1.3;padding-block:8px;font-size:var(--t-body)}
+.caminho[aria-pressed="true"]{border-color:var(--accent);background:var(--accentSoft);color:var(--accentInk)}
+.criar{min-height:48px;margin-top:auto}
+
+@media (max-width:900px){
+  .duas{grid-template-columns:1fr}
+  .criar{margin-top:0}
 }
+@media (max-width:640px){
+  .endereco{grid-template-columns:minmax(0,1fr) 92px}
+  .endereco>:first-child{grid-column:1 / -1}
+  .endereco>:nth-child(2){grid-column:1 / -1}
+  .criar{min-height:52px}
+}
+@media (prefers-reduced-motion:reduce){ .chev{transition:none} }
+@media (max-width:899px){ .esc button,.caminho{min-height:44px} }

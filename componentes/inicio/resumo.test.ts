@@ -8,8 +8,10 @@ const resumo = (p: Partial<ResumoObra>): ResumoObra =>
 describe("Início: pendências do cartão", () => {
   it("Início mostra só pendências reais", () => {
     expect(pendenciasDe(resumo({}))).toEqual([]);
-    expect(pendenciasDe(resumo({ pedidos_abertos: 1, valor_pedidos_abertos: 91000 })).map((p) => p.texto)).toEqual(["1 pedido a receber · R$ 910,00"]);
-    expect(pendenciasDe(resumo({ pendencias: 2, falta_comprar: 1 })).map((p) => p.texto)).toEqual(["2 aprovações esperando você", "1 insumo a comprar"]);
+    expect(pendenciasDe(resumo({ pedidos_abertos: 1, valor_pedidos_abertos: 91000 })).map((p) => p.texto)).toEqual(["1 pedido a receber"]);
+    expect(pendenciasDe(resumo({ pendencias: 2, falta_comprar: 1 })).map((p) => p.texto)).toEqual(["2 aprovações", "1 insumo a comprar"]);
+    // no celular, o texto curto do protótipo
+    expect(pendenciasDe(resumo({ falta_comprar: 12 })).map((p) => p.curto)).toEqual(["12 a comprar"]);
   });
 });
 

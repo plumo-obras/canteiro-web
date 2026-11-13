@@ -37,4 +37,11 @@ describe("Orçamento: lista única de etapas e itens", () => {
     expect(montarLista(orc, { busca: "", curva: "C", ordem: "planilha" }).map((e) => e.linha.etapa)).toEqual(["1"]);
     expect(montarLista(orc, { busca: "xyz", curva: null, ordem: "planilha" })).toEqual([]);
   });
+
+  it("curva ABC: o dinheiro primeiro, a etapa pelo orçado e o item pelo total, sem os títulos de sub-etapa", () => {
+    const comTotais: Orcamento = { ...orc, itens: orc.itens.map((i) => (i.numero === "3.2" ? { ...i, total: 900 } : i)) };
+    const l = montarLista(comTotais, { busca: "", curva: null, ordem: "abc" });
+    expect(l.map((e) => e.linha.etapa)).toEqual(["3", "1"]);
+    expect(l[0]!.itens.map((i) => i.numero)).toEqual(["3.2", "3.1"]);
+  });
 });

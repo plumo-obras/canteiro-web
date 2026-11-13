@@ -1,27 +1,30 @@
 "use client";
 /**
  * Aba Cronograma (Fase 4): o físico-financeiro (etapas × meses em %), as medições mensais e o prazo. A API calcula o
- * mensal, o medido e o término projetado (GET /obras/{id}/cronograma); a tela mostra, desenha a curva S e edita. Sem
- * cronograma, o estado vazio leva ao editor. O aditivo de prazo muda o prazo da obra (PATCH, com Desfazer) e abre o
- * editor com os meses a mais, vazios, para redistribuir.
+ * mensal, o medido e o término projetado (GET /obras/{id}/cronograma); a tela mostra, desenha a curva S e edita. O
+ * topo diz numa linha quando termina, se está em dia e quanto foi medido; embaixo, uma vista por vez (Etapas, Curva S,
+ * Desembolso), como no protótipo. As medições, a tabela, editar e o aditivo ficam no "⋯". Sem cronograma, o estado
+ * vazio oferece o Gerar com IA (a proposta que a pessoa aprova) ou montar à mão. O aditivo de prazo
+ * muda o prazo da obra (PATCH, com Desfazer) e abre o editor com os meses a mais, vazios, para redistribuir.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Cronograma as DadosCronograma, Obra, PrazoCronograma, Proposta } from "@/lib/contrato";
-import { api, conversar } from "@/lib/cliente";
-import { fmtMes, fmtMesLongo, fmtPct, listaMeses } from "@/lib/cronograma";
-import { fmtReais } from "@/lib/formato";
-import { CabecalhoPagina, type Numero } from "../CabecalhoPagina";
+import { api, conversar as conversarComAgente } from "@/lib/cliente";
+import { fmtMes, fmtMesLongo, fmtPct, indiceDoMes, listaMeses, situacaoEtapa } from "@/lib/cronograma";
 import { mensagemDe, useCasca } from "../contexto";
 import { CartaoProposta } from "../CartaoProposta";
 import { BaseOrcamento } from "./BaseOrcamento";
-import { Modal } from "../Dialogo";
+import { Drawer, Modal } from "../Dialogo";
+import { BotaoPlumo } from "../BotaoPlumo";
 import { Icone } from "../Icone";
-import { ProximoPasso } from "../ProximoPasso";
+import { MenuMais, type ItemMenu } from "../MenuMais";
+import { useCelular } from "../midia";
 import { useCarregar } from "../useCarregar";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
 import { Desembolso } from "./Desembolso";
-import { Gantt } from "./Gantt";
+import { Gantt, type FiltroGantt } from "./Gantt";
+import c from "./cronograma.module.css";
 import { TabelaFisicoFinanceira } from "./Tabela";
 import { EditorCronograma } from "./Editor";
 import { ListaMedicoes, ModalMedicao } from "./Medicao";
@@ -59,25 +62,64 @@ export function textoPrazo(c: DadosCronograma): { termina: string; contrato: str
   };
 }
 
-/** O prazo na faixa do cabeçalho: o término (com a situação) grande; medido, contrato e o original embaixo, só se houver. */
-function numerosPrazo(c: DadosCronograma): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros"> {
-  const t = textoPrazo(c);
-  const p = c.prazo;
-  const numeros: Numero[] = [];
-  if (p.pct_medido !== null)
-    numeros.push({ rotulo: "Medido", valor: fmtPct(p.pct_medido), sub: `de ${fmtPct(p.pct_previsto_na_medicao ?? 0)} previsto em ${fmtMes(p.mes_referencia)}` });
-  if (t.contrato) numeros.push({ rotulo: "Término do contrato", valor: t.contrato });
-  if (t.base) numeros.push({ rotulo: "Contra o original", valor: fmtMesLongo(p.termino_base ?? null), tag: t.base.replace(" contra o original", ""), tom: "acima" });
-  return {
-    principal: { rotulo: "Termina", valor: t.termina, tag: t.sit ? t.sit.texto : "sem medição ainda", tom: t.sit ? (t.sit.tom === "acima" ? "acima" : "ok") : "info" },
-    numeros,
-  };
+/**
+ * A linha de contexto do cabeçalho, como no protótipo: "Termina em set/2027 · em dia · 7,65% medido". O contrato e o
+ * atraso contra o original só aparecem quando dizem algo (projetado ≠ contratual; depois de reprogramar).
+ */
+function LinhaPrazo({ crono }: { crono: DadosCronograma }) {
+  const t = textoPrazo(crono);
+  const atrasada = t.sit?.tom === "acima";
+  return (
+    <>
+      <span>Termina em {t.termina}</span> · <span className={atrasada ? c.atraso : undefined}>{t.sit ? t.sit.texto : "sem medição ainda"}</span>
+      {t.medido ? (
+        <>
+          {" · "}
+          <span>{t.medido}</span>
+        </>
+      ) : null}
+      {t.contrato ? <> · contrato: {t.contrato}</> : null}
+      {t.base ? (
+        <>
+          {" · "}
+          <span className={c.atraso}>{t.base}</span>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** "semana 2 de 44": a semana de hoje na obra, contando do 1º dia do mês de início até o fim do último mês. */
+export function semanaDaObra(inicio: string, meses: number, agora = new Date()): { atual: number; total: number } {
+  const [a, m] = inicio.split("-").map(Number) as [number, number];
+  const de = Date.UTC(a, m - 1, 1);
+  const ate = Date.UTC(a, m - 1 + meses, 1);
+  const hoje = new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora) + "T00:00:00Z").getTime();
+  const total = Math.ceil((ate - de) / (7 * 864e5));
+  return { atual: Math.min(total, Math.max(1, Math.floor((hoje - de) / (7 * 864e5)) + 1)), total };
+}
+
+/** O prazo no celular, num cartão: término e situação em destaque, o medido e a semana da obra embaixo. */
+function PrazoCelular({ crono }: { crono: DadosCronograma }) {
+  const t = textoPrazo(crono);
+  const sem = semanaDaObra(crono.inicio!, crono.meses);
+  return (
+    <section className={c.celPrazo} aria-label="Prazo">
+      <span className={c.meta}>Termina em</span>
+      <b>
+        {t.termina} · <span className={t.sit?.tom === "acima" ? c.atraso : undefined}>{t.sit?.texto ?? "sem medição ainda"}</span>
+      </b>
+      <span className={c.meta}>
+        {t.medido ? `${t.medido} · ` : ""}semana {sem.atual} de {sem.total}
+      </span>
+    </section>
+  );
 }
 
 /**
  * No modo real a API não gera cronograma: quem propõe é o agente (Claude). Pedimos pela conversa e devolvemos a
  * Proposta de cronograma que ele criar (POST /propostas). A conversa abre uma sessão própria; a Proposta é a mesma que
- * apareceria no chat do mestre de obras.
+ * apareceria na conversa com o Plumo.
  */
 const PEDIDO_AO_AGENTE =
   "Monte o cronograma desta obra a partir do orçamento e proponha para a minha aprovação agora. Sequencie as etapas na " +
@@ -88,7 +130,7 @@ async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   let proposta: Proposta | null = null;
   let erro: string | null = null;
   let texto = "";
-  for await (const ev of conversar({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
+  for await (const ev of conversarComAgente({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
     if (ev.tipo === "proposta" && ev.proposta.tipo === "cronograma") proposta = ev.proposta;
     else if (ev.tipo === "texto") texto += ev.delta;
     else if (ev.tipo === "erro") erro = ev.mensagem;
@@ -96,20 +138,114 @@ async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   if (proposta) return proposta;
   // o agente respondeu sem propor (ex.: orçamento ralo): mostra o que ele disse, não um erro genérico
   const recado = texto.trim();
-  throw new Error(erro ?? (recado ? recado : "O mestre de obras não chegou a propor o cronograma. Tente de novo."));
+  throw new Error(erro ?? (recado ? recado : "O Plumo não chegou a propor o cronograma. Tente de novo."));
 }
 
+type Vista = "etapas" | "curva" | "desembolso";
+const VISTAS: { k: Vista; rotulo: string }[] = [
+  { k: "etapas", rotulo: "Etapas" },
+  { k: "curva", rotulo: "Curva S" },
+  { k: "desembolso", rotulo: "Desembolso" },
+];
+
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, demo, podeOperar, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
+  const { versao, podeOperar, demo, irParaTela, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
+  const celular = useCelular();
   const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
-  const [tabela, setTabela] = useState(false);
+  const [gaveta, setGaveta] = useState<"tabela" | "medicoes" | null>(null);
   const [iaProp, setIaProp] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erroIA, setErroIA] = useState<string | null>(null);
+  const [vista, setVista] = useState<Vista>("etapas");
+  const [filtro, setFiltro] = useState<FiltroGantt>("todas");
   const tem = !!dado?.inicio && dado.meses > 0;
   const editando = modo.k === "editar" && dado;
+  const ver = tem && !editando;
+  // a mesma situação que o Gantt pinta (no mês da última medição); etapa sem % nunca está atrasada
+  const nAtrasadas = ver
+    ? dado.etapas.filter((e) => situacaoEtapa(e.percentuais, e.medido_acumulado, indiceDoMes(dado.inicio, dado.prazo.mes_referencia)).situacao === "atrasada").length
+    : 0;
+  const conversar = () => irParaTela("conversa");
+  const lancarMedicao = () => setModal("medicao");
+
+  const menu: ItemMenu[] = ver
+    ? [
+        ...(celular && podeOperar ? [{ rotulo: "Lançar medição", acao: lancarMedicao }] : []),
+        { rotulo: "Ver medições", acao: () => setGaveta("medicoes") },
+        { rotulo: "Ver tabela físico-financeira", acao: () => setGaveta("tabela") },
+        ...(podeOperar
+          ? [
+              { rotulo: "Editar cronograma", acao: () => setModo({ k: "editar" }) },
+              { rotulo: "Aditivo de prazo", acao: () => setModal("prazo") },
+            ]
+          : []),
+      ]
+    : [];
+  const maisAcoes = menu.length ? <MenuMais rotulo="Mais ações do cronograma" itens={menu} /> : null;
+
+  const cabecalho = celular ? (
+    <>
+      <header className={c.celCab}>
+        <h1>Cronograma</h1>
+        {maisAcoes}
+      </header>
+      {ver ? <PrazoCelular crono={dado} /> : null}
+    </>
+  ) : (
+    <>
+      <header className={c.cab}>
+        <div className={c.cabTxt}>
+          <h1>Cronograma</h1>
+          {ver ? (
+            <p>
+              <LinhaPrazo crono={dado} />
+            </p>
+          ) : null}
+        </div>
+        {ver ? (
+          <div className={c.cabAcoes}>
+            <BotaoPlumo rotulo="Atualizar o andamento conversando" />
+            {podeOperar ? (
+              <button type="button" className="btn" onClick={lancarMedicao}>
+                Lançar medição
+              </button>
+            ) : null}
+            {maisAcoes}
+          </div>
+        ) : null}
+      </header>
+      {ver ? (
+        <div className={c.barra}>
+          <div className="seg" role="tablist" aria-label="Vista do cronograma">
+            {VISTAS.map((x) => (
+              <button key={x.k} type="button" role="tab" aria-selected={vista === x.k} className={vista === x.k ? "on" : ""} onClick={() => setVista(x.k)}>
+                {x.rotulo}
+              </button>
+            ))}
+          </div>
+          {vista === "etapas" ? (
+            <div className="seg" role="group" aria-label="Mostrar">
+              {(
+                [
+                  ["todas", "Todas"],
+                  ["andamento", "Em andamento"],
+                  ["atrasadas", "Atrasadas"],
+                  ["proximas", "Próximas"],
+                ] as const
+              ).map(([k, r]) => (
+                <button key={k} type="button" aria-pressed={filtro === k} className={filtro === k ? "on" : ""} onClick={() => setFiltro(k)}>
+                  {r}
+                  {k === "atrasadas" ? <small className={c.cont}>{nAtrasadas}</small> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 
   // A IA intermediária: propõe o cronograma a partir do orçamento (sequência por fase de obra, duração pelo valor) e
   // vira uma Proposta pendente. A pessoa aprova — como qualquer escrita do agente — e aí o cronograma é criado.
@@ -142,34 +278,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
   }, [carregando, tem, podeOperar, gerando, iaProp, gerarComIA, lerFiltroTela, limparFiltroTela]);
 
   return (
-    <div className="page">
-      <CabecalhoPagina
-        titulo="Cronograma"
-        acao={
-          podeOperar && tem && !editando ? (
-            <button type="button" className="btn amb" onClick={() => setModal("medicao")}>
-              <Icone nome="plus" tam={15} />
-              Nova medição
-            </button>
-          ) : null
-        }
-        menu={
-          tem && !editando
-            ? [
-                { rotulo: "Ver tabela físico-financeira", acao: () => setTabela(true) },
-                ...(podeOperar
-                  ? [
-                      { rotulo: "Editar cronograma", acao: () => setModo({ k: "editar" }) },
-                      { rotulo: "Aditivo de prazo", acao: () => setModal("prazo") },
-                    ]
-                  : []),
-              ]
-            : []
-        }
-        rotuloMenu="Mais ações do cronograma"
-        {...(tem && !editando ? numerosPrazo(dado) : {})}
-      />
-      {tabela && dado ? <TabelaFisicoFinanceira crono={dado} fechar={() => setTabela(false)} /> : null}
+    <div className={`page ${c.tela}`}>
+      {cabecalho}
       {erro ? (
         <div className="aviso-erro" role="alert">
           <Icone nome="alert" tam={15} />
@@ -229,23 +339,29 @@ export function Cronograma({ obra }: { obra: Obra }) {
             ) : null}
           </div>
         )
+      ) : celular ? (
+        <Gantt crono={dado} conversar={conversar} />
       ) : (
         <>
-          <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
-          <Gantt crono={dado} />
+          <div role="tabpanel" aria-label={VISTAS.find((x) => x.k === vista)!.rotulo}>
+            {vista === "etapas" ? (
+              <Gantt crono={dado} filtro={filtro} />
+            ) : vista === "curva" ? (
+              <CurvaS mensal={dado.mensal} comBase={!!dado.revisoes} />
+            ) : (
+              <Desembolso obra={obra} />
+            )}
+          </div>
+          {vista === "etapas" ? <p className={c.legenda}>A linha ocre é hoje. Amarelo dentro da barra = medido; azul = previsto.</p> : null}
           <BaseOrcamento obraId={obra.id} />
-          <Desembolso obra={obra} />
-          <h3 className="sectit">Medições</h3>
-          <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
-          <ProximoPasso
-            obraId={obra.id}
-            para="conversa"
-            acao="Ir para o mestre de obras"
-            titulo="A obra está montada."
-            texto="Daqui pra frente o mestre de obras acompanha compras, prazos e gastos com você, e avisa o que precisa de decisão."
-          />
         </>
       )}
+      {gaveta === "tabela" && dado ? <TabelaFisicoFinanceira crono={dado} fechar={() => setGaveta(null)} /> : null}
+      {gaveta === "medicoes" && dado ? (
+        <Drawer titulo="Medições" fechar={() => setGaveta(null)}>
+          <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
+        </Drawer>
+      ) : null}
       {modal === "medicao" && dado ? <ModalMedicao obra={obra} crono={dado} fechar={() => setModal(null)} /> : null}
       {modal === "prazo" && dado ? (
         <ModalAditivoPrazo

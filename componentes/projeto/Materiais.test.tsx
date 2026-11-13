@@ -163,6 +163,22 @@ describe("Materiais das pranchas", () => {
     expect(screen.queryByRole("button", { name: "Levar para o orçamento…" })).toBeNull();
   });
 
+  it("o cartão da gaveta só lê: com autoFluir desligado, não grava (quem grava é a página do Projeto)", async () => {
+    const rede = criarRede(rotas());
+    function Gaveta() {
+      const m = useMateriais(["f1", "f2"], "MG");
+      return <CartaoMateriais obra={OBRA} dados={m.dados} autoFluir={false} />;
+    }
+    render(
+      <ProvedorCasca usuario={USUARIO} demo={false}>
+        <Gaveta />
+      </ProvedorCasca>,
+    );
+    await screen.findByText(/Entrando no orçamento/);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(escritas(rede)).toHaveLength(0);
+  });
+
   it("orçamento já reorganizado (Estrutura anterior): sem passo manual e sem re-levar sozinho — o passo é o cronograma", async () => {
     // orçamento não-vazio cuja Estrutura ativa difere das pranchas (ex.: já previsto em fases): não re-leva sozinho,
     // senão apagaria a reorganização. Nada de botão "Levar"; o próximo passo é gerar o cronograma.

@@ -50,14 +50,14 @@ describe("faixa no Orçamento", () => {
     expect(faixa).toHaveTextContent("2 itens ainda não foram comprados.");
     expect(screen.getByRole("link", { name: "Comprar o que vem primeiro" })).toHaveAttribute("href", "/?obra=o1&tela=suprimentos");
     // no topo, antes das etapas: no fim da tela ficava a 1.800 px e quem acabava de aprovar não via
-    const etapa = screen.getByText("Estrutura", { selector: "b" });
+    const etapa = screen.getByRole("table");
     expect(faixa.compareDocumentPosition(etapa) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("antes de aprovar não sugere comprar", async () => {
     rede([insumo(1000)]);
     noCasca(<Orcamento obra={obra("em_orcamento")} />);
-    await screen.findByText("Estrutura", { selector: "b" });
+    await screen.findByRole("table");
     expect(screen.queryByRole("region", PASSO)).toBeNull();
   });
 });
@@ -69,11 +69,11 @@ describe("faixa no Cronograma", () => {
   };
   const OBRA = { id: "o1", nome: "Casa Inventada" } as Obra;
 
-  it("com cronograma montado, leva à conversa com o mestre de obras", async () => {
+  it("com cronograma montado, o caminho ao Plumo é o botão do cabeçalho, não a faixa (o protótipo não tem faixa)", async () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/cronograma": () => json(CRONO) });
     noCasca(<Cronograma obra={OBRA} />);
-    await screen.findByRole("region", PASSO);
-    expect(screen.getByRole("link", { name: "Ir para o mestre de obras" })).toHaveAttribute("href", "/?obra=o1&tela=conversa");
+    expect(await screen.findByRole("button", { name: "Atualizar o andamento conversando" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", PASSO)).toBeNull();
   });
 
   it("sem cronograma, o próximo passo é montá-lo", async () => {

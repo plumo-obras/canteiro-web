@@ -6,6 +6,7 @@
 import { chaveTradutor, modoDemo, urlApi, urlTradutor } from "@/lib/servidor/config";
 import { headersDeRepasse, json } from "@/lib/servidor/repasse";
 import { usuarioDoAcesso } from "@/lib/demo/loja";
+import { materiaisDemo, projetoDemo } from "@/lib/simulado/projeto";
 
 const ID = /^[a-f0-9]{8,64}$/;
 
@@ -50,6 +51,7 @@ async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[]
   const { caminho } = await ctx.params;
   if (!caminhoTradutor(caminho, req.method, new URL(req.url).search)) return json({ detail: "Rota fora do contrato." }, 404);
   const base = urlTradutor();
+  if (!base && modoDemo()) return demo(req, caminho);
   if (!base) return json({ detail: "O tradutor de pranchas não está ligado neste ambiente (TRADUTOR_URL)." }, 503);
   if (!(await temSessao(req))) return json({ detail: "Sessão expirada." }, 401);
 
@@ -78,6 +80,16 @@ async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[]
   const anexo = r.headers.get("content-disposition"); // o espelho .dxf vem como arquivo para baixar
   if (anexo) saida.set("content-disposition", anexo);
   return new Response(r.body, { status: r.status, headers: saida });
+}
+
+/** Demonstração sem tradutor: o projeto fictício de lib/simulado (SIMULADO). Envio novo e espelho não existem nela. */
+async function demo(req: Request, caminho: string[]) {
+  if (!(await temSessao(req))) return json({ detail: "Sessão expirada." }, 401);
+  const ids = new URLSearchParams(new URL(req.url).search).get("ids")?.split(",") ?? [];
+  if (req.method === "GET" && caminho[0] === "projetos" && caminho.length === 1) return json(projetoDemo(ids));
+  if (req.method === "GET" && caminho[0] === "projetos" && caminho[1] === "materiais") return json(materiaisDemo());
+  // apagar, enviar e baixar o DXF não existem no projeto fictício: responder 204 fingiria que apagou (e ele voltaria)
+  return json({ detail: "Na demonstração o projeto é fictício: enviar, apagar e baixar o DXF só com o tradutor ligado." }, 503);
 }
 
 export const GET = repassar;

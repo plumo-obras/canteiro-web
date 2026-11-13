@@ -171,8 +171,10 @@ export function ModalMedicao({ obra, crono, fechar }: { obra: Obra; crono: Crono
 }
 
 /** As medições da obra, a mais nova em cima; só a última pode ser desfeita (a API recusa as outras). */
-export function ListaMedicoes({ obra, medicoes }: { obra: Obra; medicoes: Medicao[] }) {
-  const { podeOperar, mudou, avisarFeito } = useCasca();
+/** `somenteLeitura`: medições de prévia (o cronograma simulado da demonstração), sem Desfazer. */
+export function ListaMedicoes({ obra, medicoes, somenteLeitura = false }: { obra: Obra; medicoes: Medicao[]; somenteLeitura?: boolean }) {
+  const { podeOperar: pode, mudou, avisarFeito } = useCasca();
+  const podeOperar = pode && !somenteLeitura;
   const [confirmando, setConfirmando] = useState<Medicao | null>(null);
   const ultima = ultimaDe(medicoes);
   if (!medicoes.length) return <p className="mut sm">Nenhuma medição ainda. A primeira compara o executado com o previsto e projeta o término.</p>;

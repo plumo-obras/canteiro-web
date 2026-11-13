@@ -1,6 +1,6 @@
 "use client";
 /**
- * Os dados da obra. A Nova obra pede só o básico (`CamposNovaObra`); Dados da obra mostra os três blocos completos:
+ * Os dados da obra. A Nova obra (`CamposNovaObra`) agrupa em blocos e deixa o contrato recolhido; Dados da obra mostra os três blocos completos:
  * onde (nome e endereço), o que é (tipologia, área, padrão) e o contrato (regime, valor, nº, BDI, data-base, prazo).
  * Só o nome é obrigatório: quem ainda não sabe a área não pode travar no cadastro, e o que faltar se completa depois.
  */
@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DadosObra, Obra, Padrao, Regime, Tipologia } from "@/lib/contrato";
 import { lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
 import { Campo } from "../formularios/Campos";
+import { Icone } from "../Icone";
 import s from "./obra.module.css";
 
 export const TIPOLOGIAS: { k: Tipologia; rotulo: string }[] = [
@@ -168,21 +169,18 @@ export async function buscarCep(cep: string): Promise<{ cidade: string; uf: stri
   }
 }
 
-/** Os tipos da Nova obra: sobrado e comercial, mais específicos, ficam para Dados da obra. */
-export const TIPOS_NOVA_OBRA: { k: Tipologia; rotulo: string }[] = [
-  { k: "casa", rotulo: "Casa" },
-  { k: "predio", rotulo: "Prédio" },
-  { k: "galpao", rotulo: "Galpão" },
-  { k: "reforma", rotulo: "Reforma" },
-  { k: "outro", rotulo: "Outro" },
-];
+/** Os tipos da Nova obra: os sete, como no protótipo ("Casa" curto; "Casa térrea" fica para Dados da obra). */
+export const TIPOS_NOVA_OBRA: { k: Tipologia; rotulo: string }[] = TIPOLOGIAS.map((x) => (x.k === "casa" ? { ...x, rotulo: "Casa" } : x));
 
 export const UFS = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"];
 
 type Props = { f: FormObra; mudar: (p: Partial<FormObra>) => void; erros: ErrosObra; nomeRef?: React.Ref<HTMLInputElement> };
 
-export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
-  // A resposta do ViaCEP chega depois: o que vale é o formulário de agora, não o do momento em que se digitou.
+/**
+ * CEP com máscara e, ao completar os 8 números, cidade/UF/endereço pelo ViaCEP. A resposta chega depois: o que vale é o
+ * formulário de agora, não o do momento em que se digitou.
+ */
+function useCep(f: FormObra, mudar: (p: Partial<FormObra>) => void) {
   const atual = useRef(f);
   useEffect(() => {
     atual.current = f;
@@ -206,6 +204,11 @@ export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
     mudar({ cidade: g.cidade || r.cidade, uf: g.uf || r.uf, endereco: g.endereco || r.endereco });
     setDicaCep(r.geral ? "CEP da cidade inteira: digite a rua." : null);
   };
+  return { dicaCep, mudarCep };
+}
+
+export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
+  const { dicaCep, mudarCep } = useCep(f, mudar);
   return (
     <>
       <Campo rotulo="Nome da obra" erro={erros.nome} dica="Como a equipe chama a obra no dia a dia.">
@@ -261,56 +264,154 @@ export function CamposOnde({ f, mudar, erros, nomeRef }: Props) {
   );
 }
 
-/** O básico para começar a obra numa tela só. Lista de UF em vez de texto: é ela que escolhe a tabela de preços. */
+// Os campos do contrato: com erro em algum deles o bloco recolhido abre sozinho, senão o erro ficaria escondido.
+const CAMPOS_CONTRATO = ["regime", "verba", "numero_contrato", "bdi", "data_base"] as const;
+
+/**
+ * A Nova obra em três blocos: a obra (nome e onde), tipo e tamanho, e o contrato recolhido. Só o nome é obrigatório; o
+ * resto ajuda o Plumo a ler as pranchas e o orçamento, e se completa depois em Dados da obra. A UF é uma lista em vez de
+ * texto: é ela que escolhe a tabela de preços de referência.
+ */
 export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
+  const { dicaCep, mudarCep } = useCep(f, mudar);
+  const [contratoAberto, setContratoAberto] = useState(false);
+  const erroNoContrato = CAMPOS_CONTRATO.some((k) => erros[k]);
+  const padrao = PADROES.find((p) => p.k === f.padrao);
+  const regime = REGIMES.find((r) => r.k === f.regime);
   return (
     <>
-      <Campo rotulo="Nome da obra" erro={erros.nome}>
-        {(a) => (
-          <input
-            {...a}
-            ref={nomeRef}
-            className="f"
-            autoComplete="off"
-            placeholder="Ex.: Casa Jardim Europa"
-            value={f.nome}
-            onChange={(e) => mudar({ nome: e.target.value })}
-          />
-        )}
-      </Campo>
-      <div className={s.cidadeUf}>
-        <Campo rotulo="Cidade" erro={erros.cidade}>
-          {(a) => <input {...a} className="f" autoComplete="address-level2" value={f.cidade} onChange={(e) => mudar({ cidade: e.target.value })} />}
-        </Campo>
-        <Campo rotulo="UF" erro={erros.uf}>
+      <section className={`card ${s.bloco}`} aria-labelledby="bloco-obra">
+        <h2 id="bloco-obra">A obra</h2>
+        <Campo rotulo="Nome da obra" erro={erros.nome}>
           {(a) => (
-            <select {...a} className="f" autoComplete="address-level1" value={f.uf} onChange={(e) => mudar({ uf: e.target.value })}>
-              <option value="">—</option>
-              {UFS.map((uf) => (
-                <option key={uf} value={uf}>
-                  {uf}
-                </option>
-              ))}
-            </select>
+            <input
+              {...a}
+              ref={nomeRef}
+              className="f"
+              autoComplete="off"
+              placeholder="Ex.: Casa Jardim Europa"
+              value={f.nome}
+              onChange={(e) => mudar({ nome: e.target.value })}
+            />
           )}
         </Campo>
-      </div>
-      <div className="campo">
-        <span className="l">O que vai ser construído</span>
-        <Escolha rotulo="O que vai ser construído" grade opcoes={TIPOS_NOVA_OBRA} valor={f.tipologia} mudar={(k) => mudar({ tipologia: k })} />
-      </div>
-      <div className="campos2">
-        <Campo rotulo="Área construída (m²)" erro={erros.area}>
-          {(a) => (
-            <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 142,5" value={f.area} onChange={(e) => mudar({ area: e.target.value })} />
-          )}
+        {/* CEP, endereço, cidade e UF numa linha (como no protótipo); o cliente embaixo, na largura toda. */}
+        <div className={s.endereco}>
+          <Campo rotulo="CEP" erro={erros.cep}>
+            {(a) => (
+              <input
+                {...a}
+                className="f"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                placeholder="00000-000"
+                maxLength={9}
+                value={f.cep}
+                onChange={(e) => mudarCep(e.target.value)}
+              />
+            )}
+          </Campo>
+          <Campo rotulo="Endereço" dica={dicaCep} alerta={!!dicaCep}>
+            {(a) => <input {...a} className="f" autoComplete="street-address" value={f.endereco} onChange={(e) => mudar({ endereco: e.target.value })} />}
+          </Campo>
+          <Campo rotulo="Cidade" erro={erros.cidade}>
+            {(a) => <input {...a} className="f" autoComplete="address-level2" value={f.cidade} onChange={(e) => mudar({ cidade: e.target.value })} />}
+          </Campo>
+          <Campo rotulo="UF" erro={erros.uf}>
+            {(a) => (
+              <select {...a} className="f" autoComplete="address-level1" value={f.uf} onChange={(e) => mudar({ uf: e.target.value })}>
+                <option value="">—</option>
+                {UFS.map((uf) => (
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Campo>
+        </div>
+        <Campo rotulo="Cliente (opcional)">
+          {(a) => <input {...a} className="f" autoComplete="off" value={f.cliente} onChange={(e) => mudar({ cliente: e.target.value })} />}
         </Campo>
-        <Campo rotulo="Valor fechado com o cliente (opcional)" erro={erros.verba} dica="Se já fechou. O orçamento é comparado com ele.">
-          {(a) => (
-            <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 850.000" value={f.verba} onChange={(e) => mudar({ verba: e.target.value })} />
-          )}
+        <p className="mut sm">A UF define a tabela de preços de referência.</p>
+      </section>
+
+      <section className={`card ${s.bloco}`} aria-labelledby="bloco-tipo">
+        <h2 id="bloco-tipo">Tipo e tamanho</h2>
+        {/* As escolhas são botões, sem rótulo à vista (o protótipo deixa as opções falarem); o nome do grupo vai no aria. */}
+        <Escolha rotulo="Tipo de obra" classe={s.esc} opcoes={TIPOS_NOVA_OBRA} valor={f.tipologia} mudar={(k) => mudar({ tipologia: k })} />
+        <Escolha
+          rotulo="Padrão de acabamento"
+          classe={s.esc}
+          opcoes={PADROES.map((p) => ({ k: p.k, rotulo: `Padrão ${p.rotulo.toLowerCase()}`, dica: p.dica }))}
+          valor={f.padrao}
+          mudar={(k) => mudar({ padrao: k })}
+        />
+        {padrao ? <p className={`mut sm ${s.dicaPadrao}`}>{padrao.dica}</p> : null}
+        <div className={s.quatro}>
+          <Campo rotulo="Área (m²)" erro={erros.area}>
+            {(a) => (
+              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 180" value={f.area} onChange={(e) => mudar({ area: e.target.value })} />
+            )}
+          </Campo>
+          <Campo rotulo="Pavimentos" erro={erros.pavimentos}>
+            {(a) => (
+              <input {...a} className="f" inputMode="numeric" autoComplete="off" placeholder="Ex.: 2" value={f.pavimentos} onChange={(e) => mudar({ pavimentos: e.target.value })} />
+            )}
+          </Campo>
+          <Campo rotulo="Prazo (meses)" erro={erros.prazo}>
+            {(a) => (
+              <input {...a} className="f" inputMode="numeric" autoComplete="off" placeholder="Ex.: 14" value={f.prazo} onChange={(e) => mudar({ prazo: e.target.value })} />
+            )}
+          </Campo>
+        </div>
+        <Campo rotulo="Início previsto">
+          {(a) => <input {...a} type="date" className="f" value={f.inicio} onChange={(e) => mudar({ inicio: e.target.value })} />}
         </Campo>
-      </div>
+      </section>
+
+      <details className={`card ${s.bloco} ${s.recolhido}`} open={contratoAberto || erroNoContrato} onToggle={(e) => setContratoAberto(e.currentTarget.open)}>
+        <summary>
+          <span className={s.blocoT}>Contrato</span>
+          <span className="mut sm">opcional · regime, valor, BDI</span>
+          <span className={s.chev} aria-hidden="true">
+            <Icone nome="chevDown" tam={16} />
+          </span>
+        </summary>
+        <Escolha rotulo="Regime de contratação" classe={s.esc} opcoes={REGIMES} valor={f.regime} mudar={(k) => mudar({ regime: k })} />
+        {regime ? <p className={`mut sm ${s.dicaPadrao}`}>{regime.dica}</p> : null}
+        <div className={s.quatro}>
+          <Campo rotulo="Valor do contrato (R$)" erro={erros.verba}>
+            {(a) => (
+              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 850.000" value={f.verba} onChange={(e) => mudar({ verba: e.target.value })} />
+            )}
+          </Campo>
+          <Campo rotulo="Nº do contrato" erro={erros.numero_contrato}>
+            {(a) => (
+              <input {...a} className="f" autoComplete="off" maxLength={40} value={f.numero_contrato} onChange={(e) => mudar({ numero_contrato: e.target.value })} />
+            )}
+          </Campo>
+          <Campo rotulo="BDI (%)" erro={erros.bdi}>
+            {(a) => (
+              <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 22,91" value={f.bdi} onChange={(e) => mudar({ bdi: e.target.value })} />
+            )}
+          </Campo>
+          <Campo rotulo="Data-base" erro={erros.data_base} dica="Mês dos preços.">
+            {(a) => (
+              <input
+                {...a}
+                className="f"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="MM/AAAA"
+                maxLength={7}
+                value={f.data_base}
+                onChange={(e) => mudar({ data_base: e.target.value })}
+              />
+            )}
+          </Campo>
+        </div>
+      </details>
     </>
   );
 }
@@ -318,10 +419,12 @@ export function CamposNovaObra({ f, mudar, erros, nomeRef }: Props) {
 /** Grupo de escolha única em botões (role=radio), com setas como num radio nativo. */
 export function Escolha<K extends string>(props: {
   rotulo: string;
-  opcoes: { k: K; rotulo: string }[];
+  opcoes: { k: K; rotulo: string; dica?: string }[];
   valor: K | null;
   mudar: (k: K | null) => void;
   grade?: boolean;
+  /** Classe própria do grupo (a Nova obra usa os botões quadrados do protótipo). */
+  classe?: string;
 }) {
   const { opcoes, valor, mudar } = props;
   const mover = (e: React.KeyboardEvent, i: number) => {
@@ -337,7 +440,7 @@ export function Escolha<K extends string>(props: {
     opcoes.findIndex((o) => o.k === valor),
   );
   return (
-    <div className={props.grade ? "escolha-grade" : "seg"} role="radiogroup" aria-label={props.rotulo}>
+    <div className={props.classe ?? (props.grade ? "escolha-grade" : "seg")} role="radiogroup" aria-label={props.rotulo}>
       {opcoes.map((o, i) => (
         <button
           key={o.k}
@@ -346,6 +449,7 @@ export function Escolha<K extends string>(props: {
           aria-checked={valor === o.k}
           tabIndex={i === foco ? 0 : -1}
           className={valor === o.k ? "on" : ""}
+          title={o.dica}
           // Clicar de novo na escolhida desmarca: nenhum destes campos é obrigatório.
           onClick={() => mudar(valor === o.k ? null : o.k)}
           onKeyDown={(e) => mover(e, i)}

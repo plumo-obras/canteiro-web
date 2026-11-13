@@ -2,15 +2,19 @@
 /**
  * A casa da obra: o que importa hoje, sem gastar token. As contas e as frases vêm prontas de GET /obras/{id}/hoje; aqui
  * só entram a saudação, o dia e o que já está na casca (as propostas esperando). Cada ponto leva à tela certa.
+ * O que espera a pessoa e a semana viram etiquetas no topo: a conversa fica com a largura e o detalhe abre numa gaveta.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { AcaoHoje, EventoSemana, HojeNaObra as HojeT, Obra, PontoHoje, PrioridadeHoje } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { CartaoProposta } from "../CartaoProposta";
 import { useCasca } from "../contexto";
 import { Icone } from "../Icone";
 import { telaDe, type AbaAtiva } from "../sessoes";
+import { DISCIPLINAS_SIMULADAS } from "@/lib/simulado/projeto";
 import { useCarregar } from "../useCarregar";
+import { paradasDoTab, proximaParada } from "../foco";
+import { useMidia } from "../midia";
 import s from "./hoje.module.css";
 
 /** Quantos cartões cabem ao lado do resumo; o resto fica em Aprovações. */
@@ -60,21 +64,20 @@ function Acao({ acao, classe }: { acao: AcaoHoje; classe: string }) {
   );
 }
 
+/** Um ponto do dia, como frase da mensagem do Plumo; o atalho para a tela fica na etiqueta correspondente, no topo. */
 function Ponto({ p }: { p: PontoHoje }) {
   const { podeOperar } = useCasca();
   // "Falta você confirmar" não vale para quem só lê: fica o fato, sem a cobrança
   const detalhe = p.prioridade === "pede_voce" && !podeOperar ? "" : p.detalhe;
   return (
     <li className={s.ponto}>
-      <span className={`${s.dot} ${s[p.prioridade]}`} aria-hidden="true" />
-      <p className={s.texto}>
-        <span className="sr-only">{podeOperar ? ROTULO_PRIORIDADE[p.prioridade] : p.prioridade === "pede_voce" ? "Pendente" : ROTULO_PRIORIDADE[p.prioridade]}: </span>
-        <b>{p.titulo}</b> <span className="mut">{detalhe}</span>
-      </p>
-      {p.acao ? <Acao acao={p.acao} classe={`btn sm ${s.acao}`} /> : null}
+      <span className="sr-only">{podeOperar ? ROTULO_PRIORIDADE[p.prioridade] : p.prioridade === "pede_voce" ? "Pendente" : ROTULO_PRIORIDADE[p.prioridade]}: </span>
+      <b>{p.titulo}</b> {detalhe ? <span className={s.detalhe}>{detalhe}</span> : null}
     </li>
   );
 }
+
+const TOM_PONTO: Record<PrioridadeHoje, "amb" | "ver" | "azu" | "cin"> = { pede_voce: "amb", atencao: "ver", a_caminho: "azu", ok: "cin" };
 
 function Evento({ e }: { e: EventoSemana }) {
   return (
@@ -88,11 +91,15 @@ function Evento({ e }: { e: EventoSemana }) {
   );
 }
 
-function EsperandoVoce({ obraId }: { obraId: string }) {
-  const { cartoes, irParaTela, podeOperar } = useCasca();
-  const pendentes = Object.values(cartoes)
+type Cartoes = ReturnType<typeof useCasca>["cartoes"];
+const pendentesDa = (cartoes: Cartoes, obraId: string) =>
+  Object.values(cartoes)
     .filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente")
     .map((c) => c.proposta.id);
+
+function EsperandoVoce({ obraId }: { obraId: string }) {
+  const { cartoes, irParaTela, podeOperar } = useCasca();
+  const pendentes = pendentesDa(cartoes, obraId);
   const chavePendentes = pendentes.join(",");
   // Quem acabou de ser decidido continua aqui, com "Aprovado · Desfazer", até a próxima vez que a tela abrir.
   const [vistos, setVistos] = useState<string[]>([]);
@@ -106,12 +113,12 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
   return (
     <section aria-labelledby="hoje-esperando">
       <h2 id="hoje-esperando" className={s.tituloBloco}>
-        {podeOperar ? "Esperando você" : "Aguardando aprovação"} {pendentes.length ? <small>· {pendentes.length}</small> : null}
+        {podeOperar ? (pendentes.length ? `${pendentes.length} ${pendentes.length === 1 ? "aprovação" : "aprovações"}` : "Esperando você") : "Aguardando aprovação"}
       </h2>
       {aMostra.length ? (
-        <div className="ld-lista ld-estreita">
+        <div className={s.cartoes}>
           {aMostra.map((id) => (
-            <CartaoProposta key={id} id={id} foco={id === primeira} />
+            <CartaoProposta key={id} id={id} foco={id === primeira} compacto />
           ))}
         </div>
       ) : (
@@ -130,7 +137,8 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
  * `alternativa`: o que mostrar se a API no ar ainda não tem a rota. `abaixo`: o que vem depois do resumo. `visivel`: a
  * conversa fica montada e escondida atrás das outras telas; escondida, ela não busca, e ao voltar relê se algo mudou.
  */
-export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; visivel?: boolean }) {
+/** `soEtiquetas`: numa conversa que já tem mensagens fica só a linha de etiquetas no topo (o resumo do dia sai). */
+export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; visivel?: boolean; soEtiquetas?: boolean }) {
   const { versao, podeOperar } = useCasca();
   const { visivel = true } = props;
   // "versão ao chegar aqui": só anda com a casa à vista, e é o que dispara a busca
@@ -142,8 +150,41 @@ export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?:
   return <Casa {...props} versao={versaoVista} podeOperar={podeOperar} />;
 }
 
-function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean }) {
+type Gaveta = "esperando" | "semana";
+
+function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean; soEtiquetas?: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
+  const { cartoes, irParaTela } = useCasca();
+  const [gaveta, setGaveta] = useState<Gaveta | null>(null);
+  const caixa = useRef<HTMLElement>(null);
+  const quemAbriu = useRef<HTMLElement | null>(null);
+  const fechar = () => {
+    setGaveta(null);
+    quemAbriu.current?.focus({ preventScroll: true });
+  };
+  const alternar = (g: Gaveta) => (e: MouseEvent<HTMLButtonElement>) => {
+    if (gaveta === g) return fechar();
+    quemAbriu.current = e.currentTarget;
+    setGaveta(g);
+  };
+  // abaixo de 900 px a gaveta é uma folha modal (sobe de baixo, com véu): o Tab fica dentro dela
+  const modal = useMidia("(max-width: 899px)");
+  useEffect(() => {
+    if (!gaveta) return;
+    caixa.current?.querySelector<HTMLElement>("button,a,[tabindex]")?.focus({ preventScroll: true });
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return fechar();
+      if (modal && e.key === "Tab" && caixa.current) {
+        const prox = proximaParada(paradasDoTab(caixa.current), document.activeElement, e.shiftKey);
+        if (prox) {
+          e.preventDefault();
+          prox.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [gaveta, modal]);
 
   if (carregando && !dado) {
     return (
@@ -163,20 +204,70 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
   }
   if (!dado) return <>{alternativa}</>;
   const { pontos } = dado;
+  const nPendentes = pendentesDa(cartoes, obra.id).length;
+  // A etiqueta conta só as aprovações (as propostas); o "esperando" da frase do dia soma também os pontos que pedem a
+  // pessoa (comprovante a conferir). Dizer "Nada esperando você" aqui desmentia a frase ao lado.
+  const rotuloEsperando = podeOperar
+    ? nPendentes === 0
+      ? "Nenhuma aprovação"
+      : `${nPendentes} ${nPendentes === 1 ? "aprovação" : "aprovações"}`
+    : nPendentes === 0
+      ? "Nada aguardando aprovação"
+      : `${nPendentes} aguardando aprovação`;
+  // o que pede atenção vira etiqueta também (o detalhe continua na lista abaixo); a próxima disciplina é SIMULADA
+  const comAtalho = pontos.filter((p) => p.acao && telaDe(p.acao.tela));
+  const proxima = DISCIPLINAS_SIMULADAS.find((d) => d.situacao === "proxima");
 
   return (
     <div className={s.casa}>
-      <div className={s.coluna}>
-        <section className={`card ${s.hoje}`} aria-labelledby="hoje-titulo">
+      <div className={s.principal}>
+        <div className={s.etiquetas} role="group" aria-label="Atalhos da obra">
+          <button
+            type="button"
+            className={`${s.etq}${nPendentes ? ` ${s.amb}` : ""}`}
+            aria-expanded={gaveta === "esperando"}
+            aria-controls="hoje-gaveta"
+            onClick={alternar("esperando")}
+          >
+            <span className={s.bola} aria-hidden="true" />
+            {rotuloEsperando}
+          </button>
+          {comAtalho.map((p) => (
+            <button
+              key={p.tipo}
+              type="button"
+              className={`${s.etq} ${s[TOM_PONTO[p.prioridade]]}`}
+              title={p.acao!.rotulo}
+              onClick={() => irParaTela(telaDe(p.acao!.tela)!, p.acao!.filtro)}
+            >
+              <span className={s.bola} aria-hidden="true" />
+              {p.titulo.replace(/\.$/, "")}
+            </button>
+          ))}
+          {proxima ? (
+            <button type="button" className={`${s.etq} ${s.azu}`} onClick={() => irParaTela("projeto")}>
+              <span className={s.bola} aria-hidden="true" />
+              {proxima.nome}: falta a planta
+            </button>
+          ) : null}
+          <button type="button" className={s.etq} aria-expanded={gaveta === "semana"} aria-controls="hoje-gaveta" onClick={alternar("semana")}>
+            <Icone nome="calendario" tam={14} />
+            Esta semana{dado.semana.length ? ` · ${dado.semana.length}` : ""}
+          </button>
+        </div>
+        {/* o resumo do dia é uma mensagem do Plumo, não um título: a conversa continua embaixo dela */}
+        <section className={s.hoje} aria-labelledby="hoje-titulo" hidden={soEtiquetas}>
+          <h2 className="sr-only">Hoje na obra</h2>
           <div className={s.cabeca}>
             <span className={s.mestre} aria-hidden="true">
-              <Icone nome="spark" tam={18} />
+              <Icone nome="spark" tam={16} />
             </span>
-            <div>
-              <h1 id="hoje-titulo" className={s.titulo}>
+            <div className={s.corpoMsg}>
+              <span className={s.metaMsg}>Plumo · {linhaDoDia(dado.hoje, dado.resumo)}</span>
+              <p id="hoje-titulo" className={s.titulo}>
                 {saudacao()} {podeOperar ? fraseDoDia(dado.resumo) : dado.resumo.frase}
-              </h1>
-              <p className="mut">{linhaDoDia(dado.hoje, dado.resumo)}. Olhei compras, cronograma e gastos. O que importa hoje:</p>
+              </p>
+              <p className={s.sub}>Olhei compras, cronograma e gastos. O que importa hoje:</p>
             </div>
           </div>
           {pontos.length ? (
@@ -193,26 +284,43 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar }: { obra: Obra; a
           )}
           {dado.mais ? <p className={`mut sm ${s.mais}`}>E mais {dado.mais === 1 ? "1 ponto" : `${dado.mais} pontos`} depois destes.</p> : null}
         </section>
+        {abaixo && !soEtiquetas ? <div className={s.nota}>{abaixo}</div> : null}
       </div>
-      <div className={s.coluna}>
-        <EsperandoVoce obraId={obra.id} />
-        <section className={`card ${s.semana}`} aria-labelledby="hoje-semana">
-          <h2 id="hoje-semana" className={s.tituloBloco}>
-            Esta semana
-          </h2>
-          {dado.semana.length ? (
-            <ul className={s.eventos}>
-              {dado.semana.map((e, i) => (
-                <Evento key={`${e.data}-${i}`} e={e} />
-              ))}
-            </ul>
-          ) : (
-            <p className="mut">Nenhuma entrega ou início de etapa nos próximos 7 dias.</p>
-          )}
-        </section>
-      </div>
-      <p className={`mut sm ${s.nota}`}>O mestre de obras só propõe. Nada é pedido, pago ou mudado sem o seu toque, e tudo fica no Histórico com Desfazer.</p>
-      {abaixo ? <div className={s.nota}>{abaixo}</div> : null}
+      {gaveta ? (
+        <>
+          <div className={s.fundo} aria-hidden="true" onClick={fechar} />
+          <aside
+            id="hoje-gaveta"
+            ref={caixa}
+            className={`card ${s.gaveta}`}
+            aria-label={gaveta === "esperando" ? "Esperando você" : "Esta semana"}
+            role={modal ? "dialog" : undefined}
+            aria-modal={modal ? true : undefined}
+          >
+            <button type="button" className={`btn sm ${s.fechar}`} aria-label="Fechar" onClick={fechar}>
+              <Icone nome="x" tam={16} />
+            </button>
+            {gaveta === "esperando" ? (
+              <EsperandoVoce obraId={obra.id} />
+            ) : (
+              <section aria-labelledby="hoje-semana">
+                <h2 id="hoje-semana" className={s.tituloBloco}>
+                  Esta semana
+                </h2>
+                {dado.semana.length ? (
+                  <ul className={s.eventos}>
+                    {dado.semana.map((e, i) => (
+                      <Evento key={`${e.data}-${i}`} e={e} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mut">Nenhuma entrega ou início de etapa nos próximos 7 dias.</p>
+                )}
+              </section>
+            )}
+          </aside>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
 /**
- * A casca do app: topo de vidro com a obra, as cinco telas em pílulas, o menu "⋯", o sino das aprovações e o Mestre de
- * obras (a conversa com o agente); trilho de atalhos à esquerda e o painel das conversas, que abre ao lado do trilho. Uma tela por vez no palco;
- * a conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
- * perderem. No celular o trilho some: o painel vira gaveta e as pílulas rolam na horizontal.
+ * A casca do app: topo de vidro com a obra, o Plumo (a conversa com o agente) e as cinco telas em pílulas, o menu "⋯" e
+ * o sino das aprovações; a lista das conversas abre à esquerda, só na tela do Plumo. Uma tela por vez no palco; a
+ * conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
+ * perderem. Início e Conta ficam no logo e no avatar. No celular a lista vira gaveta e as telas vão para a barra de baixo.
  */
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Obra, ResumoDaObra, Usuario } from "@/lib/contrato";
@@ -31,10 +31,11 @@ import { useCelular, useMidia } from "./midia";
 import { useCarregar } from "./useCarregar";
 import { useSessaoGarantida } from "./useSessaoGarantida";
 import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
+import { paradasDoTab, proximaParada } from "./foco";
 
 // Rótulo e ícone de cada tela (para o título de seção e o aria-label).
 const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
-  conversa: { rotulo: "Mestre de obras", icone: "mestre" },
+  conversa: { rotulo: "Plumo", icone: "spark" },
   projeto: { rotulo: "Projeto", icone: "predio" },
   orcamento: { rotulo: "Orçamento", icone: "calc" },
   suprimentos: { rotulo: "Compras", icone: "package" },
@@ -44,10 +45,11 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   aprovacoes: { rotulo: "Aprovações", icone: "checkCircle" },
   historico: { rotulo: "Histórico", icone: "history" },
 };
-// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados.
-// O projeto gera o cronograma estimado da obra toda; o orçamento é o detalhamento que a estimativa vai virando real.
-// Por isso Cronograma (a previsão da obra) vem antes do Orçamento (o detalhe), e depois Compras e Gastos (execução).
-const ABAS: AbaAtiva[] = ["projeto", "cronograma", "orcamento", "suprimentos", "gastos"];
+// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados. O Plumo
+// vem antes de tudo: é a casa da obra. O projeto gera o cronograma estimado da obra toda; o orçamento é o detalhamento
+// que a estimativa vai virando real. Por isso Cronograma (a previsão) vem antes do Orçamento (o detalhe), e depois
+// Compras e Gastos (execução).
+const ABAS: AbaAtiva[] = ["conversa", "projeto", "cronograma", "orcamento", "suprimentos", "gastos"];
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
@@ -78,7 +80,7 @@ export function Casca({ demo }: { demo: boolean }) {
   );
 }
 
-/** Abaixo disto o trilho some e o painel das conversas vira gaveta. */
+/** Abaixo disto o painel das conversas vira gaveta. */
 const MOVEL = "(max-width: 899px)";
 const CHAVE_PAINEL = "plumo.painel";
 // Última obra aberta neste navegador: uma aba nova em "/" volta nela, não na 1ª em andamento da lista.
@@ -87,13 +89,26 @@ const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
 }
-/** Começa fechado: a casa da obra precisa da largura. Só fica aberto para quem abriu (a preferência fica salva). */
+/** Começa aberto no computador, como no desenho da casa da obra; quem fechou continua com ele fechado (fica salvo). */
 export function lerPainel() {
   try {
-    return localStorage.getItem(CHAVE_PAINEL) === "aberto";
+    return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
   } catch {
-    return false;
+    return true;
   }
+}
+
+/** "Hoje", "Esta semana", "Este mês" ou o mês por extenso: os grupos da lista de conversas, das mais novas às mais velhas. */
+export function grupoDaData(iso: string, agora = new Date()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Mais antigas";
+  const dia = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dias = Math.round((dia(agora) - dia(d)) / 86400000);
+  if (dias <= 0) return "Hoje";
+  if (dias < 7) return "Esta semana";
+  if (d.getFullYear() === agora.getFullYear() && d.getMonth() === agora.getMonth()) return "Este mês";
+  const mes = new Intl.DateTimeFormat("pt-BR", { month: "long", ...(d.getFullYear() === agora.getFullYear() ? {} : { year: "numeric" }) }).format(d);
+  return mes[0]!.toUpperCase() + mes.slice(1);
 }
 
 function App({ usuario }: { usuario: Usuario }) {
@@ -119,12 +134,13 @@ function App({ usuario }: { usuario: Usuario }) {
   const [gaveta, setGaveta] = useState(false);
   const painel = useRef<HTMLElement>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
-  // No desktop o painel acompanha o Mestre de obras: nas outras telas o espaço é delas (o trilho reabre e leva a ele).
+  // No desktop o painel acompanha o Plumo: nas outras telas o espaço é delas.
   const painelAberto = movel ? gaveta : painelDesk && tela === "conversa";
   // Conversas mais antigas, por obra. A 1ª lista é global (as 30 mais recentes de todas as obras): tudo o que é mais
   // novo que a última dela já está aqui, então o cursor de TODAS as obras começa nessa data.
   const [cursorGlobal, setCursorGlobal] = useState<string | null>(null);
   const [maisConversas, setMaisConversas] = useState<Record<string, { antes: string | null; buscando?: boolean }>>({});
+  const [buscaConversa, setBuscaConversa] = useState("");
 
   const iniciou = useRef(false);
   useEffect(() => {
@@ -212,7 +228,8 @@ function App({ usuario }: { usuario: Usuario }) {
 
   const fecharGaveta = (devolverFoco = true) => {
     setGaveta(false);
-    if (devolverFoco) quemAbriu.current?.focus({ preventScroll: true });
+    // quem abriu só volta a aparecer quando a gaveta sai (com ela aberta ele fica escondido): foca no quadro seguinte
+    if (devolverFoco) requestAnimationFrame(() => quemAbriu.current?.focus({ preventScroll: true }));
   };
   const alternarPainel = () => {
     if (movel) {
@@ -315,6 +332,8 @@ function App({ usuario }: { usuario: Usuario }) {
       setMaisConversas((m) => ({ ...m, [obraId]: { antes } }));
     }
   };
+  // lista recolhida no computador: sobra uma faixa estreita com mostrar a lista e começar outra conversa
+  const trilhoConversas = !movel && tela === "conversa" && !painelAberto && Boolean(obra);
   const conteudo = erro ? (
     <div className="aviso-erro" role="alert">
       <Icone nome="alert" tam={15} />
@@ -329,7 +348,7 @@ function App({ usuario }: { usuario: Usuario }) {
     <div className="card vazio">
       <Icone nome="predio" tam={24} />
       <h3>Nenhuma obra ainda</h3>
-      <p>Cadastre a primeira obra para começar pelo projeto. As conversas com o mestre de obras aparecem aqui.</p>
+      <p>Cadastre a primeira obra para começar pelo projeto. As conversas com o Plumo aparecem aqui.</p>
       {podeCadastrar ? (
         <Link href="/obras/nova" className="btn amb">
           Cadastrar obra
@@ -339,7 +358,7 @@ function App({ usuario }: { usuario: Usuario }) {
   ) : null;
 
   return (
-    <div className={`app${painelAberto ? " com-painel" : ""}`}>
+    <div className={`app${painelAberto ? " com-painel" : trilhoConversas ? " com-trilho" : ""}`}>
       <Topo
         semAbas={barraCelular}
         obras={obras ?? []}
@@ -354,34 +373,22 @@ function App({ usuario }: { usuario: Usuario }) {
         abrirDados={() => setDadosObra(true)}
         inerte={movel && gaveta}
       />
-      <nav className="trilho" aria-label="Atalhos">
-        <Link href="/inicio" className="tr-btn" aria-label="Início" title="Início">
-          <Icone nome="home" tam={18} />
-        </Link>
-        <button
-          type="button"
-          className={`tr-btn${painelAberto ? " on" : ""}`}
-          aria-label={painelAberto ? "Esconder as conversas" : "Mostrar as conversas"}
-          aria-expanded={painelAberto}
-          aria-controls="painel-conversas"
-          title="Conversas com o mestre de obras"
-          onClick={alternarPainel}
-        >
-          <Icone nome="conversas" tam={18} />
-        </button>
-        <span className="tr-sep" aria-hidden="true" />
-        <Link href="/conta" className="tr-btn" aria-label="Conta e créditos" title="Conta e créditos">
-          <Icone nome="user" tam={18} />
-        </Link>
-      </nav>
+      {obra && !conteudo ? <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} /> : null}
+      {trilhoConversas && obra ? (
+        <nav className="trilho-conv" aria-label="Conversas">
+          <button type="button" className="tr-btn" aria-label="Mostrar a lista de conversas" title="Conversas" aria-expanded={false} aria-controls="painel-conversas" onClick={alternarPainel}>
+            <Icone nome="painel" tam={18} />
+          </button>
+          <button type="button" className="tr-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
+            <Icone nome="plus" tam={18} />
+          </button>
+        </nav>
+      ) : null}
       <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
         <div className="painel-cab">
-          <div>
-            <div className="painel-t">Conversas</div>
-            {obra ? <div className="painel-sub">{obra.nome}</div> : null}
-          </div>
-          <button type="button" className="tr-btn painel-x" aria-label="Fechar as conversas" onClick={() => (movel ? fecharGaveta() : alternarPainel())}>
-            <Icone nome="x" tam={16} />
+          <div className="painel-t">Conversas</div>
+          <button type="button" className="tr-btn painel-x" aria-label="Recolher as conversas" onClick={() => (movel ? fecharGaveta() : alternarPainel())}>
+            <Icone nome={movel ? "x" : "painel"} tam={16} />
           </button>
         </div>
         {obra ? (
@@ -390,23 +397,40 @@ function App({ usuario }: { usuario: Usuario }) {
             Nova conversa
           </button>
         ) : null}
+        <label className="busca painel-busca">
+          <Icone nome="busca" tam={15} />
+          <span className="sr-only">Buscar nas conversas</span>
+          <input type="search" placeholder="Buscar nas conversas" value={buscaConversa} onChange={(e) => setBuscaConversa(e.target.value)} />
+        </label>
         <div className="painel-lista">
-          {sessoes
-            // A conversa nova e vazia já é o botão "Nova conversa" acima: não entra na lista duas vezes.
-            .filter((s) => s.obraId === obra?.id && !(s.carregada && s.mensagens.length === 0))
-            .map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={`painel-sess${s.id === atual ? (tela === "conversa" ? " on" : " atual") : ""}`}
-                aria-current={s.id === atual ? "true" : undefined}
-                title={s.titulo}
-                onClick={() => escolherSessao(s.id)}
-              >
-                <Icone nome="message" tam={14} />
-                <span className="sess-t">{s.titulo}</span>
-              </button>
-            ))}
+          {(() => {
+            const q = buscaConversa.trim().toLowerCase();
+            const lista = sessoes
+              // A conversa nova e vazia já é o botão "Nova conversa" acima: não entra na lista duas vezes.
+              .filter((s) => s.obraId === obra?.id && !(s.carregada && s.mensagens.length === 0))
+              .filter((s) => !q || s.titulo.toLowerCase().includes(q));
+            if (q && !lista.length) return <p className="painel-vazio">Nenhuma conversa com «{buscaConversa.trim()}».</p>;
+            let anterior = "";
+            return lista.map((s) => {
+              const grupo = grupoDaData(s.atualizadoEm);
+              const cab = grupo !== anterior ? grupo : null;
+              anterior = grupo;
+              return (
+                <Fragment key={s.id}>
+                  {cab ? <p className="painel-grupo">{cab}</p> : null}
+                  <button
+                    type="button"
+                    className={`painel-sess${s.id === atual ? (tela === "conversa" ? " on" : " atual") : ""}`}
+                    aria-current={s.id === atual ? "true" : undefined}
+                    title={s.titulo}
+                    onClick={() => escolherSessao(s.id)}
+                  >
+                    <span className="sess-t">{s.titulo}</span>
+                  </button>
+                </Fragment>
+              );
+            });
+          })()}
           {obra && cursorDa(obra.id) ? (
             <button
               type="button"
@@ -451,16 +475,26 @@ function App({ usuario }: { usuario: Usuario }) {
         {conteudo ??
           (sessao && obra ? (
             <>
-              <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} />
               {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
-              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o mestre de obras" hidden={tela !== "conversa"}>
+              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o Plumo" hidden={tela !== "conversa"}>
                 <div className="conversa-cab">
                   <h1 className="conversa-t" title={sessao.titulo}>
                     {sessao.titulo}
                   </h1>
-                  <button type="button" className="btn sm so-movel" onClick={alternarPainel}>
-                    <Icone nome="conversas" tam={15} />
-                    Conversas
+                  <button type="button" className="btn sm conversa-nova" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
+                    <Icone nome="plus" tam={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn sm conversa-lista${painelAberto ? " on" : ""}`}
+                    aria-label="Conversas"
+                    title="Conversas"
+                    aria-expanded={painelAberto}
+                    aria-controls="painel-conversas"
+                    onClick={alternarPainel}
+                  >
+                    <Icone nome="painel" tam={16} />
+                    <span className="rot">Conversas</span>
                   </button>
                 </div>
                 <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} visivel={tela === "conversa"} />
@@ -544,7 +578,7 @@ function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaA
           >
             <Icone nome={ROTULOS[k].icone} tam={20} />
             <span className="bi-rot" aria-hidden="true">
-              {k === "conversa" ? "Mestre" : ROTULOS[k].rotulo}
+              {ROTULOS[k].rotulo}
             </span>
           </button>
         ))}
@@ -589,11 +623,20 @@ function FolhaMais(p: { fechar: () => void; telas: AbaAtiva[]; ir: (t: AbaAtiva)
     caixa.current?.querySelector<HTMLElement>("button,a")?.focus();
     const tecla = (e: KeyboardEvent) => {
       if (e.key === "Escape") fechar();
+      // o Tab anda só dentro da folha: atrás dela está o véu
+      if (e.key === "Tab" && caixa.current) {
+        const prox = proximaParada(paradasDoTab(caixa.current), document.activeElement, e.shiftKey);
+        if (prox) {
+          e.preventDefault();
+          prox.focus();
+        }
+      }
     };
     document.addEventListener("keydown", tecla);
     return () => {
       document.removeEventListener("keydown", tecla);
-      antes?.focus?.();
+      // a barra (com o botão Mais) só volta a aparecer depois de a folha sair: foca no quadro seguinte
+      requestAnimationFrame(() => antes?.focus?.());
     };
   }, [fechar]);
   return (
@@ -697,10 +740,11 @@ function Topo(p: {
             <button
               key={k}
               type="button"
-              className={`pilula${tela === k ? " on" : ""}`}
+              className={`pilula${k === "conversa" ? " plumo" : ""}${tela === k ? " on" : ""}`}
               aria-current={tela === k ? "page" : undefined}
               onClick={() => p.setTela(k)}
             >
+              {k === "conversa" ? <Icone nome="spark" tam={16} /> : null}
               {ROTULOS[k].rotulo}
             </button>
           ))}
@@ -727,12 +771,6 @@ function Topo(p: {
                 {p.pendentes}
               </span>
             ) : null}
-          </button>
-        ) : null}
-        {obra && !p.semAbas ? (
-          <button type="button" className={`btn sm topo-mestre${tela === "conversa" ? " on" : ""}`} aria-current={tela === "conversa" ? "page" : undefined} onClick={() => p.setTela("conversa")}>
-            <Icone nome="mestre" tam={16} />
-            {ROTULOS.conversa.rotulo}
           </button>
         ) : null}
         <MenuPerfil usuario={p.usuario} />
@@ -786,6 +824,7 @@ function SeletorObra({ obras, obra, resumo, trocar }: { obras: Obra[]; obra: Obr
         <span className="dot" style={{ background: COR_STATUS[obra.status] }} aria-hidden="true" />
         <span className="seletor-t">
           <span className="seletor-nome">{obra.nome}</span>
+          <span className="sr-only">, </span>
           <span className="seletor-st">{statusDaObra(obra, resumo)}</span>
         </span>
         <Icone nome="chevDown" tam={14} />

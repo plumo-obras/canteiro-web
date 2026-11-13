@@ -260,13 +260,24 @@ describe("enviar comprovante", () => {
     expect(screen.getByRole("button", { name: "Enviar e ler" })).toBeDisabled();
   });
 
-  it("não mostra um total de gastos próprio: o gasto da obra é o do placar", async () => {
-    rede({ "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 12000, a_revisar: 0, etapas: [] }) });
+  it("o Gasto até hoje é o realizado da obra (o do placar), nunca o total avulso do resumo de gastos", async () => {
+    rede({
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 12000, a_revisar: 0, etapas: [] }),
+      "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { realizado: 1_000_000, realizado_pct: 250 }, cronograma: {} }),
+    });
     render(comCasca(<Gastos obra={OBRA} />));
-    // o outro número do resumo na tela prova que ele já carregou
-    expect(await screen.findByText("Pagamentos de pedidos")).toBeInTheDocument();
-    expect(screen.queryByText("Gasto na obra")).toBeNull();
-    expect(screen.queryByText("R$ 350,00")).toBeNull();
+    const resumo = await screen.findByLabelText("Resumo");
+    expect(await within(resumo).findByText("R$ 10.000,00")).toBeInTheDocument();
+    expect(within(resumo).getByText("2,5% do orçado")).toBeInTheDocument();
+    // os lançados mostram o gasto de R$ 350,00; a faixa não soma o avulso por conta própria
+    expect(within(resumo).queryByText("R$ 350,00")).toBeNull();
+  });
+
+  it("sem o resumo da obra, o Gasto até hoje fica com traço em vez de inventar um número", async () => {
+    rede({ "GET /srv/api/obras/o1/resumo": () => json({ detail: "erro" }, 500) });
+    render(comCasca(<Gastos obra={OBRA} />));
+    const resumo = await screen.findByLabelText("Resumo");
+    expect(within(resumo).getByText("—")).toBeInTheDocument();
   });
 
   it("Por etapa mostra o entregue e ainda a pagar junto do pago, e o total dele no topo", async () => {
@@ -285,22 +296,25 @@ describe("enviar comprovante", () => {
     expect(linha).toHaveTextContent("+ R$ 24.974,40 entregue, ainda a pagar");
   });
 
-  it("gasto fora de pedido: selo 'fora de pedido' no lançamento, a soma no topo e na etapa (só marca, o total não muda)", async () => {
+  it("gasto fora de pedido: origem 'avulso' no lançamento, número do pedido no outro, a soma no topo e na etapa (só marca)", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala", fora_do_orcado: true }, { ...GASTO, id: "g2", descricao: "Cimento", pedido_id: "p1" }]),
+      "GET /srv/api/obras/o1/pedidos": () => json([{ id: "p1", numero: "PED-0007", fornecedor: "Depósito", valor: 35000, criado_em: "2026-11-01T10:00:00Z" }]),
       "GET /srv/api/obras/o1/gastos/resumo": () =>
         json({ total: 35000, pagamentos_de_pedidos: 35000, a_revisar: 0, fora_do_orcado: 35000, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, fora_do_orcado: 35000, topicos: [] }] }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
     expect(await screen.findByText("Fora de pedido")).toBeInTheDocument();
-    expect(screen.getByText("lançado sem pedido de compra")).toBeInTheDocument();
+    expect(screen.getByText("mão de obra e avulsos")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
     const etapa = screen.getByText("Fundações").closest("li")!;
     expect(etapa).toHaveTextContent("R$ 350,00 fora de pedido");
-    await userEvent.click(screen.getByRole("tab", { name: /Lançados/ }));
+    await userEvent.click(screen.getByRole("tab", { name: "Por data" }));
     const vidro = (await screen.findByText("Vidros da sala")).closest("li")!;
-    expect(within(vidro).getByText("fora de pedido")).toBeInTheDocument();
-    expect(within(screen.getByText("Cimento").closest("li")!).queryByText("fora de pedido")).toBeNull();
+    expect(within(vidro).getByText("avulso")).toBeInTheDocument();
+    const cimento = screen.getByText("Cimento").closest("li")!;
+    expect(within(cimento).getByText("PED-0007")).toBeInTheDocument();
+    expect(within(cimento).queryByText("avulso")).toBeNull();
   });
 
   it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {
@@ -309,7 +323,6 @@ describe("enviar comprovante", () => {
       "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 35000, etapas: [{ etapa: null, nome: "Sem etapa", total: 35000, topicos: [] }] }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
-    await userEvent.click(await screen.findByRole("tab", { name: /Lançados/ }));
     expect(await screen.findByText(/R\$ 350,00 em gastos sem etapa, para definir/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Definir etapa de/ }));
     expect(await screen.findByRole("dialog", { name: "Definir a etapa do gasto" })).toBeInTheDocument();
@@ -432,7 +445,6 @@ describe("aba Gastos", () => {
   it("Mudar etapa com a API de hoje (sem a rota): mensagem clara, nada quebra", async () => {
     const r = rede({ "PATCH /srv/api/gastos/g1": () => json({ detail: "Not Found" }, 404) });
     render(comCasca(<Gastos obra={OBRA} />));
-    await userEvent.click(await screen.findByRole("tab", { name: /Lançados/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Mudar etapa de mão de obra do quadro" }));
     await userEvent.selectOptions(screen.getByLabelText("Etapa"), "fundacao");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mudar etapa" }));
@@ -456,7 +468,6 @@ describe("aba Gastos", () => {
       "POST /srv/api/registro/reg-5/desfazer": () => json({ id: "reg-6", texto: "Desfeito", criado_em: "2026-11-05T10:00:00Z" }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
-    await userEvent.click(await screen.findByRole("tab", { name: /Lançados/ }));
     expect(await screen.findByText(/R\$ 350,00 em gastos sem etapa do orçamento/)).toBeInTheDocument();
     expect(screen.getAllByText("sem etapa do orçamento").length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "Mudar etapa de mão de obra do quadro" }));
@@ -465,7 +476,7 @@ describe("aba Gastos", () => {
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mudar etapa" }));
     expect(await screen.findByText("Movido para 18 · INSTALAÇÃO ELÉTRICA - 220V (R$ 350,00).")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: /Etapas e tópicos/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Etapas e tópicos" }));
     expect(await screen.findByText("As etapas são as do orçamento da obra.", { exact: false })).toBeInTheDocument();
     expect(screen.queryByText(/Obra sem orçamento/)).toBeNull();
   });
@@ -485,7 +496,7 @@ describe("aba Gastos", () => {
       "PATCH /srv/api/etapas-extras/e2": () => json({ id: "e2", nome: "Aterro (Aditivo 01)", arquivado: false, registro_id: "reg-7" }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
-    await userEvent.click(await screen.findByRole("tab", { name: /Etapas e tópicos/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Etapas e tópicos" }));
     expect(await screen.findByText(/Obra sem orçamento: etapas padrão/)).toBeInTheDocument();
     expect(screen.queryByText("Aterro (Aditivo 01)")).toBeNull();
     await userEvent.click(screen.getByLabelText(/Mostrar arquivados/));
@@ -518,7 +529,6 @@ describe("gastos lançados em páginas", () => {
   it("mostra 50 por vez e carrega os mais antigos pelo cursor até acabar", async () => {
     const r = rede({ "GET /srv/api/obras/o1/gastos": paginado });
     render(comCasca(<Gastos obra={OBRA} />));
-    await userEvent.click(await screen.findByRole("tab", { name: "Lançados" }));
     const lista = await screen.findByRole("list", { name: "Gastos lançados" });
     expect(within(lista).getAllByRole("listitem")).toHaveLength(50);
     await userEvent.click(screen.getByRole("button", { name: "Carregar gastos mais antigos" }));
@@ -536,7 +546,6 @@ describe("gastos lançados em páginas", () => {
       "PATCH /srv/api/gastos/g55": ({ corpo }) => json({ ...gasto(55), ...(corpo as object), registro_id: "reg-9" }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
-    await userEvent.click(await screen.findByRole("tab", { name: "Lançados" }));
     const lista = await screen.findByRole("list", { name: "Gastos lançados" });
     await userEvent.click(screen.getByRole("button", { name: "Carregar gastos mais antigos" }));
     await waitFor(() => expect(within(lista).getAllByRole("listitem")).toHaveLength(57));
@@ -545,5 +554,129 @@ describe("gastos lançados em páginas", () => {
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mudar etapa" }));
     await waitFor(() => expect(r.chamadas.filter((c) => c.caminho === "/srv/api/obras/o1/gastos").at(-1)!.url.searchParams.get("limite")).toBe("57"));
     expect(within(await screen.findByRole("list", { name: "Gastos lançados" })).getAllByRole("listitem")).toHaveLength(57);
+  });
+});
+
+describe("bloco A conferir", () => {
+  const celular = () =>
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width"), addEventListener: () => {}, removeEventListener: () => {} }));
+
+  it("no computador, os campos lidos já vêm preenchidos no bloco, sem janela; o que ficou em dúvida a pessoa escolhe", async () => {
+    let corpo: unknown = null;
+    rede({
+      "GET /srv/api/obras/o1/comprovantes": () => json([COMPROVANTE]),
+      "POST /srv/api/comprovantes/c1/confirmar": (r) => {
+        corpo = r.corpo;
+        return json({ gasto: { ...GASTO, valor: 48600 }, comprovante: { ...COMPROVANTE, status: "confirmado" }, registro_id: "reg-1" }, 201);
+      },
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    expect(await within(bloco).findByLabelText("Valor pago")).toHaveValue("R$ 486,00");
+    expect(within(bloco).getByLabelText("Quem recebeu")).toHaveValue("Madeireira Inventada");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // a data veio em dúvida: o campo fica vazio e as leituras viram botões
+    expect(within(bloco).getByRole("button", { name: "Confirmar gasto" })).toBeDisabled();
+    await userEvent.click(within(bloco).getByRole("button", { name: "03/11/2026" }));
+    expect(within(bloco).getByLabelText(/^Data/)).toHaveValue("2026-11-03");
+    await userEvent.selectOptions(within(bloco).getByLabelText(/^Etapa/), "Fundação");
+    await userEvent.click(within(bloco).getByRole("button", { name: "Confirmar gasto" }));
+    expect(await screen.findByText("Gasto de R$ 486,00 lançado.")).toBeInTheDocument();
+    expect(corpo).toMatchObject({ valor: 48600, data_pagamento: "2026-11-03", favorecido: "Madeireira Inventada", etapa: "fundacao" });
+  });
+
+  it("a leitura que chega depois do envio preenche o cartão sem recarregar a página", async () => {
+    // enviado agora: a fila ainda não tem a leitura e o detalhe vem vazio; a IA termina e a casca avisa (mudou)
+    let lido = false;
+    const vazio = campo("vazio", [], null);
+    const SEM_LEITURA = {
+      ...DETALHE,
+      revisao: { ...DETALHE.revisao, valor: vazio, data_pagamento: vazio, favorecido: vazio, descricao: vazio, classificacao: { estado: "vazio", escolhido: null, opcoes: [] } },
+    } as ComprovanteDetalhe;
+    rede({
+      "GET /srv/api/obras/o1/comprovantes": () => json([lido ? { ...COMPROVANTE, leitura: {}, lido_em: "2026-11-05T10:00:30Z" } : COMPROVANTE]),
+      "GET /srv/api/comprovantes/c1": () => json(lido ? DETALHE : SEM_LEITURA),
+    });
+    function LeituraChegou() {
+      const { mudou } = useCasca();
+      return (
+        <button type="button" onClick={() => ((lido = true), mudou())}>
+          leitura chegou
+        </button>
+      );
+    }
+    render(
+      comCasca(
+        <>
+          <Gastos obra={OBRA} />
+          <LeituraChegou />
+        </>,
+      ),
+    );
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    expect(await within(bloco).findByLabelText("Valor pago")).toHaveValue("");
+    await userEvent.click(screen.getByRole("button", { name: "leitura chegou" }));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: /A conferir · 1/ })).getByLabelText("Valor pago")).toHaveValue("R$ 486,00"));
+  });
+
+  it("no computador, corrigir um campo é digitar nele; Ver depois lança sem etapa", async () => {
+    let corpo: unknown = null;
+    rede({
+      "GET /srv/api/obras/o1/comprovantes": () => json([COMPROVANTE]),
+      "POST /srv/api/comprovantes/c1/confirmar": (r) => {
+        corpo = r.corpo;
+        return json({ gasto: { ...GASTO, valor: 50000 }, comprovante: { ...COMPROVANTE, status: "confirmado" }, registro_id: "reg-1" }, 201);
+      },
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    const valor = await within(bloco).findByLabelText("Valor pago");
+    await userEvent.clear(valor);
+    await userEvent.type(valor, "500,00");
+    await userEvent.click(within(bloco).getByRole("button", { name: "03/11/2026" }));
+    await userEvent.click(within(bloco).getByRole("button", { name: "Ver depois" }));
+    expect(await screen.findByText("Gasto de R$ 500,00 lançado.")).toBeInTheDocument();
+    expect(corpo).toMatchObject({ valor: 50000, etapa: null });
+  });
+
+  it("no celular, o compacto: Confirmar desligado quando a leitura deixou dúvida; Corrigir abre a revisão", async () => {
+    celular();
+    rede({ "GET /srv/api/obras/o1/comprovantes": () => json([COMPROVANTE]) });
+    render(comCasca(<Gastos obra={OBRA} />));
+    expect(await screen.findByRole("button", { name: /Fotografar comprovante/ })).toBeInTheDocument();
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    expect(await within(bloco).findByText("R$ 486,00")).toBeInTheDocument();
+    expect(within(bloco).getByText(/Confira antes: data do pagamento, etapa/)).toBeInTheDocument();
+    expect(within(bloco).getByRole("button", { name: "Confirmar" })).toBeDisabled();
+    await userEvent.click(within(bloco).getByRole("button", { name: "Corrigir" }));
+    expect(await screen.findByRole("dialog", { name: "Revisar comprovante" })).toBeInTheDocument();
+  });
+
+  it("no celular, leitura sem dúvida: Confirmar grava o que a revisão traria marcado", async () => {
+    celular();
+    const certo: ComprovanteDetalhe = {
+      ...DETALHE,
+      revisao: {
+        ...DETALHE.revisao,
+        data_pagamento: campo("lido", [["2026-11-03", "03/11/2026"]], 0),
+        classificacao: { ...DETALHE.revisao.classificacao, estado: "lido", escolhido: 0 },
+      },
+    };
+    let corpo: unknown = null;
+    rede({
+      "GET /srv/api/obras/o1/comprovantes": () => json([COMPROVANTE]),
+      "GET /srv/api/comprovantes/c1": () => json(certo),
+      "POST /srv/api/comprovantes/c1/confirmar": (r) => {
+        corpo = r.corpo;
+        return json({ gasto: { ...GASTO, valor: 48600 }, comprovante: { ...COMPROVANTE, status: "confirmado" }, registro_id: "reg-1" }, 201);
+      },
+    });
+    render(comCasca(<Gastos obra={OBRA} />));
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    const confirmar = await within(bloco).findByRole("button", { name: "Confirmar" });
+    await waitFor(() => expect(confirmar).toBeEnabled());
+    await userEvent.click(confirmar);
+    expect(await screen.findByText("Gasto de R$ 486,00 lançado.")).toBeInTheDocument();
+    expect(corpo).toMatchObject({ valor: 48600, data_pagamento: "2026-11-03", favorecido: "Madeireira Inventada", etapa: "fundacao" });
   });
 });

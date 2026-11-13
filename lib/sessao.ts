@@ -94,11 +94,12 @@ async function lerErro(r: Response, padrao = "Não foi possível entrar."): Prom
   return r.status === 429 ? "Muitas tentativas. Espere um pouco e tente de novo." : padrao;
 }
 
-export async function entrar(email: string, senha: string): Promise<{ ok: true } | { ok: false; mensagem: string }> {
+/** `manter: false` ("Manter conectado" desmarcado): a sessão acaba ao fechar o navegador. */
+export async function entrar(email: string, senha: string, manter = true): Promise<{ ok: true } | { ok: false; mensagem: string }> {
   const r = await fetch("/srv/auth/entrar", {
     method: "POST",
     headers: { "content-type": "application/json", ...CABECALHO_CSRF },
-    body: JSON.stringify({ email, senha }),
+    body: JSON.stringify({ email, senha, manter }),
   });
   if (!r.ok) return { ok: false, mensagem: r.status === 401 ? "E-mail ou senha não conferem." : await lerErro(r) };
   guardar((await r.json()) as RespostaSessao);

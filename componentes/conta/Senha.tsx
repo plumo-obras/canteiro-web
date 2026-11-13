@@ -35,7 +35,7 @@ export function Senha(props: { className: string; email: string }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const primeiro = useRef<HTMLInputElement>(null);
-  // O botão "Trocar senha" some quando o formulário abre: o foco vai para o primeiro campo.
+  // Ao abrir, o foco já vai para o primeiro campo: é o único passo seguinte possível.
   useEffect(() => {
     if (aberto) primeiro.current?.focus();
   }, [aberto]);
@@ -97,18 +97,26 @@ export function Senha(props: { className: string; email: string }) {
 
   return (
     <section className={props.className} aria-labelledby="t-senha" data-aberto={aberto}>
-      <h2 id="t-senha" className={s.h2}>
-        Senha
+      {/* Recolhível com botão (e não <details>): fechar precisa esquecer o que foi digitado, e o details fecharia sem avisar. */}
+      <h2 id="t-senha" className={s.h2Senha}>
+        <button
+          type="button"
+          className={s.abreSenha}
+          aria-expanded={aberto}
+          aria-controls={aberto ? "form-senha" : undefined}
+          aria-describedby="senha-explica"
+          aria-label="Trocar senha"
+          onClick={() => (ocupado ? undefined : aberto ? fechar() : setAberto(true))}
+        >
+          <span className={s.abreSenhaT}>Trocar senha</span>
+          <span id="senha-explica" className={s.abreSenhaMeta}>
+            Os outros aparelhos são desconectados.
+          </span>
+          <Icone nome="chevDown" tam={17} className={s.seta} />
+        </button>
       </h2>
-      {!aberto ? (
-        <>
-          <p className={s.texto}>Ao trocar a senha, os outros aparelhos onde você entrou são desconectados. Este continua conectado.</p>
-          <button type="button" className="btn" onClick={() => setAberto(true)}>
-            Trocar senha
-          </button>
-        </>
-      ) : (
-        <form className={s.formSenha} onSubmit={enviar} noValidate>
+      {!aberto ? null : (
+        <form id="form-senha" className={s.formSenha} onSubmit={enviar} noValidate>
           {/* Para o gerenciador de senhas saber de qual conta é a senha nova. */}
           <input type="text" name="username" autoComplete="username" value={props.email} readOnly hidden />
           {/* Os três campos lado a lado no desktop: cada aviso fica embaixo do seu campo. */}
@@ -160,7 +168,7 @@ export function Senha(props: { className: string; email: string }) {
           <div className={s.acoesSenha}>
             <button type="submit" className="btn pri" disabled={!!problema || ocupado} aria-busy={ocupado}>
               {ocupado ? <Icone nome="loader" className="spin" tam={15} /> : null}
-              Trocar senha
+              Salvar a nova senha
             </button>
             <button type="button" className="btn" onClick={fechar} disabled={ocupado}>
               Cancelar

@@ -22,8 +22,24 @@ const opcoesCookie = {
   maxAge: VIDA_COOKIE_S,
 };
 
-async function guardar(r: RespostaEntrar) {
-  (await cookies()).set(COOKIE_RENOVACAO, r.renovacao, opcoesCookie);
+/**
+ * "Manter conectado" desmarcado: o cookie de renovação vira cookie de sessão (sem maxAge, some ao fechar o navegador).
+ * A marca fica num cookie irmão para as renovações seguintes continuarem curtas — sem ela, a primeira renovação
+ * devolveria os 30 dias.
+ */
+const COOKIE_CURTA = `${COOKIE_RENOVACAO}_curta`;
+const { maxAge: _vida, ...opcoesSessao } = opcoesCookie;
+
+async function guardar(r: RespostaEntrar, curta?: boolean) {
+  const jar = await cookies();
+  const sessao = curta ?? jar.get(COOKIE_CURTA)?.value === "1";
+  if (sessao) {
+    jar.set(COOKIE_RENOVACAO, r.renovacao, opcoesSessao);
+    jar.set(COOKIE_CURTA, "1", opcoesSessao);
+  } else {
+    jar.set(COOKIE_RENOVACAO, r.renovacao, opcoesCookie);
+    if (jar.get(COOKIE_CURTA)) jar.delete({ name: COOKIE_CURTA, path: CAMINHO_COOKIE });
+  }
   const expira_em = modoDemo() ? VIDA_ACESSO_DEMO_S : segundosAteVencer(r.acesso);
   return json({ acesso: r.acesso, usuario: r.usuario, expira_em });
 }
@@ -31,6 +47,7 @@ async function guardar(r: RespostaEntrar) {
 async function limpar() {
   const jar = await cookies();
   jar.delete({ name: COOKIE_RENOVACAO, path: CAMINHO_COOKIE });
+  jar.delete({ name: COOKIE_CURTA, path: CAMINHO_COOKIE });
 }
 
 async function api(req: Request, rota: string, corpo: unknown) {
@@ -45,14 +62,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ acao: string }
   const jar = await cookies();
 
   if (acao === "entrar") {
-    const { email = "", senha = "" } = ((await req.json().catch(() => ({}))) ?? {}) as { email?: string; senha?: string };
+    const { email = "", senha = "", manter } = ((await req.json().catch(() => ({}))) ?? {}) as { email?: string; senha?: string; manter?: unknown };
+    // só um "false" explícito encurta: cliente antigo (sem o campo) continua com os 30 dias
+    const curta = manter === false;
     if (modoDemo()) {
       const r = entrarDemo(String(email), String(senha));
-      return r ? guardar(r) : json({ detail: "Informe e-mail e senha." }, 401);
+      return r ? guardar(r, curta) : json({ detail: "Informe e-mail e senha." }, 401);
     }
     const r = await api(req, "entrar", { email, senha });
     if (!r.ok) return new Response(r.body, { status: r.status, headers: { "content-type": r.headers.get("content-type") ?? "application/json" } });
-    return guardar((await r.json()) as RespostaEntrar);
+    return guardar((await r.json()) as RespostaEntrar, curta);
   }
 
   if (acao === "renovar") {

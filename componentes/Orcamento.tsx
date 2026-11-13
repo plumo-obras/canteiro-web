@@ -5,25 +5,24 @@
  * vêm prontas da API (GET /obras/{id}/orcamento), a tela só agrupa e filtra o que já chegou. Comprometido e Realizado
  * dependem de pedidos e notas, então só aparecem quando a obra estiver andando: aqui não se inventa número.
  */
-import { useState } from "react";
+import { Children, useState, type ReactNode } from "react";
 import type { Obra, Orcamento as DadosOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "./contexto";
-import { Confirmar, Drawer } from "./Dialogo";
-import { CabecalhoPagina } from "./CabecalhoPagina";
+import { Confirmar } from "./Dialogo";
+import { CabecalhoTela } from "./orcamento/CabecalhoTela";
 import { useCelular } from "./midia";
 import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
 import { ImportarOrcamento } from "./obra/ImportarOrcamento";
-import { MARGEM_CENTAVOS, tagVerba } from "./obra/verba";
-import { BlocoAditivos, csvAndamento, fmtPctAditivo } from "./orcamento/Andamento";
+import { tagVerba } from "./obra/verba";
+import { BlocoAditivos, csvAndamento, reaisInteiros } from "./orcamento/Andamento";
 import { baixarCsv } from "@/lib/csv";
-import { MenuMais } from "./MenuMais";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
-import { Ajuda } from "./Ajuda";
-import { ProximoPasso } from "./ProximoPasso";
+import { BotaoPlumo } from "./BotaoPlumo";
 import { situacao } from "./suprimentos/Itens";
+import s from "./orcamento/orcamento.module.css";
 
 
 export const nomeVersao = (v: Pick<VersaoOrcamento, "tipo" | "numero">) => (v.tipo === "contrato" ? "Orçamento inicial" : `${v.numero}º aditivo`);
@@ -49,7 +48,7 @@ const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("p
 const totalInsumo = (precisa: number, valor: number) => Math.round((precisa * valor) / 1000);
 
 export function Orcamento({ obra }: { obra: Obra }) {
-  const { versao, podeOperar, avisarFeito, mudou, avisar } = useCasca();
+  const { versao, podeOperar, avisar, avisarFeito, mudou } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
   const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(null);
@@ -92,37 +91,54 @@ export function Orcamento({ obra }: { obra: Obra }) {
   const estimadoTotal = (dado?.itens ?? []).filter((i) => i.tipo === "item" && i.fonte === "estimativa").reduce((s, i) => s + i.total, 0);
   const totalOrc = t?.atual ?? 0;
   const pctReal = totalOrc ? Math.round(((totalOrc - estimadoTotal) / totalOrc) * 100) : 100;
-  const [historico, setHistorico] = useState(false);
-  // Um botão só no cabeçalho: as ações de arquivo e o histórico vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
+  const celular = useCelular();
+  const { irParaTela } = useCasca();
+  // Um botão só no cabeçalho: as ações de arquivo vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
   const menu = [
     ...(podeOperar && (temOrcamento || materiais.length) ? [{ rotulo: "Importar planilha", acao: () => setModal("importar") }] : []),
     ...(podeOperar && temContrato ? [{ rotulo: "Prever obra completa (estimar fases)", acao: () => void organizarFases() }] : []),
     ...(dado && temOrcamento ? [{ rotulo: "Exportar CSV", acao: () => exportarCsv(obra, dado) }] : []),
-    ...(dado && dado.versoes.length ? [{ rotulo: "Histórico de versões", acao: () => setHistorico(true) }] : []),
   ];
 
+  const vigentes = dado?.versoes.filter((v) => v.ativa) ?? [];
+  const nAditivos = vigentes.filter((v) => v.tipo === "aditivo").length;
+  const ultimaData = vigentes.map((v) => v.data ?? "").sort().at(-1);
+  const verba = t ? tagVerba(t.atual, obra.verba) : null;
+  const estado = desfazendo ? "desfazendo a aprovação" : !emOrcamento ? "aprovada" : temContrato ? "em orçamento" : "começando";
+  // A linha de contexto do protótipo: qual versão é esta (inicial + aditivos), de quando, o estado e como fica contra
+  // o valor fechado no contrato.
+  const contexto = temOrcamento
+    ? [`Versão ${1 + nAditivos}${ultimaData ? ` de ${fmtData(ultimaData).slice(0, 5)}` : ""}`, estado, verba?.texto].filter(Boolean).join(" · ")
+    : undefined;
+
   return (
-    <div className="page">
-      <CabecalhoPagina
+    <div className={`page ${s.tela}`}>
+      <CabecalhoTela
         titulo="Orçamento"
-        selo={dado ? <span className={`pill ${emOrcamento || desfazendo ? "st-orc" : "st-ok"}`}>{desfazendo ? "desfazendo a aprovação" : !emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
-        acao={
-          podeOperar && podeAprovar ? (
-            <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
-              <Icone nome="check" tam={15} />
-              Aprovar
-            </button>
-          ) : null
+        contexto={contexto}
+        selo={dado ? <span className={`pill ${emOrcamento || desfazendo ? "st-orc" : "ok"}`}>{desfazendo ? "desfazendo" : !emOrcamento ? "aprovado" : temContrato ? "em orçamento" : "começando"}</span> : undefined}
+        acoes={
+          <>
+            <BotaoPlumo rotulo="Perguntar sobre o orçamento" />
+            {podeOperar && podeAprovar ? (
+              <button type="button" className="btn amb" onClick={() => setModal("aprovar")}>
+                <Icone nome="check" tam={15} />
+                Aprovar orçamento
+              </button>
+            ) : null}
+          </>
         }
         menu={menu}
         rotuloMenu="Mais ações do orçamento"
-        {...(t && temOrcamento ? numerosOrcamento(t, obra) : {})}
       />
-      {historico && dado ? (
-        <Drawer titulo="Histórico de versões" fechar={() => setHistorico(false)}>
-          <Versoes versoes={dado.versoes} atual={dado.totais.atual} todas />
-        </Drawer>
+      {/* no celular o Aprovar não cabe no cabeçalho: vem logo abaixo, onde quem aprova vê */}
+      {celular && podeOperar && podeAprovar ? (
+        <button type="button" className={`btn amb ${s.cheio}`} onClick={() => setModal("aprovar")}>
+          <Icone nome="check" tam={15} />
+          Aprovar orçamento
+        </button>
       ) : null}
+      {t && temOrcamento ? <FaixaOrcamento t={t} obra={obra} celular={celular} /> : null}
 
       {desfazendo ? <AvisoDesfazendo obra={obra} nItens={materiais.length} /> : null}
 
@@ -138,18 +154,6 @@ export function Orcamento({ obra }: { obra: Obra }) {
           </div>
           <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da IA (padrão de obra, cruzado com o SINAPI). Conforme você detalha cada fase, viram reais e o cronograma se ajusta.</p>
         </div>
-      ) : null}
-
-      {/* Logo abaixo do cabeçalho, onde estava o Aprovar: no fim da tela ficava a 1.800 px e quem aprovava não via.
-          Antes de aprovar, o próximo passo é o próprio Aprovar; comprar só existe depois dele. */}
-      {dado && !emOrcamento && !desfazendo && nFalta ? (
-        <ProximoPasso
-          obraId={obra.id}
-          para="suprimentos"
-          acao="Comprar o que vem primeiro"
-          titulo={primeiraEtapa ? `A primeira etapa é ${primeiraEtapa}.` : "O orçamento está aprovado."}
-          texto={`${plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.`}
-        />
       ) : null}
 
       {orc.erro ? (
@@ -186,47 +190,59 @@ export function Orcamento({ obra }: { obra: Obra }) {
         </div>
       ) : dado ? (
         <>
-          {soDasPranchas(dado.versoes) ? (
-            <div className="aviso-atencao" role="note">
-              <Icone nome="alert" tam={15} />
-              <div>
-                <p>
-                  <b>Este orçamento tem só o que as pranchas trazem: estrutura e fundações.</b> Cobertura, piso, instalações e mão de obra ainda não estão nele.
-                  {podeOperar && emOrcamento ? " Para completar, some a planilha da obra a ele." : ""}
-                </p>
+          <Etiquetas>
+            {soDasPranchas(dado.versoes) ? (
+              <Etiqueta tom="info">
+                Tem só o que as pranchas trazem: estrutura e fundações. Cobertura, piso, instalações e mão de obra ainda não estão nele.
                 {/* direto ao somar: é o caminho de quem quer completar, sem a pergunta "o que é esta planilha" */}
                 {podeOperar && emOrcamento ? (
-                  <button type="button" className="btn sm" onClick={() => setModal("somar")}>
+                  <button type="button" className={s.etqAcao} onClick={() => setModal("somar")}>
                     Somar a planilha da obra
                   </button>
                 ) : null}
-              </div>
-            </div>
-          ) : null}
-          {nSemPreco ? (
-            <div className="aviso-atencao" role="note">
-              <Icone nome="alert" tam={15} />
-              <p>
-                <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}.</b> {nSemPreco === 1 ? "Ele entra" : "Eles entram"} com R$ 0,00, e o orçado atual fica abaixo do custo real.
+              </Etiqueta>
+            ) : null}
+            {/* O próximo passo depois de aprovar vira a etiqueta azul do protótipo, um link para Compras: no fim da
+                tela ficava a 1.800 px e quem aprovava não via. Antes de aprovar, comprar não existe. */}
+            {!emOrcamento && !desfazendo && nFalta ? (
+              <EtiquetaPasso obraId={obra.id} etapa={primeiraEtapa} nFalta={nFalta} />
+            ) : null}
+            {nSemPreco ? (
+              <Etiqueta tom="atencao">
+                <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}</b>: {nSemPreco === 1 ? "entra" : "entram"} com R$ 0,00 e o orçado atual fica abaixo do custo real.
                 {podeOperar && !desfazendo ? " Toque no preço, na linha do item, para preencher." : ""}
-              </p>
-            </div>
-          ) : null}
-          {emOrcamento ? (
-            <p className="mut sm">
-              Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.
-            </p>
-          ) : null}
-          {dado.etapas.length ? <ResumoOrcamento orc={dado} /> : null}
+              </Etiqueta>
+            ) : null}
+            {emOrcamento ? (
+              <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.</Etiqueta>
+            ) : null}
+            {/* importada a lista de materiais, ela não aparece aqui (não é o orçamento por etapas): dizer onde ficou */}
+            {materiais.length ? (
+              <Etiqueta tom="neutro">
+                A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Compras.
+              </Etiqueta>
+            ) : null}
+          </Etiquetas>
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
-          <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
-          {/* Versão única (só o contrato, ex.: a Estrutura do projeto) não vira um bloco à parte — a etapa já a mostra.
-              O bloco aparece quando há aditivos, que é quando a comparação entre versões passa a importar. */}
-          {dado.versoes.length > 1 ? <Versoes versoes={dado.versoes} atual={dado.totais.atual} /> : null}
-          {materiais.length ? (
-            <p className="mut sm">
-              A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Suprimentos.
-            </p>
+          {/* Versões, aditivos e os dados do contrato não estão no protótipo: ficam recolhidos no fim, para conferir */}
+          {dado.versoes.length >= 1 || nAditivos || textoContrato(obra) ? (
+            <details className={s.recolhido}>
+              <summary>
+                <Icone nome="chevRight" tam={14} />
+                {nAditivos ? `Versões e aditivos (${dado.versoes.length})` : dado.versoes.length ? "Versões do orçamento" : "Dados do contrato"}
+              </summary>
+              <div className={s.recolhidoCorpo}>
+                {textoContrato(obra) ? <p className={s.contrato}>{textoContrato(obra)}</p> : null}
+                <BlocoAditivos orc={dado} nomeVersao={nomeVersao} fmtData={fmtData} />
+                {dado.versoes.length ? <Versoes versoes={dado.versoes} atual={dado.totais.atual} /> : null}
+              </div>
+            </details>
+          ) : null}
+          {celular ? (
+            <button type="button" className={`btn ${s.plumoCheio}`} onClick={() => irParaTela("conversa")}>
+              <Icone nome="spark" tam={16} />
+              Perguntar sobre o orçamento
+            </button>
           ) : null}
         </>
       ) : null}
@@ -314,87 +330,108 @@ export function reaisCurtos(c: number): string {
 }
 
 /**
- * Valor que no celular aparece curto ("R$ 2,07 mi"); tocar alterna para o cheio. Um só nó de texto, escolhido por JS:
- * o truque anterior (texto cheio com font-size 0 e o curto num ::after) quebrava no portal, que impõe tamanho mínimo de
- * fonte: o texto "escondido" voltava a ocupar espaço e empurrava o curto para fora ("R$ 2,0"). O cheio fica no
- * aria-label e no title.
+ * Os quatro números do Orçamento numa faixa só, como no protótipo: orçado atual (inicial + aditivos embaixo),
+ * comprometido (% do orçado), realizado e saldo a comprometer (o valor fechado embaixo, sem conta de margem: dinheiro
+ * se calcula na API). Em reais
+ * inteiros; o valor com centavos fica no title. No celular, 2 × 2 e só rótulo e valor.
  */
-function Valor({ c, classe = "" }: { c: number; classe?: string }) {
-  const [cheio, setCheio] = useState(false);
-  const celular = useCelular();
-  const curto = celular && !cheio;
+function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obra: Obra; celular: boolean }) {
+  const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
+  const celulas: { rotulo: string; valor: number; sub?: ReactNode; neg?: boolean }[] = [
+    {
+      rotulo: "Orçado atual",
+      valor: t.atual,
+      sub: t.aditivos ? (
+        <>
+          inicial <span className="fx-nw">{reaisInteiros(t.contratado)}</span> {t.aditivos < 0 ? "−" : "+"} aditivos <span className="fx-nw">{reaisInteiros(Math.abs(t.aditivos))}</span>
+        </>
+      ) : obra.verba ? (
+        <>
+          contrato <span className="fx-nw">{reaisInteiros(obra.verba)}</span>
+        </>
+      ) : undefined,
+    },
+    { rotulo: "Comprometido", valor: t.comprometido, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` },
+    // o orçado é preço de contrato (com BDI e mão de obra): o realizado de uma etapa não é o % executado dela
+    { rotulo: "Realizado", valor: t.realizado, sub: "entregue e lançado" },
+    {
+      rotulo: celular ? "Saldo" : "Saldo a comprometer",
+      valor: t.saldo,
+      neg: t.saldo < 0,
+      sub: obra.verba ? `valor fechado ${reaisInteiros(obra.verba)}` : undefined,
+    },
+  ];
   return (
-    <button
-      type="button"
-      className={`of-valor ${classe}${cheio ? " cheio" : ""}`}
-      aria-label={fmtReais(c)}
-      title={fmtReais(c)}
-      onClick={() => setCheio((x) => !x)}
-    >
-      {curto ? reaisCurtos(c) : fmtReais(c)}
-    </button>
+    <section className={s.faixa} aria-label="Resumo do orçamento">
+      <dl className={s.celulas}>
+        {celulas.map((c) => (
+          <div key={c.rotulo}>
+            <dt>{c.rotulo}</dt>
+            <dd className={c.neg ? "t-neg" : undefined} title={fmtReais(c.valor)}>
+              {c.valor < 0 ? `−${reaisInteiros(-c.valor)}` : reaisInteiros(c.valor)}
+            </dd>
+            {/* a legenda num dd próprio: <small> solto dentro do grupo do dl é marcação inválida */}
+            {c.sub && !celular ? (
+              <dd>
+                <small>{c.sub}</small>
+              </dd>
+            ) : null}
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
-/**
- * Os números do Orçamento na faixa do cabeçalho: o orçado atual grande (com a pílula do aditivo, o detalhe num toque)
- * e comprometido · realizado · saldo embaixo. A linha do contrato fecha a faixa.
- */
-function numerosOrcamento(t: DadosOrcamento["totais"], obra: Obra): Pick<Parameters<typeof CabecalhoPagina>[0], "principal" | "numeros" | "rodapeNumeros"> {
-  const saldo = t.saldo;
-  const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
-  const verba = tagVerba(t.atual, obra.verba);
-  // Só há aditivo depois de aprovar (antes, a planilha soma ao orçamento): o selo não aparece sem um de verdade.
-  const pilula = t.aditivos ? `${fmtPctAditivo(t.aditivos_pct)} aditivo` : verba && verba.texto !== "bate com o contrato" ? verba.texto : null;
-  // O vermelho é da comparação com o valor fechado; no selo de aditivo, o % é só informação.
-  const acima = !t.aditivos && verba?.tom === "acima";
-  return {
-    principal: {
-      rotulo: "Orçado atual",
-      valor: fmtReais(t.atual),
-      tag: pilula ? (
-        <Ajuda rotulo="Detalhe do orçado atual" gatilho={pilula} classe={`of-pilula${acima ? " t-acima" : ""}`}>
-          Orçamento inicial {fmtReais(t.contratado)}
-          {t.aditivos ? ` ${comSinal(t.aditivos)} em aditivos` : ""} = {fmtReais(t.atual)}.
-          {obra.verba ? ` Valor do contrato da obra: ${fmtReais(obra.verba)}${verba ? ` (${verba.texto})` : ""}.` : ""}
-        </Ajuda>
-      ) : undefined,
-    },
-    numeros: [
-      { rotulo: "Comprometido", valor: <Valor c={t.comprometido} />, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` },
-      {
-        rotulo: (
-          <>
-            <span className="fx-rt">Realizado</span>
-            <Ajuda rotulo="o realizado">
-              Compras e serviços recebidos, pelo preço do pedido. O orçado é preço de contrato (com BDI e mão de obra), então o realizado de uma etapa não é o
-              % executado dela: a medição física fica no Cronograma.
-            </Ajuda>
-          </>
-        ),
-        valor: <Valor c={t.realizado} />,
-      },
-      { rotulo: "Saldo", valor: <Valor c={saldo} classe={saldo < 0 ? "t-neg" : ""} /> },
-    ],
-    // cada valor numa peça sem quebra ("R$ 2.035.001,59" nunca parte); quem quebra é o separador
-    rodapeNumeros: textoContrato(obra)
-      ? textoContrato(obra)
-          .split(" · ")
-          .map((t, i) => (
-            <span key={i}>
-              {i ? " · " : ""}
-              <span className="fx-nw">{t}</span>
-            </span>
-          ))
-      : undefined,
-  };
+/** O próximo passo depois de aprovar, na etiqueta azul: a primeira etapa e quantos itens faltam, com o link para Compras. */
+function EtiquetaPasso({ obraId, etapa, nFalta }: { obraId: string; etapa?: string; nFalta: number }) {
+  const { irParaTela } = useCasca();
+  const busca = new URLSearchParams({ obra: obraId, tela: "suprimentos" });
+  return (
+    <section className={`${s.etq} ${s.info}`} aria-label="Próximo passo">
+      <span className={s.bola} aria-hidden="true" />
+      <span>
+        {etapa ? `A primeira etapa é ${etapa}: ` : "Orçamento aprovado: "}
+        {plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.{" "}
+        {/* link de verdade, para abrir em outra aba; o clique simples troca a tela sem recarregar */}
+        <a
+          className={s.etqAcao}
+          href={`/?${busca}`}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+            e.preventDefault();
+            irParaTela("suprimentos");
+          }}
+        >
+          Comprar o que vem primeiro
+        </a>
+      </span>
+    </section>
+  );
+}
+
+/** Os avisos da tela em etiquetas curtas, numa linha que quebra: avisam sem empurrar a planilha para baixo. */
+function Etiquetas({ children }: { children: ReactNode }) {
+  const itens = Children.toArray(children).filter(Boolean);
+  return itens.length ? <div className={s.etiquetas}>{itens}</div> : null;
+}
+
+function Etiqueta({ tom, children }: { tom: "info" | "atencao" | "neutro"; children: ReactNode }) {
+  return (
+    // a dica neutra não é aviso: só o que pede atenção é anunciado como nota
+    <p className={`${s.etq} ${s[tom]}`} role={tom === "neutro" ? undefined : "note"}>
+      <span className={s.bola} aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
 }
 
 /** Os dados do contrato à vista, só leitura (antes ficavam na linha de dados da obra): o engenheiro consulta sem abrir a edição. */
 export function textoContrato(o: Pick<Obra, "numero_contrato" | "verba" | "bdi" | "data_base">): string {
   return [
-    o.numero_contrato ? `Contrato nº ${o.numero_contrato}` : null,
-    o.verba ? fmtReais(o.verba) : null,
+    // sem o número, o valor sozinho embaixo da faixa não diz o que é: o rótulo vai junto
+    o.numero_contrato ? `Contrato nº ${o.numero_contrato}` : o.verba ? `Contrato ${fmtReais(o.verba)}` : null,
+    o.numero_contrato && o.verba ? fmtReais(o.verba) : null,
     o.bdi ? `BDI ${(o.bdi / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : null,
     o.data_base ? `data-base ${o.data_base.slice(5, 7)}/${o.data_base.slice(0, 4)}` : null,
   ]
@@ -413,29 +450,6 @@ function exportarCsv(obra: Obra, orc: DadosOrcamento) {
     .replace(/^-|-$/g, "")
     .toLowerCase();
   baixarCsv(`andamento-${nome}-${hoje}.csv`, csvAndamento(orc));
-}
-
-/**
- * Uma linha de orientação antes da lista de etapas, para bater o olho e saber o orçamento: quantas etapas e itens e a
- * maior etapa (onde está o dinheiro). Os números vêm prontos da API; a tela só acha o maior.
- */
-function ResumoOrcamento({ orc }: { orc: DadosOrcamento }) {
-  const maior = [...orc.etapas].filter((e) => e.descricao).sort((a, b) => b.atual - a.atual)[0];
-  return (
-    <p className="orc-resumo mut sm">
-      <span className="fx-nw">{plural(orc.totais.n_etapas, "etapa", "etapas")}</span>
-      {" · "}
-      <span className="fx-nw">{plural(orc.totais.n_itens, "item", "itens")}</span>
-      {maior ? (
-        <>
-          {" · maior etapa "}
-          <span className="fx-nw">
-            <b>{maior.descricao}</b> ({fmtReais(maior.atual)})
-          </span>
-        </>
-      ) : null}
-    </p>
-  );
 }
 
 /* ---------------- versões: o contrato e os aditivos, com Desfazer ---------------- */

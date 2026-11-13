@@ -81,7 +81,7 @@ describe("conversa por SSE", () => {
         }),
     });
     render(<Harness />);
-    await userEvent.type(screen.getByLabelText("Pergunte ao mestre de obras"), "precisa comprar bloco?{Enter}");
+    await userEvent.type(screen.getByLabelText("Pergunte ao Plumo"), "precisa comprar bloco?{Enter}");
 
     const log = screen.getByRole("log");
     expect(await within(log).findByText("usou almoxarifado · Casa Vila Nova")).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("conversa por SSE", () => {
       "POST /srv/agente/conversa": () => sse(ev("texto", { delta: "ok" }) + ev("fim", { sessao_id: "srv-9", uso: { tokens: 1, custo: 0 } })),
     });
     render(<Harness />);
-    const campo = screen.getByLabelText("Pergunte ao mestre de obras");
+    const campo = screen.getByLabelText("Pergunte ao Plumo");
     await userEvent.type(campo, "um{Enter}");
     await screen.findByText("ok");
     await screen.findByTestId("sessao-servidor").then((el) => expect(el).toHaveTextContent("srv-9"));
@@ -128,7 +128,7 @@ describe("conversa por SSE", () => {
         ++vez === 1 ? sse(ev("erro", { mensagem: "Sem créditos de IA neste mês." })) : json({ mensagem: "Créditos esgotados." }, 402),
     });
     render(<Harness />);
-    const campo = screen.getByLabelText("Pergunte ao mestre de obras");
+    const campo = screen.getByLabelText("Pergunte ao Plumo");
     await userEvent.type(campo, "oi{Enter}");
     expect(await screen.findByText("Sem créditos de IA neste mês.")).toHaveAttribute("role", "alert");
     await userEvent.type(campo, "de novo{Enter}");
@@ -168,7 +168,7 @@ describe("Parar entre conversas", () => {
         ),
     });
     render(<HarnessDuas />);
-    await userEvent.type(screen.getByLabelText("Pergunte ao mestre de obras"), "quanto falta?{Enter}");
+    await userEvent.type(screen.getByLabelText("Pergunte ao Plumo"), "quanto falta?{Enter}");
     expect(await screen.findByText("calculando")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Parar" })).toBeInTheDocument();
 

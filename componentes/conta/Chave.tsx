@@ -21,7 +21,14 @@ export function problemaNaChave(chave: string): string | null {
   return null;
 }
 
-export function Chave(props: { className: string; situacao: ChavePropria | null; podeTrocar: boolean; mudou: () => void }) {
+export function Chave(props: {
+  className: string;
+  situacao: ChavePropria | null;
+  podeTrocar: boolean;
+  mudou: () => void;
+  /** Celular: só a linha de situação; as ações abrem ao tocar no cartão. */
+  compacto?: boolean;
+}) {
   const { situacao, podeTrocar, mudou } = props;
   const { avisar } = useCasca();
   const ativa = !!situacao?.ativa;
@@ -74,39 +81,38 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
   };
 
   const final = situacao?.final?.replace(/^…/, "");
-  return (
-    <section className={props.className} aria-labelledby="t-chave">
-      <h2 id="t-chave" className={s.h2}>
-        Chave própria da Anthropic
-      </h2>
-      <p className={s.situacao} data-ativa={ativa}>
-        <span className={s.sinal} aria-hidden="true" />
-        {ativa ? (
-          <span>
-            <b>Ativa</b>, termina em <code className={s.final}>…{final}</code>
-            {situacao?.conectada_por || situacao?.cadastrada_em ? (
-              <span className={s.diz}>
-                {" · conectada"}
-                {situacao.conectada_por ? ` por ${situacao.conectada_por}` : ""}
-                {situacao.cadastrada_em ? ` em ${fmtDiaHora(situacao.cadastrada_em)}` : ""}
-              </span>
-            ) : null}
-          </span>
-        ) : (
-          <span>
-            <b>Nenhuma chave conectada.</b> As conversas usam os créditos da empresa.
-          </span>
-        )}
+  // "por Marina em 12/11": o dia basta; a hora exata não muda nada para quem lê
+  const quando = situacao?.cadastrada_em ? fmtDiaHora(situacao.cadastrada_em).split(" ")[0] : "";
+  const quem = [situacao?.conectada_por ? `por ${situacao.conectada_por}` : "", quando ? `em ${quando}` : ""].filter(Boolean).join(" ");
+  const [abertoCel, setAbertoCel] = useState(false);
+
+  const como = (
+    <details className={s.como}>
+      <summary>
+        Como conseguir a chave
+        <Icone nome="chevDown" tam={15} className={s.seta} />
+      </summary>
+      <p className={s.texto}>
+        Com uma chave própria, o Plumo usa a sua conta da Anthropic e não desconta créditos; a cobrança vem da Anthropic direto para você.
       </p>
-      {/* Estado + um botão; o formulário só aparece quando a pessoa vai conectar ou trocar. */}
+      <p className={s.texto}>
+        Precisa ser uma <b>chave de API de uma organização</b> no Console da Anthropic (console.anthropic.com, começa com <code>sk-ant-</code>). A
+        assinatura Pro ou Max do Claude não serve.
+      </p>
+    </details>
+  );
+
+  // O pé do cartão: os botões, o formulário que entra no lugar deles (com o "como conseguir") ou o aviso de quem só lê.
+  const pe = (
+    <div className={s.pe}>
       {podeTrocar && !aberto ? (
         <div className={s.acoesChave}>
-          <button type="button" className="btn" onClick={() => setAberto(true)}>
+          <button type="button" className={`btn sm ${s.btPeq}`} onClick={() => setAberto(true)}>
             {ativa ? "Trocar chave" : "Conectar chave"}
           </button>
           {ativa ? (
-            <button type="button" className={`btn ${s.remover}`} onClick={() => setRemover(true)} disabled={ocupado}>
-              Remover chave
+            <button type="button" className={`btn sm ${s.btPeq}`} onClick={() => setRemover(true)} disabled={ocupado}>
+              Remover
             </button>
           ) : null}
         </div>
@@ -152,9 +158,10 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
               A chave é guardada cifrada e nunca mais aparece na tela, nem para você.
             </div>
           )}
+          {como}
           <button
             type="button"
-            className="link"
+            className={`link ${s.cancelar}`}
             onClick={() => {
               setAberto(false);
               setValor("");
@@ -170,17 +177,60 @@ export function Chave(props: { className: string; situacao: ChavePropria | null;
           Só admin ou master conecta, troca ou remove a chave.
         </p>
       )}
+    </div>
+  );
 
-      <details className={s.como}>
-        <summary>Como conseguir a chave</summary>
-        <p className={s.texto}>
-          Com uma chave própria, o Plumo usa a sua conta da Anthropic e não desconta créditos; a cobrança vem da Anthropic direto para você.
-        </p>
-        <p className={s.texto}>
-          Precisa ser uma <b>chave de API de uma organização</b> no Console da Anthropic (console.anthropic.com, começa com <code>sk-ant-</code>). A
-          assinatura Pro ou Max do Claude não serve.
-        </p>
-      </details>
+  const selo = (
+    <span className={s.selo} data-tom={ativa ? "ok" : "neutro"}>
+      {ativa ? "Ativa" : "Não conectada"}
+    </span>
+  );
+
+  return (
+    <section className={props.className} aria-labelledby="t-chave">
+      {props.compacto ? (
+        <>
+          {/* Celular: o cartão é uma linha de situação; tocar abre as ações (o protótipo não as mostra de cara). */}
+          <h2 id="t-chave" className={s.h2Cel}>
+            <button type="button" className={s.abreCel} aria-expanded={abertoCel} onClick={() => setAbertoCel((v) => !v)}>
+              <span className={s.esp}>Chave da Anthropic</span>
+              <span className="sr-only">, </span>
+              {selo}
+            </button>
+          </h2>
+          <p className={s.meta}>{ativa ? [`termina em …${final}`, quem].filter(Boolean).join(" · ") : "Não conectada: as conversas usam os créditos."}</p>
+          {abertoCel ? pe : null}
+        </>
+      ) : (
+        <>
+          <div className={s.cabCartao}>
+            <h2 id="t-chave" className={s.h2}>
+              Chave da Anthropic
+            </h2>
+            {selo}
+          </div>
+          <p className={s.meta}>
+            {ativa
+              ? "A IA da empresa usa esta chave. Nada é cobrado dos créditos da plataforma."
+              : "Nenhuma chave conectada. As conversas usam os créditos da empresa."}
+          </p>
+          {ativa ? (
+            <dl className={s.dados}>
+              <dt>Termina em</dt>
+              <dd>
+                <code className={s.final}>…{final}</code>
+              </dd>
+              {quem ? (
+                <>
+                  <dt>Conectada</dt>
+                  <dd>{quem}</dd>
+                </>
+              ) : null}
+            </dl>
+          ) : null}
+          {pe}
+        </>
+      )}
 
       {remover ? (
         <Modal

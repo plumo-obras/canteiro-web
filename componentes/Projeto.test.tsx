@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Obra, Usuario } from "@/lib/contrato";
@@ -60,12 +60,14 @@ describe("Projeto 3D", () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk });
     montar();
     expect(screen.getByRole("button", { name: /Arraste aqui as pranchas/ })).toBeInTheDocument();
+    // o pacote abre numa gaveta a partir do cartão da estrutura
+    await userEvent.setup().click(screen.getByRole("button", { name: "Pacote" }));
     const pacote = screen.getByRole("list", { name: "Partes do pacote" });
     expect(within(pacote).getAllByText("Falta").length).toBeGreaterThan(0);
     expect(screen.queryByRole("tab", { name: "3D" })).not.toBeInTheDocument();
   });
 
-  it("com o modelo: 3D e o pacote lado a lado; no 2D o pacote recolhe e volta pelo botão", async () => {
+  it("com o modelo: a estrutura ao lado do 3D; no CAD a coluna recolhe e volta pelo botão", async () => {
     localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
     const rede = criarRede({
       "POST /srv/auth/renovar": renovarOk,
@@ -76,7 +78,8 @@ describe("Projeto 3D", () => {
 
     expect(await screen.findByText("vista 3d")).toBeInTheDocument();
     expect(rede.chamadas.find((c) => c.caminho === "/srv/tradutor/projetos")?.url.searchParams.get("ids")).toBe("f1");
-    // o que falta e os números ficam no painel, sem rolar a página
+    // o que falta e os números ficam na gaveta do pacote, aberta pelo cartão da estrutura
+    await u.click(screen.getByRole("button", { name: /^Pacote/ }));
     expect(screen.getByText("1.129,2 kg")).toBeInTheDocument();
     expect(screen.getByText(/Para completar o modelo, falta/)).toBeInTheDocument();
 
@@ -84,15 +87,56 @@ describe("Projeto 3D", () => {
     await u.click(screen.getByRole("tab", { name: /Conferências/ }));
     const itens = within(screen.getByRole("tabpanel", { name: /Conferências/ })).getAllByRole("listitem");
     expect(itens[0]).toHaveTextContent("Verificar");
+    await u.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Fechar" }));
 
-    await u.click(screen.getByRole("tab", { name: "2D · editar no CAD" }));
+    await u.click(screen.getByRole("tab", { name: "CAD" }));
     expect(screen.getByText("editor cad")).toBeInTheDocument();
-    expect(screen.queryByRole("complementary", { name: "Pacote do projeto" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Disciplinas do projeto" })).not.toBeInTheDocument();
     const mostrar = screen.getByRole("button", { name: "Mostrar o pacote" });
     expect(mostrar).toHaveAttribute("aria-expanded", "false");
     await u.click(mostrar);
-    expect(screen.getByRole("complementary", { name: "Pacote do projeto" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Disciplinas do projeto" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Esconder o pacote" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("lado a lado: o 3D e o CAD juntos, e a coluna da estrutura recolhe", async () => {
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    const u = userEvent.setup();
+    montar();
+    await screen.findByText("vista 3d");
+    expect(screen.getByRole("group", { name: "Disciplinas do projeto" })).toBeInTheDocument();
+    await u.click(screen.getByRole("tab", { name: "Lado a lado" }));
+    expect(screen.getByText("vista 3d")).toBeInTheDocument();
+    expect(screen.getByText("editor cad")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Disciplinas do projeto" })).not.toBeInTheDocument();
+    // de volta ao 3D, o CAD sai de vista e a coluna volta
+    await u.click(screen.getByRole("tab", { name: "3D" }));
+    expect(screen.queryByText("editor cad")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Disciplinas do projeto" })).toBeInTheDocument();
+  });
+
+  it("no celular não há CAD: só o 3D, com o aviso de onde editar", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 760px"), addEventListener() {}, removeEventListener() {} }));
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    montar();
+    await screen.findByText("vista 3d");
+    expect(screen.getByText("Editar no CAD: só no computador")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "CAD" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Lado a lado" })).not.toBeInTheDocument();
+  });
+
+  it("outras disciplinas (simuladas): um cartão cada, e a escolha só muda a tela", async () => {
+    criarRede({ "POST /srv/auth/renovar": renovarOk });
+    montar();
+    for (const nome of ["Hidráulica", "Elétrica", "Prevenção de incêndio"]) expect(screen.getByRole("heading", { name: nome })).toBeInTheDocument();
+    const eletrica = screen.getByRole("heading", { name: "Elétrica" }).closest("section")!;
+    const vaiTer = within(eletrica).getByRole("button", { name: "Vai ter" });
+    expect(vaiTer).toHaveAttribute("aria-pressed", "false");
+    await userEvent.setup().click(vaiTer);
+    expect(vaiTer).toHaveAttribute("aria-pressed", "true");
+    expect(within(eletrica).getByText("Vai ter", { selector: "span" })).toBeInTheDocument();
   });
 
   it("próximo passo só com pranchas lidas: nem no vazio, nem com folha sendo lida", async () => {
@@ -114,11 +158,11 @@ describe("Projeto 3D", () => {
 
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
     montar();
+    // o atalho fica no cartão da estrutura; o passo em si, na gaveta dos materiais
+    await userEvent.setup().click(await screen.findByRole("button", { name: /Próximo passo: materiais no orçamento/ }));
     expect(within(await screen.findByRole("region", passo)).getByRole("link", { name: "Ver o orçamento" })).toHaveAttribute("href", "/?obra=o-1&tela=orcamento");
-    // o passo vem antes da mesa, e o Enviar pranchas deixa de ser o dourado da tela
-    const passoNaTela = screen.getByRole("region", passo);
-    expect(passoNaTela.compareDocumentPosition(screen.getByRole("region", { name: "Estrutura" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Enviar pranchas" })).not.toHaveClass("amb");
+    // com o modelo montado, o envio é o "+ Prancha" do pé do modelo, não um botão no cabeçalho
+    expect(screen.queryByRole("button", { name: "Enviar pranchas" })).toBeNull();
   });
 
   it("apagar o projeto pede confirmação, apaga cada leitura no tradutor e esvazia o pacote", async () => {
@@ -133,14 +177,14 @@ describe("Projeto 3D", () => {
     montar();
     await screen.findByText("vista 3d");
 
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     await u.click(screen.getByRole("menuitem", { name: "Apagar o projeto" }));
     const dialogo = screen.getByRole("dialog", { name: "Apagar o projeto desta obra?" });
     // Voltar não apaga nada
     await u.click(within(dialogo).getByRole("button", { name: "Voltar" }));
     expect(rede.chamadas.some((c) => c.metodo === "DELETE")).toBe(false);
 
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     await u.click(screen.getByRole("menuitem", { name: "Apagar o projeto" }));
     await u.click(screen.getByRole("button", { name: "Apagar 2 pranchas" }));
 
@@ -161,7 +205,7 @@ describe("Projeto 3D", () => {
     const u = userEvent.setup();
     montar();
     await screen.findByText("vista 3d");
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     await u.click(screen.getByRole("menuitem", { name: "Apagar o projeto" }));
     await u.click(screen.getByRole("button", { name: "Apagar 1 prancha" }));
     expect(await within(screen.getByRole("dialog")).findByText("O tradutor de pranchas não respondeu.")).toBeInTheDocument();
@@ -175,11 +219,23 @@ describe("Projeto 3D", () => {
     montar({ ...USUARIO, papel: "viewer" });
     await screen.findByText("vista 3d");
     expect(screen.queryByRole("button", { name: /Enviar pranchas/ })).not.toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto 3D" }));
+    await u.click(screen.getByRole("button", { name: "Mais ações do Projeto" }));
     expect(screen.queryByRole("menuitem", { name: "Apagar o projeto" })).not.toBeInTheDocument();
     await u.keyboard("{Escape}");
-    await u.click(screen.getByRole("tab", { name: /Folhas/ }));
+    await u.click(screen.getByRole("button", { name: /^Folhas/ }));
     expect(screen.queryByRole("button", { name: /Tirar/ })).not.toBeInTheDocument();
+  });
+
+  it("quem só lê não envia prancha arrastando para o cartão da estrutura", async () => {
+    localStorage.setItem("canteiro:projeto:o-1:folhas", JSON.stringify(FOLHAS.slice(0, 1)));
+    const rede = criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/tradutor/projetos": () => json(PROJETO) });
+    montar({ ...USUARIO, papel: "viewer" });
+    await screen.findByText("vista 3d");
+    const cartao = screen.getByRole("heading", { name: "Estrutura" }).closest("section")!;
+    const arquivo = new File(["%PDF"], "E-07.pdf", { type: "application/pdf" });
+    fireEvent.drop(cartao, { dataTransfer: { files: [arquivo] } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(rede.chamadas.filter((c) => c.metodo === "POST" && c.caminho.startsWith("/srv/tradutor"))).toEqual([]);
   });
 
   it("prancha acima de 4 MB nem sai do navegador e a pessoa sabe o que fazer", async () => {

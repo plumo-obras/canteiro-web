@@ -1,6 +1,6 @@
 "use client";
 /**
- * Aba Projeto 3D: o pacote do projeto estrutural da obra. Cada parte do pacote (locação, formas, fundações, pilares,
+ * Aba Projeto: o pacote do projeto estrutural da obra. Cada parte do pacote (locação, formas, fundações, pilares,
  * vigas, lajes, cortes) é responsável por um pedaço do modelo; a pessoa envia as pranchas (por parte ou várias de uma
  * vez) e o tradutor reconhece o que cada uma traz — uma prancha costuma cobrir várias partes. Com locação e formas, a
  * estrutura aparece em 3D; as outras partes completam o modelo (sapata com a medida real, armação) e as contas.
@@ -11,39 +11,17 @@ import type { Obra } from "@/lib/contrato";
 import { tradutor, type Elemento3D, type Projeto as ProjetoT } from "@/lib/tradutor";
 import { CabecalhoPagina } from "./CabecalhoPagina";
 import { useCasca } from "./contexto";
-import { Confirmar } from "./Dialogo";
+import { Confirmar, Drawer } from "./Dialogo";
 import { Icone } from "./Icone";
+import { useCelular } from "./midia";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
-import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
+import { CartaoMateriais, Materiais, useFluxoMateriais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
+import { gravarFolhas, lerFolhas, LIMITE_PRANCHA, type Folha } from "./obra/pranchas";
+import { AVISO_PREVIA } from "@/lib/simulado/aviso";
+import { DISCIPLINAS_SIMULADAS, FOLHAS_DEMO, type SituacaoDisciplina } from "@/lib/simulado/projeto";
 import s from "./projeto/projeto.module.css";
 
-/** Uma prancha enviada nesta obra. Quem decide o que ela é (locação, formas...) é o tradutor, não a pessoa. */
-interface Folha {
-  id: string;
-  nome: string;
-}
-
-// as folhas do pacote ficam neste navegador (o tradutor guarda cada leitura por 72 h); gravar na obra é da API, depois
-const chave = (obraId: string) => `canteiro:projeto:${obraId}:folhas`;
-function lerFolhas(obraId: string): Folha[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(chave(obraId)) ?? "[]") as unknown;
-    return Array.isArray(v) ? (v as Folha[]) : [];
-  } catch {
-    return [];
-  }
-}
-function gravarFolhas(obraId: string, f: Folha[]) {
-  try {
-    localStorage.setItem(chave(obraId), JSON.stringify(f));
-  } catch {
-    // navegador sem armazenamento: o pacote vale só enquanto a aba estiver aberta
-  }
-}
-
-/** Maior prancha aceita por envio (o limite de corpo das funções da Vercel é 4,5 MB). */
-const LIMITE_ENVIO = 4 * 1024 * 1024;
 
 const ROTULO_SITUACAO = { coberto: "Coberto", parcial: "Parcial", faltando: "Falta" } as const;
 
@@ -55,14 +33,22 @@ export function Projeto({ obra }: { obra: Obra }) {
   const entrada = useRef<HTMLInputElement>(null);
   const [sobre, setSobre] = useState(false);
   const [baixando, setBaixando] = useState(false);
-  const [vista, setVista] = useState<"3d" | "2d">("3d");
+  // 3D, o CAD sozinho ou os dois lado a lado (o clique no 3D leva o CAD ao elemento na hora)
+  const [vista, setVista] = useState<"3d" | "cad" | "lado">("3d");
   const [cadMontado, setCadMontado] = useState(false);
   const [foco, setFoco] = useState<Foco | null>(null);
-  const [aba, setAba] = useState<"pacote" | "materiais" | "conferencias" | "folhas">("pacote");
-  // no 2D o CAD precisa da largura toda (ele tem os próprios painéis): o pacote recolhe e volta por um botão
+  // o detalhe da estrutura (pacote, materiais, conferências, folhas) abre numa gaveta: a coluna fica só com as disciplinas
+  const [gaveta, setGaveta] = useState<"pacote" | "materiais" | "conferencias" | "folhas" | null>(null);
+  // SIMULADO: as outras disciplinas e a prévia da hidráulica ainda não existem na API (lib/simulado/projeto.ts)
+  const [disciplinas, setDisciplinas] = useState(DISCIPLINAS_SIMULADAS);
+  const [previa, setPrevia] = useState(false);
+  // com o CAD à vista ele precisa da largura toda (tem os próprios painéis): a coluna da estrutura recolhe e volta por um botão
   const [pacoteNo2d, setPacoteNo2d] = useState(false);
   const [apagando, setApagando] = useState(false);
-  const { podeOperar, avisar } = useCasca();
+  const { podeOperar, avisar, demo, irParaTela } = useCasca();
+  // o CAD (CADCraft num iframe) pede mouse e tela larga: no celular a vista é só o 3D
+  const celular = useCelular();
+  const modo = celular ? "3d" : vista;
   const vivo = useRef(true);
   const obraIdRef = useRef(obra.id);
   obraIdRef.current = obra.id;
@@ -88,13 +74,18 @@ export function Projeto({ obra }: { obra: Obra }) {
 
   useEffect(() => {
     vivo.current = true;
-    const f = lerFolhas(obra.id);
+    let f = lerFolhas(obra.id);
+    // a demonstração não tem o tradutor: a obra já começa com o projeto fictício (servido pelo repasse, SIMULADO)
+    if (demo && !f.length) {
+      f = FOLHAS_DEMO.map(({ id, nome }) => ({ id, nome }));
+      gravarFolhas(obra.id, f);
+    }
     setFolhas(f);
     void atualizar(f);
     return () => {
       vivo.current = false;
     };
-  }, [obra.id, atualizar]);
+  }, [obra.id, atualizar, demo]);
 
   // enquanto houver folha sendo lida (imagem leva minutos), o pacote se atualiza sozinho
   const lendo = (projeto?.em_andamento.length ?? 0) > 0;
@@ -109,7 +100,7 @@ export function Projeto({ obra }: { obra: Obra }) {
     setEnviando((v) => [...v, ...arquivos.map((a) => a.name)]);
     let lista = folhas;
     for (const a of arquivos) {
-      if (a.size > LIMITE_ENVIO) {
+      if (a.size > LIMITE_PRANCHA) {
         // o repasse roda numa função da Vercel, que recusa corpo acima de ~4,5 MB com um erro genérico
         setErro(`${a.name}: passa de 4 MB. Exporte a prancha em PDF pelo CAD (fica bem menor) ou reduza a resolução da imagem.`);
         setEnviando((v) => v.filter((n) => n !== a.name));
@@ -197,6 +188,7 @@ export function Projeto({ obra }: { obra: Obra }) {
   // com folha ainda sendo lida, os materiais e a conta do pacote vão mudar: nada de sugerir o passo seguinte
   const pranchasLidas = cobertas > 0 && !enviando.length && !projeto?.em_andamento.some((a) => a.status !== "falhou");
 
+  const temModelo = Boolean(projeto?.modelo3d);
   const acao = (
     <>
       <input
@@ -212,7 +204,7 @@ export function Projeto({ obra }: { obra: Obra }) {
           if (arqs.length) void enviar(arqs);
         }}
       />
-      {podeOperar ? (
+      {podeOperar && !temModelo ? (
       <button type="button" className={pranchasLidas ? "btn" : "btn amb"} disabled={enviando.length > 0} aria-busy={enviando.length > 0} onClick={escolherArquivos}>
         <Icone nome={enviando.length ? "loader" : "arrowUp"} tam={15} className={enviando.length ? "spin" : undefined} />
         Enviar pranchas
@@ -236,13 +228,15 @@ export function Projeto({ obra }: { obra: Obra }) {
     setVista("3d");
     setCadMontado(false);
     setPacoteNo2d(false);
-    setAba("pacote");
+    setGaveta(null);
     setApagando(false);
     avisar(`Projeto apagado: ${n} prancha${n === 1 ? "" : "s"} removida${n === 1 ? "" : "s"}.`);
   }
 
   const idsLidos = (projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id));
   const materiais = useMateriais(idsLidos, obra.uf || "SP");
+  // Fica montado com a página (não só na gaveta): é daqui que os materiais entram sozinhos no orçamento na 1ª vez.
+  const fluxo = useFluxoMateriais(obra, pranchasLidas ? materiais.dados : null);
 
   const q = projeto?.quantitativos;
   const o = projeto?.obra;
@@ -256,13 +250,35 @@ export function Projeto({ obra }: { obra: Obra }) {
     .sort((a, b) => Number(b.obrigatorio_para_3d) - Number(a.obrigatorio_para_3d));
   const lendoNomes = [...enviando, ...(projeto?.em_andamento ?? []).filter((a) => a.status !== "falhou").map((a) => a.nome ?? nomeFolha(a.id))];
   const verificar = (projeto?.conferencias.filter((c) => !c.ok).length ?? 0) + (projeto?.modelo3d?.avisos.length ?? 0);
-  const temModelo = Boolean(projeto?.modelo3d);
-  const painelVisivel = !temModelo || vista === "3d" || pacoteNo2d;
+  const painelVisivel = !temModelo || modo === "3d" || pacoteNo2d;
 
-  function abrir2d() {
+  function abrirCad(m: "cad" | "lado" = "cad") {
     setCadMontado(true);
-    setVista("2d");
+    setVista(m);
   }
+  const MODOS = [
+    { k: "3d", rotulo: "3D" },
+    { k: "cad", rotulo: "CAD" },
+    { k: "lado", rotulo: "Lado a lado" },
+  ] as const;
+
+  // o selo da disciplina: o que a pessoa precisa saber dela num relance
+  const seloEstrutura = lendoNomes.length
+    ? { tom: "info", t: "Lendo" }
+    : !projeto
+      ? { tom: "neutro", t: "Sem pranchas" }
+      : cobertas === projeto.pacote.length
+        ? { tom: "ok", t: "Completa" }
+        : projeto.pronto_para_3d
+          ? { tom: "atencao", t: "Em 3D, incompleta" }
+          : { tom: "atencao", t: "Falta para o 3D" };
+  const resumoEstrutura = [
+    `${folhas.length} prancha${folhas.length === 1 ? "" : "s"}`,
+    `pacote ${cobertas}/${(projeto?.pacote ?? PACOTE_VAZIO).length}`,
+    verificar ? `${verificar} para verificar` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const abas = [
     { k: "pacote", rotulo: "Pacote", n: projeto ? `${cobertas}/${projeto.pacote.length}` : null, dica: `${cobertas} de ${projeto?.pacote.length ?? 0} partes cobertas` },
@@ -345,7 +361,6 @@ export function Projeto({ obra }: { obra: Obra }) {
         })}
       </ul>
       {projeto?.nao_lidos_ainda.length ? <p className={s.explica}>Ainda não lidas, se o projeto tiver: {projeto.nao_lidos_ainda.join(", ")}.</p> : null}
-      {temModelo && podeOperar ? soltar : null}
     </>
   );
 
@@ -422,7 +437,13 @@ export function Projeto({ obra }: { obra: Obra }) {
 
   return (
     <div className={s.tela}>
-      <CabecalhoPagina titulo="Projeto 3D" sub={sub} acao={acao} menu={menu} rotuloMenu="Mais ações do Projeto 3D" />
+      <CabecalhoPagina
+        titulo="Projeto"
+        sub={sub ?? "Cada prancha que entra monta o modelo 3D e refaz o orçamento, as compras e o cronograma. O Plumo mostra o que muda, e nada é aplicado sem a sua aprovação."}
+        acao={acao}
+        menu={menu}
+        rotuloMenu="Mais ações do Projeto"
+      />
 
       {erro ? (
         <div className="aviso-erro" role="alert">
@@ -431,27 +452,141 @@ export function Projeto({ obra }: { obra: Obra }) {
         </div>
       ) : null}
 
-      {/* No topo: abaixo da mesa (uma tela inteira de altura) a pessoa não via o próximo passo. */}
-      {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
 
       <div className={`${s.mesa} ${painelVisivel ? "" : s.mesaCheia}`}>
-        <section className={s.visor} aria-label="Estrutura">
+        {/* À esquerda, as disciplinas do projeto, uma por cartão; a estrutura é a única que vem das pranchas hoje. */}
+        <div id="painel-pacote" className={s.lado} hidden={!painelVisivel} role="group" aria-label="Disciplinas do projeto">
+          <section className={s.disc} data-estado={seloEstrutura.tom} aria-labelledby="disc-estrutura" {...(podeOperar ? soltarAqui : {})}>
+            <div className={s.discCab}>
+              <h2 id="disc-estrutura" className={s.discT}>
+                Estrutura
+              </h2>
+              <span className={s.discSelo} data-tom={seloEstrutura.tom}>
+                {seloEstrutura.tom === "ok" ? <Icone nome="check" tam={12} /> : null}
+                {seloEstrutura.t}
+              </span>
+            </div>
+            <p className={s.discResumo}>{resumoEstrutura}</p>
+            {lendoNomes.length ? (
+              <div className={s.lendo} role="status">
+                <Icone nome="loader" tam={16} className="spin" />
+                <span>
+                  <b>Lendo {lendoNomes.join(", ")}</b>
+                  <small>PDF leva uns 20 s; imagem, alguns minutos. Pode trocar de aba.</small>
+                </span>
+              </div>
+            ) : null}
+            {/* o próximo passo: os materiais entram sozinhos no orçamento; entrados, vem o cronograma */}
+            {!pranchasLidas ? null : fluxo.entrando ? (
+              <span className={s.discProximo} role="status">
+                <Icone nome="loader" tam={13} className="spin" />
+                Materiais entrando no orçamento…
+              </span>
+            ) : fluxo.levado && podeOperar ? (
+              <button type="button" className={s.discProximo} onClick={() => irParaTela("cronograma", fluxo.temCronograma ? undefined : { gerar: true })}>
+                <span className={s.bola} aria-hidden="true" />
+                {fluxo.temCronograma ? "Próximo passo: acompanhar o cronograma" : "Próximo passo: gerar o cronograma"}
+              </button>
+            ) : (
+              <button type="button" className={s.discProximo} onClick={() => setGaveta("materiais")}>
+                <span className={s.bola} aria-hidden="true" />
+                Próximo passo: materiais no orçamento
+              </button>
+            )}
+            <div className={s.discPe}>
+              {abas.map((a) => (
+                <button key={a.k} type="button" className="btn sm" aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo} onClick={() => setGaveta(a.k)}>
+                  {a.rotulo}
+                  {a.n ? <span className={s.discN}>{a.n}</span> : null}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {disciplinas.map((d) => (
+            <section key={d.id} className={s.disc} data-estado={d.situacao} aria-labelledby={`disc-${d.id}`}>
+              <div className={s.discCab}>
+                <h2 id={`disc-${d.id}`} className={s.discT}>
+                  {d.nome}
+                </h2>
+                <span className={s.discSelo} data-tom={TOM_DISCIPLINA[d.situacao]}>
+                  {ROTULO_DISCIPLINA[d.situacao]}
+                </span>
+              </div>
+              <p className={s.discTexto}>{d.texto}</p>
+              {podeOperar || d.situacao === "proxima" ? (
+                <div className={s.discPe}>
+                  {d.situacao === "proxima" ? (
+                    <>
+                      {podeOperar ? (
+                        <button type="button" className="btn sm amb" aria-label={`Enviar pranchas da ${d.nome.toLowerCase()}`} onClick={() => avisar("Prévia: a leitura da hidráulica ainda não existe; nada foi enviado.")}>
+                          Enviar pranchas
+                        </button>
+                      ) : null}
+                      {temModelo ? (
+                        <button type="button" className="btn sm" aria-pressed={previa} onClick={() => setPrevia((v) => !v)}>
+                          {previa ? "Esconder a prévia" : "Ver prévia no 3D"}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
+                    (["vai_ter", "nao_vai_ter"] as const).map((op) => (
+                      <button
+                        key={op}
+                        type="button"
+                        className="btn sm"
+                        aria-pressed={d.situacao === op}
+                        onClick={() => {
+                          setDisciplinas((ds) => ds.map((x) => (x.id === d.id ? { ...x, situacao: x.situacao === op ? "nao_confirmada" : op } : x)));
+                          avisar(AVISO_PREVIA);
+                        }}
+                      >
+                        {op === "vai_ter" ? "Vai ter" : "Não vai ter"}
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ))}
+          {podeOperar ? (
+            <button type="button" className={`btn sm ${s.outraDisc}`} onClick={() => avisar(AVISO_PREVIA)}>
+              <Icone nome="plus" tam={14} />
+              Outra disciplina
+            </button>
+          ) : null}
+        </div>
+
+        <section className={s.visor} aria-label="Modelo da obra">
           {projeto?.modelo3d ? (
             <>
               <div className={s.visorCab}>
-                <div className="seg seg-pq" role="tablist" aria-label="Vista da estrutura">
-                  <button type="button" role="tab" id="vista-3d" aria-selected={vista === "3d"} aria-controls="vista-painel" className={vista === "3d" ? "on" : ""} onClick={() => setVista("3d")}>
-                    3D
-                  </button>
-                  <button type="button" role="tab" id="vista-2d" aria-selected={vista === "2d"} aria-controls="vista-painel" className={vista === "2d" ? "on" : ""} onClick={abrir2d}>
-                    2D · editar no CAD
-                  </button>
-                </div>
-                {foco ? (
+                <b className={s.visorT}>Modelo da obra</b>
+                {celular ? (
+                  <span className={s.soComputador}>Editar no CAD: só no computador</span>
+                ) : (
+                  <div className="seg seg-pq" role="tablist" aria-label="Vista da estrutura">
+                    {MODOS.map((m) => (
+                      <button
+                        key={m.k}
+                        type="button"
+                        role="tab"
+                        id={`vista-${m.k}`}
+                        aria-selected={modo === m.k}
+                        aria-controls="vista-painel"
+                        className={modo === m.k ? "on" : ""}
+                        onClick={() => (m.k === "3d" ? setVista("3d") : abrirCad(m.k))}
+                      >
+                        {m.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {celular ? null : foco ? (
                   <span className={s.selecao} role="status">
                     <b>{foco.id}</b>
-                    {vista === "3d" ? (
-                      <button type="button" className="btn sm" onClick={abrir2d}>
+                    {modo === "3d" ? (
+                      <button type="button" className="btn sm" onClick={() => abrirCad()}>
                         Editar {foco.id} no CAD
                       </button>
                     ) : (
@@ -459,18 +594,50 @@ export function Projeto({ obra }: { obra: Obra }) {
                     )}
                   </span>
                 ) : (
-                  <span className={s.dicaVista}>{vista === "3d" ? "Clique num elemento para vê-lo e editá-lo no CAD." : "Salve no CAD (Ctrl+S) para levar a edição ao 3D."}</span>
+                  <span className={s.dicaVista}>
+                    {modo === "3d"
+                      ? "Clique num elemento para vê-lo e editá-lo no CAD."
+                      : modo === "lado"
+                        ? "Clique no 3D e o CAD vai ao elemento. Salve no CAD (Ctrl+S) para levar a edição ao 3D."
+                        : "Salve no CAD (Ctrl+S) para levar a edição ao 3D."}
+                  </span>
                 )}
-                {vista === "2d" ? (
+                {modo !== "3d" ? (
                   <button type="button" className={`btn sm ${s.mostrarPacote}`} aria-expanded={pacoteNo2d} aria-controls="painel-pacote" onClick={() => setPacoteNo2d((v) => !v)}>
                     <Icone nome="planilha" tam={14} />
                     {pacoteNo2d ? "Esconder o pacote" : "Mostrar o pacote"}
                   </button>
                 ) : null}
               </div>
-              <div id="vista-painel" role="tabpanel" aria-labelledby={vista === "3d" ? "vista-3d" : "vista-2d"} className={s.visorCorpo}>
-                {vista === "3d" ? <Vista3D modelo={projeto.modelo3d} aoEscolher={escolher3d} /> : null}
-                {cadMontado ? <EditorCad espelho={baixarEspelho} aoSalvar={aoSalvarNoCad} foco={foco} visivel={vista === "2d"} /> : null}
+              <div id="vista-painel" role="tabpanel" aria-labelledby={celular ? undefined : `vista-${modo}`} className={`${s.visorCorpo} ${modo === "lado" ? s.visorLado : ""}`}>
+                {modo !== "cad" ? (
+                  <Vista3D
+                    modelo={projeto.modelo3d}
+                    aoEscolher={escolher3d}
+                    previa={previa}
+                    outras={disciplinas
+                      .filter((d) => d.situacao !== "nao_vai_ter")
+                      .map((d) =>
+                        d.situacao === "proxima"
+                          ? { rotulo: `${d.nome} · prévia`, ligada: previa, alternar: () => setPrevia((v) => !v) }
+                          : { rotulo: `${d.nome} · falta`, ligada: false, falta: true },
+                      )}
+                  />
+                ) : null}
+                {cadMontado && !celular ? <EditorCad espelho={baixarEspelho} aoSalvar={aoSalvarNoCad} foco={foco} visivel={modo !== "3d"} /> : null}
+              </div>
+              <div className={s.montado} aria-label="Pranchas que montam o modelo">
+                <span className={s.montadoT}>Montado com</span>
+                {folhas.map((f) => (
+                  <button key={f.id} type="button" className={s.pr} onClick={() => setGaveta("folhas")}>
+                    {f.nome.replace(/\.(pdf|png|jpe?g|tiff?|dxf)$/i, "")}
+                  </button>
+                ))}
+                {podeOperar ? (
+                  <button type="button" className={`${s.pr} ${s.prNova}`} disabled={enviando.length > 0} onClick={escolherArquivos} {...soltarAqui}>
+                    + Prancha ou DXF editado
+                  </button>
+                ) : null}
               </div>
             </>
           ) : (
@@ -486,39 +653,33 @@ export function Projeto({ obra }: { obra: Obra }) {
             </div>
           )}
         </section>
+      </div>
 
-        <aside id="painel-pacote" className={`card ${s.painel}`} aria-label="Pacote do projeto" hidden={!painelVisivel} {...soltarAqui}>
-          {lendoNomes.length ? (
-            <div className={s.lendo} role="status">
-              <Icone nome="loader" tam={16} className="spin" />
-              <span>
-                <b>Lendo {lendoNomes.join(", ")}</b>
-                <small>PDF leva uns 20 s; imagem, alguns minutos. Pode trocar de aba.</small>
-              </span>
-            </div>
-          ) : null}
-          <div className={`seg seg-pq ${s.abas}`} role="tablist" aria-label="Seções do pacote">
+      {gaveta ? (
+        <Drawer titulo={`Estrutura · ${abas.find((x) => x.k === gaveta)!.rotulo}`} fechar={() => setGaveta(null)}>
+          <div className="seg seg-pq" role="tablist" aria-label="Detalhe da estrutura">
             {abas.map((a) => (
-              <button key={a.k} type="button" role="tab" id={`aba-${a.k}`} aria-selected={aba === a.k} aria-controls="aba-painel" className={aba === a.k ? "on" : ""} onClick={() => setAba(a.k)} aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo}>
+              <button key={a.k} type="button" role="tab" aria-selected={gaveta === a.k} className={gaveta === a.k ? "on" : ""} onClick={() => setGaveta(a.k)}>
                 {a.rotulo}
-                {a.n ? <small className="seg-n">{a.n}</small> : null}
               </button>
             ))}
           </div>
-          <div id="aba-painel" role="tabpanel" aria-labelledby={`aba-${aba}`} className={s.painelCorpo}>
-            {aba === "pacote" ? (
+          <div role="tabpanel" aria-label={abas.find((x) => x.k === gaveta)!.rotulo} className={s.painelCorpo}>
+            {gaveta === "pacote" ? (
               painelPacote
-            ) : aba === "materiais" ? (
-              <Materiais {...materiais} />
-            ) : aba === "conferencias" ? (
+            ) : gaveta === "materiais" ? (
+              <>
+                {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} autoFluir={false} listaAoLado /> : null}
+                <Materiais {...materiais} />
+              </>
+            ) : gaveta === "conferencias" ? (
               painelConferencias
             ) : (
               painelFolhas
             )}
           </div>
-        </aside>
-      </div>
-
+        </Drawer>
+      ) : null}
       {apagando ? (
         <Confirmar titulo="Apagar o projeto desta obra?" confirmar={`Apagar ${folhas.length} prancha${folhas.length === 1 ? "" : "s"}`} fechar={() => setApagando(false)} aoConfirmar={apagarProjeto}>
           <p>
@@ -530,6 +691,9 @@ export function Projeto({ obra }: { obra: Obra }) {
     </div>
   );
 }
+
+const ROTULO_DISCIPLINA: Record<SituacaoDisciplina, string> = { proxima: "Próxima", nao_confirmada: "Não confirmada", vai_ter: "Vai ter", nao_vai_ter: "Não vai ter" };
+const TOM_DISCIPLINA: Record<SituacaoDisciplina, string> = { proxima: "atencao", nao_confirmada: "neutro", vai_ter: "info", nao_vai_ter: "neutro" };
 
 /** As partes antes de qualquer envio: a mesma lista do tradutor, para a pessoa ver o que o pacote pede. */
 const PACOTE_VAZIO: ProjetoT["pacote"] = (

@@ -37,8 +37,8 @@ afterEach(() => {
 describe("avisos do Orçamento", () => {
   it("itens sem preço: avisa na tela e o aprovar pede confirmação explícita", async () => {
     montar(orc("planilha.xlsx", [0, 0, 500]));
-    expect(await screen.findByText("2 itens sem preço.")).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Aprovar" }));
+    expect(await screen.findByText("2 itens sem preço")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Aprovar orçamento" }));
     const dialogo = screen.getByRole("dialog", { name: "Aprovar o orçamento?" });
     expect(dialogo).toHaveTextContent("2 itens estão sem preço.");
     expect(within(dialogo).getByRole("button", { name: "Aprovar mesmo assim" })).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("avisos do Orçamento", () => {
 
   it("todos com preço: sem aviso e o botão de sempre", async () => {
     montar(orc("planilha.xlsx", [500, 700]));
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Aprovar" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Aprovar orçamento" }));
     const dialogo = screen.getByRole("dialog", { name: "Aprovar o orçamento?" });
     expect(within(dialogo).getByRole("button", { name: "Aprovar orçamento" })).toBeInTheDocument();
     expect(screen.queryByText(/sem preço/)).toBeNull();
@@ -73,14 +73,15 @@ describe("avisos do Orçamento", () => {
       totais: { ...base.totais, contratado: 5_000_000, aditivos: 5_000_000, atual: 10_000_000, aditivos_pct: 10_000 },
     });
     expect(await screen.findByText("+100% sobre o orçamento aprovado")).not.toHaveClass("bad");
-    expect(screen.getByRole("button", { name: "+100% aditivo" })).not.toHaveClass("t-acima");
+    // na faixa, o inicial e os aditivos em texto, sem selo colorido
+    expect(screen.getByRole("region", { name: "Resumo do orçamento" })).toHaveTextContent(/inicial R\$\s50\.000 \+ aditivos R\$\s50\.000/);
     expect(screen.queryByText(/8\.666|limite legal|obra pública/)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("sem aditivo, sem selo de aditivo", async () => {
     montar(orc("planilha.xlsx", [500]));
-    await screen.findByText(/maior etapa/);
+    await screen.findByRole("table");
     expect(screen.queryByText(/aditivo/)).toBeNull();
   });
 
@@ -112,8 +113,8 @@ describe("Desfazer da aprovação pela metade", () => {
   it("avisa quantos itens ficaram, sem oferecer aprovar nem comprar", async () => {
     abrir(() => json({}));
     expect(await screen.findByText(/parou no meio: 2 itens ainda em Compras/)).toBeInTheDocument();
-    expect(screen.getByText("desfazendo a aprovação")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull();
+    expect(screen.getByText(/· desfazendo a aprovação/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aprovar orçamento" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Comprar o que vem primeiro" })).toBeNull();
   });
 
@@ -234,7 +235,7 @@ describe("ordem das etapas antes de aprovar", () => {
     const post = rede.chamadas.find((c) => c.metodo === "POST" && c.caminho.endsWith("/etapas/ordem"))!;
     expect(post.corpo).toMatchObject({ ordem: ["2", "1", "3"], chave_idempotencia: expect.any(String) });
     await waitFor(() => expect(screen.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
-    const lista = within(screen.getByRole("list", { name: "Etapas do orçamento" }));
+    const lista = within(screen.getByRole("table", { name: "Itens do orçamento por etapa" }));
     await waitFor(() => expect(lista.getByRole("button", { name: "Descer Estrutura" })).toHaveFocus());
   });
 
@@ -283,14 +284,14 @@ describe("ordem das etapas antes de aprovar", () => {
     await u.click(await screen.findByRole("button", { name: "Descer Estrutura" }));
     const ordens = () => rede.chamadas.filter((c) => c.caminho.endsWith("/etapas/ordem")).map((c) => (c.corpo as { ordem: string[] }).ordem);
     expect(ordens()).toEqual([["2", "1", "3"]]);
-    const lista = within(screen.getByRole("list", { name: "Etapas do orçamento" }));
+    const lista = within(screen.getByRole("table", { name: "Itens do orçamento por etapa" }));
     await waitFor(() => expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" })).toBeInTheDocument());
     expect(lista.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual([
       "Ordem de Serviços preliminares: etapa 1 de 3",
       "Ordem de Estrutura: etapa 2 de 3",
       "Ordem de Fundação: etapa 3 de 3",
     ]);
-    expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" }).closest("li")).toHaveClass("movida");
+    expect(lista.getByRole("group", { name: "Ordem de Estrutura: etapa 2 de 3" }).closest("tr")).toHaveClass("movida");
 
     // o aviso não sai do lugar: o 2º toque nele move a mesma etapa, não a vizinha que subiu para a linha dela
     const aviso = within(screen.getByRole("group", { name: "Etapa movida" }));
@@ -324,13 +325,13 @@ describe("ordem das etapas antes de aprovar", () => {
 
   it("aprovado: sem as setas", async () => {
     montarOrdem({ ...OBRA, status: "em_andamento" } as Obra);
-    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(await screen.findByText(/Serviços preliminares/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
   });
 
   it("viewer não vê as setas", async () => {
     montarOrdem(OBRA, { ...USUARIO, papel: "viewer" });
-    expect(await screen.findByText("Serviços preliminares")).toBeInTheDocument();
+    expect(await screen.findByText(/Serviços preliminares/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Descer / })).toBeNull();
   });
 });

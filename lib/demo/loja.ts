@@ -95,6 +95,8 @@ interface EstadoDemo {
   obrasPorChave: Map<string, Obra>;
   /** Histórico das conversas no formato que o agente grava (um item por mensagem, como na coleção `mensagens`). */
   sessoes: Map<string, { sessao: SessaoApi; mensagens: MensagemSessao[] }>;
+  /** Quem já recebeu as conversas de exemplo (uma vez por pessoa, na primeira lista). */
+  conversasDemo: Set<string>;
   /** E-mail com que cada pessoa entrou (o Usuario do contrato não traz e-mail; GET /conta traz). */
   emails: Map<string, string>;
   /** Da chave própria a demonstração guarda só o final, como a tela enxerga: a chave em si é descartada. */
@@ -109,7 +111,7 @@ type ItemDemo = ItemInsumo["insumo"];
 /** Preço e fornecedor de referência da demonstração, para a proposta de compra ter valor. */
 export const REFERENCIA: Record<string, { fornecedor: string; centavosPorUn: number }> = {
   bloco: { fornecedor: "Cerâmica Santa Rita", centavosPorUn: 320 },
-  aco: { fornecedor: "Gerdau · distribuidor Campinas", centavosPorUn: 660 },
+  aco: { fornecedor: "Aço Forte · distribuidor (fictício)", centavosPorUn: 660 },
   cimento: { fornecedor: "Depósito Ouro Verde", centavosPorUn: 3900 },
   areia: { fornecedor: "Areial Jaguari", centavosPorUn: 14000 },
 };
@@ -241,6 +243,17 @@ const normal = (t: string) => nomeChave(t).normalize("NFD").replace(/[\u0300-\u0
 const termoPrincipal = (d: string) => normal(d).split(" ").find((p) => p.length >= 3) ?? "";
 
 /**
+
+/** O bloco `cronograma` do resumo, a partir do GET /cronograma: o placar lê o prazo daqui. */
+function cronogramaDoResumo(c: Cronograma) {
+  return {
+    cadastrado: !!c.inicio && c.meses > 0,
+    mes_corrente: new Date().toISOString().slice(0, 7),
+    termino_contratual: c.prazo.termino_contratual,
+    termino_projetado: c.prazo.pct_medido === null ? null : c.prazo.termino_projetado,
+    atraso_decimos: c.prazo.pct_medido === null ? null : c.prazo.atraso_decimos,
+  };
+}
 
 /** Monta o GET /cronograma como a API: etapas do orçamento + a grade guardada, com mensal e prazo calculados. */
 function montarCronogramaDemo(e: EstadoDemo, o: Obra): Cronograma {
@@ -755,12 +768,21 @@ function semear(): EstadoDemo {
     idempotencia: new Map(),
     obrasPorChave: new Map(),
     sessoes: new Map(),
+    conversasDemo: new Set(),
     emails: new Map(),
     chave: null,
     creditos: { saldo: 0, franquia: 20_000_000 },
     uso: semearUso(obra.id, outras[0]!.id),
   };
   semearVersoes(e);
+  // A obra em andamento já tem cronograma (começou há dois meses), para Cronograma, Compras e o placar contarem a
+  // mesma história; a vitrine fica sem, para o Gerar com IA ter o que mostrar.
+  e.cronogramas.set(obra.id, {
+    inicio: somarMes(hojeSP().slice(0, 7), -2),
+    meses: 8,
+    etapas: [{ etapa: "1", percentuais: [1500, 2000, 2000, 1500, 1000, 1000, 500, 500] }],
+    registro_id: null,
+  });
   // A versão multi-etapa da obra-vitrine (quatro etapas na ordem de obra); orcamentoDemo as numera 1..4.
   {
     const etapas = [
@@ -808,6 +830,19 @@ function semear(): EstadoDemo {
       desfazer: null,
       desfeito: false,
     });
+  // Os dois meses antes disso: o bastante para o Histórico passar de uma leva da API (60) e a paginação aparecer.
+  const ROTINA: [string, string, string][] = [
+    ["Saída de 12 sc de Cimento CP-II 50 kg · Fundação · sapatas", "Joana (mestre)", "tela"],
+    ["Saída de 4 m³ de Areia média lavada · Fundação · sapatas", "Joana (mestre)", "whatsapp"],
+    ["Saída de 85 kg de Aço CA-50 10 mm · Fundação · sapatas", "Joana (mestre)", "tela"],
+    ["Diário de obra: concretagem das sapatas do eixo A", "Marina Duarte", "tela"],
+    ["Saída de 300 un de Bloco cerâmico 14×19×29 · Baldrame", "Joana (mestre)", "whatsapp"],
+    ["Gasto lançado: locação de betoneira (R$ 380,00)", "Rizzi", "tela"],
+  ];
+  for (let i = 0; i < 60; i++) {
+    const [texto, quem, origem] = ROTINA[i % ROTINA.length]!;
+    reg(texto, quem, origem, 21 + Math.floor(i / 2), i % 2 ? 15 : 8);
+  }
   reg("PED-0149: recebido → conferido · 4.000 un de Bloco cerâmico 14×19×29", "Joana (mestre)", "tela", 20);
   reg("PED-0150: recebido → conferido · 30 m³ de Areia média lavada", "Joana (mestre)", "tela", 18);
   reg("Saída de 1.050 un de Bloco cerâmico 14×19×29 · Alvenaria do térreo", "Joana (mestre)", "tela", 9);
@@ -816,7 +851,7 @@ function semear(): EstadoDemo {
   reg("PED-0158: aprovado → em_transito", "Rizzi", "tela", 5, 14);
   reg("Saída de 190 un de Bloco cerâmico 14×19×29 · Quebra no descarregamento", "Joana (mestre)", "whatsapp", 4);
   reg("PED-0160: aprovado → enviado", "Rizzi", "tela", 3, 11);
-  reg("PED-0167 criado: 600 kg de Aço CA-50 10 mm com Gerdau · distribuidor Campinas (R$ 4.020,00)", "Rizzi", "tela", 1, 16);
+  reg("PED-0167 criado: 600 kg de Aço CA-50 10 mm com Aço Forte · distribuidor (fictício) (R$ 4.020,00)", "Rizzi", "tela", 1, 16);
   return e;
 }
 
@@ -1005,6 +1040,37 @@ export function gravarNaSessao(id: string, u: Usuario, obraId: string | null, ti
     x.mensagens.push({ id: `${id}-${String(seq).padStart(6, "0")}`, sessao_id: id, seq, criado_em: agora, ...m });
   }
   x.sessao.atualizado_em = agora;
+}
+
+/**
+ * Conversas de exemplo para a lista do Plumo não abrir vazia na demonstração: algumas de hoje, da semana e do mês
+ * passado, cada uma com a pergunta e a resposta. Só na primeira lista de cada pessoa; o que ela conversar depois soma.
+ */
+function semearConversas(e: EstadoDemo, u: Usuario) {
+  // estado criado antes deste campo existir (servidor de dev recarregado a quente)
+  e.conversasDemo ??= new Set();
+  if (e.conversasDemo.has(u.id)) return;
+  e.conversasDemo.add(u.id);
+  const obraId = e.obras[0]!.id;
+  const dia = 86_400_000;
+  const exemplos: [string, number, string][] = [
+    ["Hidráulica: o que muda", 0.1, "Quando a planta da hidráulica chegar, refaço orçamento, compras e cronograma e te mostro antes de mudar."],
+    ["Comprovante do cimento", 2, "Li o comprovante do cimento e deixei para você conferir antes de lançar."],
+    ["Quando chega o aço?", 3, "O pedido do aço está a caminho. Aviso quando a entrega for registrada."],
+    ["O que falta comprar?", 4, "Faltam bloco cerâmico, cimento e areia da Estrutura. Posso montar o pedido."],
+    ["Orçamento da estrutura", 24, "O orçamento da Estrutura está aprovado. As compras seguem a ordem das etapas."],
+    ["Cronograma inicial", 26, "Montei o cronograma inicial em 11 meses. Ajuste o que não bater com a obra."],
+  ];
+  exemplos.forEach(([titulo, diasAtras, resposta], i) => {
+    const quando = new Date(Date.now() - diasAtras * dia).toISOString();
+    const id = `demo-conversa-${u.id}-${i}`;
+    gravarNaSessao(id, u, obraId, titulo, [
+      { papel: "user", conteudo: titulo },
+      { papel: "assistant", conteudo: [{ type: "text", text: resposta }] },
+    ]);
+    const x = e.sessoes.get(id)!;
+    x.sessao.criado_em = x.sessao.atualizado_em = quando;
+  });
 }
 
 /* ---------- escrita (o que a API faria) ---------- */
@@ -1535,10 +1601,35 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok(montarCronogramaDemo(e, o));
       }
       if (metodo === "POST" && b === "medicoes") return erro(422, INDISPONIVEL);
-      // a seção nem monta enquanto a demo não tem cronograma; quando ganhar, o desembolso vem vazio em vez de 404
+      // Com cronograma, o desembolso segue o previsto dele: a demo não mede nem paga, então o que falta sair é o orçado
+      // inteiro, mês a mês a partir de hoje. Sem cronograma, vem vazio em vez de 404.
       if (metodo === "GET" && b === "desembolso" && !id2) {
-        const orc = orcamentoDemo(e, obraPorId(e, id));
+        const ob = obraPorId(e, id);
+        const orc = orcamentoDemo(e, ob);
         const realizado = orc.totais.realizado;
+        const c = montarCronogramaDemo(e, ob);
+        const mesAtual = new Date().toISOString().slice(0, 7);
+        if (c.inicio && c.meses > 0) {
+          const meses = c.mensal.map((m) => {
+            const p = m.mes >= mesAtual ? m.previsto : 0;
+            return { mes: m.mes, pago: 0, previsto: m.previsto, projetado: p, projetado_no_ritmo: p };
+          });
+          const atrasado = c.mensal.filter((m) => m.mes < mesAtual).reduce((t, m) => t + m.previsto, 0);
+          const falta = orc.totais.atual;
+          return ok({
+            mes_atual: mesAtual,
+            base: "gastos",
+            mes_referencia: null,
+            atraso_meses: 0,
+            ritmo_pct: 10000,
+            termino_projetado: c.prazo.termino_contratual,
+            termino_no_ritmo: c.prazo.termino_contratual,
+            // o que o cronograma previa para antes de hoje e não saiu entra no mês corrente
+            meses: meses.map((m) => (m.mes === mesAtual ? { ...m, projetado: m.projetado + atrasado, projetado_no_ritmo: m.projetado_no_ritmo + atrasado } : m)),
+            etapas: c.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, realizado: 0, executado_pct: 0, falta: x.atual, devido_agora: 0, sem_cronograma: !x.percentuais.some((q) => q > 0) })),
+            totais: { orcado: orc.totais.atual, realizado, pago: 0, falta, custo_final: falta, desvio: 0, entregue_sem_pagamento: realizado, sem_mes: 0 },
+          });
+        }
         return ok({
           mes_atual: new Date().toISOString().slice(0, 7),
           base: "sem_cronograma",
@@ -1563,8 +1654,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok({
           obra,
           hoje: new Date().toISOString().slice(0, 10),
-          // a demonstração não tem cronograma: o mesmo "sem cronograma" que a API devolve
-          cronograma: { cadastrado: false, mes_corrente: new Date().toISOString().slice(0, 7), termino_contratual: null, termino_projetado: null, atraso_decimos: null },
+          // o cronograma gravado na demonstração (Gerar com IA ou à mão); sem medição, o projetado fica nulo como na API
+          cronograma: cronogramaDoResumo(montarCronogramaDemo(e, obra)),
           financeiro: {
             tem_orcamento: tem,
             contratado: t.contratado,
@@ -1859,6 +1950,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "POST" && id && b === "desfazer") return ok(desfazer(id, u));
     }
     if (metodo === "GET" && a === "sessoes" && !id) {
+      semearConversas(e, u);
       const ob = params.get("obra_id");
       const lim = Math.min(100, Number(params.get("limite") ?? 30) || 30);
       return ok(

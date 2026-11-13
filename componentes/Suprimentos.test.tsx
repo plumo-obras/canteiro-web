@@ -15,7 +15,7 @@ const item = (id: string, nome: string, etapa: string | null, comprar: number, v
 const ITENS = [item("a", "Aço", "2", 100_000, 1000), item("b", "Tapume", "1", 120_000, 6000), item("c", "Locação", "1", 530_000, 800), item("d", "Pago já", "1", 0, 100)];
 const ETAPAS = [{ etapa: "1", descricao: "Serviços preliminares" }, { etapa: "2", descricao: "Estrutura" }];
 const PEDIDO: Pedido = {
-  id: "p1", numero: "PED-0001", obra_id: "o1", fornecedor: "Ferragem Inventada", fornecedor_id: null, previsao: "2026-11-12", observacao: "", status: "aprovado", valor: 50000, recebimentos: 0, criado_em: "2026-11-07T15:00:00Z",
+  id: "p1", numero: "PED-0001", obra_id: "o1", fornecedor: "Ferragem Inventada", fornecedor_id: null, previsao: "2099-11-12", observacao: "", status: "aprovado", valor: 50000, recebimentos: 0, criado_em: "2026-11-07T15:00:00Z",
   linhas: [{ insumo_id: "a", nome: "Aço", unidade: "kg", tipo: "material", etapa: "2", quantidade: 50_000, valor_unitario: 1000, total: 50000, recebida: 0, falta_entregar: 50_000 }],
 };
 
@@ -57,15 +57,16 @@ describe("Compras", () => {
   it("marcar soma na barra e o pedido abre com quantidade e preço do orçamento", async () => {
     const rede = montar({ "POST /srv/api/obras/o1/pedidos": ({ corpo }) => json({ ...PEDIDO, numero: "PED-0002", valor: 79200, registro_id: "r1", corpo }, 201) });
     const u = userEvent.setup();
-    expect(await screen.findByRole("heading", { name: /Falta comprar · 3 itens do orçamento/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Falta comprar" })).toBeInTheDocument();
     expect(screen.queryByText("Pago já")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Fazer pedido/ })).toBeNull();
+    // o pé do cartão fica no lugar: sem nada marcado, o botão espera desligado
+    expect(screen.getByRole("button", { name: "Fazer pedido" })).toBeDisabled();
 
     const grupo = screen.getByRole("group", { name: "Serviços preliminares" });
     await u.click(within(grupo).getByRole("checkbox", { name: /Tapume/ }));
     await u.click(within(grupo).getByRole("checkbox", { name: /Locação/ }));
     expect(screen.getByText("2 itens marcados")).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s11\.440,00 pelo orçamento/)).toBeInTheDocument();
+    expect(screen.getByText(/≈ R\$\s11\.440$/)).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Fazer pedido dos 2 itens" }));
 
     const dialogo = await screen.findByRole("dialog", { name: "Pedido de 2 itens" });
@@ -195,8 +196,8 @@ describe("Compras", () => {
     const u = userEvent.setup();
     expect(await screen.findByText(/Termine-o no Orçamento/)).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).toBeNull();
-    await u.click(screen.getByRole("button", { name: "Mais ações de Compras" }));
-    expect(screen.queryByRole("menuitem", { name: "Pedido de item fora do orçamento" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Item fora do orçamento" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Fazer pedido/ })).toBeNull();
   });
 
   it("a etapa da linha vem do item e pode ser trocada no pedido", async () => {
@@ -243,7 +244,7 @@ describe("Compras", () => {
         ++tentativas === 1 ? json({ detail: "O servidor não respondeu." }, 502) : json({ recebimento: {}, pedido: { ...PEDIDO, status: "conferido" }, registro_id: "r9" }, 201),
     });
     const u = userEvent.setup();
-    expect(await screen.findByText("Pedido feito · chega 12/11")).toBeInTheDocument();
+    expect(await screen.findByText("chega 12/11")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Aço · 50 kg/ })).toBeInTheDocument();
 
     const chegou = screen.getByRole("button", { name: "Chegou: PED-0001" });
@@ -258,17 +259,45 @@ describe("Compras", () => {
     expect(corpos[1]!.chave_idempotencia).toBe(corpos[0]!.chave_idempotencia);
   });
 
-  it("estoque e fornecedores ficam no ⋯; viewer vê tudo sem marcar nem Chegou", async () => {
+  it("estoque e fornecedores são abas de Compras; viewer vê tudo sem marcar nem Chegou", async () => {
     montar({}, { ...USUARIO, papel: "viewer" });
     const u = userEvent.setup();
     await screen.findByRole("heading", { name: /Falta comprar/ });
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Chegou: PED-0001" })).toBeNull();
 
-    await u.click(screen.getByRole("button", { name: "Mais ações de Compras" }));
-    await u.click(screen.getByRole("menuitem", { name: "Estoque: entradas e saídas" }));
-    expect(screen.getByRole("heading", { name: "Estoque" })).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "← Compras" }));
+    expect(screen.queryByRole("button", { name: "Item fora do orçamento" })).toBeNull();
+
+    await u.click(screen.getByRole("tab", { name: "Estoque" }));
+    expect(screen.getByRole("tab", { name: "Estoque" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("heading", { name: /Falta comprar/ })).toBeNull();
+    await u.click(screen.getByRole("tab", { name: /^Comprar/ }));
     expect(await screen.findByRole("heading", { name: /Falta comprar/ })).toBeInTheDocument();
+  });
+
+  it("em cotação: Aprovar e Recusar… à vista; recusar confirma antes e cancela o pedido", async () => {
+    const COTACAO = { ...PEDIDO, status: "em_cotacao" as const };
+    const rede = montar({
+      "GET /srv/api/obras/o1/pedidos": ({ url }) => json(url.searchParams.getAll("status").includes("em_cotacao") ? [COTACAO] : []),
+      "POST /srv/api/pedidos/p1/avancar": () => json({ ...COTACAO, status: "cancelado", registro_id: "r3" }),
+    });
+    const u = userEvent.setup();
+    expect(await screen.findByText("falta aprovar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Aprovar PED-0001" })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Recusar PED-0001" }));
+    const dialogo = screen.getByRole("dialog", { name: "Recusar o PED-0001?" });
+    await u.click(within(dialogo).getByRole("button", { name: "Recusar pedido" }));
+    expect(await screen.findByText("PED-0001 recusado.")).toBeInTheDocument();
+    expect(rede.chamadas.find((c) => c.caminho.endsWith("/p1/avancar"))?.corpo).toMatchObject({ para: "cancelado" });
+  });
+
+  it("atrasado: Cobrar pelo Plumo é prévia, não finge que cobrou", async () => {
+    const ATRASADO = { ...PEDIDO, status: "enviado" as const, previsao: "2020-01-10" };
+    const rede = montar({ "GET /srv/api/obras/o1/pedidos": ({ url }) => json(url.searchParams.getAll("status").includes("enviado") ? [ATRASADO] : []) });
+    expect(await screen.findByText(/^atrasado \d+ dias$/)).toBeInTheDocument();
+    const antes = rede.chamadas.length;
+    await userEvent.setup().click(screen.getByRole("button", { name: "Cobrar pelo Plumo" }));
+    expect(await screen.findByText("Prévia: nada foi enviado ao fornecedor.")).toBeInTheDocument();
+    expect(rede.chamadas.slice(antes).filter((c) => c.metodo !== "GET")).toEqual([]);
   });
 });
