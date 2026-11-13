@@ -244,6 +244,17 @@ const termoPrincipal = (d: string) => normal(d).split(" ").find((p) => p.length 
 
 /**
 
+/** O bloco `cronograma` do resumo, a partir do GET /cronograma: o placar lê o prazo daqui. */
+function cronogramaDoResumo(c: Cronograma) {
+  return {
+    cadastrado: !!c.inicio && c.meses > 0,
+    mes_corrente: new Date().toISOString().slice(0, 7),
+    termino_contratual: c.prazo.termino_contratual,
+    termino_projetado: c.prazo.pct_medido === null ? null : c.prazo.termino_projetado,
+    atraso_decimos: c.prazo.pct_medido === null ? null : c.prazo.atraso_decimos,
+  };
+}
+
 /** Monta o GET /cronograma como a API: etapas do orçamento + a grade guardada, com mensal e prazo calculados. */
 function montarCronogramaDemo(e: EstadoDemo, o: Obra): Cronograma {
   const orc = orcamentoDemo(e, o);
@@ -764,6 +775,14 @@ function semear(): EstadoDemo {
     uso: semearUso(obra.id, outras[0]!.id),
   };
   semearVersoes(e);
+  // A obra em andamento já tem cronograma (começou há dois meses), para Cronograma, Compras e o placar contarem a
+  // mesma história; a vitrine fica sem, para o Gerar com IA ter o que mostrar.
+  e.cronogramas.set(obra.id, {
+    inicio: somarMes(hojeSP().slice(0, 7), -2),
+    meses: 8,
+    etapas: [{ etapa: "1", percentuais: [1500, 2000, 2000, 1500, 1000, 1000, 500, 500] }],
+    registro_id: null,
+  });
   // A versão multi-etapa da obra-vitrine (quatro etapas na ordem de obra); orcamentoDemo as numera 1..4.
   {
     const etapas = [
@@ -1582,10 +1601,35 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok(montarCronogramaDemo(e, o));
       }
       if (metodo === "POST" && b === "medicoes") return erro(422, INDISPONIVEL);
-      // a seção nem monta enquanto a demo não tem cronograma; quando ganhar, o desembolso vem vazio em vez de 404
+      // Com cronograma, o desembolso segue o previsto dele: a demo não mede nem paga, então o que falta sair é o orçado
+      // inteiro, mês a mês a partir de hoje. Sem cronograma, vem vazio em vez de 404.
       if (metodo === "GET" && b === "desembolso" && !id2) {
-        const orc = orcamentoDemo(e, obraPorId(e, id));
+        const ob = obraPorId(e, id);
+        const orc = orcamentoDemo(e, ob);
         const realizado = orc.totais.realizado;
+        const c = montarCronogramaDemo(e, ob);
+        const mesAtual = new Date().toISOString().slice(0, 7);
+        if (c.inicio && c.meses > 0) {
+          const meses = c.mensal.map((m) => {
+            const p = m.mes >= mesAtual ? m.previsto : 0;
+            return { mes: m.mes, pago: 0, previsto: m.previsto, projetado: p, projetado_no_ritmo: p };
+          });
+          const atrasado = c.mensal.filter((m) => m.mes < mesAtual).reduce((t, m) => t + m.previsto, 0);
+          const falta = orc.totais.atual;
+          return ok({
+            mes_atual: mesAtual,
+            base: "gastos",
+            mes_referencia: null,
+            atraso_meses: 0,
+            ritmo_pct: 10000,
+            termino_projetado: c.prazo.termino_contratual,
+            termino_no_ritmo: c.prazo.termino_contratual,
+            // o que o cronograma previa para antes de hoje e não saiu entra no mês corrente
+            meses: meses.map((m) => (m.mes === mesAtual ? { ...m, projetado: m.projetado + atrasado, projetado_no_ritmo: m.projetado_no_ritmo + atrasado } : m)),
+            etapas: c.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, realizado: 0, executado_pct: 0, falta: x.atual, devido_agora: 0, sem_cronograma: !x.percentuais.some((q) => q > 0) })),
+            totais: { orcado: orc.totais.atual, realizado, pago: 0, falta, custo_final: falta, desvio: 0, entregue_sem_pagamento: realizado, sem_mes: 0 },
+          });
+        }
         return ok({
           mes_atual: new Date().toISOString().slice(0, 7),
           base: "sem_cronograma",
@@ -1610,8 +1654,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok({
           obra,
           hoje: new Date().toISOString().slice(0, 10),
-          // a demonstração não tem cronograma: o mesmo "sem cronograma" que a API devolve
-          cronograma: { cadastrado: false, mes_corrente: new Date().toISOString().slice(0, 7), termino_contratual: null, termino_projetado: null, atraso_decimos: null },
+          // o cronograma gravado na demonstração (Gerar com IA ou à mão); sem medição, o projetado fica nulo como na API
+          cronograma: cronogramaDoResumo(montarCronogramaDemo(e, obra)),
           financeiro: {
             tem_orcamento: tem,
             contratado: t.contratado,

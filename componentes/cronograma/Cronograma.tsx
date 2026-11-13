@@ -352,12 +352,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
               <Desembolso obra={obra} />
             )}
           </div>
+          {vista === "etapas" ? <p className={c.legenda}>A linha ocre é hoje. Amarelo dentro da barra = medido; azul = previsto.</p> : null}
           <BaseOrcamento obraId={obra.id} />
-          {vista === "etapas" ? (
-            <p className={c.legenda}>
-              A linha ocre é hoje. Amarelo dentro da barra = medido; azul = previsto.
-            </p>
-          ) : null}
         </>
       )}
       {gaveta === "tabela" && dado ? <TabelaFisicoFinanceira crono={dado} fechar={() => setGaveta(null)} /> : null}

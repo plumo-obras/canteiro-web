@@ -15,7 +15,7 @@ import { Confirmar, Drawer } from "./Dialogo";
 import { Icone } from "./Icone";
 import { useCelular } from "./midia";
 import { EditorCad, type Foco } from "./projeto/EditorCad";
-import { CartaoMateriais, Materiais, useMateriais } from "./projeto/Materiais";
+import { CartaoMateriais, Materiais, useFluxoMateriais, useMateriais } from "./projeto/Materiais";
 import { Vista3D } from "./projeto/Vista3D";
 import { gravarFolhas, lerFolhas, LIMITE_PRANCHA, type Folha } from "./obra/pranchas";
 import { AVISO_PREVIA } from "@/lib/simulado/aviso";
@@ -45,7 +45,7 @@ export function Projeto({ obra }: { obra: Obra }) {
   // com o CAD à vista ele precisa da largura toda (tem os próprios painéis): a coluna da estrutura recolhe e volta por um botão
   const [pacoteNo2d, setPacoteNo2d] = useState(false);
   const [apagando, setApagando] = useState(false);
-  const { podeOperar, avisar, demo } = useCasca();
+  const { podeOperar, avisar, demo, irParaTela } = useCasca();
   // o CAD (CADCraft num iframe) pede mouse e tela larga: no celular a vista é só o 3D
   const celular = useCelular();
   const modo = celular ? "3d" : vista;
@@ -235,6 +235,8 @@ export function Projeto({ obra }: { obra: Obra }) {
 
   const idsLidos = (projeto?.traducoes ?? []).filter((id) => folhas.some((f) => f.id === id));
   const materiais = useMateriais(idsLidos, obra.uf || "SP");
+  // Fica montado com a página (não só na gaveta): é daqui que os materiais entram sozinhos no orçamento na 1ª vez.
+  const fluxo = useFluxoMateriais(obra, pranchasLidas ? materiais.dados : null);
 
   const q = projeto?.quantitativos;
   const o = projeto?.obra;
@@ -474,13 +476,23 @@ export function Projeto({ obra }: { obra: Obra }) {
                 </span>
               </div>
             ) : null}
-            {/* o próximo passo (levar os materiais ao orçamento) mora na gaveta dos materiais; aqui, o atalho */}
-            {pranchasLidas ? (
+            {/* o próximo passo: os materiais entram sozinhos no orçamento; entrados, vem o cronograma */}
+            {!pranchasLidas ? null : fluxo.entrando ? (
+              <span className={s.discProximo} role="status">
+                <Icone nome="loader" tam={13} className="spin" />
+                Materiais entrando no orçamento…
+              </span>
+            ) : fluxo.levado && podeOperar ? (
+              <button type="button" className={s.discProximo} onClick={() => irParaTela("cronograma", fluxo.temCronograma ? undefined : { gerar: true })}>
+                <span className={s.bola} aria-hidden="true" />
+                {fluxo.temCronograma ? "Próximo passo: acompanhar o cronograma" : "Próximo passo: gerar o cronograma"}
+              </button>
+            ) : (
               <button type="button" className={s.discProximo} onClick={() => setGaveta("materiais")}>
                 <span className={s.bola} aria-hidden="true" />
                 Próximo passo: materiais no orçamento
               </button>
-            ) : null}
+            )}
             <div className={s.discPe}>
               {abas.map((a) => (
                 <button key={a.k} type="button" className="btn sm" aria-label={a.n ? `${a.rotulo} (${a.dica})` : a.rotulo} onClick={() => setGaveta(a.k)}>
@@ -657,7 +669,7 @@ export function Projeto({ obra }: { obra: Obra }) {
               painelPacote
             ) : gaveta === "materiais" ? (
               <>
-                {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} /> : null}
+                {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} autoFluir={false} /> : null}
                 <Materiais {...materiais} />
               </>
             ) : gaveta === "conferencias" ? (
