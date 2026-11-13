@@ -275,6 +275,9 @@ function AConferir(p: {
       </section>
     );
   const c = p.fila.find((x) => x.id === aberto);
+  // O cartão busca o detalhe ao montar, e isso costuma ser logo depois do envio, antes de a IA terminar de ler. Com o
+  // lido_em na chave, a leitura que chega pela fila remonta o cartão com os campos preenchidos (antes, só recarregando).
+  const chave = `${aberto}:${c?.lido_em ?? ""}`;
   return (
     <section ref={p.ref} className={s.conferir} aria-labelledby="gastos-conferir">
       <div className={s.conferirCab}>
@@ -284,10 +287,10 @@ function AConferir(p: {
         {p.celular && c ? <SeloLeitura c={c} curto /> : null}
       </div>
       {p.celular ? (
-        <ConferirCompacto key={aberto} comprovanteId={aberto} obra={p.obra} corrigir={() => p.abrirModal(aberto)} terminou={() => p.terminou(aberto)} />
+        <ConferirCompacto key={chave} comprovanteId={aberto} obra={p.obra} corrigir={() => p.abrirModal(aberto)} terminou={() => p.terminou(aberto)} />
       ) : (
         <ConferirCartao
-          key={aberto}
+          key={chave}
           comprovanteId={aberto}
           obra={p.obra}
           selo={c ? <SeloLeitura c={c} /> : null}

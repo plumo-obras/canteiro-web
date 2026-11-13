@@ -585,6 +585,40 @@ describe("bloco A conferir", () => {
     expect(corpo).toMatchObject({ valor: 48600, data_pagamento: "2026-11-03", favorecido: "Madeireira Inventada", etapa: "fundacao" });
   });
 
+  it("a leitura que chega depois do envio preenche o cartão sem recarregar a página", async () => {
+    // enviado agora: a fila ainda não tem a leitura e o detalhe vem vazio; a IA termina e a casca avisa (mudou)
+    let lido = false;
+    const vazio = campo("vazio", [], null);
+    const SEM_LEITURA = {
+      ...DETALHE,
+      revisao: { ...DETALHE.revisao, valor: vazio, data_pagamento: vazio, favorecido: vazio, descricao: vazio, classificacao: { estado: "vazio", escolhido: null, opcoes: [] } },
+    } as ComprovanteDetalhe;
+    rede({
+      "GET /srv/api/obras/o1/comprovantes": () => json([lido ? { ...COMPROVANTE, leitura: {}, lido_em: "2026-11-05T10:00:30Z" } : COMPROVANTE]),
+      "GET /srv/api/comprovantes/c1": () => json(lido ? DETALHE : SEM_LEITURA),
+    });
+    function LeituraChegou() {
+      const { mudou } = useCasca();
+      return (
+        <button type="button" onClick={() => ((lido = true), mudou())}>
+          leitura chegou
+        </button>
+      );
+    }
+    render(
+      comCasca(
+        <>
+          <Gastos obra={OBRA} />
+          <LeituraChegou />
+        </>,
+      ),
+    );
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    expect(await within(bloco).findByLabelText("Valor pago")).toHaveValue("");
+    await userEvent.click(screen.getByRole("button", { name: "leitura chegou" }));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: /A conferir · 1/ })).getByLabelText("Valor pago")).toHaveValue("R$ 486,00"));
+  });
+
   it("no computador, corrigir um campo é digitar nele; Ver depois lança sem etapa", async () => {
     let corpo: unknown = null;
     rede({
