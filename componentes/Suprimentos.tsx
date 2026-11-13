@@ -10,7 +10,6 @@ import { api } from "@/lib/cliente";
 import { uuid7 } from "@/lib/ids";
 import { CabecalhoTela } from "./orcamento/CabecalhoTela";
 import { useCelular } from "./midia";
-import { inicioEtapaDemo } from "@/lib/simulado/compras";
 import { useCasca } from "./contexto";
 import { Icone } from "./Icone";
 import { useCarregar } from "./useCarregar";
@@ -32,7 +31,7 @@ type Secao = "compras" | "pedidos" | "estoque" | "fornecedores";
 const ouVazio = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
 
 export function Suprimentos({ obra }: { obra: Obra }) {
-  const { versao, podeOperar, demo } = useCasca();
+  const { versao, podeOperar } = useCasca();
   const celular = useCelular();
   const [secaoEscolhida, setSecao] = useState<Secao>("compras");
   // Pedidos só é aba no celular; no computador ele é a coluna ao lado do que falta comprar.
@@ -64,13 +63,7 @@ export function Suprimentos({ obra }: { obra: Obra }) {
   const inicioEtapa = (etapa: string): string | null => {
     const e = cronograma?.etapas.find((x) => x.etapa === etapa);
     const i = e ? e.percentuais.findIndex((p) => p > 0) : -1;
-    if (e && i >= 0) return cronograma?.mensal[i]?.mes ?? null;
-    // a demonstração não tem cronograma: as datas são de mentira e o arquivo do simulado diz isso
-    if (demo && !cronograma?.etapas.some((x) => x.percentuais.some((p) => p > 0))) {
-      const pos = etapas.findIndex((x) => x.etapa === etapa);
-      return pos >= 0 ? inicioEtapaDemo(pos, new Date()) : null;
-    }
-    return null;
+    return e && i >= 0 ? (cronograma?.mensal[i]?.mes ?? null) : null;
   };
 
   const nFalta = itens.filter((i) => i.conta.comprar > 0).length;

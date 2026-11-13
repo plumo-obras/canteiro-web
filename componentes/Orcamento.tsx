@@ -48,7 +48,7 @@ const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("p
 const totalInsumo = (precisa: number, valor: number) => Math.round((precisa * valor) / 1000);
 
 export function Orcamento({ obra }: { obra: Obra }) {
-  const { versao, podeOperar, avisarFeito, mudou } = useCasca();
+  const { versao, podeOperar, avisar, avisarFeito, mudou } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
   const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(null);

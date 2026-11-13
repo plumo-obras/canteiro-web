@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe("tela do cronograma", () => {
-  it("na demonstração sem cronograma, entra o simulado; com dado real, nunca", async () => {
+  it("sem cronograma (na demonstração também), o vazio oferece Gerar com IA ou montar à mão", async () => {
     criarRede({
       "POST /srv/auth/renovar": renovarOk,
       "GET /srv/api/obras/o1/cronograma": () => json({ ...CRONO, inicio: null, meses: 0, mensal: [] }),
@@ -59,27 +59,11 @@ describe("tela do cronograma", () => {
         <Cronograma obra={OBRA} />
       </ProvedorCasca>,
     );
-    // o simulado usa as etapas do orçamento da obra (aqui, as três do fixture) e só inventa os meses
-    expect(await screen.findByRole("button", { name: /^3 · Acabamento/ })).toBeInTheDocument();
-    expect(screen.getByText(/Valores fictícios/)).toBeInTheDocument();
-    // lançar a medição no simulado não grava nada: só avisa que é prévia
-    await userEvent.click(screen.getByRole("button", { name: "Lançar medição" }));
-    expect(await screen.findByText("Prévia: ainda não é salvo.")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("fora da demonstração, sem cronograma é o estado vazio (o simulado não aparece)", async () => {
-    criarRede({
-      "POST /srv/auth/renovar": renovarOk,
-      "GET /srv/api/obras/o1/cronograma": () => json({ ...CRONO, inicio: null, meses: 0, mensal: [] }),
-    });
-    render(
-      <ProvedorCasca usuario={USUARIO} demo={false}>
-        <Cronograma obra={OBRA} />
-      </ProvedorCasca>,
-    );
     expect(await screen.findByRole("heading", { name: "Sem cronograma ainda" })).toBeInTheDocument();
-    expect(screen.queryByText(/Valores fictícios/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Gerar com IA" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Montar à mão" })).toBeInTheDocument();
+    // nada de etapa inventada no lugar do vazio
+    expect(screen.queryByRole("button", { name: /^3 · Acabamento/ })).toBeNull();
   });
 
   it("o topo diz término, situação e medido; a ação principal é lançar a medição", async () => {

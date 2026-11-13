@@ -4,14 +4,13 @@
  * mensal, o medido e o término projetado (GET /obras/{id}/cronograma); a tela mostra, desenha a curva S e edita. O
  * topo diz numa linha quando termina, se está em dia e quanto foi medido; embaixo, uma vista por vez (Etapas, Curva S,
  * Desembolso), como no protótipo. As medições, a tabela, editar e o aditivo ficam no "⋯". Sem cronograma, o estado
- * vazio leva ao editor; na demonstração, que não tem cronograma, entra o fictício de lib/simulado. O aditivo de prazo
+ * vazio oferece o Gerar com IA (a proposta que a pessoa aprova) ou montar à mão. O aditivo de prazo
  * muda o prazo da obra (PATCH, com Desfazer) e abre o editor com os meses a mais, vazios, para redistribuir.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Cronograma as DadosCronograma, Obra, PrazoCronograma, Proposta } from "@/lib/contrato";
 import { api, conversar as conversarComAgente } from "@/lib/cliente";
 import { fmtMes, fmtMesLongo, fmtPct, indiceDoMes, listaMeses, situacaoEtapa } from "@/lib/cronograma";
-import { AVISO_PREVIA, cronogramaSimulado } from "@/lib/simulado/cronograma";
 import { mensagemDe, useCasca } from "../contexto";
 import { CartaoProposta } from "../CartaoProposta";
 import { BaseOrcamento } from "./BaseOrcamento";
@@ -120,7 +119,7 @@ function PrazoCelular({ crono }: { crono: DadosCronograma }) {
 /**
  * No modo real a API não gera cronograma: quem propõe é o agente (Claude). Pedimos pela conversa e devolvemos a
  * Proposta de cronograma que ele criar (POST /propostas). A conversa abre uma sessão própria; a Proposta é a mesma que
- * apareceria no chat do mestre de obras.
+ * apareceria na conversa com o Plumo.
  */
 const PEDIDO_AO_AGENTE =
   "Monte o cronograma desta obra a partir do orçamento e proponha para a minha aprovação agora. Sequencie as etapas na " +
@@ -139,7 +138,7 @@ async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   if (proposta) return proposta;
   // o agente respondeu sem propor (ex.: orçamento ralo): mostra o que ele disse, não um erro genérico
   const recado = texto.trim();
-  throw new Error(erro ?? (recado ? recado : "O mestre de obras não chegou a propor o cronograma. Tente de novo."));
+  throw new Error(erro ?? (recado ? recado : "O Plumo não chegou a propor o cronograma. Tente de novo."));
 }
 
 type Vista = "etapas" | "curva" | "desembolso";
@@ -150,12 +149,9 @@ const VISTAS: { k: Vista; rotulo: string }[] = [
 ];
 
 export function Cronograma({ obra }: { obra: Obra }) {
-  const { versao, podeOperar, demo, avisar, irParaTela, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
+  const { versao, podeOperar, demo, irParaTela, receberPropostas, lerFiltroTela, limparFiltroTela } = useCasca();
   const celular = useCelular();
-  const { dado: daApi, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
-  // a demonstração não tem cronograma: no lugar do vazio, o fictício de lib/simulado (nunca com dado real)
-  const simulado = useMemo(() => (demo && daApi && !(daApi.inicio && daApi.meses > 0) ? cronogramaSimulado(undefined, daApi.etapas) : null), [demo, daApi]);
-  const dado = simulado ?? daApi;
+  const { dado, erro, carregando } = useCarregar(() => api.cronograma(obra.id), [obra.id, versao]);
   const [modo, setModo] = useState<{ k: "ver" } | { k: "editar"; meses?: number; aditivoPrazo?: boolean; proposta?: DadosCronograma }>({ k: "ver" });
   const [modal, setModal] = useState<"medicao" | "prazo" | null>(null);
   const [gaveta, setGaveta] = useState<"tabela" | "medicoes" | null>(null);
@@ -172,9 +168,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
     ? dado.etapas.filter((e) => situacaoEtapa(e.percentuais, e.medido_acumulado, indiceDoMes(dado.inicio, dado.prazo.mes_referencia)).situacao === "atrasada").length
     : 0;
   const conversar = () => irParaTela("conversa");
-  // no simulado nada grava: a ação só avisa que é prévia
-  const previa = () => avisar(AVISO_PREVIA);
-  const lancarMedicao = () => (simulado ? previa() : setModal("medicao"));
+  const lancarMedicao = () => setModal("medicao");
 
   const menu: ItemMenu[] = ver
     ? [
@@ -183,8 +177,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
         { rotulo: "Ver tabela físico-financeira", acao: () => setGaveta("tabela") },
         ...(podeOperar
           ? [
-              { rotulo: "Editar cronograma", acao: () => (simulado ? previa() : setModo({ k: "editar" })) },
-              { rotulo: "Aditivo de prazo", acao: () => (simulado ? previa() : setModal("prazo")) },
+              { rotulo: "Editar cronograma", acao: () => setModo({ k: "editar" }) },
+              { rotulo: "Aditivo de prazo", acao: () => setModal("prazo") },
             ]
           : []),
       ]
@@ -361,7 +355,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
           <BaseOrcamento obraId={obra.id} />
           {vista === "etapas" ? (
             <p className={c.legenda}>
-              A linha ocre é hoje. Amarelo dentro da barra = medido; azul = previsto.{simulado ? " Valores fictícios." : ""}
+              A linha ocre é hoje. Amarelo dentro da barra = medido; azul = previsto.
             </p>
           ) : null}
         </>
@@ -369,7 +363,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
       {gaveta === "tabela" && dado ? <TabelaFisicoFinanceira crono={dado} fechar={() => setGaveta(null)} /> : null}
       {gaveta === "medicoes" && dado ? (
         <Drawer titulo="Medições" fechar={() => setGaveta(null)}>
-          <ListaMedicoes obra={obra} medicoes={dado.medicoes} somenteLeitura={!!simulado} />
+          <ListaMedicoes obra={obra} medicoes={dado.medicoes} />
         </Drawer>
       ) : null}
       {modal === "medicao" && dado ? <ModalMedicao obra={obra} crono={dado} fechar={() => setModal(null)} /> : null}

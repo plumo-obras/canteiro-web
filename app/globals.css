@@ -1535,15 +1535,15 @@ rect.db-falta{fill:var(--accentSoft);stroke:var(--accent);stroke-width:1;stroke-
 .base-orc-grade li em { color: var(--muted); font-style: normal; white-space: nowrap; }
 
 /* Itens estimados pela IA no orçamento: selo "estimativa" e linha levemente destacada (viram real ao detalhar a fase). */
-.pill.estimativa { background: color-mix(in srgb, var(--ocre) 22%, transparent); color: var(--ocre); border: 1px solid color-mix(in srgb, var(--ocre) 45%, transparent); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 8px; white-space: nowrap; }
+.pill.estimativa { background: var(--accentSoft); color: var(--accentInk); border: 1px solid var(--accentSoft); font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-left: 8px; white-space: nowrap; }
 .eap-estimado .eap-d { font-style: italic; color: var(--muted); }
-.eap-estimado td { background: color-mix(in srgb, var(--ocre) 5%, transparent); }
+.eap-estimado td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 
 /* Resumo estimativa × realidade no topo do Orçamento. */
 .est-resumo { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 14px 16px; margin-bottom: 14px; }
 .est-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.est-barra { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ocre) 18%, var(--sunk, #0003)); overflow: hidden; margin: 10px 0 8px; }
-.est-barra > span { display: block; height: 100%; border-radius: 999px; background: var(--green, #3ba55d); transition: width .3s var(--ease, ease); }
+.est-barra { height: 8px; border-radius: 999px; background: var(--accentSoft); overflow: hidden; margin: 10px 0 8px; }
+.est-barra > span { display: block; height: 100%; border-radius: 999px; background: var(--green); transition: width .3s var(--ease); }
 .est-resumo p { margin: 0; }
 .est-resumo .pill.estimativa { margin: 0 2px; }
 
