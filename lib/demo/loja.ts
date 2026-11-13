@@ -811,6 +811,19 @@ function semear(): EstadoDemo {
       desfazer: null,
       desfeito: false,
     });
+  // Os dois meses antes disso: o bastante para o Histórico passar de uma leva da API (60) e a paginação aparecer.
+  const ROTINA: [string, string, string][] = [
+    ["Saída de 12 sc de Cimento CP-II 50 kg · Fundação · sapatas", "Joana (mestre)", "tela"],
+    ["Saída de 4 m³ de Areia média lavada · Fundação · sapatas", "Joana (mestre)", "whatsapp"],
+    ["Saída de 85 kg de Aço CA-50 10 mm · Fundação · sapatas", "Joana (mestre)", "tela"],
+    ["Diário de obra: concretagem das sapatas do eixo A", "Marina Duarte", "tela"],
+    ["Saída de 300 un de Bloco cerâmico 14×19×29 · Baldrame", "Joana (mestre)", "whatsapp"],
+    ["Gasto lançado: locação de betoneira (R$ 380,00)", "Rizzi", "tela"],
+  ];
+  for (let i = 0; i < 60; i++) {
+    const [texto, quem, origem] = ROTINA[i % ROTINA.length]!;
+    reg(texto, quem, origem, 21 + Math.floor(i / 2), i % 2 ? 15 : 8);
+  }
   reg("PED-0149: recebido → conferido · 4.000 un de Bloco cerâmico 14×19×29", "Joana (mestre)", "tela", 20);
   reg("PED-0150: recebido → conferido · 30 m³ de Areia média lavada", "Joana (mestre)", "tela", 18);
   reg("Saída de 1.050 un de Bloco cerâmico 14×19×29 · Alvenaria do térreo", "Joana (mestre)", "tela", 9);
