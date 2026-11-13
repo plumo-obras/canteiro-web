@@ -253,9 +253,11 @@ export function Cronograma({ obra }: { obra: Obra }) {
     setGerando(true);
     setErroIA(null);
     try {
-      // Só propõe: não chama organizar-fases antes. Aquilo reescreve o orçamento (fases e estimativas novas) sem
-      // aprovação, e um orçamento aprovado não pode mudar por um clique no cronograma. Prever a obra completa continua
-      // no Orçamento, como ação explícita.
+      // Obra ainda EM ORÇAMENTO (não aprovada): antes de propor, prevê a obra completa — estima as fases que faltam
+      // (fundação, alvenaria, acabamento…) para o cronograma nascer DESTRINCHADO, da fundação à entrega, e não só com a
+      // etapa que o orçamento já tem. "Já organizado" ou sem o que estimar não é erro — segue. Orçamento APROVADO não
+      // muda por um clique no cronograma: aí prever a obra completa é ação explícita no Orçamento.
+      if (!demo && obra.status === "em_orcamento") await api.organizarFases(obra.id).catch(() => {});
       const prop = demo ? await api.proporCronograma(obra.id) : await proporCronogramaPeloAgente(obra.id);
       receberPropostas([prop]);
       setIaProp(prop.id);
@@ -264,7 +266,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
     } finally {
       setGerando(false);
     }
-  }, [demo, obra.id, receberPropostas]);
+  }, [demo, obra.id, obra.status, receberPropostas]);
 
   // Veio do "Gerar cronograma" do Projeto: ao chegar (orçamento já carregado, sem cronograma ainda), dispara a geração
   // sozinho — a página já abre na geração. Só uma vez; depois limpa a intenção para não repetir ao voltar à tela.
