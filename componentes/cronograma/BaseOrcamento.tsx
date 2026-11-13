@@ -29,19 +29,24 @@ export function BaseOrcamento({ obraId, aberto = false }: { obraId: string; aber
         Base no orçamento <span className="base-orc-cont">{etapas.length} etapas · {itens.length} serviços</span>
       </summary>
       <div className="base-orc-grade">
-        {etapas.map((e) => (
-          <section key={e.etapa}>
-            <h4>{e.descricao}</h4>
-            <ul>
-              {porEtapa.get(e.etapa)!.map((it, i) => (
-                <li key={i}>
-                  <span>{it.descricao}</span>
-                  <em>{fmtQtdUn(it.quantidade, it.unidade)}</em>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        {etapas.map((e) => {
+          const lista = porEtapa.get(e.etapa)!;
+          return (
+            <section key={e.etapa} className="base-orc-fase">
+              <h4>
+                {e.descricao} <span className="n">{lista.length}</span>
+              </h4>
+              <ul>
+                {lista.map((it, i) => (
+                  <li key={i}>
+                    <span>{it.descricao}</span>
+                    <em>{fmtQtdUn(it.quantidade, it.unidade)}</em>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </div>
     </details>
   );
