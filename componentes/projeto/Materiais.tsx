@@ -205,7 +205,22 @@ export function useFluxoMateriais(obra: Obra, dados: MateriaisProjeto | null, au
   return { todos, tem, orc, situacao, levado, temCronograma, entrando, acabouDeFluir };
 }
 
-export function CartaoMateriais({ obra, dados, erro, autoFluir = true }: { obra: Obra; dados: MateriaisProjeto | null; erro?: string | null; autoFluir?: boolean }) {
+/**
+ * `listaAoLado`: o cartão está na gaveta de Materiais, que já mostra a lista; o "Ver" abriria outra gaveta igual.
+ */
+export function CartaoMateriais({
+  obra,
+  dados,
+  erro,
+  autoFluir = true,
+  listaAoLado = false,
+}: {
+  obra: Obra;
+  dados: MateriaisProjeto | null;
+  erro?: string | null;
+  autoFluir?: boolean;
+  listaAoLado?: boolean;
+}) {
   const { podeOperar, irParaTela } = useCasca();
   const { todos, tem, orc, levado, temCronograma, entrando, acabouDeFluir } = useFluxoMateriais(obra, dados, autoFluir);
   // Entrados os materiais, o foco vai para o próximo passo (o cronograma), não para o aviso.
@@ -222,7 +237,7 @@ export function CartaoMateriais({ obra, dados, erro, autoFluir = true }: { obra:
   }
   if (!dados || (!orc.dado && !orc.erro)) return null;
 
-  const ver = (
+  const ver = listaAoLado ? null : (
     <button type="button" className="btn" onClick={() => setVendo(true)}>
       Ver
     </button>

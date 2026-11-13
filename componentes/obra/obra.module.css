@@ -47,7 +47,7 @@
 .soltarIc{color:var(--accentInk)}
 .arquivo{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .limpar{align-self:center;min-height:32px;font-size:var(--t-meta)}
-.caminho{width:100%;box-sizing:border-box;min-height:40px;font-size:var(--t-body)}
+.caminho{width:100%;box-sizing:border-box;min-height:40px;height:auto;white-space:normal;line-height:1.3;padding-block:8px;font-size:var(--t-body)}
 .caminho[aria-pressed="true"]{border-color:var(--accent);background:var(--accentSoft);color:var(--accentInk)}
 .criar{min-height:48px;margin-top:auto}
 

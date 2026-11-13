@@ -173,6 +173,12 @@ export function seloDoPedido(p: Pedido, hoje: string): SeloPedido {
 
 /** O que espera alguém vem primeiro: aprovar, depois o atrasado, depois o resto na ordem da API. */
 const URGENCIA = (p: Pedido, hoje: string) => (p.status === "em_cotacao" ? 0 : diasDeAtraso(p, hoje) ? 1 : 2);
+/** Um pedido que chegou em parte pode vir nas duas buscas (ainda aberto e já conferido): na lista, aparece uma vez só. */
+export const semOsAbertos = (encerrados: Pedido[], abertos: Pedido[]) => {
+  const ids = new Set(abertos.map((p) => p.id));
+  return encerrados.filter((p) => !ids.has(p.id));
+};
+
 export const porUrgencia = (hoje: string) => (a: Pedido, b: Pedido) => URGENCIA(a, hoje) - URGENCIA(b, hoje);
 
 interface Contexto {
@@ -193,7 +199,10 @@ export function PilulaPedido({ selo, curto = false }: { selo: SeloPedido; curto?
  * ação do momento (aprovar ou recusar; cobrar ou dizer que chegou). O resto (entrega pela metade, NF, cancelar) fica
  * no detalhe, que abre pelo título.
  */
-function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () => void }) {
+// o dia do pedido no fuso da obra: o criado_em vem em UTC e, à noite, já seria o dia seguinte
+const fDiaPedido = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+
+function CartaoPedido({ p, hoje, etapas, abrir }: { p: Pedido; hoje: string; etapas: EtapaObra[]; abrir: () => void }) {
   const { podeOperar, avisar, avisarFeito, mudou } = useCasca();
   const celular = useCelular();
   const [avancando, setAvancando] = useState(false);
@@ -263,6 +272,10 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
 
   const resto = podeOperar ? acoesDe(p).slice(p.status === "em_cotacao" ? 2 : 1) : [];
   // no celular o meta diz o que importa para o estado: o valor a aprovar, a data que passou
+  // a etapa (quando o pedido é de uma só) e o dia do pedido, como no quadro anterior; no celular não cabem
+  const chavesEtapa = [...new Set(p.linhas.map((l) => l.etapa))];
+  const etapa = chavesEtapa.length === 1 && chavesEtapa[0] ? etapas.find((e) => e.etapa === chavesEtapa[0])?.descricao : undefined;
+  const origem = celular ? null : [etapa, `pedido em ${fDiaPedido.format(new Date(p.criado_em))}`].filter(Boolean).join(" · ");
   const meta = [p.numero, p.fornecedor, celular ? (atraso && p.previsao ? `era ${diaMes(p.previsao)}` : p.status === "em_cotacao" ? reaisInteiros(p.valor) : null) : reaisInteiros(p.valor)].filter(Boolean);
   return (
     <li className={`card ${s.ped}`}>
@@ -281,6 +294,7 @@ function CartaoPedido({ p, hoje, abrir }: { p: Pedido; hoje: string; abrir: () =
           </span>
         ))}
       </span>
+      {origem ? <span className={s.pedMeta}>{origem}</span> : null}
       {acoes || resto.length ? (
         <div className={s.pedAcoes}>
           {acoes}
@@ -315,10 +329,11 @@ export function ListaPedidos(props: Contexto & { pedidos: Pedido[]; titulo?: boo
   // O pedido aberto acompanha a lista recarregada; já encerrado, vale a versão que a própria escrita devolveu.
   const atual = aberto ? ([...pedidos, ...antigos].find((p) => p.id === aberto.id) ?? aberto) : null;
   const abertos = [...pedidos].sort(porUrgencia(hoje));
-  const lista = [...abertos, ...(verAntigos ? antigos : antigos.slice(0, 1))];
-  const total = pedidos.length + antigos.length;
-  const temMais = verAntigos ? !chegaram.acabou : antigos.length > 1 || (!chegaram.acabou && antigos.length > 0);
-  const cartao = (p: Pedido) => <CartaoPedido key={p.id} p={p} hoje={hoje} abrir={() => setAberto(p)} />;
+  const encerrados = semOsAbertos(antigos, abertos);
+  const lista = [...abertos, ...(verAntigos ? encerrados : encerrados.slice(0, 1))];
+  const total = pedidos.length + encerrados.length;
+  const temMais = verAntigos ? !chegaram.acabou : encerrados.length > 1 || (!chegaram.acabou && encerrados.length > 0);
+  const cartao = (p: Pedido) => <CartaoPedido key={p.id} p={p} hoje={hoje} etapas={ctx.etapas} abrir={() => setAberto(p)} />;
   return (
     <section className={s.colPedidos} aria-labelledby={titulo ? "pedidos-titulo" : undefined} aria-label={titulo ? undefined : "Pedidos"}>
       {titulo ? (

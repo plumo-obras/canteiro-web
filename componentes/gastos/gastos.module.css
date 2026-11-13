@@ -226,3 +226,6 @@ div.lancados { border-radius: 16px; border: 1px solid var(--line2); background: 
   /* no celular a ação de destaque é o Fotografar; o cartão a conferir fica com a borda comum */
   .conferir { border-color: var(--edge); }
 }
+
+/* o "+ criar etapa" e o caminho para a revisão completa, embaixo dos campos do cartão */
+.ccMais{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:6px;font-size:var(--t-meta)}

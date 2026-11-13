@@ -155,3 +155,6 @@
 }
 .quem>.selo{margin-left:auto}
 @media (max-width:899px){ .abreCel{min-height:44px} }
+
+/* por obra e por uso, um embaixo do outro na coluna ao lado do gráfico */
+.listasUso{display:grid;gap:18px;align-content:start;min-width:0}

@@ -413,6 +413,8 @@ export function ConferirCartao(p: { comprovanteId: string; obra: Obra; selo: Rea
           {p.selo}
           <span className="mut sm">{[tipo, `enviado ${p.enviado}`].filter(Boolean).join(" · ")}</span>
         </div>
+        {/* a nota do Plumo sobre o documento (ex.: "não traz o CNPJ"): o que a pessoa precisa saber antes de confirmar */}
+        {rv.observacoes ? <p className={s.obs}>{rv.observacoes}</p> : null}
         {rv.avisos.length ? (
           <ul className={s.aviso} role="list" aria-label="Atenção">
             {rv.avisos.map((a) => (
@@ -431,6 +433,22 @@ export function ConferirCartao(p: { comprovanteId: string; obra: Obra; selo: Rea
           <CampoLido largo rotulo="O que foi pago" campo={rv.descricao} escolha={esc.descricao} propria={esc.propria.descricao} texto={(o) => String(o.valor)} escolher={(x) => r.mudar({ descricao: x })} digitar={digitar("descricao")} placeholder="Ex.: cimento e areia" />
           <EtapaLida r={r} />
         </fieldset>
+        {pode ? (
+          <div className={s.ccMais}>
+            {/* gasto de algo que a obra não previa não pode parar por falta de etapa */}
+            <NovaEtapa
+              obraId={p.obra.id}
+              criada={(e) => {
+                r.setArvore((a) => [...a, e]);
+                r.proprio("etapa", e.chave);
+                r.proprio("topico", "");
+              }}
+            />
+            <button type="button" className="link" onClick={p.abrir}>
+              Ver as leituras e os motivos
+            </button>
+          </div>
+        ) : null}
         {pode && r.falta.length ? (
           <p className={s.falta} role="status">
             Para confirmar, falta: {r.falta.join(", ")}.

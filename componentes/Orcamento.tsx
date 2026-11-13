@@ -214,7 +214,13 @@ export function Orcamento({ obra }: { obra: Obra }) {
               </Etiqueta>
             ) : null}
             {emOrcamento ? (
-              <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer em Versões do orçamento, no fim da tela.</Etiqueta>
+              <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.</Etiqueta>
+            ) : null}
+            {/* importada a lista de materiais, ela não aparece aqui (não é o orçamento por etapas): dizer onde ficou */}
+            {materiais.length ? (
+              <Etiqueta tom="neutro">
+                A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Compras.
+              </Etiqueta>
             ) : null}
           </Etiquetas>
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />

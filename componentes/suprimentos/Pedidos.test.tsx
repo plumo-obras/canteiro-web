@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LinhaPedido, Pedido } from "@/lib/contrato";
 import { telaDe } from "../sessoes";
 import { totalLinha } from "../formularios/ModalNovoPedido";
-import { acoesDe, diasDeAtraso, estadoDoPedido, linhasDaChegada, porUrgencia, progressoParcial, resumoLinhas, seloDoPedido, valorAReceber } from "./Pedidos";
+import { acoesDe, diasDeAtraso, estadoDoPedido, linhasDaChegada, porUrgencia, progressoParcial, resumoLinhas, seloDoPedido, semOsAbertos, valorAReceber } from "./Pedidos";
 
 // falta_entregar vem da API (0 em conferido/cancelado); o padrão do dublê é o de um pedido aberto
 const linha = (nome: string, quantidade: number, recebida = 0, falta = Math.max(0, quantidade - recebida)): LinhaPedido => ({
@@ -83,6 +83,12 @@ describe("ações do pedido nomeadas pela consequência", () => {
     expect(diasDeAtraso({ ...ped("em_cotacao"), previsao: "2026-10-01" }, hoje)).toBe(0);
     expect(diasDeAtraso({ ...ped("enviado"), previsao: "chega quinta" }, hoje)).toBe(0);
     expect(diasDeAtraso({ ...ped("parcial", [linha("Areia", 25_000, 18_000)]), previsao: "2026-11-02" }, hoje)).toBe(10);
+  });
+
+  it("pedido que chegou em parte e veio nas duas buscas aparece uma vez só (sem chave repetida)", () => {
+    const parcial = { ...ped("parcial"), id: "p-1" };
+    const chegou = { ...ped("conferido"), id: "p-2" };
+    expect(semOsAbertos([{ ...parcial, status: "conferido" as const }, chegou], [parcial]).map((p) => p.id)).toEqual(["p-2"]);
   });
 
   it("o que espera alguém vem primeiro: aprovar, depois o atrasado", () => {

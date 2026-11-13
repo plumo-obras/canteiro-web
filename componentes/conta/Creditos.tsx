@@ -1,6 +1,6 @@
 "use client";
 /**
- * Uso de IA dos últimos 30 dias: o total no título, o gráfico por dia e, ao lado, o gasto por obra. Os números chegam
+ * Uso de IA dos últimos 30 dias: o total no título, o gráfico por dia e, ao lado, o gasto por obra e por uso. Os números chegam
  * somados pela API (GET /uso); aqui só se completa os dias sem consumo com zero e se desenha. A franquia de créditos
  * cabe numa linha discreta embaixo: é o que explica o saldo, não o assunto do cartão.
  */
@@ -8,7 +8,7 @@ import { useState } from "react";
 import type { Creditos as TCreditos, Obra, RelatorioUso } from "@/lib/contrato";
 import { Icone } from "../Icone";
 import s from "./conta.module.css";
-import { diaCurto, fmtDolares, fmtTokens } from "./formato";
+import { diaCurto, fmtDolares, fmtTokens, rotuloRota } from "./formato";
 
 interface Props {
   className: string;
@@ -50,7 +50,11 @@ export function Creditos({ className, creditos, chaveAtiva, dias, uso, obras, co
       ) : (
         <div className={s.uso}>
           <GraficoDias dias={dias} r={r} />
-          <Lista titulo="Por obra" itens={r.por_obra.map((x) => ({ k: x.obra_id ?? "-", nome: nomeObra(x.obra_id), custo: x.custo }))} />
+          <div className={s.listasUso}>
+            <Lista titulo="Por obra" total={r.total.custo} itens={r.por_obra.map((x) => ({ k: x.obra_id ?? "-", nome: nomeObra(x.obra_id), custo: x.custo }))} />
+            {/* o que gasta: conversa com o Plumo × leitura de comprovantes (estava no front anterior; quem paga quer saber) */}
+            <Lista titulo="Por uso" total={r.total.custo} itens={r.por_rota.map((x) => ({ k: x.rota, nome: rotuloRota(x.rota), custo: x.custo }))} />
+          </div>
         </div>
       )}
 
@@ -171,7 +175,7 @@ function GraficoDias({ dias, r, compacto }: { dias: string[]; r: RelatorioUso; c
 }
 
 /** Barras deitadas: o maior item enche o trilho, os outros na proporção dele. */
-function Lista({ titulo, itens }: { titulo: string; itens: { k: string; nome: string; custo: number }[] }) {
+function Lista({ titulo, total, itens }: { titulo: string; total: number; itens: { k: string; nome: string; custo: number }[] }) {
   const maior = Math.max(...itens.map((x) => x.custo), 1);
   return (
     <div className={s.porObra}>
@@ -186,7 +190,10 @@ function Lista({ titulo, itens }: { titulo: string; itens: { k: string; nome: st
               <span className={s.trilho} aria-hidden="true">
                 <span style={{ width: `${Math.max((x.custo / maior) * 100, 2)}%` }} />
               </span>
-              <span className={s.itemValor}>{fmtDolares(x.custo)}</span>
+              <span className={s.itemValor}>
+                {fmtDolares(x.custo)}
+                <span className={s.diz}> · {total ? Math.round((x.custo / total) * 100) : 0}%</span>
+              </span>
             </li>
           ))}
         </ul>

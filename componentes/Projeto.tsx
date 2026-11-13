@@ -669,7 +669,7 @@ export function Projeto({ obra }: { obra: Obra }) {
               painelPacote
             ) : gaveta === "materiais" ? (
               <>
-                {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} autoFluir={false} /> : null}
+                {pranchasLidas ? <CartaoMateriais obra={obra} dados={materiais.dados} erro={materiais.erro} autoFluir={false} listaAoLado /> : null}
                 <Materiais {...materiais} />
               </>
             ) : gaveta === "conferencias" ? (
