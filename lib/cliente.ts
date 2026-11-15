@@ -215,7 +215,7 @@ export const api = {
     ),
   /** O orçamento da obra (EAP): versões, itens vigentes com curva, totais por etapa. */
   orcamento: (obraId: string) => chamar<Orcamento>("GET", `/obras/${seg(obraId)}/orcamento`),
-  /** Reorganiza os serviços do orçamento em etapas por fase de obra (Fundação, Estrutura... Entrega). */
+  /** Encaixa o orçamento nas etapas padrão (se ainda não está) e estima as fases de obra que faltam, fora do orçado. */
   organizarFases: (obraId: string) =>
     semRota(chamar<{ itens: number; estimadas?: number; fases: string[]; registro_id: string | null }>("POST", `/obras/${seg(obraId)}/orcamento/organizar-fases`, {}),
             "Prever a obra completa ainda não está disponível."),
@@ -232,6 +232,10 @@ export const api = {
     if (corpo.etapas_itens && Object.keys(corpo.etapas_itens).length) f.set("etapas_itens", JSON.stringify(corpo.etapas_itens));
     if (corpo.somar) f.set("somar", "true");
     if (corpo.ignorar_itens?.length) f.set("ignorar_itens", JSON.stringify(corpo.ignorar_itens));
+    if (corpo.padronizar) f.set("padronizar", "true");
+    if (corpo.destinos && Object.keys(corpo.destinos).length) f.set("destinos", JSON.stringify(corpo.destinos));
+    if (corpo.natureza === "venda") f.set("natureza", "venda");
+    if (corpo.bdi) f.set("bdi", String(corpo.bdi));
     return chamar<PreviaVersao>("POST", `/obras/${seg(obraId)}/orcamento/versoes`, f);
   },
   cronograma: (obraId: string) => chamar<Cronograma>("GET", `/obras/${seg(obraId)}/cronograma`),

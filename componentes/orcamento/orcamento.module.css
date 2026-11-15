@@ -50,6 +50,12 @@
 .abrir[aria-expanded=false] .seta{transform:rotate(-90deg)}
 .item td:first-child{padding-left:28px}
 .sub td{padding-left:28px;font-weight:600;color:var(--ink2);font-size:12px}
+/* o tópico dentro da etapa: as contas dele na mesma coluna da etapa, um degrau abaixo */
+.topico td{font-weight:600;color:var(--ink2);font-size:12.5px}
+.topico td:first-child{padding-left:28px}
+.topico ~ .item td:first-child{padding-left:44px}
+/* o item que é o tópico inteiro fica no degrau do tópico, mesmo depois de outro tópico */
+.topico ~ .item.fundido td:first-child{padding-left:28px}
 .descricao{min-width:220px;white-space:normal !important}
 .ordem{width:1%;white-space:nowrap}
 .ordem :global(.le-ordem){padding-right:0}

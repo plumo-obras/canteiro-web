@@ -79,7 +79,10 @@ export function Orcamento({ obra }: { obra: Obra }) {
     try {
       const r = await api.organizarFases(obra.id);
       mudou();
-      avisarFeito(`Obra prevista em ${r.fases.length} fases${r.estimadas ? ` (${r.estimadas} estimadas)` : ""}. O cronograma já sai da fundação à entrega.`, r.registro_id);
+      avisarFeito(
+        `Obra prevista em ${r.fases.length} etapas${r.estimadas ? ` (${r.estimadas} serviços estimados, fora do orçado)` : ""}. O cronograma já sai da fundação à entrega.`,
+        r.registro_id,
+      );
     } catch (e) {
       avisar(mensagemDe(e));
     }
@@ -87,10 +90,12 @@ export function Orcamento({ obra }: { obra: Obra }) {
 
   const t = dado?.totais;
   const temOrcamento = !!dado?.versoes.length;
-  // Estimativa × realidade: quanto do orçamento já é real (detalhado) e quanto ainda é estimativa da IA.
-  const estimadoTotal = (dado?.itens ?? []).filter((i) => i.tipo === "item" && i.fonte === "estimativa").reduce((s, i) => s + i.total, 0);
-  const totalOrc = t?.atual ?? 0;
-  const pctReal = totalOrc ? Math.round(((totalOrc - estimadoTotal) / totalOrc) * 100) : 100;
+  // Estimativa × realidade: quanto da obra prevista já foi orçado (detalhado) e quanto ainda é estimativa. O estimado
+  // vem da API fora do orçado (não entra no `atual`); a API antiga não manda e somava os dois no `atual`.
+  const estimadoItens = (dado?.itens ?? []).filter((i) => i.tipo === "item" && i.fonte === "estimativa").reduce((s, i) => s + i.total, 0);
+  const estimadoTotal = t?.estimado ?? estimadoItens;
+  const prevista = t?.estimado != null ? (t?.atual ?? 0) + estimadoTotal : (t?.atual ?? 0);
+  const pctReal = prevista ? Math.round(((prevista - estimadoTotal) / prevista) * 100) : 100;
   const celular = useCelular();
   const { irParaTela } = useCasca();
   // Um botão só no cabeçalho: as ações de arquivo vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
@@ -146,13 +151,13 @@ export function Orcamento({ obra }: { obra: Obra }) {
       {estimadoTotal > 0 ? (
         <div className="est-resumo">
           <div className="est-topo">
-            <span><b>{pctReal}% detalhado</b> <span className="mut">· {100 - pctReal}% estimado pela IA</span></span>
-            <span className="mut sm">{fmtReais(estimadoTotal)} em serviços estimados</span>
+            <span><b>{pctReal}% orçado</b> <span className="mut">· {100 - pctReal}% estimado pela previsão da obra</span></span>
+            <span className="mut sm">{fmtReais(estimadoTotal)} estimados, fora do orçado</span>
           </div>
           <div className="est-barra" role="progressbar" aria-valuenow={pctReal} aria-valuemin={0} aria-valuemax={100}>
             <span style={{ width: `${pctReal}%` }} />
           </div>
-          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da IA (padrão de obra, cruzado com o SINAPI). Conforme você detalha cada fase, viram reais e o cronograma se ajusta.</p>
+          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da obra (padrão de obra, cruzado com o SINAPI). Ficam fora do orçado e de Compras; o cronograma usa os dois. Conforme você orça cada etapa, a estimativa sai.</p>
         </div>
       ) : null}
 
@@ -345,6 +350,11 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
         <>
           inicial <span className="fx-nw">{reaisInteiros(t.contratado)}</span> {t.aditivos < 0 ? "−" : "+"} aditivos <span className="fx-nw">{reaisInteiros(Math.abs(t.aditivos))}</span>
         </>
+      ) : t.venda != null ? (
+        // planilha de venda: o orçado é o custo (sem o BDI); o preço do cliente fica ao lado, não no saldo
+        <>
+          custo · venda <span className="fx-nw">{reaisInteiros(t.venda)}</span>
+        </>
       ) : obra.verba ? (
         <>
           contrato <span className="fx-nw">{reaisInteiros(obra.verba)}</span>
@@ -352,7 +362,7 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
       ) : undefined,
     },
     { rotulo: "Comprometido", valor: t.comprometido, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` },
-    // o orçado é preço de contrato (com BDI e mão de obra): o realizado de uma etapa não é o % executado dela
+    // o realizado é custo de compra, não o % executado da etapa
     { rotulo: "Realizado", valor: t.realizado, sub: "entregue e lançado" },
     {
       rotulo: celular ? "Saldo" : "Saldo a comprometer",

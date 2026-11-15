@@ -6,7 +6,7 @@
  * as etapas que têm resultado; a ordem por desvio continua valendo. Os números vêm da API; a tela só agrupa.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { CorpoEditarItem, CurvaABC, Obra, Orcamento, Pedido } from "@/lib/contrato";
+import type { CorpoEditarItem, CurvaABC, Obra, Orcamento, Pedido, TopicoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { uuid7 } from "@/lib/ids";
 import { fmtQtd, fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "@/lib/formato";
@@ -15,7 +15,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Icone } from "../Icone";
 import { CelulaEditavel } from "./CelulaEditavel";
 import { useCelular } from "../midia";
-import { Barra, fmtPct, linhasAndamento, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
+import { Barra, fmtPct, linhasAndamento, numeroVisivel, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
 import { PilulaPedido, hojeSP, seloDoPedido, type SeloPedido } from "../suprimentos/Pedidos";
 import { pedidosDoItem } from "@/lib/simulado/orcamento";
 import s from "./orcamento.module.css";
@@ -128,8 +128,16 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
 
   // Subir/descer só na ordem da planilha e sem filtro (é a lista inteira que se ordena), antes de aprovar e sem aditivo.
   const etapasDaOrdem = orc.etapas.map((e) => e.etapa).filter(Boolean);
+  // nas etapas padrão a ordem é a da lista (a API recusa reordenar): não há setas
+  const padronizado = orc.versoes.some((v) => v.ativa && v.padronizada);
   const podeOrdenar =
-    podeOperar && obra.status === "em_orcamento" && !filtrando && filtro.ordem === "planilha" && etapasDaOrdem.length > 1 && !orc.versoes.some((v) => v.ativa && v.tipo === "aditivo");
+    podeOperar &&
+    obra.status === "em_orcamento" &&
+    !padronizado &&
+    !filtrando &&
+    filtro.ordem === "planilha" &&
+    etapasDaOrdem.length > 1 &&
+    !orc.versoes.some((v) => v.ativa && v.tipo === "aditivo");
   const [ordenando, setOrdenando] = useState(false);
   // A ordem é montada sobre a numeração que a tela vê, e a API renumera: até o orçamento novo chegar, outro toque
   // mandaria a numeração velha e moveria outra etapa. Por isso as setas esperam um `orc` diferente do do toque.
@@ -256,6 +264,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
           movida={podeOrdenar ? (doAviso?.etapa ?? null) : null}
           guardar={guardarLista}
           vazio={!lista.length && !filtrando}
+          agrupar={filtro.ordem !== "abc"}
         />
       ) : (
       <ul className="le" aria-label="Etapas do orçamento" ref={guardarLista}>
@@ -276,11 +285,11 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
               <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
                 <span className="le-nome">
                   <Icone nome="chevRight" tam={14} className="le-seta" />
-                  {l.etapa ? <span className="eap-num">{l.etapa}</span> : null}
+                  {numeroVisivel(l.etapa) ? <span className="eap-num">{numeroVisivel(l.etapa)}</span> : null}
                   <span className="le-desc">{l.descricao}</span>
                   {semCompra ? null : <Barra l={l} />}
                 </span>
-                <span className="num le-orc">{l.atual ? fmtReais(l.atual) : "—"}</span>
+                <span className="num le-orc">{l.atual ? fmtReais(l.atual) : <Estimado l={l} centavos />}</span>
                 {semCompra ? null : (
                   <>
                     <span className="num le-comp">
@@ -334,6 +343,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                       </div>
                     </dl>
                   )}
+                  {l.topicos.length ? <TopicosDaEtapa topicos={l.topicos} /> : null}
                   {semCompra ? null : <PedidosDaEtapa linha={l} etapas={orc.etapas.map((e) => e.etapa)} pedidos={pedidos} />}
                   {itens.length ? <ItensDaEtapa obra={obra} itens={itens} versoes={versoes} nomeVersao={nomeVersao} celular={celular} /> : semCompra ? <p className="mut sm">Sem itens nesta etapa.</p> : null}
                 </div>
@@ -505,12 +515,14 @@ function DescricaoItem({ i, versoes, nomeVersao, enxuta = false }: { i: ItemDaEt
     return (
       <>
         {i.descricao}
+        {i.complemento ? <span className="mut"> · {i.complemento}</span> : null}
         {v?.tipo === "aditivo" ? <span className="pill eap-adt">{nomeVersao(v)}</span> : null}
       </>
     );
   return (
     <>
       {i.descricao}
+      {i.complemento ? <span className="mut"> · {i.complemento}</span> : null}
       {i.fonte === "estimativa" ? (
         <span className="pill estimativa" title="Valor estimado pela IA; vira real quando você detalhar a fase">
           estimativa
@@ -548,6 +560,73 @@ function SeloItem({ ps, hoje }: { ps: Pedido[]; hoje: string }) {
   );
 }
 
+/** Etapa só estimada pela previsão da obra: o valor aparece apagado, como estimado, e não como orçado. */
+function Estimado({ l, centavos = false }: { l: LinhaAndamento; centavos?: boolean }) {
+  if (!l.estimado) return <>—</>;
+  return (
+    <span className="mut" title={`${fmtReais(l.estimado)} estimados pela previsão da obra, fora do orçado`}>
+      est. {centavos ? fmtReais(l.estimado) : reaisInteiros(l.estimado)}
+    </span>
+  );
+}
+
+/**
+ * Os itens da etapa debaixo do tópico deles, cada um com as contas que a API manda (orçado, comprometido, saldo). Sem
+ * tópico na etapa, ou na curva ABC (a ordem é a do dinheiro), a lista fica como veio. O título de grupo da planilha
+ * (nível 2) sai: o tópico já diz o grupo. Item de tópico que a etapa não lista (versão antiga) vai para o fim.
+ */
+function porTopico(l: LinhaAndamento, itens: ItemDaEtapa[], agrupar: boolean): { topico: TopicoOrcamento | null; itens: ItemDaEtapa[] }[] {
+  if (!agrupar || !l.topicos.length) return [{ topico: null, itens }];
+  const ids = new Set(l.topicos.map((t) => t.topico_id));
+  const grupos = l.topicos.map((t) => ({
+    topico: t as TopicoOrcamento | null,
+    itens: itens.filter((i) => i.tipo === "item" && (i.topico_id ?? null) === t.topico_id),
+  }));
+  const soltos = itens.filter((i) => i.tipo === "item" && !ids.has(i.topico_id ?? null));
+  return [...grupos, ...(soltos.length ? [{ topico: null, itens: soltos }] : [])];
+}
+
+/** A etapa aberta por tópico, na vista Andamento e no celular: as mesmas contas da etapa, prontas da API. */
+function TopicosDaEtapa({ topicos }: { topicos: TopicoOrcamento[] }) {
+  return (
+    <>
+      <h4 className="le-sub">Por tópico</h4>
+      <div className="eap-rola">
+        <table className="tbl-eap">
+          <thead>
+            <tr>
+              <th scope="col">Tópico</th>
+              <th scope="col" className="num">
+                Orçado
+              </th>
+              <th scope="col" className="num">
+                Comprometido
+              </th>
+              <th scope="col" className="num">
+                Realizado
+              </th>
+              <th scope="col" className="num">
+                Saldo
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {topicos.map((t) => (
+              <tr key={t.topico_id ?? "sem"}>
+                <td className="eap-d">{t.nome}</td>
+                <td className="num">{fmtReais(t.atual)}</td>
+                <td className="num">{fmtReais(t.comprometido)}</td>
+                <td className="num">{fmtReais(t.realizado)}</td>
+                <td className={`num${t.saldo < 0 ? " t-neg" : ""}`}>{fmtReais(t.saldo)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 /**
  * Vista "Itens por etapa" (computador), como no protótipo: a planilha numa tabela só, a etapa como linha de grupo com
  * orçado, comprometido, saldo e o % comprometido; os itens embaixo com o comprometido e os pedidos de cada um (ligados
@@ -565,8 +644,10 @@ function TabelaItens(props: {
   guardar: (el: HTMLElement | null) => void;
   vazio: boolean;
   pedidos: Pedido[];
+  /** Itens debaixo do tópico deles; na curva ABC não (a ordem é a do dinheiro). */
+  agrupar: boolean;
 }) {
-  const { obra, lista, versoes, nomeVersao, fechada, alternar, ordem, movida, guardar, vazio, pedidos } = props;
+  const { obra, lista, versoes, nomeVersao, fechada, alternar, ordem, movida, guardar, vazio, pedidos, agrupar } = props;
   const celulas = useCelulasItem(obra, versoes);
   const colunas = ordem ? 9 : 8;
   const hoje = hojeSP();
@@ -611,12 +692,12 @@ function TabelaItens(props: {
                 <td colSpan={4}>
                   <button type="button" className={s.abrir} aria-expanded={aberta} onClick={() => alternar(k)}>
                     <Icone nome="chevDown" tam={14} className={s.seta} />
-                    {l.etapa ? `${l.etapa} · ` : ""}
+                    {numeroVisivel(l.etapa) ? `${numeroVisivel(l.etapa)} · ` : ""}
                     {l.descricao}
                   </button>
                 </td>
                 <td className={s.num} title={fmtReais(l.atual)}>
-                  {l.atual ? reaisInteiros(l.atual) : "—"}
+                  {l.atual ? reaisInteiros(l.atual) : <Estimado l={l} />}
                 </td>
                 <td className={`${s.num} ${s.comp}`} title={fmtReais(l.comprometido)}>
                   {semCompra ? "—" : reaisInteiros(l.comprometido)}
@@ -630,7 +711,30 @@ function TabelaItens(props: {
                 {ordem ? <td className={s.ordem}>{l.semEtapa ? null : ordem(l)}</td> : null}
               </tr>
               {aberta
-                ? itens.map((i) => {
+                ? porTopico(l, itens, agrupar).flatMap(({ topico: t, itens: doTopico }) => {
+                    // o tópico de um item só, com o nome dele (a EAP de dois níveis: "1.1 Placa de obra"), não repete o
+                    // nome numa linha de título: as contas do tópico vão na própria linha do item
+                    const fundido = t && doTopico.length === 1 && semAcento(doTopico[0]!.descricao) === semAcento(t.nome) ? t : null;
+                    return [
+                    ...(t && !fundido
+                      ? [
+                          <tr key={`t-${t.topico_id ?? "sem"}`} className={s.topico}>
+                            <td colSpan={4}>{t.nome}</td>
+                            <td className={s.num} title={fmtReais(t.atual)}>
+                              {t.atual ? reaisInteiros(t.atual) : "—"}
+                            </td>
+                            <td className={`${s.num} ${s.comp}`} title={fmtReais(t.comprometido)}>
+                              {t.comprometido ? reaisInteiros(t.comprometido) : "—"}
+                            </td>
+                            <td className={`${s.num}${t.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(t.saldo)}>
+                              {reaisInteiros(t.saldo)}
+                            </td>
+                            <td />
+                            {ordem ? <td /> : null}
+                          </tr>,
+                        ]
+                      : []),
+                    ...doTopico.map((i) => {
                     if (i.tipo === "etapa")
                       return (
                         <tr key={i.id} className={s.sub}>
@@ -641,7 +745,7 @@ function TabelaItens(props: {
                       );
                     const doItem = pedidosDoItem(i, pedidos);
                     return (
-                      <tr key={i.id} className={s.item}>
+                      <tr key={i.id} className={`${s.item}${fundido ? ` ${s.fundido}` : ""}`}>
                         <td className={s.descricao}>
                           <DescricaoItem i={i} versoes={versoes} nomeVersao={nomeVersao} enxuta />
                         </td>
@@ -652,15 +756,31 @@ function TabelaItens(props: {
                           {reaisInteiros(i.total)}
                         </td>
                         {/* o comprometido por item é regra da API (maior entre pedido e entregue, encerrado com sobra…): sem o vínculo
-                            item→pedido na resposta, a tela não faz a conta — mostra só os pedidos casados, no selo */}
-                        <td className={s.num} />
-                        <td className={s.num} />
+                            item→pedido na resposta, a tela não faz a conta — mostra só os pedidos casados, no selo. No item que é
+                            o tópico inteiro, as contas são as do tópico, que vêm prontas. */}
+                        {fundido ? (
+                          <>
+                            <td className={`${s.num} ${s.comp}`} title={fmtReais(fundido.comprometido)}>
+                              {fundido.comprometido ? reaisInteiros(fundido.comprometido) : "—"}
+                            </td>
+                            <td className={`${s.num}${fundido.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(fundido.saldo)}>
+                              {reaisInteiros(fundido.saldo)}
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className={s.num} />
+                            <td className={s.num} />
+                          </>
+                        )}
                         <td>
                           <SeloItem ps={doItem.pedidos} hoje={hoje} />
                         </td>
                         {ordem ? <td /> : null}
                       </tr>
                     );
+                  }),
+                    ];
                   })
                 : null}
               {aberta && !itens.length ? (
@@ -714,10 +834,10 @@ function EtapasCelular(props: { obra: Obra; lista: EtapaDaLista[]; versoes: Mapa
             <button type="button" className={s.etapaCel} aria-expanded={aberto} aria-controls={`etc-${k}`} onClick={() => alternar(k)}>
               <span className={s.etapaCelLinha}>
                 <b>
-                  {l.etapa ? `${l.etapa} · ` : ""}
+                  {numeroVisivel(l.etapa) ? `${numeroVisivel(l.etapa)} · ` : ""}
                   {l.descricao}
                 </b>
-                <span className="num">{reaisInteiros(l.atual)}</span>
+                <span className="num">{l.atual ? reaisInteiros(l.atual) : <Estimado l={l} />}</span>
                 <Icone nome="chevRight" tam={16} className={s.setaCel} />
               </span>
               <span className={s.barraCel} aria-hidden="true">
@@ -727,6 +847,7 @@ function EtapasCelular(props: { obra: Obra; lista: EtapaDaLista[]; versoes: Mapa
             </button>
             {aberto ? (
               <div id={`etc-${k}`} className={s.corpoCel}>
+                {l.topicos.length ? <TopicosDaEtapa topicos={l.topicos} /> : null}
                 {itens.length ? <ItensDaEtapa obra={obra} itens={itens} versoes={versoes} nomeVersao={nomeVersao} celular /> : <p className="mut sm">Sem itens nesta etapa.</p>}
               </div>
             ) : null}

@@ -257,3 +257,51 @@ describe("importar depois de aprovar", () => {
     expect(f.get("somar")).toBeNull();
   });
 });
+
+describe("orçamento novo: encaixe nas etapas padrão, custo ou venda", () => {
+  const SEM_ORC = { versoes: [], itens: [], etapas: [], totais: {} };
+  const PAREDES = item(1, "Mão de Obra", 15_796_930, { etapa: "alvenaria", numero: "7.8", etapa_planilha: "7", grupo: "PAREDES E PAINES", unidade: "vb" });
+  const previaNova = (destino: string): PreviaVersao => ({
+    aplicado: false, tipo: "contrato", itens: [
+      { ...PAREDES, tipo: "etapa", ordem: 0, numero: "6", nivel: 1, descricao: "Alvenaria e vedações", total: 0, grupo: "" },
+      PAREDES,
+    ], ignoradas: [], erros: [], avisos: [], total: 15_796_930, n_itens: 1, n_etapas: 1,
+    etapas: [{ etapa: destino, descricao: destino === "alvenaria" ? "Alvenaria e vedações" : "Outros", total: 15_796_930 }],
+    substitui: null, padronizada: true, natureza: "venda", bdi: 2500, total_venda: 19_746_163,
+    encaixe: [{ etapa_planilha: "7", descricao: "PAREDES E PAINES", destino, destino_nome: destino === "alvenaria" ? "Alvenaria e vedações" : "Outros",
+      escolhida: destino !== "alvenaria", total: 15_796_930, etapas: [{ etapa: destino, nome: "x", total: 15_796_930, itens: 1 }] }],
+    etapas_disponiveis: [{ etapa: "alvenaria", descricao: "Alvenaria e vedações" }, { etapa: "outros", descricao: "Outros" }],
+    versao_id: null, registro_id: null,
+  });
+
+  it("pede o BDI da planilha de venda, manda padronizar e troca o destino de uma etapa da planilha", async () => {
+    const u = userEvent.setup();
+    const { rede } = montar(EM_ORCAMENTO, {
+      "GET /srv/api/obras/o1/orcamento": () => json(SEM_ORC),
+      "POST /srv/api/obras/o1/orcamento/versoes": ({ init }) => {
+        const destinos = JSON.parse(String(form(init).get("destinos") ?? "{}"));
+        return json(previaNova(destinos["7"] ?? "alvenaria"));
+      },
+    });
+    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
+    await u.click(await screen.findByRole("radio", { name: "Preço de venda (com BDI)" }));
+    // venda sem BDI não segue: é com ele que sai o custo
+    await u.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText(/Diga o BDI da planilha/)).toBeInTheDocument();
+    await u.type(screen.getByLabelText("BDI da planilha (%)"), "25");
+    await u.click(screen.getByRole("button", { name: "Continuar" }));
+    await ateAPrevia(u);
+
+    const f = versoes(rede).at(-1)!;
+    expect([f.get("padronizar"), f.get("natureza"), f.get("bdi"), f.get("somar")]).toEqual(["true", "venda", "2500", null]);
+    expect(await screen.findByText("Encaixe nas etapas padrão")).toBeInTheDocument();
+    expect(screen.getByText("custo do orçamento inicial")).toBeInTheDocument();
+    expect(screen.getByText(/preço de venda \(BDI 25%\)/)).toBeInTheDocument();
+    // a chave da lista padrão não aparece como número: aparece a posição da etapa na lista
+    expect(screen.queryByText("alvenaria")).toBeNull();
+
+    await u.selectOptions(screen.getByRole("combobox", { name: "Etapa padrão de PAREDES E PAINES" }), "outros");
+    await waitFor(() => expect(versoes(rede).at(-1)!.get("destinos")).toBe('{"7":"outros"}'));
+    expect(await screen.findByText("escolhida por você")).toBeInTheDocument();
+  });
+});

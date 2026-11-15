@@ -4,7 +4,7 @@
  * bloco de aditivos. Os números vêm somados da API (GET /obras/{id}/orcamento); o saldo e o % de aditivo também vêm prontos;
  * aqui só se ordena, se calcula o % comprometido da barra e se desenha. Nenhuma soma de pedido é refeita.
  */
-import type { EtapaOrcamento, Gasto, Orcamento, VersaoOrcamento } from "@/lib/contrato";
+import type { EtapaOrcamento, Gasto, Orcamento, TopicoOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { centavosCsv, gerarCsv } from "@/lib/csv";
 import { fmtReais } from "@/lib/formato";
 
@@ -25,7 +25,17 @@ export interface LinhaAndamento extends Gasto {
   /** comprometido ÷ atual; Infinity quando há gasto numa etapa sem orçado. */
   pct: number;
   semEtapa?: boolean;
+  /** A etapa aberta por tópico (vazio quando ela não tem). */
+  topicos: TopicoOrcamento[];
+  /** O que a previsão da obra estimou, fora do orçado. */
+  estimado: number;
 }
+
+/**
+ * O número que a etapa mostra: a chave da planilha ("18", "A1") é o número dela; a da lista padrão ("alvenaria") e a da
+ * etapa sem número (o nome normalizado) não são número de nada e ficam de fora.
+ */
+export const numeroVisivel = (etapa: string) => (/\d/.test(etapa) ? etapa : "");
 
 const pctDe = (comprometido: number, atual: number) => (atual ? comprometido / atual : comprometido ? Infinity : 0);
 
@@ -39,10 +49,12 @@ export function linhasAndamento(orc: Orcamento): LinhaAndamento[] {
     realizado: e.realizado,
     saldo: e.saldo,
     pct: pctDe(e.comprometido, e.atual),
+    topicos: e.topicos ?? [],
+    estimado: e.estimado ?? 0,
   }));
   const s = orc.totais.sem_etapa;
   if (s && (s.cotando || s.comprometido || s.realizado))
-    ls.push({ etapa: "", descricao: "Sem etapa", atual: 0, ...s, saldo: -s.comprometido, pct: pctDe(s.comprometido, 0), semEtapa: true });
+    ls.push({ etapa: "", descricao: "Sem etapa", atual: 0, ...s, saldo: -s.comprometido, pct: pctDe(s.comprometido, 0), semEtapa: true, topicos: [], estimado: 0 });
   return ls;
 }
 
