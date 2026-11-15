@@ -1013,6 +1013,8 @@ export interface Desembolso {
 export interface TopicoNaArvore {
   id: string;
   nome: string;
+  /** "orcamento" = sai da planilha (não se renomeia nem se arquiva); "manual" = criado na obra. Ausente na API antiga. */
+  origem?: "orcamento" | "manual";
 }
 
 /** Etapa fixa (chave como "eletrica") ou extra da obra ("x-<id>"), com os tópicos dela. Arquivadas não vêm. */
