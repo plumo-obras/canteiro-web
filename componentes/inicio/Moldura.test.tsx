@@ -9,7 +9,7 @@ const caminho = vi.hoisted(() => ({ atual: "/inicio" }));
 const sair = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("next/navigation", () => ({ usePathname: () => caminho.atual, useRouter: () => ({ replace, push: vi.fn() }) }));
 vi.mock("@/lib/sessao", () => ({ sair, comAcesso: (u: string, i: RequestInit) => fetch(u, i) }));
-vi.mock("../useSessaoGarantida", () => ({ useSessaoGarantida: () => USUARIO }));
+vi.mock("../useSessaoGarantida", () => ({ useSessaoGarantida: () => ({ usuario: USUARIO, semServidor: false, tentarAgora: () => undefined }) }));
 
 const montar = (rota: "inicio" | "conta" = "inicio") =>
   render(
