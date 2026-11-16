@@ -90,7 +90,7 @@ export function referenciaDoTopo(linhas: string[]): { data_base: string | null; 
     const n = semAcento(linha);
     if (!FALA_DE_REFERENCIA.test(n)) continue;
     data_base ??= dataBaseDe(n);
-    const b = banco === null ? new RegExp(`\\b(${BANCOS.join("|")})\\b`).exec(n) : null;
+    const b: RegExpExecArray | null = banco === null ? new RegExp(`\\b(${BANCOS.join("|")})\\b`).exec(n) : null;
     if (b) banco = b[1]!.toUpperCase() + (/nao desonerad|sem desonera/.test(n) ? " não desonerado" : /desonerad/.test(n) ? " desonerado" : "");
   }
   return { data_base, banco };
