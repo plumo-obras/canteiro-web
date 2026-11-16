@@ -34,6 +34,13 @@ describe("a obra aberta sobrevive ao recarregar", () => {
     expect(window.location.search).toBe("?obra=o-emei&tela=orcamento");
   });
 
+  it("vindo da Nova obra com ?importar=1, abre o import do orçamento e tira o pedido da URL", async () => {
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=orcamento&importar=1");
+    render(<Casca demo={false} />);
+    expect(await screen.findByRole("dialog", { name: "Importar planilha" })).toBeTruthy();
+    await waitFor(() => expect(window.location.search).toBe("?obra=o-emei&tela=orcamento"));
+  });
+
   it("sem obra na URL, volta na última aberta neste navegador, não na 1ª da lista", async () => {
     localStorage.setItem("plumo.obra", "o-emei");
     render(<Casca demo={false} />);
