@@ -20,6 +20,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { Campo, ErroApi } from "../formularios/Campos";
+import { Escolha } from "./CamposObra";
 import { ComparaVerba } from "./verba";
 import { useCarregar } from "../useCarregar";
 
@@ -1051,14 +1052,16 @@ function NaturezaPlanilha(props: {
   return (
     <fieldset className="pergunta-versao">
       <legend className="l">Os valores da planilha são</legend>
-      <div className="seg" role="radiogroup" aria-label="Os valores da planilha são">
-        <button type="button" role="radio" aria-checked={props.natureza === "custo"} className={props.natureza === "custo" ? "on" : ""} onClick={() => props.setNatureza("custo")}>
-          Custo da obra
-        </button>
-        <button type="button" role="radio" aria-checked={props.natureza === "venda"} className={props.natureza === "venda" ? "on" : ""} onClick={() => props.setNatureza("venda")}>
-          Preço de venda (com BDI)
-        </button>
-      </div>
+      <Escolha
+        rotulo="Os valores da planilha são"
+        opcoes={[
+          { k: "custo", rotulo: "Custo da obra" },
+          { k: "venda", rotulo: "Preço de venda (com BDI)" },
+        ]}
+        valor={props.natureza}
+        // a pergunta é obrigatória: clicar de novo na escolhida não desmarca
+        mudar={(k) => k && props.setNatureza(k)}
+      />
       {props.natureza === "venda" ? (
         <Campo rotulo="BDI da planilha (%)" erro={props.erro}>
           {(a) => <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 22,91" value={props.bdi} onChange={(e) => props.setBdi(e.target.value)} />}
