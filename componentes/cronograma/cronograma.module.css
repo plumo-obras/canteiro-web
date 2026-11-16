@@ -72,3 +72,8 @@
 .celPlumo { width: 100%; box-sizing: border-box; min-height: 48px; font-size: var(--t-sec); }
 .celNota { margin: 0; text-align: center; color: var(--muted); font-size: var(--t-meta); }
 .cont { margin-left: 6px; font-size: 12px; color: var(--faint); }
+
+/* A fala do agente quando ele não propõe: lida como texto, à esquerda, mesmo dentro do vazio centralizado. */
+.recado{text-align:left}
+.recado :where(p,ul,ol){margin:0 0 6px}
+.recado :where(ul,ol){padding-left:18px}

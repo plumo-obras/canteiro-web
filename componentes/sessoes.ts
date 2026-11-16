@@ -22,6 +22,33 @@ export const telaNoModo = <T extends AbaAtiva>(t: T, demo: boolean): boolean => 
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";
 
+/** A fala do agente sendo montada pelo stream: o texto e se a próxima fala começa outro parágrafo. */
+export interface Fala {
+  texto: string;
+  separar?: boolean;
+}
+
+/**
+ * Junta um evento do stream à fala do agente, do jeito que o balão da conversa mostra. Fora da conversa (o Gerar com
+ * IA do cronograma) a fala é a mesma: sem isso as falas antes e depois de uma ferramenta saíam coladas ("obra.Não").
+ */
+export function acumularFala(f: Fala, e: EventoConversa): Fala {
+  if (e.tipo === "texto") {
+    if (!f.separar || !e.delta) return { ...f, texto: f.texto + e.delta };
+    if (!f.texto.trim()) return { texto: f.texto + e.delta, separar: false };
+    // Linha em branco, e não só espaço: a fala depois da ferramenta é outro parágrafo no markdown.
+    const antes = f.texto.replace(/[ \t]+$/, "");
+    const quebra = antes.endsWith("\n\n") ? "" : antes.endsWith("\n") ? "\n" : "\n\n";
+    return { texto: antes + quebra + e.delta.replace(/^[ \t]+/, ""), separar: false };
+  }
+  // Só tira se a fala termina mesmo nesse texto; se não (algo já mudou), deixa como está a cortar errado.
+  if (e.tipo === "descartar") return e.texto && f.texto.endsWith(e.texto) ? { ...f, texto: f.texto.slice(0, -e.texto.length) } : f;
+  // A quebra fica pendente em vez de entrar já no texto: um "descartar" logo depois da ferramenta ainda acha a
+  // fala no fim, e fala sem texto antes da ferramenta não começa com linha em branco.
+  if (e.tipo === "ferramenta") return { ...f, separar: true };
+  return f;
+}
+
 export interface Sessao {
   id: string;
   servidorId: string | null;
@@ -97,19 +124,8 @@ function aplicar(s: Sessao, a: AcaoSessoes): Sessao {
       const e = a.evento;
       if (e.tipo === "fim") return naMsg({ ...s, servidorId: e.sessao_id || s.servidorId }, a.msgId, (m) => ({ ...m, terminou: true }));
       return naMsg(s, a.msgId, (m) => {
-        if (e.tipo === "texto") {
-          if (!m.separar || !e.delta) return { ...m, texto: m.texto + e.delta };
-          if (!m.texto.trim()) return { ...m, texto: m.texto + e.delta, separar: false };
-          // Linha em branco, e não só espaço: a fala depois da ferramenta é outro parágrafo no markdown.
-          const antes = m.texto.replace(/[ \t]+$/, "");
-          const quebra = antes.endsWith("\n\n") ? "" : antes.endsWith("\n") ? "\n" : "\n\n";
-          return { ...m, texto: antes + quebra + e.delta.replace(/^[ \t]+/, ""), separar: false };
-        }
-        // Só tira se o balão termina mesmo nesse texto; se não (algo já mudou), deixa como está a cortar errado.
-        if (e.tipo === "descartar") return e.texto && m.texto.endsWith(e.texto) ? { ...m, texto: m.texto.slice(0, -e.texto.length) } : m;
-        // A quebra fica pendente em vez de entrar já no texto: um "descartar" logo depois da ferramenta ainda acha a
-        // fala no fim do balão, e balão sem texto antes da ferramenta não começa com linha em branco.
-        if (e.tipo === "ferramenta") return { ...m, separar: true, ferramentas: [...m.ferramentas, { nome: e.nome, nivel: e.nivel, resumo: e.resumo }] };
+        if (e.tipo === "texto" || e.tipo === "descartar") return { ...m, ...acumularFala(m, e) };
+        if (e.tipo === "ferramenta") return { ...m, ...acumularFala(m, e), ferramentas: [...m.ferramentas, { nome: e.nome, nivel: e.nivel, resumo: e.resumo }] };
         if (e.tipo === "proposta") return m.propostas.includes(e.proposta.id) ? m : { ...m, propostas: [...m.propostas, e.proposta.id] };
         return { ...m, erro: e.mensagem, terminou: true };
       });

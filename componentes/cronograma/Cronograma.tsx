@@ -17,9 +17,11 @@ import { BaseOrcamento } from "./BaseOrcamento";
 import { Drawer, Modal } from "../Dialogo";
 import { BotaoPlumo } from "../BotaoPlumo";
 import { Icone } from "../Icone";
+import { MensagemMarkdown } from "../MensagemMarkdown";
 import { MenuMais, type ItemMenu } from "../MenuMais";
 import { useCelular } from "../midia";
 import { useCarregar } from "../useCarregar";
+import { acumularFala, type Fala } from "../sessoes";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
 import { CurvaS } from "./CurvaS";
 import { Desembolso } from "./Desembolso";
@@ -126,19 +128,23 @@ const PEDIDO_AO_AGENTE =
   "ordem das fases de obra e defina a equipe de cada uma (a duração o sistema calcula pela quantidade e produtividade). " +
   "Proponha com as etapas que o orçamento já tiver, mesmo que seja uma só — não peça para eu cadastrar mais etapas antes.";
 
-async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
+/** O agente respondeu sem propor (ex.: orçamento ralo): é uma fala dele, não uma falha, e a tela mostra como fala. */
+export class RecadoDoAgente extends Error {}
+
+export async function proporCronogramaPeloAgente(obraId: string): Promise<Proposta> {
   let proposta: Proposta | null = null;
   let erro: string | null = null;
-  let texto = "";
+  let fala: Fala = { texto: "" };
   for await (const ev of conversarComAgente({ obra_id: obraId, texto: PEDIDO_AO_AGENTE })) {
     if (ev.tipo === "proposta" && ev.proposta.tipo === "cronograma") proposta = ev.proposta;
-    else if (ev.tipo === "texto") texto += ev.delta;
     else if (ev.tipo === "erro") erro = ev.mensagem;
+    else fala = acumularFala(fala, ev);
   }
   if (proposta) return proposta;
-  // o agente respondeu sem propor (ex.: orçamento ralo): mostra o que ele disse, não um erro genérico
-  const recado = texto.trim();
-  throw new Error(erro ?? (recado ? recado : "O Plumo não chegou a propor o cronograma. Tente de novo."));
+  if (erro) throw new Error(erro);
+  const recado = fala.texto.trim();
+  if (recado) throw new RecadoDoAgente(recado);
+  throw new Error("O Plumo não chegou a propor o cronograma. Tente de novo.");
 }
 
 type Vista = "etapas" | "curva" | "desembolso";
@@ -158,6 +164,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
   const [iaProp, setIaProp] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erroIA, setErroIA] = useState<string | null>(null);
+  const [recadoIA, setRecadoIA] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>("etapas");
   const [filtro, setFiltro] = useState<FiltroGantt>("todas");
   const tem = !!dado?.inicio && dado.meses > 0;
@@ -252,6 +259,7 @@ export function Cronograma({ obra }: { obra: Obra }) {
   const gerarComIA = useCallback(async () => {
     setGerando(true);
     setErroIA(null);
+    setRecadoIA(null);
     try {
       // Obra ainda EM ORÇAMENTO (não aprovada): antes de propor, prevê a obra completa — estima as fases que faltam
       // (fundação, alvenaria, acabamento…) para o cronograma nascer DESTRINCHADO, da fundação à entrega, e não só com a
@@ -262,7 +270,8 @@ export function Cronograma({ obra }: { obra: Obra }) {
       receberPropostas([prop]);
       setIaProp(prop.id);
     } catch (e) {
-      setErroIA(mensagemDe(e));
+      if (e instanceof RecadoDoAgente) setRecadoIA(e.message);
+      else setErroIA(mensagemDe(e));
     } finally {
       setGerando(false);
     }
@@ -333,6 +342,17 @@ export function Cronograma({ obra }: { obra: Obra }) {
                   <div className="aviso-erro" role="alert" style={{ marginTop: 12 }}>
                     <Icone nome="alert" tam={15} />
                     <span>{erroIA}</span>
+                  </div>
+                ) : null}
+                {recadoIA ? (
+                  <div className={`aviso-atencao ${c.recado}`} role="status" style={{ marginTop: 12 }}>
+                    <Icone nome="alert" tam={15} />
+                    <div>
+                      <p>
+                        <b>O Plumo não propôs o cronograma. Ele disse:</b>
+                      </p>
+                      <MensagemMarkdown texto={recadoIA} />
+                    </div>
                   </div>
                 ) : null}
                 {/* o que vai ser sequenciado, já visível antes de gerar — sem ter de abrir o Orçamento */}
