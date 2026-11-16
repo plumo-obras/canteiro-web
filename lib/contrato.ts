@@ -121,6 +121,10 @@ export interface LeituraPlanilha {
   colunas: { indice: number; titulo: string }[];
   amostra: string[][];
   sugestao: Mapeamento;
+  /** "AAAA-MM" lido do título de uma coluna ou do topo da planilha; só sugestão para a data-base da obra. */
+  data_base?: string | null;
+  /** Banco de preços dito no topo da planilha ("SINAPI não desonerado"); só para mostrar. */
+  banco?: string | null;
 }
 
 export interface LinhaOrcamento {
