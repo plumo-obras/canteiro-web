@@ -1,9 +1,9 @@
 "use client";
 /**
- * A aba Conversa: histórico, campo e o streaming do POST /conversa. Cada evento SSE vira estado na hora: `ferramenta`
+ * A conversa com o Plumo (no painel ao lado da tela): histórico, campo e o streaming do POST /conversa. Cada evento SSE vira estado na hora: `ferramenta`
  * vira o chip "usou almoxarifado…", `texto` cresce o balão, `proposta` vira o cartão de decisão (que só a pessoa aprova).
  */
-import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from "react";
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
 import { conversar } from "@/lib/cliente";
 import { CartaoProposta } from "./CartaoProposta";
@@ -62,7 +62,8 @@ function BalaoAgente({ m }: { m: MsgAgente }) {
         ) : null}
         {m.propostas.length ? (
           <div className="ca-cartao">
-            <div className="ld-lista">
+            {/* o painel é uma coluna estreita: o cartão usa o leiaute do celular em qualquer largura de tela */}
+            <div className="ld-lista ld-estreita">
               {m.propostas.map((id) => (
                 <CartaoProposta key={id} id={id} />
               ))}
@@ -94,7 +95,27 @@ function ConversaVazia({ sugestoes, perguntar }: { sugestoes: string[]; pergunta
   );
 }
 
-export function Conversa({ sessao, obra, resumo = null, despachar }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; despachar: Dispatch<AcaoSessoes> }) {
+/** Uma pergunta feita fora da conversa (o campo do topo). `n` muda a cada pedido, mesmo com o mesmo texto. */
+export interface PedidoConversa {
+  n: number;
+  texto: string;
+}
+
+export function Conversa({
+  sessao,
+  obra,
+  resumo = null,
+  despachar,
+  pedido = null,
+  atenderPedido,
+}: {
+  sessao: Sessao;
+  obra: Obra | undefined;
+  resumo?: ResumoDaObra | null;
+  despachar: Dispatch<AcaoSessoes>;
+  pedido?: PedidoConversa | null;
+  atenderPedido?: () => void;
+}) {
   const { receberPropostas, avisar } = useCasca();
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -141,6 +162,16 @@ export function Conversa({ sessao, obra, resumo = null, despachar }: { sessao: S
       campo.current?.focus({ preventScroll: true });
     }
   }
+
+  // A pergunta que veio do campo do topo: com a conversa livre, vai já; respondendo outra, fica no campo esperando.
+  const atender = useEffectEvent((p: PedidoConversa) => {
+    if (sessao.carregada && !falando) void perguntar(p.texto);
+    else setTexto(p.texto);
+    atenderPedido?.();
+  });
+  useEffect(() => {
+    if (pedido) atender(pedido);
+  }, [pedido]);
 
   const parar = fluxos.get(sessao.id);
 

@@ -1,8 +1,8 @@
 "use client";
 /**
  * Página inicial depois do login: uma visão de todas as obras para decidir onde entrar. Os números vêm prontos de
- * GET /obras/resumo (somados na API); aqui só se escolhe o que destacar. "Abrir obra" entra no workspace na conversa
- * mais recente da obra (ou numa nova), pelo ?obra=&sessao= que a Casca lê.
+ * GET /obras/resumo (somados na API); aqui só se escolhe o que destacar. "Abrir obra" entra no workspace no Resumo da
+ * obra, pelo ?obra= que a Casca lê.
  */
 import Link from "next/link";
 import { useState } from "react";
@@ -10,7 +10,6 @@ import { situacaoPrazo } from "../cronograma/Cronograma";
 import { fmtMesLongo } from "@/lib/cronograma";
 import type { PrazoCronograma, ResumoObra, StatusObra, Usuario } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
-import type { SessaoApi } from "@/lib/historico";
 import type { Tela } from "../sessoes";
 import { fmtReais } from "@/lib/formato";
 import { Icone } from "../Icone";
@@ -33,13 +32,11 @@ const normal = (t: string) =>
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
 /**
- * Link do workspace para a obra: a sessão mais recente dela (a lista vem das mais novas) ou uma conversa nova. Com `tela`,
- * abre direto nela (o aviso de aprovação cai em Aprovações, não na conversa).
+ * Link do workspace para a obra: o Resumo dela. Com `tela`, abre direto nela (o aviso de aprovação cai em Aprovações).
+ * Sem ?sessao=: ele abriria o painel do Plumo por cima do Resumo, e no celular o painel cobre a tela.
  */
-export function hrefDaObra(obraId: string, sessoes: SessaoApi[], tela?: Tela) {
-  const recente = sessoes.find((x) => x.obra_id === obraId);
+export function hrefDaObra(obraId: string, tela?: Tela) {
   const p = new URLSearchParams({ obra: obraId });
-  if (recente) p.set("sessao", recente.id);
   if (tela) p.set("tela", tela);
   return `/?${p}`;
 }
@@ -106,12 +103,7 @@ const TXT_SITUACAO: Record<(typeof SITUACOES)[number], string> = { todas: "Todas
 export function Inicio({ usuario }: { usuario: Usuario }) {
   const [tentativa, setTentativa] = useState(0);
   const celular = useCelular();
-  const { dado, erro, carregando } = useCarregar(
-    // O histórico só escolhe a sessão do link: se falhar, o cartão abre uma conversa nova e a página segue.
-    () => Promise.all([api.resumoObras(), api.listarSessoes({ limite: 100 }).catch(() => [] as SessaoApi[])]),
-    [tentativa],
-  );
-  const [resumos, sessoes] = dado ?? [null, []];
+  const { dado: resumos, erro, carregando } = useCarregar(() => api.resumoObras(), [tentativa]);
   const ordenados = resumos
     ? [...resumos].sort((a, b) => ORDEM_STATUS[a.obra.status] - ORDEM_STATUS[b.obra.status] || a.obra.nome.localeCompare(b.obra.nome, "pt-BR"))
     : null;
@@ -185,7 +177,7 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
                 const texto = celular ? a.curto : a.texto;
                 const classe = `${s.etiqueta} ${a.tom}`;
                 return a.obraIds.length === 1 ? (
-                  <Link key={a.chave} href={hrefDaObra(a.obraIds[0]!, sessoes, a.tela)} className={classe}>
+                  <Link key={a.chave} href={hrefDaObra(a.obraIds[0]!, a.tela)} className={classe}>
                     <span className={s.bola} aria-hidden="true" />
                     {texto}
                   </Link>
@@ -237,7 +229,7 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
           {filtrados.length ? (
             <ul className={s.grade} aria-label="Obras">
               {pag.visiveis.map((r) => (
-                <CartaoObra key={r.obra.id} r={r} href={hrefDaObra(r.obra.id, sessoes)} celular={celular} />
+                <CartaoObra key={r.obra.id} r={r} href={hrefDaObra(r.obra.id)} celular={celular} />
               ))}
             </ul>
           ) : (
