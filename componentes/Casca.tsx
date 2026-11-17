@@ -29,6 +29,7 @@ import { MenuPerfil, useMenu } from "./MenuPerfil";
 import { trocarTema, useTema } from "./tema";
 import { useCelular, useMidia } from "./midia";
 import { useCarregar } from "./useCarregar";
+import { Abrindo } from "./Abrindo";
 import { useSessaoGarantida } from "./useSessaoGarantida";
 import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
 import { paradasDoTab, proximaParada } from "./foco";
@@ -64,15 +65,9 @@ function statusDaObra(o: Obra, r: ResumoDaObra | null): string {
 
 /** Entrada da casca: garante a sessão de login (renovando pelo cookie depois de recarregar) antes de montar o app. */
 export function Casca({ demo }: { demo: boolean }) {
-  const usuario = useSessaoGarantida();
+  const { usuario, semServidor, tentarAgora } = useSessaoGarantida();
 
-  if (!usuario) {
-    return (
-      <div className="abrindo" role="status">
-        Abrindo o Plumo…
-      </div>
-    );
-  }
+  if (!usuario) return <Abrindo semServidor={semServidor} tentarAgora={tentarAgora} />;
   return (
     <ProvedorCasca usuario={usuario} demo={demo}>
       <App usuario={usuario} />

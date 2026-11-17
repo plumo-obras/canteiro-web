@@ -29,12 +29,12 @@ describe("useSessaoGarantida", () => {
     });
     const { result, rerender } = renderHook(() => useSessaoGarantida());
     await act(async () => undefined);
-    expect(result.current).toBeNull();
+    expect(result.current.usuario).toBeNull();
     expect(sessao.renovar).toHaveBeenCalledTimes(1);
     await act(async () => vi.advanceTimersByTime(3000));
     rerender();
     expect(sessao.renovar).toHaveBeenCalledTimes(2);
-    expect(result.current).toEqual({ id: "u" });
+    expect(result.current.usuario).toEqual({ id: "u" });
     expect(replace).not.toHaveBeenCalled();
   });
 
@@ -42,7 +42,25 @@ describe("useSessaoGarantida", () => {
     sessao.renovar.mockResolvedValue("negado");
     const { result } = renderHook(() => useSessaoGarantida());
     await act(async () => undefined);
-    expect(result.current).toBeNull();
+    expect(result.current.usuario).toBeNull();
     expect(replace).toHaveBeenCalledWith("/entrar");
+  });
+
+  it("sem servidor, avisa e tenta de novo na hora pelo botão", async () => {
+    sessao.renovar.mockResolvedValueOnce("falha").mockImplementationOnce(async () => {
+      sessao.usuario = { id: "u" };
+      return "ok";
+    });
+    const { result, rerender } = renderHook(() => useSessaoGarantida());
+    await act(async () => undefined);
+    expect(result.current.semServidor).toBe(true);
+    await act(async () => result.current.tentarAgora());
+    rerender();
+    expect(sessao.renovar).toHaveBeenCalledTimes(2);
+    expect(result.current.semServidor).toBe(false);
+    expect(result.current.usuario).toEqual({ id: "u" });
+    // A tentativa agendada foi cancelada: não renova de novo depois.
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(sessao.renovar).toHaveBeenCalledTimes(2);
   });
 });

@@ -15,22 +15,17 @@ import { Icone, Logo } from "../Icone";
 import { MenuPerfil } from "../MenuPerfil";
 import { useCelular } from "../midia";
 import { useCarregar } from "../useCarregar";
+import { Abrindo } from "../Abrindo";
 import { useSessaoGarantida } from "../useSessaoGarantida";
 import s from "./moldura.module.css";
 
 export type Rota = "inicio" | "conta";
 
 export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; children: (u: Usuario) => ReactNode }) {
-  const usuario = useSessaoGarantida();
+  const { usuario, semServidor, tentarAgora } = useSessaoGarantida();
   const celular = useCelular();
 
-  if (!usuario) {
-    return (
-      <div className="abrindo" role="status">
-        Abrindo o Plumo…
-      </div>
-    );
-  }
+  if (!usuario) return <Abrindo semServidor={semServidor} tentarAgora={tentarAgora} />;
 
   const item = (k: Rota, href: string, rotulo: string) => (
     <Link href={href} className={s.nav} aria-current={rota === k ? "page" : undefined}>
