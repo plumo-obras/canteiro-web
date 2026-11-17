@@ -117,6 +117,9 @@ function App({ usuario }: { usuario: Usuario }) {
   // Obra recém-aberta sem ?tela=: o destino sai do resumo, que pode demorar (cold start). A obra e a sessão abrem na hora
   // e o destino só vale se ninguém navegou enquanto ele vinha; por isso toda navegação da pessoa passa por irPara.
   const [destinoPendente, setDestinoPendente] = useState<string | null>(null);
+  // Vindo da Nova obra por "já tenho a planilha": abre o import do orçamento uma vez, nesta obra. A URL reescrita
+  // abaixo já não carrega o ?importar=, então recarregar não abre de novo.
+  const [importarEm, setImportarEm] = useState<string | null>(null);
   const irPara = useCallback((t: AbaAtiva) => {
     setDestinoPendente(null);
     setTela(t);
@@ -157,6 +160,7 @@ function App({ usuario }: { usuario: Usuario }) {
     const querTela = abaDe(qs.get("tela"));
     // link com ?tela=gastos aberto na demonstração cai na conversa: a tela não existe lá
     if (querTela && telaNoModo(querTela, demo)) setTela(querTela);
+    if (querTela === "orcamento" && qs.get("importar") === "1" && querObra) setImportarEm(querObra);
     api
       .listarObras()
       .then((os) => {
@@ -499,7 +503,7 @@ function App({ usuario }: { usuario: Usuario }) {
                 // cronograma, por exemplo) ficava montado com a obra B, e "Salvar" gravava o de A em B.
                 <section key={obra.id} className="palco-tela" aria-label={ROTULOS[tela].rotulo}>
                   {tela === "orcamento" ? (
-                    <Orcamento obra={obra} />
+                    <Orcamento obra={obra} abrirImportar={importarEm === obra.id} aoAbrirImportar={() => setImportarEm(null)} />
                   ) : tela === "cronograma" ? (
                     <Cronograma obra={obra} />
                   ) : tela === "suprimentos" ? (

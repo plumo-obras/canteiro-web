@@ -5,7 +5,7 @@
  * vêm prontas da API (GET /obras/{id}/orcamento), a tela só agrupa e filtra o que já chegou. Comprometido e Realizado
  * dependem de pedidos e notas, então só aparecem quando a obra estiver andando: aqui não se inventa número.
  */
-import { Children, useState, type ReactNode } from "react";
+import { Children, useEffect, useState, type ReactNode } from "react";
 import type { Obra, Orcamento as DadosOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtReais } from "@/lib/formato";
@@ -47,11 +47,15 @@ const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("p
 /** precisa (milésimos) × preço (centavos) → centavos, como a lista de materiais soma. */
 const totalInsumo = (precisa: number, valor: number) => Math.round((precisa * valor) / 1000);
 
-export function Orcamento({ obra }: { obra: Obra }) {
+export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { obra: Obra; abrirImportar?: boolean; aoAbrirImportar?: () => void }) {
   const { versao, podeOperar, avisar, avisarFeito, mudou } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
-  const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(null);
+  const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(abrirImportar && podeOperar ? "importar" : null);
+  // O pedido de abrir o import vale uma vez: avisado, sair e voltar à tela não reabre.
+  useEffect(() => {
+    if (abrirImportar) aoAbrirImportar?.();
+  }, [abrirImportar, aoAbrirImportar]);
 
   const dado = orc.dado;
   const materiais = (ins.dado ?? []).filter((i) => i.insumo.precisa_ate_o_fim > 0);

@@ -86,7 +86,7 @@ describe("Nova obra", () => {
     await u.click(planilha);
     expect(planilha.getAttribute("aria-pressed")).toBe("true");
     await u.click(screen.getByRole("button", { name: /^Criar obra/ }));
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-7&tela=orcamento"));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/?obra=o-7&tela=orcamento&importar=1"));
     expect(destinoDe("o-7", "cadastrar")).toBe("/inicio");
   });
 

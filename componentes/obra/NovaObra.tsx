@@ -31,7 +31,8 @@ type Comeco = "pranchas" | "planilha" | "cadastrar";
 export function destinoDe(obraId: string, comeco: Comeco) {
   const id = encodeURIComponent(obraId);
   if (comeco === "cadastrar") return "/inicio";
-  return `/?obra=${id}&tela=${comeco === "planilha" ? "orcamento" : "projeto"}`;
+  // ?importar=1: quem disse "já tenho a planilha" cai direto no import, sem um clique a mais na tela vazia.
+  return comeco === "planilha" ? `/?obra=${id}&tela=orcamento&importar=1` : `/?obra=${id}&tela=projeto`;
 }
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
