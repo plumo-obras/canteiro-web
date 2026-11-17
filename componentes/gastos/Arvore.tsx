@@ -103,14 +103,17 @@ export function Arvore({ obra, arvore, resumo }: { obra: Obra; arvore: EtapaNaAr
               <ul className={s.topicos} role="list" aria-label={`Tópicos de ${e.nome}`}>
                 {e.topicos.map((t) => (
                   <li key={t.id} className={s.topico}>
-                    {podeOperar ? (
+                    {/* o tópico que sai da planilha muda pela planilha: a API recusa renomear e arquivar */}
+                    {podeOperar && t.origem !== "orcamento" ? (
                       <button type="button" className={s.topicoNome} onClick={() => setEditando({ k: "renomearTopico", id: t.id, nome: t.nome })} title="Renomear">
                         {t.nome}
                       </button>
                     ) : (
-                      <span className={s.topicoNome}>{t.nome}</span>
+                      <span className={s.topicoNome} title={t.origem === "orcamento" ? "Tópico do orçamento: muda pela planilha" : undefined}>
+                        {t.nome}
+                      </span>
                     )}
-                    {podeOperar ? (
+                    {podeOperar && t.origem !== "orcamento" ? (
                       <button type="button" className={s.topicoX} aria-label={`Arquivar ${t.nome}`} onClick={() => arquivar("topico", t.id, t.nome)}>
                         <Icone nome="x" tam={12} />
                       </button>

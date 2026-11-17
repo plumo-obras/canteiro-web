@@ -110,6 +110,8 @@ export interface Mapeamento {
   valor_total: number | null;
   saldo: number | null;
   curva: number | null;
+  /** Só no orçamento: medida, marca ou detalhe da linha ("0,60 x 2,10"). Ausente na API antiga. */
+  complemento?: number | null;
 }
 
 export interface LeituraPlanilha {
@@ -192,6 +194,12 @@ export interface VersaoOrcamento {
   desfazer_texto?: string | null;
   /** A API resolve a cadeia (somar e reordenar substituem; o Desfazer desfaz). Ausente na API antiga. */
   situacao?: "vigente" | "substituida" | "desfeita";
+  /** As linhas estão nas etapas da lista padrão (a ordem é a da lista e não muda). Ausente na API antiga. */
+  padronizada?: boolean;
+  /** "venda" = a planilha era o preço do cliente; os itens guardam o custo. Ausente na API antiga. */
+  natureza?: "custo" | "venda";
+  /** Na venda: o BDI usado para tirar o custo (centésimos de %). */
+  bdi?: number;
 }
 
 export interface ItemPrevia {
@@ -218,6 +226,15 @@ export interface ItemPrevia {
   etapa_planilha?: string | null;
   /** No aditivo e no somar: o item do orçamento vigente que este parece repetir (quem decide é a pessoa). */
   repetido_de?: { item_id: string; descricao: string; quantidade: Milesimos; unidade: string } | null;
+  /** Medida, marca ou detalhe da linha ("0,60 x 2,10"). */
+  complemento?: string;
+  /** O tópico do orçamento em que o item conta. */
+  topico_id?: string | null;
+  /** No orçamento padronizado: a etapa da planilha de onde o item veio (é o tópico dele); "" quando ela já é a etapa padrão. */
+  grupo?: string;
+  /** Na planilha de venda: o preço do cliente; `valor_unitario`/`total` são o custo. */
+  valor_unitario_venda?: Centavos | null;
+  total_venda?: Centavos | null;
 }
 
 export interface ItemOrcamento extends ItemPrevia {
@@ -230,6 +247,21 @@ export interface EtapaPrevia {
   etapa: string;
   descricao: string;
   total: Centavos;
+}
+
+/** Uma etapa da planilha e as etapas padrão para onde os itens dela foram (importação padronizada). */
+export interface EncaixeEtapa {
+  /** A chave da etapa na planilha ("7"): é ela que vai em `destinos`. */
+  etapa_planilha: string;
+  descricao: string;
+  /** A etapa padrão da maior parte do valor. */
+  destino: string;
+  destino_nome: string;
+  /** A pessoa escolheu o destino da etapa inteira. */
+  escolhida: boolean;
+  total: Centavos;
+  /** A etapa da planilha aberta pelas etapas padrão; mais de uma na etapa mista ("ACABAMENTOS"). */
+  etapas: { etapa: string; nome: string; total: Centavos; itens: number }[];
 }
 
 export interface PreviaVersao {
@@ -251,6 +283,17 @@ export interface PreviaVersao {
    * continuam valendo em `etapas_itens`; o número daqui é o que a tela mostra.
    */
   numeracao?: Record<string, string>;
+  /** Os tópicos que os itens tocam (nível 2 da numeração ou a etapa da planilha, no padronizado). */
+  topicos?: { etapa: string; id: string; nome: string; total: Centavos }[];
+  /** As linhas foram encaixadas na lista padrão de etapas. */
+  padronizada?: boolean;
+  encaixe?: EncaixeEtapa[];
+  /** A lista padrão, para trocar o destino. */
+  etapas_disponiveis?: EtapaObra[];
+  natureza?: "custo" | "venda";
+  bdi?: number;
+  /** Na venda: o total do cliente; `total` é o custo. */
+  total_venda?: Centavos | null;
   versao_id: string | null;
   registro_id: string | null;
 }
@@ -265,9 +308,8 @@ export interface Gasto {
   realizado: Centavos;
 }
 
-export interface EtapaOrcamento extends Gasto {
-  etapa: string;
-  descricao: string;
+/** As contas de orçado × realizado de uma etapa ou de um tópico, prontas da API. */
+export interface ContasOrcado extends Gasto {
   contratado: Centavos;
   aditivos: Centavos;
   atual: Centavos;
@@ -275,6 +317,26 @@ export interface EtapaOrcamento extends Gasto {
   saldo: Centavos;
   /** Comprometido acima do orçado atual. */
   estourou: boolean;
+  /** Gastos por comprovante, sem pedido, já somados no comprometido e no realizado. */
+  gastos_avulsos?: Centavos;
+}
+
+export interface TopicoOrcamento extends ContasOrcado {
+  /** null = o que entrou só na etapa ("Sem tópico"). */
+  topico_id: string | null;
+  nome: string;
+  origem: "orcamento" | "manual" | null;
+}
+
+export interface EtapaOrcamento extends ContasOrcado {
+  etapa: string;
+  descricao: string;
+  /** A etapa aberta por tópico; somados dão a etapa. Vazio quando ela não tem tópico. Ausente na API antiga. */
+  topicos?: TopicoOrcamento[];
+  /** O que a previsão da obra estimou, fora do orçado (o cronograma soma os dois). Ausente na API antiga. */
+  estimado?: Centavos;
+  /** O preço do cliente da etapa (planilha de venda); null sem ela. */
+  venda?: Centavos | null;
 }
 
 /** `GET /obras/{id}/orcamento`. */
@@ -294,6 +356,10 @@ export interface Orcamento {
     n_itens: number;
     n_etapas: number;
     sem_etapa: Gasto;
+    /** Fora do orçado: a soma do `estimado` das etapas. Ausente na API antiga. */
+    estimado?: Centavos;
+    /** O preço do cliente da obra (planilha de venda); null sem ela. */
+    venda?: Centavos | null;
   };
 }
 
@@ -338,6 +404,14 @@ export interface CorpoVersao {
   somar?: boolean;
   /** `ordem` dos itens da planilha que não entram (ex.: os que repetem o que já está no orçamento). */
   ignorar_itens?: number[];
+  /** Orçamento novo: encaixa cada linha na lista padrão de etapas. */
+  padronizar?: boolean;
+  /** O que a pessoa trocou no encaixe: {etapa da planilha: etapa padrão} ou {"linha:N": etapa padrão}. */
+  destinos?: Record<string, string>;
+  /** "venda" = a planilha é o preço do cliente (com BDI); o custo sai com o `bdi`. */
+  natureza?: "custo" | "venda";
+  /** Centésimos de % (22,91% = 2291); sem ele, o BDI da obra. */
+  bdi?: number;
 }
 
 export interface Insumo extends Documento {
@@ -939,6 +1013,8 @@ export interface Desembolso {
 export interface TopicoNaArvore {
   id: string;
   nome: string;
+  /** "orcamento" = sai da planilha (não se renomeia nem se arquiva); "manual" = criado na obra. Ausente na API antiga. */
+  origem?: "orcamento" | "manual";
 }
 
 /** Etapa fixa (chave como "eletrica") ou extra da obra ("x-<id>"), com os tópicos dela. Arquivadas não vêm. */

@@ -11,8 +11,8 @@
  * - a **lista de materiais** (insumos para comprar e estocar) junta os repetidos e alimenta o almoxarifado
  *   (`POST …/orcamento/importar`).
  */
-import { useRef, useState } from "react";
-import type { EtapaObra, ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao, VersaoOrcamento } from "@/lib/contrato";
+import { Fragment, useRef, useState } from "react";
+import type { EncaixeEtapa, EtapaObra, ItemPrevia, LeituraPlanilha, Mapeamento, Obra, PreviaOrcamento, PreviaVersao, TipoVersao, VersaoOrcamento } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtQtd, fmtQtdUn, fmtReais } from "@/lib/formato";
 import { uuid7 } from "@/lib/ids";
@@ -20,6 +20,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { Campo, ErroApi } from "../formularios/Campos";
+import { Escolha } from "./CamposObra";
 import { ComparaVerba } from "./verba";
 import { useCarregar } from "../useCarregar";
 
@@ -37,6 +38,7 @@ const CAMPOS: { k: CampoMapa; rotulo: string; obrigatorio?: boolean; dica?: stri
   { k: "codigo", rotulo: "Código", so: "eap" },
   { k: "fonte", rotulo: "Fonte", so: "eap", dica: "SINAPI, SEINFRA, próprio…" },
   { k: "nome", rotulo: "Descrição do item", obrigatorio: true },
+  { k: "complemento", rotulo: "Complemento", so: "eap", dica: "Medida, marca ou detalhe da linha, ex.: 0,60 x 2,10." },
   { k: "unidade", rotulo: "Unidade", obrigatorio: true },
   { k: "quantidade", rotulo: "Quantidade", obrigatorio: true },
   { k: "valor_unitario", rotulo: "Preço unitário", dica: "Sem ele, o preço sai do total ÷ quantidade." },
@@ -46,6 +48,22 @@ const CAMPOS: { k: CampoMapa; rotulo: string; obrigatorio?: boolean; dica?: stri
 ];
 
 const MAX_LINHAS_PREVIA = 60;
+
+/**
+ * No orçamento, a planilha de custo feita à mão não tem unidade nem quantidade (é quase tudo verba): a API lê a linha
+ * numerada com valor como 1 vb. Basta a quantidade ou o preço total; na lista de materiais, as duas continuam
+ * obrigatórias (é o que se compra).
+ */
+const camposDoTipo = (tipo: Tipo | null) =>
+  CAMPOS.filter((c) => !c.so || c.so === tipo).map((c) =>
+    tipo === "eap" && (c.k === "unidade" || c.k === "quantidade")
+      ? { ...c, obrigatorio: false, dica: c.k === "unidade" ? "Sem ela, a linha numerada com valor entra como verba (1 vb)." : "Sem ela, vale o preço total da linha." }
+      : c,
+  );
+
+/** A chave da lista padrão ("alvenaria") não é número de planilha: a tela mostra o número da etapa, não a chave. */
+const numeroDaEtapa = (previa: PreviaVersao) => new Map(previa.itens.filter((i) => i.tipo === "etapa" && i.nivel <= 1).map((i) => [i.etapa, i.numero]));
+const pctBdi = (centesimos: number) => (centesimos / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
 
@@ -75,7 +93,17 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
-  const campos = CAMPOS.filter((c) => !c.so || c.so === tipo);
+  const campos = camposDoTipo(tipo);
+  // O orçamento novo é sempre encaixado na lista padrão (o nosso modelo): a pessoa confere o encaixe na prévia.
+  // Custo ou venda só se pergunta nele; o aditivo segue o que o orçamento vigente é.
+  const novo = versao === "contrato" && !somar;
+  const [natureza, setNatureza] = useState<"custo" | "venda">("custo");
+  const [bdiTexto, setBdiTexto] = useState(obra.bdi ? pctBdi(obra.bdi) : "");
+  const [erroBdi, setErroBdi] = useState<string | null>(null);
+  const bdiCentesimos = () => {
+    const n = Number(bdiTexto.replace(/\./g, "").replace(",", ".").replace("%", "").trim());
+    return Number.isFinite(n) && n > 0 && n <= 100 ? Math.round(n * 100) : null;
+  };
 
   const rodar = async (f: () => Promise<void>) => {
     setErro(null);
@@ -100,6 +128,11 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
 
   const seguirDoTipo = () => {
     if (!tipo || (tipo === "eap" && !versao)) return;
+    if (tipo === "eap" && novo && natureza === "venda" && !bdiCentesimos()) {
+      setErroBdi("Diga o BDI da planilha (ex.: 22,91): é com ele que sai o custo de cada linha.");
+      return;
+    }
+    setErroBdi(null);
     if (tipo === "eap" && versao === "aditivo") {
       const e = {
         descricao: !descricao.trim() ? "Diga do que é o aditivo, ex.: ampliação do refeitório." : descricao.trim().length > 200 ? "Até 200 letras." : null,
@@ -117,6 +150,7 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
       const leitura = await api.lerPlanilha(obra.id, arq, planilha);
       setEscolhas({}); // outra planilha, outras ordens: as escolhas de etapa da anterior não valem
       setIgnorados({});
+      setDestinos({});
       setArquivo(arq);
       setMapa(leitura.sugestao);
       setPasso({ k: "colunas", leitura });
@@ -134,13 +168,19 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
   // Os itens marcados "não importar". A API os tira da prévia; a cópia fica aqui para a linha continuar à vista e
   // poder ser desmarcada.
   const [ignorados, setIgnorados] = useState<Record<string, ItemPrevia>>({});
+  // No orçamento novo, o destino na lista padrão que a pessoa trocou: {etapa da planilha: etapa padrão}.
+  const [destinos, setDestinos] = useState<Record<string, string>>({});
   const etapasContrato = useCarregar(() => api.etapas(obra.id).catch(() => []), [obra.id]);
 
-  type Opcoes = { tv?: TipoVersao; soma?: boolean; esc?: Record<string, string>; ign?: Record<string, ItemPrevia> };
+  type Opcoes = { tv?: TipoVersao; soma?: boolean; esc?: Record<string, string>; ign?: Record<string, ItemPrevia>; dest?: Record<string, string> };
   const importar = (aplicar: boolean, chave: string, o: Opcoes = {}): Promise<Previa> => {
-    const { tv = versao ?? "contrato", soma = somar, esc = escolhas, ign = ignorados } = o;
+    const { tv = versao ?? "contrato", soma = somar, esc = escolhas, ign = ignorados, dest = destinos } = o;
     const comDestino = tv === "aditivo" || soma;
     const ignorar = Object.keys(ign).map(Number);
+    const padronizar = tv === "contrato" && !soma;
+    // o aditivo de um orçamento de venda também é preço do cliente: vai com o mesmo BDI
+    const venda = padronizar ? natureza === "venda" : tv === "aditivo" && vigente?.natureza === "venda";
+    const bdi = venda ? (padronizar ? bdiCentesimos() : vigente?.bdi) : null;
     return tipo === "eap"
       ? api
           .versaoOrcamento(obra.id, arquivo!, {
@@ -153,12 +193,20 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
             ...(comDestino && Object.keys(esc).length ? { etapas_itens: esc } : {}),
             ...(soma ? { somar: true } : {}),
             ...(comDestino && ignorar.length ? { ignorar_itens: ignorar } : {}),
+            ...(padronizar ? { padronizar: true, destinos: dest } : {}),
+            ...(venda ? { natureza: "venda" as const, ...(bdi ? { bdi } : {}) } : {}),
           })
           .then((p) => ({ k: "eap", p }))
       : api.importarOrcamento(obra.id, arquivo!, mapaDoTipo(), aplicar).then((p) => ({ k: "materiais", p }));
   };
 
-  const faltando = mapa ? campos.filter((c) => c.obrigatorio && mapa[c.k] === null) : [];
+  const faltando = mapa
+    ? [
+        ...campos.filter((c) => c.obrigatorio && mapa[c.k] == null),
+        // no orçamento basta um dos dois: sem nenhum não há valor
+        ...(tipo === "eap" && mapa.quantidade == null && mapa.valor_total == null ? [{ rotulo: "Quantidade ou Preço total" }] : []),
+      ]
+    : [];
   const verPrevia = (leitura: LeituraPlanilha) =>
     rodar(async () => {
       // Uma chave por prévia: clicar duas vezes em importar (ou a rede repetir) não grava duas versões.
@@ -182,6 +230,16 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
       setEscolhas(novas);
       const chave = uuid7();
       setPasso({ ...passoAtual, previa: await importar(false, chave, { esc: novas }), chave });
+    });
+
+  /** Trocar para onde vai uma etapa da planilha (orçamento novo) refaz a prévia: os totais por etapa padrão mudam. */
+  const mudarDestino = (passoAtual: Extract<Passo, { k: "previa" }>, etapaPlanilha: string, etapa: string) =>
+    rodar(async () => {
+      const novos = { ...destinos, [etapaPlanilha]: etapa };
+      const chave = uuid7();
+      const previa = await importar(false, chave, { dest: novos });
+      setDestinos(novos);
+      setPasso({ ...passoAtual, previa, chave });
     });
 
   /** "Não importar" (ou desfazer isso) refaz a prévia sem o item: o total e as etapas mudam. */
@@ -277,6 +335,7 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
             // apontariam linhas erradas, e a API as tiraria em silêncio.
             setEscolhas({});
             setIgnorados({});
+            setDestinos({});
             setPasso({ k: "colunas", leitura: passo.leitura });
           }}
         >
@@ -365,6 +424,9 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
               ) : orc.dado ? (
                 <p className="seg-dica mut sm">A obra ainda não tem orçamento inicial importado: esta planilha vira o orçamento inicial. Os aditivos vêm depois dele.</p>
               ) : null}
+              {novo ? (
+                <NaturezaPlanilha natureza={natureza} setNatureza={setNatureza} bdi={bdiTexto} setBdi={setBdiTexto} erro={erroBdi} />
+              ) : null}
               {versao === "aditivo" ? (
                 <div className="campos2">
                   <Campo rotulo="Do que é o aditivo" erro={errosTipo.descricao}>
@@ -447,6 +509,7 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
               ocupado={ocupado}
               etapasContrato={etapasContrato.dado ?? []}
               mudarEtapa={(ordem, etapa) => mudarEtapaItem(passo, ordem, etapa)}
+              mudarDestino={(e, etapa) => mudarDestino(passo, e, etapa)}
               ignorados={ignorados}
               alternarIgnorar={(i) => alternarIgnorar(passo, i)}
             />
@@ -543,7 +606,7 @@ function Colunas(props: {
   faltando: string[];
 }) {
   const { leitura, mapa, setMapa, campos } = props;
-  const usadas = new Map(campos.filter((c) => mapa[c.k] !== null).map((c) => [mapa[c.k]!, c.rotulo]));
+  const usadas = new Map(campos.filter((c) => mapa[c.k] != null).map((c) => [mapa[c.k]!, c.rotulo]));
   return (
     <>
       <p className="mut" style={{ margin: "4px 0 0" }}>
@@ -573,7 +636,7 @@ function Colunas(props: {
               id={`mapa-${c.k}`}
               className="f"
               value={mapa[c.k] ?? ""}
-              aria-invalid={c.obrigatorio && mapa[c.k] === null}
+              aria-invalid={c.obrigatorio && mapa[c.k] == null}
               onChange={(e) => setMapa({ ...mapa, [c.k]: e.target.value === "" ? null : Number(e.target.value) })}
             >
               <option value="">{c.obrigatorio ? "Escolha a coluna…" : "Não tem"}</option>
@@ -693,10 +756,15 @@ function PreviaEap(props: {
   ocupado: boolean;
   etapasContrato: EtapaObra[];
   mudarEtapa: (ordem: number, etapa: string) => void;
+  /** Orçamento novo: troca a etapa padrão de uma etapa inteira da planilha. */
+  mudarDestino: (etapaPlanilha: string, etapa: string) => void;
   ignorados: Record<string, ItemPrevia>;
   alternarIgnorar: (i: ItemPrevia) => void;
 }) {
   const { previa, obra, somarEmVez, ocupado } = props;
+  const numeros = numeroDaEtapa(previa);
+  // na lista padrão a chave é o nome ("alvenaria"): o número que aparece é o da etapa na lista
+  const numeroEtapa = (etapa: string) => (previa.padronizada ? (numeros.get(etapa) ?? "") : numeroFinal(previa, etapa, etapa));
   // Um orçamento novo de verdade raramente custa menos da metade do vigente; um complemento, quase sempre.
   const fracao = previa.substitui?.total ? previa.total / previa.substitui.total : 1;
   const somando = previa.total_apos != null;
@@ -739,10 +807,19 @@ function PreviaEap(props: {
         <div>
           <span className="prev-n">{aditivo ? comSinal(previa.total) : fmtReais(previa.total)}</span>
           <span>
-            {somando ? "a somar" : aditivo ? "no aditivo" : "total do orçamento inicial"}
-            {aditivo ? null : <ComparaVerba total={previa.total} verba={obra.verba} />}
+            {somando ? "a somar" : aditivo ? "no aditivo" : previa.natureza === "venda" ? "custo do orçamento inicial" : "total do orçamento inicial"}
+            {aditivo || previa.natureza === "venda" ? null : <ComparaVerba total={previa.total} verba={obra.verba} />}
           </span>
         </div>
+        {previa.natureza === "venda" && previa.total_venda != null ? (
+          <div>
+            <span className="prev-n">{aditivo ? comSinal(previa.total_venda) : fmtReais(previa.total_venda)}</span>
+            <span>
+              preço de venda (BDI {pctBdi(previa.bdi ?? 0)}%)
+              {aditivo ? null : <ComparaVerba total={previa.total_venda} verba={obra.verba} />}
+            </span>
+          </div>
+        ) : null}
         {somando ? (
           <div>
             <span className="prev-n">{fmtReais(previa.total_apos!)}</span>
@@ -781,6 +858,9 @@ function PreviaEap(props: {
         </details>
       ) : null}
       <Ignoradas ignoradas={previa.ignoradas} />
+      {previa.padronizada && previa.encaixe?.length ? (
+        <EncaixePadrao encaixe={previa.encaixe} opcoes={previa.etapas_disponiveis ?? []} ocupado={ocupado} mudar={props.mudarDestino} />
+      ) : null}
       {aditivo ? (
         <ItensComDestino
           previa={previa}
@@ -791,7 +871,7 @@ function PreviaEap(props: {
           alternarIgnorar={props.alternarIgnorar}
         />
       ) : null}
-      {aditivo && previa.etapas.length ? <h3 className="sectit">Por etapa</h3> : null}
+      {(aditivo || previa.padronizada) && previa.etapas.length ? <h3 className="sectit">{previa.padronizada ? "Como fica, por etapa padrão" : "Por etapa"}</h3> : null}
       {previa.etapas.length ? (
         <div className="tbl-rola prev-etapas">
           {naOrdemFinal(previa, previa.etapas).map((e) => {
@@ -799,7 +879,7 @@ function PreviaEap(props: {
             return (
               <details key={e.etapa}>
                 <summary>
-                  <span className="eap-num">{numeroFinal(previa, e.etapa, e.etapa)}</span>
+                  <span className="eap-num">{numeroEtapa(e.etapa)}</span>
                   <span className="eap-desc">{e.descricao}</span>
                   <span className="mut sm">{plural(its.filter((i) => i.tipo === "item").length, "item", "itens")}</span>
                   <span className="num">
@@ -808,23 +888,35 @@ function PreviaEap(props: {
                 </summary>
                 <table className="tbl-eap">
                   <tbody>
-                    {its.slice(0, MAX_LINHAS_PREVIA).map((i) =>
+                    {its.slice(0, MAX_LINHAS_PREVIA).map((i, k, xs) =>
                       i.tipo === "etapa" ? (
                         <tr key={i.ordem} className="eap-sub">
                           <td className="eap-n">{numeroFinal(previa, i.numero, i.etapa)}</td>
                           <td colSpan={4}>{i.descricao}</td>
                         </tr>
                       ) : (
-                        <tr key={i.ordem}>
-                          <td className="eap-n">{numeroFinal(previa, i.numero, i.etapa)}</td>
+                        <Fragment key={i.ordem}>
+                          {/* no padronizado, a etapa da planilha de onde a linha veio é o tópico dela: o título aparece quando muda */}
+                          {i.grupo && i.grupo !== xs.slice(0, k).findLast((x) => x.tipo === "item")?.grupo ? (
+                            <tr className="eap-sub">
+                              <td className="eap-n" />
+                              <td colSpan={4}>{i.grupo}</td>
+                            </tr>
+                          ) : null}
+                        <tr>
+                          <td className="eap-n">{previa.padronizada ? i.numero : numeroFinal(previa, i.numero, i.etapa)}</td>
                           <td className="eap-d">
                             {i.descricao}
+                            {i.complemento ? <span className="eap-cod">{i.complemento}</span> : null}
                             {i.codigo || i.fonte ? <span className="eap-cod">{[i.codigo, i.fonte].filter(Boolean).join(" · ")}</span> : null}
                           </td>
                           <td className="num">{fmtQtd(i.quantidade)} {i.unidade}</td>
                           <td className="num">{fmtReais(i.valor_unitario)}</td>
-                          <td className="num">{fmtReais(i.total)}</td>
+                          <td className="num" title={i.total_venda != null ? `venda ${fmtReais(i.total_venda)}` : undefined}>
+                            {fmtReais(i.total)}
+                          </td>
                         </tr>
+                        </Fragment>
                       ),
                     )}
                   </tbody>
@@ -941,6 +1033,109 @@ function ItensComDestino(props: {
           </tbody>
         </table>
         {itens.length > 200 ? <p className="mut sm prev-mais">e mais {itens.length - 200} itens.</p> : null}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Custo ou venda: a planilha de quem orça à mão já é o custo; a do engenheiro é o preço do cliente, com o BDI dentro.
+ * Sem tirar o BDI, o orçado × realizado mostraria a margem como dinheiro que ainda falta gastar.
+ */
+function NaturezaPlanilha(props: {
+  natureza: "custo" | "venda";
+  setNatureza: (n: "custo" | "venda") => void;
+  bdi: string;
+  setBdi: (b: string) => void;
+  erro: string | null;
+}) {
+  return (
+    <fieldset className="pergunta-versao">
+      <legend className="l">Os valores da planilha são</legend>
+      <Escolha
+        rotulo="Os valores da planilha são"
+        opcoes={[
+          { k: "custo", rotulo: "Custo da obra" },
+          { k: "venda", rotulo: "Preço de venda (com BDI)" },
+        ]}
+        valor={props.natureza}
+        // a pergunta é obrigatória: clicar de novo na escolhida não desmarca
+        mudar={(k) => k && props.setNatureza(k)}
+      />
+      {props.natureza === "venda" ? (
+        <Campo rotulo="BDI da planilha (%)" erro={props.erro}>
+          {(a) => <input {...a} className="f" inputMode="decimal" autoComplete="off" placeholder="Ex.: 22,91" value={props.bdi} onChange={(e) => props.setBdi(e.target.value)} />}
+        </Campo>
+      ) : null}
+      <p className="mut sm" style={{ margin: "6px 0 0" }}>
+        {props.natureza === "venda"
+          ? "O custo de cada linha sai do preço ÷ (1 + BDI). O preço de venda fica guardado à parte."
+          : "Use para a planilha de custo, feita por quem orça a obra. O orçado × realizado compara custo com custo."}
+      </p>
+    </fieldset>
+  );
+}
+
+/**
+ * O encaixe na lista padrão: cada etapa da planilha e a etapa padrão para onde foi. A sugestão vem da API (pelo título
+ * da etapa e pelas linhas); a pessoa troca o que estiver errado, e a prévia refaz. Na etapa mista ("ACABAMENTOS"), as
+ * linhas que dizem o que são vão cada uma para a sua: a tela mostra a divisão.
+ */
+function EncaixePadrao(props: { encaixe: EncaixeEtapa[]; opcoes: EtapaObra[]; ocupado: boolean; mudar: (etapaPlanilha: string, etapa: string) => void }) {
+  return (
+    <>
+      <h3 className="sectit">Encaixe nas etapas padrão</h3>
+      <p className="mut sm" style={{ margin: "0 0 8px" }}>
+        Cada etapa da planilha vai para uma etapa da lista padrão, a mesma de todas as obras. Confira e troque o que estiver errado: o nome da planilha vira o tópico
+        dentro da etapa.
+      </p>
+      <div className="tbl-rola">
+        <table className="tbl-eap tbl-adt-itens">
+          <thead>
+            <tr>
+              <th scope="col">Na planilha</th>
+              <th scope="col" className="num">
+                Total
+              </th>
+              <th scope="col">Vai para</th>
+            </tr>
+          </thead>
+          <tbody>
+            {props.encaixe.map((e) => {
+              const outras = e.etapas.filter((d) => d.etapa !== e.destino);
+              return (
+                <tr key={e.etapa_planilha}>
+                  <td className="eap-d">
+                    {e.etapa_planilha ? <span className="eap-num">{e.etapa_planilha}</span> : null} {e.descricao}
+                  </td>
+                  <td className="num">{fmtReais(e.total)}</td>
+                  <td>
+                    <select
+                      className="f"
+                      aria-label={`Etapa padrão de ${e.descricao}`}
+                      value={e.destino}
+                      disabled={props.ocupado}
+                      onChange={(ev) => props.mudar(e.etapa_planilha, ev.target.value)}
+                    >
+                      {props.opcoes.map((o) => (
+                        <option key={o.etapa} value={o.etapa}>
+                          {o.descricao}
+                        </option>
+                      ))}
+                    </select>
+                    {outras.length ? (
+                      <small className="adt-origem">
+                        {outras.map((d) => `${plural(d.itens, "linha", "linhas")} em ${d.nome} (${fmtReais(d.total)})`).join("; ")}
+                      </small>
+                    ) : e.escolhida ? (
+                      <small className="adt-origem o-escolhida">escolhida por você</small>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </>
   );
