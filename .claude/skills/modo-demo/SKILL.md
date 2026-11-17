@@ -13,6 +13,8 @@ validação com um gerente de obra. Os dados somem quando o servidor reinicia.
 
 | Arquivo | Papel |
 |---|---|
+| `lib/demo/gastos.ts` | Gastos da obra: árvore (orçamento ou lista padrão + extras e tópicos), comprovantes com o arquivo, leitura simulada, revisão, confirmar/descartar, mudar etapa e o Desfazer deles |
+| `lib/demo/erros.ts` | Os erros da demo (404, 409, 403, 413, 422) que `responder()` traduz em status |
 | `lib/demo/loja.ts` | Estado em memória (`estado()`, `reiniciarDemo()`), login (`entrarDemo`, `renovarDemo`, `sairDemo`, `trocarSenhaDemo`, `usuarioDoAcesso`), aprovar/recusar/desfazer, e `responder(metodo, caminho, params, corpo, u)` — o "servidor" de `/srv/api/*` |
 | `lib/demo/regras-espelho.ts` | Espelho de `canteiro_dominio.regras` (conta de falta, efeito no saldo, transições de pedido) **só** para a demo |
 | `lib/demo/agente.ts` | `roteiroDemo()`: respostas do agente por padrão de texto, em eventos SSE |
@@ -29,12 +31,26 @@ validação com um gerente de obra. Os dados somem quando o servidor reinicia.
   a demo parecer real.
 - Dados **fictícios e coerentes entre as telas** (o mesmo insumo com o mesmo saldo no Orçamento, em Compras e na
   conversa). Sem cliente, depoimento, preço de mercado ou nome de concorrente reais (repositório público).
-- Tela que depende de rota que a demo não tem: ponha em `SO_COM_API` (`componentes/sessoes.ts`) — hoje, `gastos`.
+- Tela que depende de rota que a demo não tem: ponha em `SO_COM_API` (`componentes/sessoes.ts`) — hoje, `gastos` (as
+  rotas existem, mas a tela só aparece na versão sem pedidos) e `tributos`.
+
+## Versão sem pedidos (`CANTEIRO_SEM_PEDIDOS=1`)
+
+- Só vale junto com `CANTEIRO_DEMO=1` (`semPedidos()` em `lib/servidor/config.ts`); com a API de verdade é ignorada.
+- A tela recebe `semPedidos` do servidor (contexto da casca, `Modo` em `componentes/sessoes.ts`): Compras sai da barra
+  e da linha do tempo, Gastos aparece, e nenhuma tela mostra pedido, entrega ou "fora de pedido".
+- `semear(true)` monta a Casa Vila Nova sem insumo, movimento, pedido nem proposta: orçamento de 12 etapas, cronograma
+  de 12 meses, 13 gastos com comprovante em PDF (a Fundação passou do orçado, um sem etapa) e 2 comprovantes na fila.
+- Escrita em `pedidos`, `insumos`, `movimentos` e `fornecedores` responde 404 "Rota fora do contrato.".
+- A leitura de comprovante (`/srv/agente/leitura`) é simulada pela legenda; o roteiro do Plumo responde orçamento,
+  gastos e cronograma e nunca propõe compra.
 
 ## Atalhos úteis
 
 - Login: qualquer e-mail/senha; e-mail começando com `leitura` → viewer; com `master` → master; o resto → admin.
 - Na conversa, `/sem-creditos` simula o erro de créditos do agente.
+- Comprovante novo aceita foto (JPG, PNG, WEBP) ou PDF, pelos bytes; a leitura simulada escolhe pela legenda
+  ("cimento", "fio", "pedreiro"…) e uma em cada três vem com dúvida.
 - O roteiro do agente reconhece insumos por palavra (`PALAVRAS` em `lib/demo/agente.ts`): com falta, prepara uma
   proposta de compra (`propor_pedido`); se já há uma pendente para o insumo, não prepara outra (não compra em dobro).
 
@@ -43,7 +59,7 @@ validação com um gerente de obra. Os dados somem quando o servidor reinicia.
 1. Implemente o ramo em `responder()` devolvendo `{ status, corpo }` igual à API (inclusive erros: 404 `NaoEncontrado`,
    409 `Conflito`, 403 `Proibido` para viewer).
 2. Escrita gera registro com `registro_id` para o Desfazer, e `desfazer()` sabe voltar.
-3. Teste em `lib/demo/loja.test.ts`.
+3. Teste em `lib/demo/loja.test.ts` (gastos e a versão sem pedidos em `lib/demo/gastos.test.ts`).
 4. Confira à mão: `pnpm dev` com `CANTEIRO_DEMO=1`, faça o fluxo como admin e como `leitura@…`.
 
 ## Checklist
