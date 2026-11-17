@@ -208,7 +208,9 @@ describe("a barra da obra", () => {
   it("o Resumo e as cinco abas na ordem da obra, sem números; o Plumo não é aba", async () => {
     await abrir();
     expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Compras", "Gastos"]);
-    expect(screen.getByRole("textbox", { name: "Pergunte ao Plumo" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" })).toBeTruthy();
+    // o campo do topo não é uma busca (pergunta, não procura)
+    expect(screen.queryByRole("search")).toBeNull();
     expect(document.getElementById("painel-plumo")?.hidden).toBe(true);
   });
 
@@ -326,10 +328,15 @@ describe("o painel do Plumo", () => {
 
   it("Enter no campo do topo manda a pergunta, abre o painel ao lado e a tela continua", async () => {
     await abrir();
-    const campo = screen.getByRole("textbox", { name: "Pergunte ao Plumo" });
+    const campo = screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" });
     await userEvent.type(campo, "quando chega o aço?{Enter}");
     await waitFor(() => expect(painel().hidden).toBe(false));
     await waitFor(() => expect(painel().textContent).toContain("Chega quinta."));
+    // com o painel aberto, os dois campos têm nomes diferentes para o leitor de tela
+    expect(screen.getAllByRole("textbox", { name: /^Pergunte ao Plumo/ }).map((c) => (c as HTMLInputElement).labels?.[0]?.textContent)).toEqual([
+      "Pergunte ao Plumo, abre a conversa",
+      "Pergunte ao Plumo",
+    ]);
     expect(painel().textContent).toContain("quando chega o aço?");
     expect(telaAtiva()).toBe("Compras");
     expect((campo as HTMLInputElement).value).toBe("");
@@ -337,7 +344,7 @@ describe("o painel do Plumo", () => {
 
   it("Ctrl+K foca o campo; Esc fecha o painel e devolve o foco a quem abriu", async () => {
     await abrir();
-    const campo = screen.getByRole("textbox", { name: "Pergunte ao Plumo" });
+    const campo = screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" });
     fireEvent.keyDown(document, { key: "k", ctrlKey: true });
     expect(campo).toHaveFocus();
     fireEvent.submit(campo.closest("form")!);
@@ -349,7 +356,7 @@ describe("o painel do Plumo", () => {
 
   it("ao lado da tela, Esc de fora do painel é da tela (busca, gaveta): o painel continua aberto", async () => {
     await abrir();
-    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo" }).closest("form")!);
+    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" }).closest("form")!);
     await waitFor(() => expect(painel().hidden).toBe(false));
     const deFora = screen.getByRole("button", { name: "Cronograma" });
     deFora.focus();
@@ -360,21 +367,21 @@ describe("o painel do Plumo", () => {
 
   it("fechado, o painel não desmonta a conversa: o texto digitado continua lá", async () => {
     await abrir();
-    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo" }).closest("form")!);
+    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" }).closest("form")!);
     await waitFor(() => expect(painel().hidden).toBe(false));
     const caixa = within(painel()).getByRole("textbox", { name: "Pergunte ao Plumo" }) as HTMLTextAreaElement;
     fireEvent.change(caixa, { target: { value: "rascunho" } });
     fireEvent.click(within(painel()).getByRole("button", { name: "Fechar o Plumo" }));
     await waitFor(() => expect(painel().hidden).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Cronograma" }));
-    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo" }).closest("form")!);
+    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" }).closest("form")!);
     await waitFor(() => expect(painel().hidden).toBe(false));
     expect((within(painel()).getByRole("textbox", { name: "Pergunte ao Plumo" }) as HTMLTextAreaElement).value).toBe("rascunho");
   });
 
   it("a lista de conversas mora no painel, no botão Conversas", async () => {
     await abrir();
-    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo" }).closest("form")!);
+    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" }).closest("form")!);
     await waitFor(() => expect(painel().hidden).toBe(false));
     const bt = within(painel()).getByRole("button", { name: "Conversas" });
     fireEvent.click(bt);

@@ -31,7 +31,11 @@ function atalho(): string {
   return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘K" : "Ctrl K";
 }
 
-/** O campo do topo: Enter manda a pergunta para a conversa aberta e abre o painel; vazio, só abre. */
+/**
+ * O campo do topo: Enter manda a pergunta para a conversa aberta e abre o painel; vazio, só abre. O nome acessível diz
+ * que ele abre a conversa: com o painel aberto há outro campo "Pergunte ao Plumo" (o da conversa), e o leitor de tela
+ * não pode anunciar dois iguais.
+ */
 export function CampoPlumo({ perguntar, campo }: { perguntar: (texto: string) => void; campo: RefObject<HTMLInputElement | null> }) {
   const [texto, setTexto] = useState("");
   const [tecla, setTecla] = useState("Ctrl K");
@@ -39,8 +43,6 @@ export function CampoPlumo({ perguntar, campo }: { perguntar: (texto: string) =>
   return (
     <form
       className={s.campo}
-      role="search"
-      aria-label="Pergunte ao Plumo"
       onSubmit={(e) => {
         e.preventDefault();
         perguntar(texto.trim());
@@ -49,7 +51,7 @@ export function CampoPlumo({ perguntar, campo }: { perguntar: (texto: string) =>
     >
       <Icone nome="spark" tam={16} />
       <label htmlFor="campo-plumo" className="sr-only">
-        Pergunte ao Plumo
+        Pergunte ao Plumo, abre a conversa
       </label>
       <input
         id="campo-plumo"
@@ -57,7 +59,6 @@ export function CampoPlumo({ perguntar, campo }: { perguntar: (texto: string) =>
         type="text"
         autoComplete="off"
         placeholder="Pergunte ao Plumo…"
-        aria-describedby="campo-plumo-dica"
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         onKeyDown={(e) => {
@@ -67,9 +68,6 @@ export function CampoPlumo({ perguntar, campo }: { perguntar: (texto: string) =>
       <kbd className={s.tecla} aria-hidden="true">
         {tecla}
       </kbd>
-      <span id="campo-plumo-dica" className="sr-only">
-        Enter abre a conversa com o Plumo ao lado da tela.
-      </span>
     </form>
   );
 }

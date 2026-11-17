@@ -2,7 +2,7 @@
    app/casca.css, que conhece a grade; aqui só a forma do campo do topo e do painel. */
 
 /* ---------- campo do topo ---------- */
-.campo{display:flex;align-items:center;gap:8px;flex:1 1 300px;min-width:220px;max-width:460px;height:44px;margin:0 auto;padding:0 8px 0 14px;border-radius:12px;
+.campo{display:flex;align-items:center;gap:8px;flex:1 1 300px;min-width:220px;max-width:460px;height:40px;margin:0 auto;padding:0 8px 0 14px;border-radius:12px;
   background:var(--sunk);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accentInk);
   transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
 .campo:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentSoft)}

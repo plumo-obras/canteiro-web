@@ -292,11 +292,16 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 @media (max-width:760px){ .bi-rot,.bi-item span:last-child{font-size:12px} }
 
 /* ---------- topo em duas linhas no computador: obra, Plumo, sino e conta em cima; as telas da obra embaixo ---------- */
+/* duas linhas custam altura: as peças ficam um pouco mais baixas que na linha única de antes (40 e 34 px), para a
+   tela de baixo não perder espaço num notebook de 768 px de altura */
 @media (min-width:761px){
-  .topo{flex-wrap:wrap;row-gap:4px}
-  .topo-nav{order:5;flex:1 0 100%;margin:0;justify-content:flex-start;padding:4px 0 0;border-top:1px solid var(--line2)}
-  .pilula{height:38px}
-  .topo-mais .mm-b{width:38px;height:38px}
+  .topo{flex-wrap:wrap;row-gap:2px;padding-top:5px;padding-bottom:5px}
+  .topo-nav{order:5;flex:1 0 100%;margin:0;justify-content:flex-start;padding:3px 0 0;border-top:1px solid var(--line2)}
+  .pilula{height:34px}
+  .topo-mais .mm-b{width:34px;height:34px}
+  .seletor-bt{min-height:40px}
+  .topo-sino,.av-bt{width:40px;height:40px}
+  .topo-marca .logo{width:32px;height:32px}
 }
 
 /* ---------- celular: o Plumo no meio da barra de baixo, em destaque (é o atalho mais usado) ---------- */
