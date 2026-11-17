@@ -12,9 +12,9 @@ export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "suprimentos", 
 /** Almoxarifado e Pedidos viraram Suprimentos: links antigos (?tela=pedidos) abrem a tela nova. */
 export const telaDe = (t: string | null): Tela | undefined =>
   t === "almoxarifado" || t === "pedidos" ? "suprimentos" : TELAS_VALIDAS.find((x) => x === t);
-export type AbaAtiva = "conversa" | Tela;
-/** A conversa só vai para a URL na obra sem orçamento (que abriria no Projeto): as telas continuam vindo de `telaDe`. */
-export const abaDe = (t: string | null): AbaAtiva | undefined => (t === "conversa" ? "conversa" : telaDe(t));
+/** O Resumo e a conversa não são telas de sessão (não abrem por cartão do agente nem guardam filtro): ficam fora de `Tela`. */
+export type AbaAtiva = "resumo" | "conversa" | Tela;
+export const abaDe = (t: string | null): AbaAtiva | undefined => (t === "resumo" || t === "conversa" ? t : telaDe(t));
 
 /** Telas que só existem com a API de verdade: a demonstração (dados em memória) não tem as rotas delas. */
 const SO_COM_API: ReadonlySet<Tela> = new Set(["gastos", "tributos"]);

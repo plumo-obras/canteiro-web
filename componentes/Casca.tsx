@@ -1,7 +1,7 @@
 "use client";
 /**
- * A casca do app: topo de vidro com a obra, o Plumo (a conversa com o agente) e as cinco telas em pílulas, o menu "⋯" e
- * o sino das aprovações; a lista das conversas abre à esquerda, só na tela do Plumo. Uma tela por vez no palco; a
+ * A casca do app: topo de vidro com a obra, o Resumo e as cinco telas em pílulas, o Plumo (a conversa com o agente), o
+ * menu "⋯" e o sino das aprovações; a lista das conversas abre à esquerda, só na tela do Plumo. Uma tela por vez no palco; a
  * conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
  * perderem. Início e Conta ficam no logo e no avatar. No celular a lista vira gaveta e as telas vão para a barra de baixo.
  */
@@ -24,6 +24,7 @@ import { Projeto } from "./Projeto";
 import { Historico } from "./Historico";
 import { Tributos } from "./Tributos";
 import { Orcamento } from "./Orcamento";
+import { Resumo } from "./resumo/Resumo";
 import { ModalDadosObra } from "./obra/ModalDadosObra";
 import { MenuPerfil, useMenu } from "./MenuPerfil";
 import { trocarTema, useTema } from "./tema";
@@ -36,6 +37,7 @@ import { paradasDoTab, proximaParada } from "./foco";
 
 // Rótulo e ícone de cada tela (para o título de seção e o aria-label).
 const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
+  resumo: { rotulo: "Resumo", icone: "resumo" },
   conversa: { rotulo: "Plumo", icone: "spark" },
   projeto: { rotulo: "Projeto", icone: "predio" },
   orcamento: { rotulo: "Orçamento", icone: "calc" },
@@ -46,11 +48,10 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   aprovacoes: { rotulo: "Aprovações", icone: "checkCircle" },
   historico: { rotulo: "Histórico", icone: "history" },
 };
-// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados. O Plumo
-// vem antes de tudo: é a casa da obra. O projeto gera o cronograma estimado da obra toda; o orçamento é o detalhamento
-// que a estimativa vai virando real. Por isso Cronograma (a previsão) vem antes do Orçamento (o detalhe), e depois
-// Compras e Gastos (execução).
-const ABAS: AbaAtiva[] = ["conversa", "projeto", "cronograma", "orcamento", "suprimentos", "gastos"];
+// A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados. O Resumo
+// vem antes de tudo: é a casa da obra, com a mesma ordem desenhada na linha do tempo. Depois Projeto, Orçamento, o
+// Cronograma (que se monta a partir do orçamento, inclusive pelo Gerar com IA) e a execução, Compras e Gastos.
+const ABAS: AbaAtiva[] = ["resumo", "projeto", "orcamento", "cronograma", "suprimentos", "gastos"];
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
@@ -113,17 +114,12 @@ function App({ usuario }: { usuario: Usuario }) {
   const [erro, setErro] = useState<string | null>(null);
   const [sessoes, despachar] = useReducer(redutorSessoes, []);
   const [atual, setAtual] = useState<string | null>(null);
-  const [tela, setTela] = useState<AbaAtiva>("conversa");
-  // Obra recém-aberta sem ?tela=: o destino sai do resumo, que pode demorar (cold start). A obra e a sessão abrem na hora
-  // e o destino só vale se ninguém navegou enquanto ele vinha; por isso toda navegação da pessoa passa por irPara.
-  const [destinoPendente, setDestinoPendente] = useState<string | null>(null);
+  // Toda obra abre no Resumo, a casa dela; ?tela= leva direto a outra.
+  const [tela, setTela] = useState<AbaAtiva>("resumo");
   // Vindo da Nova obra por "já tenho a planilha": abre o import do orçamento uma vez, nesta obra. A URL reescrita
   // abaixo já não carrega o ?importar=, então recarregar não abre de novo.
   const [importarEm, setImportarEm] = useState<string | null>(null);
-  const irPara = useCallback((t: AbaAtiva) => {
-    setDestinoPendente(null);
-    setTela(t);
-  }, []);
+  const irPara = useCallback((t: AbaAtiva) => setTela(t), []);
   useEffect(() => registrarNavegacao(irPara), [registrarNavegacao, irPara]);
   const [dadosObra, setDadosObra] = useState(false);
   const movel = useMovel();
@@ -146,8 +142,8 @@ function App({ usuario }: { usuario: Usuario }) {
     if (iniciou.current) return;
     iniciou.current = true;
     // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto.
-    // Sem ?tela=, quem decide é a obra (destinoPendente). A obra, a conversa e a tela ficam na URL (o efeito abaixo as
-    // reescreve), para o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar na obra errada.
+    // Sem ?tela=, a obra abre no Resumo. A obra, a conversa e a tela ficam na URL (o efeito abaixo as reescreve), para
+    // o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar na obra errada.
     const qs = new URLSearchParams(window.location.search);
     let ultima: string | null = null;
     try {
@@ -168,7 +164,6 @@ function App({ usuario }: { usuario: Usuario }) {
         // sem obra pedida, abre uma em andamento (a lista vem por nome, e a 1ª pode ser uma obra parada)
         const o = os.find((x) => x.id === querObra) ?? os.find((x) => x.status === "em_andamento") ?? os[0];
         if (!o) return;
-        if (!querTela) setDestinoPendente(o.id);
         const abrirNovaEm = (obraId: string) => {
           const s = novaSessao(obraId);
           despachar({ tipo: "nova", sessao: s });
@@ -269,27 +264,19 @@ function App({ usuario }: { usuario: Usuario }) {
   const { dado: resumoLido, erro: erroResumo } = useCarregar(() => (obraAberta ? api.resumoObra(obraAberta) : Promise.resolve(null)), [obraAberta, versao]);
   // useCarregar mantém o dado anterior: sem conferir, a obra nova mostraria por um instante os números da outra.
   const resumo = resumoLido?.obra.id === obraAberta ? resumoLido : null;
-  // Obra sem orçamento abre no Projeto: quem estava na conversa precisa da tela na URL para voltar nela ao recarregar.
   const semOrcamento = resumo?.financeiro.tem_orcamento === false;
-  useEffect(() => {
-    if (!destinoPendente) return;
-    if (resumo?.obra.id === destinoPendente) {
-      setDestinoPendente(null);
-      setTela(resumo.financeiro.tem_orcamento ? "conversa" : "projeto");
-    } else if (erroResumo) setDestinoPendente(null); // sem resposta, a tela fica como está
-  }, [destinoPendente, resumo, erroResumo]);
   useEffect(() => {
     if (!obraAberta) return;
     const qs = new URLSearchParams({ obra: obraAberta });
     if (sessaoNaUrl) qs.set("sessao", sessaoNaUrl);
-    if (tela !== "conversa" || semOrcamento) qs.set("tela", tela);
+    if (tela !== "resumo") qs.set("tela", tela);
     window.history.replaceState(null, "", `${window.location.pathname}?${qs}`);
     try {
       localStorage.setItem(CHAVE_OBRA, obraAberta);
     } catch {
       // navegador sem armazenamento: vale a URL
     }
-  }, [obraAberta, sessaoNaUrl, tela, semOrcamento]);
+  }, [obraAberta, sessaoNaUrl, tela]);
 
   const pendentes = (obraId: string) => Object.values(cartoes).filter((c) => c.proposta.obra_id === obraId && c.proposta.status === "pendente").length;
   const sessao = sessoes.find((s) => s.id === atual);
@@ -305,9 +292,9 @@ function App({ usuario }: { usuario: Usuario }) {
     despachar({ tipo: "nova", sessao: s });
     escolherSessao(s.id);
   };
-  /** Trocar de obra é abrir a obra: a tela segue a regra de abertura e a conversa vai para a mais recente dela (ou uma nova). */
+  /** Trocar de obra é abrir a obra: o Resumo dela, e a conversa vai para a mais recente dela (ou uma nova). */
   const trocarObra = (obraId: string) => {
-    setDestinoPendente(obraId);
+    irPara("resumo");
     const recente = sessoes.find((s) => s.obraId === obraId);
     if (recente) setAtual(recente.id);
     else {
@@ -496,13 +483,15 @@ function App({ usuario }: { usuario: Usuario }) {
                     <span className="rot">Conversas</span>
                   </button>
                 </div>
-                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} visivel={tela === "conversa"} />
+                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} />
               </section>
               {tela !== "conversa" ? (
                 // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do
                 // cronograma, por exemplo) ficava montado com a obra B, e "Salvar" gravava o de A em B.
                 <section key={obra.id} className="palco-tela" aria-label={ROTULOS[tela].rotulo}>
-                  {tela === "orcamento" ? (
+                  {tela === "resumo" ? (
+                    <Resumo obra={obra} resumo={resumo} />
+                  ) : tela === "orcamento" ? (
                     <Orcamento obra={obra} abrirImportar={importarEm === obra.id} aoAbrirImportar={() => setImportarEm(null)} />
                   ) : tela === "cronograma" ? (
                     <Cronograma obra={obra} />
@@ -531,11 +520,12 @@ function App({ usuario }: { usuario: Usuario }) {
 }
 
 /** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
-// Antes do orçamento aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar, lançar e acompanhar.
+// O Resumo e o Plumo sempre; antes do orçamento aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar
+// e lançar (o Cronograma, que se consulta menos no celular, vai para o Mais).
 function barraDe(aprovada: boolean, demo: boolean): AbaAtiva[] {
-  const abas: AbaAtiva[] = aprovada ? ["conversa", "cronograma", "suprimentos", "gastos"] : ["conversa", "projeto", "orcamento", "gastos"];
+  const abas: AbaAtiva[] = aprovada ? ["resumo", "conversa", "suprimentos", "gastos"] : ["resumo", "conversa", "projeto", "orcamento"];
   // Na demonstração não há Gastos: outra tela fica no lugar, e a barra continua com cinco colunas.
-  return demo ? abas.map((k) => (k !== "gastos" ? k : aprovada ? "orcamento" : "suprimentos")) : abas;
+  return demo ? abas.map((k) => (k !== "gastos" ? k : "cronograma")) : abas;
 }
 
 function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaAtiva) => void; abrirDados: () => void; inerte: boolean; demo: boolean }) {
@@ -561,7 +551,7 @@ function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaA
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const naFolha = [...ABAS, ...NO_MENU].filter((k) => telaNoModo(k, p.demo) && !itens.includes(k));
+  const naFolha = [...ABAS, "conversa" as const, ...NO_MENU].filter((k) => telaNoModo(k, p.demo) && !itens.includes(k));
   const noMais = naFolha.includes(p.tela);
   return (
     <>
@@ -735,7 +725,7 @@ function Topo(p: {
       {obra ? <SeletorObra obras={p.obras} obra={obra} resumo={p.resumo} trocar={p.trocarObra} /> : null}
       {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
-          {ABAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
+          {[...ABAS, "conversa" as const].filter((k) => telaNoModo(k, p.demo)).map((k) => (
             <button
               key={k}
               type="button"

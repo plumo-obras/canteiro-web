@@ -2,8 +2,7 @@
    que empurra a coluna. No celular a gaveta vira folha que sobe de baixo. */
 .casa{display:flex;gap:var(--s5);align-items:flex-start;width:100%}
 .principal{flex:1 1 auto;min-width:0;max-width:780px;margin:0 auto;display:grid;gap:var(--s4)}
-.nota{margin:0 0 0 44px}
-@media (max-width:899px){ .nota,.mais{margin-left:0} }
+@media (max-width:899px){ .mais{margin-left:0} }
 
 .etiquetas{display:flex;flex-wrap:wrap;gap:var(--s2)}
 .etq{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px 0 12px;border-radius:var(--rp);border:1px solid var(--line);
