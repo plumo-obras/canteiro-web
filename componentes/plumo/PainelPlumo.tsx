@@ -99,14 +99,17 @@ export function PainelPlumo(p: PropsPainel) {
   const [busca, setBusca] = useState("");
   const caixa = useRef<HTMLElement>(null);
 
-  // Esc fecha; na folha modal o Tab fica dentro dela. Um diálogo aberto por cima (confirmar uma proposta) cuida do
-  // próprio Esc: o painel não fecha junto.
+  // Esc fecha; na folha modal o Tab fica dentro dela. Ao lado da tela, o Esc só é do painel com o foco nele (ou no
+  // campo do topo): numa busca ou na gaveta "Esperando você" da tela, ele é de quem tem o foco, e o painel fica.
+  // Um diálogo aberto por cima (confirmar uma proposta) cuida do próprio Esc: o painel não fecha junto.
   useEffect(() => {
     if (!aberto) return;
     const tecla = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      const dentroDeOutro = (e.target as Element | null)?.closest?.("[role=dialog]:not(#painel-plumo)");
-      if (e.key === "Escape" && !dentroDeOutro && !document.querySelector(".modal,.drawer")) {
+      const alvo = e.target instanceof Element ? e.target : null;
+      const dentroDeOutro = alvo?.closest("[role=dialog]:not(#painel-plumo)");
+      const doPainel = modal || !!alvo?.closest("#painel-plumo,#campo-plumo");
+      if (e.key === "Escape" && doPainel && !dentroDeOutro && !document.querySelector(".modal,.drawer")) {
         if (lista) setLista(false);
         else fechar();
         return;

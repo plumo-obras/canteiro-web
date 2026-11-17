@@ -342,9 +342,20 @@ describe("o painel do Plumo", () => {
     expect(campo).toHaveFocus();
     fireEvent.submit(campo.closest("form")!);
     await waitFor(() => expect(painel().hidden).toBe(false));
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(within(painel()).getByRole("textbox", { name: "Pergunte ao Plumo" }), { key: "Escape" });
     await waitFor(() => expect(painel().hidden).toBe(true));
     await waitFor(() => expect(campo).toHaveFocus());
+  });
+
+  it("ao lado da tela, Esc de fora do painel é da tela (busca, gaveta): o painel continua aberto", async () => {
+    await abrir();
+    fireEvent.submit(screen.getByRole("textbox", { name: "Pergunte ao Plumo" }).closest("form")!);
+    await waitFor(() => expect(painel().hidden).toBe(false));
+    const deFora = screen.getByRole("button", { name: "Cronograma" });
+    deFora.focus();
+    fireEvent.keyDown(deFora, { key: "Escape" });
+    await new Promise((f) => setTimeout(f, 0));
+    expect(painel().hidden).toBe(false);
   });
 
   it("fechado, o painel não desmonta a conversa: o texto digitado continua lá", async () => {
