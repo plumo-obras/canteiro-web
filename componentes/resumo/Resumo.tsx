@@ -12,13 +12,16 @@ import s from "./resumo.module.css";
 
 const ESTADO_LIDO: Record<Etapa["estado"], string> = { feita: "feita", atual: "etapa atual", atencao: "pede atenção", depois: "ainda não começou" };
 
+const chegou = (e: Etapa) => e.estado !== "depois";
+
 function LinhaDoTempo({ etapas }: { etapas: Etapa[] }) {
   const { irParaTela } = useCasca();
   return (
     <nav aria-label="Etapas da obra">
       <ol className={s.linha}>
-        {etapas.map((e) => (
-          <li key={e.tela} className={`${s.etapa} ${s[e.estado]}`}>
+        {etapas.map((e, i) => (
+          // cada etapa pinta o meio traço que chega nela e o que sai para a próxima: verde até onde a obra já chegou
+          <li key={e.tela} className={`${s.etapa} ${s[e.estado]}${chegou(e) ? ` ${s.entra}` : ""}${etapas[i + 1] && chegou(etapas[i + 1]!) ? ` ${s.sai}` : ""}`}>
             <button type="button" className={s.botao} aria-current={e.estado === "atual" || e.estado === "atencao" ? "step" : undefined} onClick={() => irParaTela(e.tela)}>
               <span className={s.marca} aria-hidden="true">
                 {e.estado === "feita" ? <Icone nome="check" tam={12} /> : null}
