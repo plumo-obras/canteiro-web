@@ -48,7 +48,7 @@ const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("p
 const totalInsumo = (precisa: number, valor: number) => Math.round((precisa * valor) / 1000);
 
 export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { obra: Obra; abrirImportar?: boolean; aoAbrirImportar?: () => void }) {
-  const { versao, podeOperar, avisar, avisarFeito, mudou } = useCasca();
+  const { versao, podeOperar, semPedidos, avisar, avisarFeito, mudou } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
   const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
   const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(abrirImportar && podeOperar ? "importar" : null);
@@ -161,7 +161,7 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
           <div className="est-barra" role="progressbar" aria-valuenow={pctReal} aria-valuemin={0} aria-valuemax={100}>
             <span style={{ width: `${pctReal}%` }} />
           </div>
-          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da obra (padrão de obra, cruzado com o SINAPI). Ficam fora do orçado e de Compras; o cronograma usa os dois. Conforme você orça cada etapa, a estimativa sai.</p>
+          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da obra (padrão de obra, cruzado com o SINAPI). Ficam fora do orçado{semPedidos ? "" : " e de Compras"}; o cronograma usa os dois. Conforme você orça cada etapa, a estimativa sai.</p>
         </div>
       ) : null}
 
@@ -345,6 +345,7 @@ export function reaisCurtos(c: number): string {
  * inteiros; o valor com centavos fica no title. No celular, 2 × 2 e só rótulo e valor.
  */
 function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obra: Obra; celular: boolean }) {
+  const { semPedidos } = useCasca();
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
   const celulas: { rotulo: string; valor: number; sub?: ReactNode; neg?: boolean }[] = [
     {
@@ -365,11 +366,16 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
         </>
       ) : undefined,
     },
-    { rotulo: "Comprometido", valor: t.comprometido, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` },
-    // o realizado é custo de compra, não o % executado da etapa
-    { rotulo: "Realizado", valor: t.realizado, sub: "entregue e lançado" },
+    // sem pedidos, comprometido e realizado são o mesmo gasto confirmado: uma célula só, "Gasto"
+    ...(semPedidos
+      ? [{ rotulo: "Gasto", valor: t.realizado, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` }]
+      : [
+          { rotulo: "Comprometido", valor: t.comprometido, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` },
+          // o realizado é custo de compra, não o % executado da etapa
+          { rotulo: "Realizado", valor: t.realizado, sub: "entregue e lançado" },
+        ]),
     {
-      rotulo: celular ? "Saldo" : "Saldo a comprometer",
+      rotulo: semPedidos ? "Falta gastar" : celular ? "Saldo" : "Saldo a comprometer",
       valor: t.saldo,
       neg: t.saldo < 0,
       sub: obra.verba ? `valor fechado ${reaisInteiros(obra.verba)}` : undefined,

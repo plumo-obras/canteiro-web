@@ -10,13 +10,16 @@ const resumo = (o: Obra, f: Partial<ResumoDaObra["financeiro"]> = {}, c: Partial
   ...extra,
 });
 /** "Projeto:feita ok" … uma etapa por linha, fácil de ler no erro. */
-const linha = (o: Obra, r: ResumoDaObra | null, demo = false) => etapasDaObra(o, r, demo)?.map((e) => `${e.rotulo}:${e.estado}${e.detalhe ? ` ${e.detalhe}` : ""}`);
+const API = { demo: false, semPedidos: false };
+const DEMO = { demo: true, semPedidos: false };
+const SEM_PEDIDOS = { demo: true, semPedidos: true };
+const linha = (o: Obra, r: ResumoDaObra | null, modo = API) => etapasDaObra(o, r, modo)?.map((e) => `${e.rotulo}:${e.estado}${e.detalhe ? ` ${e.detalhe}` : ""}`);
 
 describe("etapasDaObra", () => {
   it("sem o resumo desta obra não afirma nada", () => {
     const o = obra("em_andamento");
-    expect(etapasDaObra(o, null, false)).toBeNull();
-    expect(etapasDaObra(o, resumo({ ...o, id: "outra" } as Obra), false)).toBeNull();
+    expect(etapasDaObra(o, null, API)).toBeNull();
+    expect(etapasDaObra(o, resumo({ ...o, id: "outra" } as Obra), API)).toBeNull();
   });
 
   it("sem orçamento: começa pelo projeto, o resto vem depois", () => {
@@ -58,7 +61,7 @@ describe("etapasDaObra", () => {
 
   it("concluída: tudo feito", () => {
     const o = obra("concluida");
-    expect(etapasDaObra(o, resumo(o, { tem_orcamento: true }, { cadastrado: true }), false)?.every((e) => e.estado === "feita")).toBe(true);
+    expect(etapasDaObra(o, resumo(o, { tem_orcamento: true }, { cadastrado: true }), API)?.every((e) => e.estado === "feita")).toBe(true);
   });
 
   it("desfazendo a aprovação: o Orçamento pede atenção e a execução para", () => {
@@ -68,7 +71,9 @@ describe("etapasDaObra", () => {
 
   it("na demonstração, sem Gastos", () => {
     const o = obra("em_andamento");
-    expect(etapasDaObra(o, resumo(o, { tem_orcamento: true }), true)?.map((e) => e.tela)).toEqual(["projeto", "orcamento", "cronograma", "suprimentos"]);
+    expect(etapasDaObra(o, resumo(o, { tem_orcamento: true }), DEMO)?.map((e) => e.tela)).toEqual(["projeto", "orcamento", "cronograma", "suprimentos"]);
+    // Na versão sem pedidos, Compras sai e Gastos (que a demo dela tem) entra.
+    expect(etapasDaObra(o, resumo(o, { tem_orcamento: true }), SEM_PEDIDOS)?.map((e) => e.tela)).toEqual(["projeto", "orcamento", "cronograma", "gastos"]);
   });
 });
 

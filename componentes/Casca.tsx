@@ -33,7 +33,7 @@ import { useCelular, useMidia } from "./midia";
 import { useCarregar } from "./useCarregar";
 import { Abrindo } from "./Abrindo";
 import { useSessaoGarantida } from "./useSessaoGarantida";
-import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva } from "./sessoes";
+import { abaDe, telaNoModo, novaSessao, redutorSessoes, type AbaAtiva, type Modo } from "./sessoes";
 import { paradasDoTab, proximaParada } from "./foco";
 
 // Rótulo e ícone de cada tela (para o título de seção e o aria-label).
@@ -66,12 +66,12 @@ function statusDaObra(o: Obra, r: ResumoDaObra | null): string {
 }
 
 /** Entrada da casca: garante a sessão de login (renovando pelo cookie depois de recarregar) antes de montar o app. */
-export function Casca({ demo }: { demo: boolean }) {
+export function Casca({ demo, semPedidos = false }: { demo: boolean; semPedidos?: boolean }) {
   const { usuario, semServidor, tentarAgora } = useSessaoGarantida();
 
   if (!usuario) return <Abrindo semServidor={semServidor} tentarAgora={tentarAgora} />;
   return (
-    <ProvedorCasca usuario={usuario} demo={demo}>
+    <ProvedorCasca usuario={usuario} demo={demo} semPedidos={semPedidos}>
       <App usuario={usuario} />
     </ProvedorCasca>
   );
@@ -101,7 +101,7 @@ export function lerPlumo(ladoALado: boolean) {
 }
 
 function App({ usuario }: { usuario: Usuario }) {
-  const { demo, versao, cartoes, receberPropostas, registrarNavegacao, podeOperar, fecharAvisoFixo } = useCasca();
+  const { demo, modo, versao, cartoes, receberPropostas, registrarNavegacao, podeOperar, fecharAvisoFixo } = useCasca();
   const router = useRouter();
   const [obras, setObras] = useState<Obra[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -188,9 +188,10 @@ function App({ usuario }: { usuario: Usuario }) {
     const querObra = qs.get("obra") ?? ultima;
     const querSessao = qs.get("sessao");
     const querTela = abaDe(qs.get("tela"));
-    // link com ?tela=gastos aberto na demonstração cai no Resumo: a tela não existe lá
+    // link com ?tela=gastos aberto na demonstração (ou ?tela=suprimentos na versão sem pedidos) cai no Resumo: a tela
+    // não existe lá
     if (querTela === "conversa" || querSessao) setPlumo(true);
-    else if (querTela && telaNoModo(querTela, demo)) setTela(querTela);
+    else if (querTela && telaNoModo(querTela, modo)) setTela(querTela);
     if (querTela === "orcamento" && qs.get("importar") === "1" && querObra) setImportarEm(querObra);
     api
       .listarObras()
@@ -216,8 +217,8 @@ function App({ usuario }: { usuario: Usuario }) {
           .catch(() => querSessao && abrirNovaEm(o.id));
       })
       .catch((e) => setErro(mensagemDe(e)));
-    // `demo` não muda durante a sessão (vem do servidor na carga): roda uma vez, como antes
-  }, [demo]);
+    // o modo não muda durante a sessão (vem do servidor na carga): roda uma vez, como antes
+  }, [modo]);
 
   // Sessão antiga aberta pela 1ª vez: busca as mensagens e o estado atual das propostas que ficaram nela.
   const carregando = useRef(new Set<string>());
@@ -350,7 +351,7 @@ function App({ usuario }: { usuario: Usuario }) {
         pendentes={obra ? pendentes(obra.id) : 0}
         trocarObra={trocarObra}
         usuario={usuario}
-        demo={demo}
+        modo={modo}
         abrirDados={() => setDadosObra(true)}
         inerte={movel && plumo}
         campoPlumo={obra && !conteudo && !barraCelular ? <CampoPlumo perguntar={(t) => abrirPlumo(t)} campo={campoPlumo} /> : null}
@@ -412,7 +413,7 @@ function App({ usuario }: { usuario: Usuario }) {
           abrirPlumo={() => abrirPlumo()}
           abrirDados={() => setDadosObra(true)}
           inerte={movel && plumo}
-          demo={demo}
+          modo={modo}
           podeCadastrar={podeCadastrar}
         />
       ) : null}
@@ -424,10 +425,11 @@ function App({ usuario }: { usuario: Usuario }) {
 /** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
 // O Resumo sempre, e o Plumo no meio (o lugar mais à mão: ele não é uma tela, abre o painel); antes do orçamento
 // aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar e lançar (o Cronograma vai para o Mais).
-function barraDe(aprovada: boolean, demo: boolean): AbaAtiva[] {
+function barraDe(aprovada: boolean, modo: Modo): AbaAtiva[] {
   const abas: AbaAtiva[] = aprovada ? ["resumo", "suprimentos", "conversa", "gastos"] : ["resumo", "projeto", "conversa", "orcamento"];
-  // Na demonstração não há Gastos: outra tela fica no lugar, e a barra continua com cinco colunas.
-  return demo ? abas.map((k) => (k !== "gastos" ? k : "cronograma")) : abas;
+  // Tela que não existe no modo (Gastos na demonstração, Compras sem pedidos) dá o lugar ao Cronograma, e a barra
+  // continua com cinco colunas.
+  return abas.map((k) => (telaNoModo(k, modo) ? k : "cronograma"));
 }
 
 function BarraInferior(p: {
@@ -438,10 +440,10 @@ function BarraInferior(p: {
   abrirPlumo: () => void;
   abrirDados: () => void;
   inerte: boolean;
-  demo: boolean;
+  modo: Modo;
   podeCadastrar: boolean;
 }) {
-  const itens = barraDe(p.aprovada, p.demo);
+  const itens = barraDe(p.aprovada, p.modo);
   const [mais, setMais] = useState(false);
   // Trocou de tela (pela folha ou por fora dela): a folha fecha, nunca fica cobrindo a tela nova.
   useEffect(() => setMais(false), [p.tela]);
@@ -463,7 +465,7 @@ function BarraInferior(p: {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const naFolha = [...ABAS, ...NO_MENU].filter((k) => telaNoModo(k, p.demo) && !itens.includes(k));
+  const naFolha = [...ABAS, ...NO_MENU].filter((k) => telaNoModo(k, p.modo) && !itens.includes(k));
   const noMais = naFolha.includes(p.tela);
   return (
     <>
@@ -616,7 +618,7 @@ function Topo(p: {
   pendentes: number;
   trocarObra: (id: string) => void;
   usuario: Usuario;
-  demo: boolean;
+  modo: Modo;
   abrirDados: () => void;
   inerte: boolean;
   /** O campo "Pergunte ao Plumo" (só no computador; no celular o Plumo está no meio da barra de baixo). */
@@ -626,7 +628,7 @@ function Topo(p: {
   const nav = useRef<HTMLDivElement>(null);
   const topo = useRef<HTMLElement>(null);
   const itensMenu: ItemMenu[] = [
-    ...NO_MENU.filter((k) => telaNoModo(k, p.demo)).map((k) => ({ rotulo: ROTULOS[k].rotulo, acao: () => p.setTela(k) })),
+    ...NO_MENU.filter((k) => telaNoModo(k, p.modo)).map((k) => ({ rotulo: ROTULOS[k].rotulo, acao: () => p.setTela(k) })),
     { rotulo: "Dados da obra", acao: p.abrirDados },
   ];
   const noMenu = NO_MENU.includes(tela);
@@ -665,13 +667,13 @@ function Topo(p: {
       <Link href="/inicio" className="topo-marca" aria-label="Plumo, início">
         <Logo />
         <span className="topo-marca-t">Plumo</span>
-        {p.demo ? <span className="tag">demo</span> : null}
+        {p.modo.demo ? <span className="tag">demo</span> : null}
       </Link>
       {obra ? <SeletorObra obras={p.obras} obra={obra} resumo={p.resumo} trocar={p.trocarObra} /> : null}
       {p.campoPlumo}
       {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
-          {ABAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
+          {ABAS.filter((k) => telaNoModo(k, p.modo)).map((k) => (
             <button key={k} type="button" className={`pilula${tela === k ? " on" : ""}`} aria-current={tela === k ? "page" : undefined} onClick={() => p.setTela(k)}>
               {ROTULOS[k].rotulo}
             </button>

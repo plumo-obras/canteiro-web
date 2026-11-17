@@ -4,7 +4,16 @@
  */
 import "server-only";
 
-export const modoDemo = () => ["1", "true", "sim"].includes((process.env.CANTEIRO_DEMO ?? "").toLowerCase());
+const ligada = (v: string | undefined) => ["1", "true", "sim"].includes((v ?? "").toLowerCase());
+
+export const modoDemo = () => ligada(process.env.CANTEIRO_DEMO);
+
+/**
+ * Versão de teste sem pedidos (CANTEIRO_SEM_PEDIDOS): a obra em Projeto, Orçamento, Cronograma e Gastos, sem compra,
+ * pedido nem entrega. Só vale na demonstração: com a API de verdade a chave é ignorada, porque o agente real ainda
+ * propõe compra e a tela não pode esconder o que o servidor faz.
+ */
+export const semPedidos = () => modoDemo() && ligada(process.env.CANTEIRO_SEM_PEDIDOS);
 
 function url(nome: "API_URL" | "AGENTE_URL"): string {
   const v = process.env[nome];

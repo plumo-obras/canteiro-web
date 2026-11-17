@@ -7,7 +7,7 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { AjustesProposta, Proposta, Usuario } from "@/lib/contrato";
 import { api, ErroApi } from "@/lib/cliente";
-import type { AbaAtiva } from "./sessoes";
+import type { AbaAtiva, Modo } from "./sessoes";
 import { Icone } from "./Icone";
 
 /** Recorte que uma tela leva à outra: a etapa em Compras, o status em Gastos. */
@@ -72,6 +72,10 @@ interface Valor {
   usuario: Usuario | null;
   podeOperar: boolean;
   demo: boolean;
+  /** Versão de teste sem pedidos (só na demonstração): nenhuma tela oferece pedido, compra nem entrega. */
+  semPedidos: boolean;
+  /** `demo` e `semPedidos` juntos, para `telaNoModo`. */
+  modo: Modo;
   versao: number;
   mudou: () => void;
   avisar: (texto: string, erro?: boolean, acao?: AcaoAviso) => void;
@@ -107,7 +111,17 @@ export const mensagemDe = (e: unknown) => (e instanceof ErroApi || e instanceof 
 export const DURA_COM_ACAO = 12000;
 const DEPOIS_DE_SOLTAR = 4000;
 
-export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | null; demo: boolean; children: ReactNode }) {
+export function ProvedorCasca({
+  usuario,
+  demo,
+  semPedidos = false,
+  children,
+}: {
+  usuario: Usuario | null;
+  demo: boolean;
+  semPedidos?: boolean;
+  children: ReactNode;
+}) {
   const [cartoes, despachar] = useReducer(redutorPropostas, {});
   const [versao, setVersao] = useState(0);
   const [aviso, setAviso] = useState<Aviso | null>(null);
@@ -209,11 +223,14 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
     filtro.current = null;
   }, []);
 
+  const modo = useMemo<Modo>(() => ({ demo, semPedidos: demo && semPedidos }), [demo, semPedidos]);
   const valor = useMemo<Valor>(
     () => ({
       usuario,
       podeOperar: !!usuario && usuario.papel !== "viewer",
       demo,
+      semPedidos: modo.semPedidos,
+      modo,
       versao,
       mudou,
       avisar,
@@ -229,7 +246,7 @@ export function ProvedorCasca({ usuario, demo, children }: { usuario: Usuario | 
       limparFiltroTela,
       registrarNavegacao,
     }),
-    [usuario, demo, versao, mudou, avisar, avisarFeito, fecharAvisoFixo, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, lerFiltroTela, limparFiltroTela, registrarNavegacao],
+    [usuario, demo, modo, versao, mudou, avisar, avisarFeito, fecharAvisoFixo, cartoes, receberPropostas, aprovar, recusar, desfazer, irParaTela, lerFiltroTela, limparFiltroTela, registrarNavegacao],
   );
 
   return (

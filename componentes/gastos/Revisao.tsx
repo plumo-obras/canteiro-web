@@ -48,7 +48,7 @@ const TIPO_DOC: Record<string, string> = {
  * `terminou` é chamado quando o comprovante sai da fila (confirmado ou descartado).
  */
 export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => void) {
-  const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
+  const { podeOperar, semPedidos, mudou, avisar, avisarFeito } = useCasca();
   const [c, setC] = useState<ComprovanteDetalhe | null>(null);
   const [arvore, setArvore] = useState<EtapaNaArvore[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -65,7 +65,8 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
     const [d, a, ps] = await Promise.all([
       api.comprovante(comprovanteId),
       api.arvore(obra.id),
-      api.listarPedidos(obra.id, { status: [...PAGOS], limite: 200 }).catch(() => [] as Pedido[]),
+      // sem pedidos, o gasto nunca paga um pedido: nem se pergunta
+      semPedidos ? Promise.resolve([] as Pedido[]) : api.listarPedidos(obra.id, { status: [...PAGOS], limite: 200 }).catch(() => [] as Pedido[]),
     ]);
     setC(d);
     setArvore(a);
@@ -145,7 +146,7 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
   };
 
   return {
-    podeOperar, c, arvore, setArvore, pedidos, erro, esc, mudar, proprio, ocupado, erroApi, descartando, setDescartando,
+    podeOperar, semPedidos, c, arvore, setArvore, pedidos, erro, esc, mudar, proprio, ocupado, erroApi, descartando, setDescartando,
     confirmarLer, setConfirmarLer, motivo, setMotivo, hoje, falta, corpo: corpoBase, corpoSemEtapa, revisavel, confirmar, pedirLerDeNovo, lerDeNovo, descartar,
   };
 }
@@ -482,7 +483,7 @@ export function ConferirCartao(p: { comprovanteId: string; obra: Obra; selo: Rea
                   ))}
               </select>
             </label>
-          ) : (
+          ) : r.semPedidos ? null : (
             <span className="mut sm">É de um pedido? Não, gasto avulso.</span>
           )}
           <span className={s.sp} />

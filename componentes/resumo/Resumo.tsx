@@ -40,8 +40,8 @@ function LinhaDoTempo({ etapas }: { etapas: Etapa[] }) {
 }
 
 export function Resumo({ obra, resumo }: { obra: Obra; resumo: ResumoDaObra | null }) {
-  const { demo } = useCasca();
-  const etapas = etapasDaObra(obra, resumo, demo);
+  const { modo } = useCasca();
+  const etapas = etapasDaObra(obra, resumo, modo);
   return (
     <div className={`page ${s.resumo}`}>
       <h1 className="sr-only">Resumo da obra</h1>

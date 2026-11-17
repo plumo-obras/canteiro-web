@@ -1061,6 +1061,8 @@ tr.estornado .pill{margin-left:6px;color:var(--muted)}
 }
 .le{list-style:none;margin:0;padding:0;border-radius:var(--r);background:var(--cardSolido);border:1px solid var(--edge);overflow:hidden}
 .le-cab,.le-linha{display:grid;grid-template-columns:minmax(0,2.4fr) repeat(4,minmax(110px,1fr));gap:12px;align-items:center;padding:10px 18px}
+/* sem pedidos, comprometido e realizado são o mesmo gasto: uma coluna a menos */
+@media (min-width:761px){ .le.sem-pedidos .le-cab,.le.sem-pedidos .le-linha{grid-template-columns:minmax(0,2.4fr) repeat(3,minmax(110px,1fr))} }
 .le-cab{background:var(--sunk);font-size:12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line2)}
 .le-l{border-bottom:1px solid var(--line2)}
 .le-l:last-child{border-bottom:0}

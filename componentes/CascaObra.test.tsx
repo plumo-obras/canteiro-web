@@ -232,6 +232,21 @@ describe("a barra da obra", () => {
     await waitFor(() => expect(window.location.search).toContain("tela=historico"));
   });
 
+  it("na versão sem pedidos, Compras sai da barra e Gastos fica; o link antigo de Compras abre o Resumo", async () => {
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=suprimentos");
+    render(<Casca demo={true} semPedidos={true} />);
+    await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Gastos"]);
+    await waitFor(() => expect(document.querySelector(".topo-nav .pilula.on")?.textContent).toBe("Resumo"));
+  });
+
+  it("sem pedidos não vale sem a demonstração: com a API de verdade, Compras continua", async () => {
+    window.history.replaceState(null, "", "/?obra=o-emei");
+    render(<Casca demo={false} semPedidos={true} />);
+    await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toContain("Compras");
+  });
+
   it("na demonstração, Gastos e Tributos somem da barra e do ⋯", async () => {
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={true} />);

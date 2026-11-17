@@ -153,7 +153,7 @@ type Gaveta = "esperando" | "semana";
 
 function Casa({ obra, alternativa, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; versao: number; podeOperar: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
-  const { cartoes, irParaTela } = useCasca();
+  const { cartoes, irParaTela, semPedidos } = useCasca();
   const [gaveta, setGaveta] = useState<Gaveta | null>(null);
   const caixa = useRef<HTMLElement>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
@@ -266,7 +266,7 @@ function Casa({ obra, alternativa, versao, podeOperar }: { obra: Obra; alternati
               <p id="hoje-titulo" className={s.titulo}>
                 {saudacao()} {podeOperar ? fraseDoDia(dado.resumo) : dado.resumo.frase}
               </p>
-              <p className={s.sub}>Olhei compras, cronograma e gastos. O que importa hoje:</p>
+              <p className={s.sub}>{semPedidos ? "Olhei orçamento, cronograma e gastos." : "Olhei compras, cronograma e gastos."} O que importa hoje:</p>
             </div>
           </div>
           {pontos.length ? (

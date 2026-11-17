@@ -4,7 +4,7 @@
  * e a frase curta embaixo de cada etapa.
  */
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
-import { telaNoModo } from "../sessoes";
+import { telaNoModo, type Modo } from "../sessoes";
 
 export type TelaEtapa = "projeto" | "orcamento" | "cronograma" | "suprimentos" | "gastos";
 export type EstadoEtapa = "feita" | "atual" | "atencao" | "depois";
@@ -36,7 +36,7 @@ const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um :
  * `null` enquanto o resumo desta obra não chegou: sem ele não dá para saber se há orçamento, e chutar "comece pelo
  * projeto" numa obra em andamento seria afirmar o que não se sabe.
  */
-export function etapasDaObra(obra: Obra, r: ResumoDaObra | null, demo: boolean): Etapa[] | null {
+export function etapasDaObra(obra: Obra, r: ResumoDaObra | null, modo: Modo): Etapa[] | null {
   if (!r || r.obra.id !== obra.id) return null;
   const { financeiro: f, cronograma: c } = r;
   const concluida = obra.status === "concluida";
@@ -78,6 +78,6 @@ export function etapasDaObra(obra: Obra, r: ResumoDaObra | null, demo: boolean):
       ? { tela: "gastos", rotulo: "Gastos", estado: estouradas ? "atencao" : "atual", detalhe: estouradas ? `${pct} · ${plural(estouradas, "etapa estourada", "etapas estouradas")}` : pct }
       : { tela: "gastos", rotulo: "Gastos", estado: "depois", detalhe: "" };
 
-  // Na demonstração não há a tela de Gastos: a etapa some da linha, como some das abas.
-  return [projeto, orcamento, cronograma, compras, gastos].filter((e) => telaNoModo(e.tela, demo));
+  // Tela que não existe no modo (Gastos na demonstração, Compras sem pedidos) some da linha, como some das abas.
+  return [projeto, orcamento, cronograma, compras, gastos].filter((e) => telaNoModo(e.tela, modo));
 }
