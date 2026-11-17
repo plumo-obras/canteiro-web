@@ -67,6 +67,18 @@ function campoDoTitulo(titulo: string): Campo | null {
   return null;
 }
 
+// Espelha PRECO_SOLTO da API: "PREÇO (R$)", "VALOR", "P.U." ao lado de uma coluna de total só pode ser o unitário.
+const PRECO_SOLTO = new Set(["preco", "valor", "custo", "pu", "p u", "vl", "vlr"]);
+const MOEDA = new Set(["r", "rs", "brl", "reais"]);
+const precoSolto = (titulo: string) =>
+  PRECO_SOLTO.has(
+    semAcento(titulo)
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(" ")
+      .filter((p) => p && !MOEDA.has(p))
+      .join(" "),
+  );
+
 // Espelha _referencia_do_topo da API: o topo da planilha diz de quando são os preços. Só linhas que falam de
 // referência, para endereço ("Chácara 22") e "outros 12" não virarem data-base.
 const BANCOS = ["sinapi", "sicro", "seinfra", "orse", "setop", "emop", "sudecap", "cpos", "fde", "agetop", "sbc"];
@@ -120,6 +132,11 @@ export function lerPlanilhaDemo(texto: string, nomeArquivo: string): LeituraPlan
     const k = campoDoTitulo(c);
     if (k && sugestao[k] === null) sugestao[k] = i;
   });
+  if (sugestao.valor_unitario === null && sugestao.valor_total !== null) {
+    const usadas = new Set(Object.values(sugestao));
+    const i = cabecalho.findIndex((c, j) => !usadas.has(j) && precoSolto(c));
+    if (i >= 0) sugestao.valor_unitario = i;
+  }
   return {
     planilhas: ["CSV"],
     planilha: "CSV",
