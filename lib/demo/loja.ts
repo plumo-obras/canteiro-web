@@ -43,6 +43,9 @@ import { PlanilhaInvalida, lerPlanilhaDemo, nomeChave, previaDemo } from "./orca
 
 export { uuid7 };
 import { A_CAMINHO, EM_COTACAO, RegraViolada, contaDeFalta, efeitoNoSaldo, validarTransicao } from "./regras-espelho";
+import { ArquivoGrande, Conflito, NaoEncontrado, Proibido } from "./erros";
+import * as gastos from "./gastos";
+import { semPedidos as chaveSemPedidos } from "../servidor/config";
 
 export const TENANT = "tenant-demo";
 const VIDA_ACESSO_S = 15 * 60;
@@ -104,6 +107,10 @@ interface EstadoDemo {
   creditos: { saldo: number; franquia: number };
   /** Linhas de UsoIA (custo em microdólares), somadas na hora como a API faz. */
   uso: { dia: string; obra_id: string | null; rota: string; custo: number; tokens: number }[];
+  /** Comprovantes, gastos, etapas extras e tópicos (lib/demo/gastos.ts). */
+  gastos: gastos.EstadoGastos;
+  /** Semeado para a versão de teste sem pedidos (CANTEIRO_SEM_PEDIDOS): nenhum pedido, insumo nem movimento. */
+  semPedidos: boolean;
 }
 
 type ItemDemo = ItemInsumo["insumo"];
@@ -185,6 +192,7 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   if (!ativas.length)
     return { versoes: metas, itens: [], etapas: [], totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, aditivos_pct: null, n_itens: 0, n_etapas: 0, ...zero, sem_etapa: zero } };
 
+  const somaGastos = gastos.somaPorEtapa(baseGastos(e), o.id);
   // Uma etapa por etapa de cada versão ativa (o somar junta várias numa versão), numeradas na ordem em que aparecem.
   const blocos = ativas.flatMap((v) => v.etapas.map((et) => ({ v, et })));
   type Linha = { bloco: number; nome: string; unidade: string; quantidade: number; valor_unitario: number; total: number };
@@ -223,17 +231,36 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
       itens.push({ ...base, id: `${v.versao.id}-${pos}`, ordem: ordem++, tipo: "item", numero: `${num}.${k + 1}`, nivel: 2, descricao: l.nome, unidade: l.unidade, quantidade: l.quantidade, valor_unitario: l.valor_unitario, total: l.total, linha: linha++, curva: curvaDe.get(l) ?? null });
     });
     const aditivo = v.versao.tipo === "aditivo";
-    etapas.push({ etapa: num, descricao: desc, contratado: aditivo ? 0 : totalEtapa, aditivos: aditivo ? totalEtapa : 0, atual: totalEtapa, saldo: totalEtapa, estourou: false, ...zero });
+    // O gasto confirmado (sem pedido) soma no comprometido e no realizado da etapa, como "Gastos no realizado" da API.
+    const gasto = somaGastos.get(num)?.total ?? 0;
+    const contas = { cotando: 0, comprometido: gasto, realizado: gasto };
+    etapas.push({ etapa: num, descricao: desc, contratado: aditivo ? 0 : totalEtapa, aditivos: aditivo ? totalEtapa : 0, atual: totalEtapa, saldo: totalEtapa - gasto, estourou: gasto > totalEtapa, gastos_avulsos: gasto, ...contas });
   });
 
   const contratado = ativas.filter((v) => v.versao.tipo === "contrato").reduce((s, v) => s + v.versao.total, 0);
   const aditivos = ativas.filter((v) => v.versao.tipo === "aditivo").reduce((s, v) => s + v.versao.total, 0);
   const atual = contratado + aditivos;
+  // gasto sem etapa, em etapa extra ou em chave que saiu do orçamento: conta na obra e em nenhuma etapa
+  const chaves = new Set(etapas.map((x) => x.etapa));
+  const fora = [...somaGastos.entries()].filter(([k]) => k === null || !chaves.has(k)).reduce((t, [, v]) => t + v.total, 0);
+  const realizado = [...somaGastos.values()].reduce((t, v) => t + v.total, 0);
   return {
     versoes: metas,
     itens,
     etapas,
-    totais: { contratado, aditivos, atual, saldo: atual, aditivos_pct: contratado ? Math.round((aditivos / contratado) * 10000) : null, n_itens: planas.length, n_etapas: etapas.length, ...zero, sem_etapa: zero },
+    totais: {
+      contratado,
+      aditivos,
+      atual,
+      saldo: atual - realizado,
+      aditivos_pct: contratado ? Math.round((aditivos / contratado) * 10000) : null,
+      n_itens: planas.length,
+      n_etapas: etapas.length,
+      cotando: 0,
+      comprometido: realizado,
+      realizado,
+      sem_etapa: { cotando: 0, comprometido: fora, realizado: fora },
+    },
   };
 }
 
@@ -607,7 +634,11 @@ function hojeDemo(e: EstadoDemo, o: Obra): HojeNaObra {
     pontos.push({ tipo: "falta_comprar", prioridade: "atencao", titulo: `${itens(falta.length)} ainda sem pedido.`, detalhe: falta.slice(0, 3).map((i) => i.nome).join(", "), acao: { tela: "suprimentos", rotulo: "Ver o que falta", filtro: etapa ? { etapa } : null } });
   }
   if (semPreco) pontos.push({ tipo: "itens_sem_preco", prioridade: "atencao", titulo: `${itens(semPreco)} sem preço.`, detalhe: "Entram com R$ 0,00 no orçado.", acao: acao("orcamento", "Preencher os preços") });
+  pontos.push(...pontosDeGastos(e, o));
   if (aCaminho.length) pontos.push({ tipo: "entregas_semana", prioridade: "a_caminho", titulo: aCaminho.length === 1 ? "1 entrega a caminho." : `${aCaminho.length} entregas a caminho.`, detalhe: `${nomeDe(aCaminho[0]!.insumo_id)} com ${aCaminho[0]!.fornecedor}.`, acao: acao("suprimentos", "Ver em Compras") });
+  // como a API: por prioridade (o que pede você, o que pede atenção, o que está a caminho) e, dentro dela, na ordem acima
+  const peso: Record<string, number> = { pede_voce: 0, atencao: 1, a_caminho: 2 };
+  pontos.sort((x, y) => (peso[x.prioridade] ?? 9) - (peso[y.prioridade] ?? 9));
   const esperando = propostas + pontos.filter((p) => p.prioridade === "pede_voce").length;
   const base = o.status === "em_orcamento" ? "A obra ainda está em orçamento" : "A obra ainda não tem medição";
   return {
@@ -618,6 +649,48 @@ function hojeDemo(e: EstadoDemo, o: Obra): HojeNaObra {
     // a previsão da demo é texto livre ("chega segunda"): as datas aqui são só para a semana ter o que mostrar
     semana: aCaminho.slice(0, 4).map((p, i) => ({ data: diasAtras(-(i + 1)).slice(0, 10), tipo: "entrega" as const, titulo: `Entrega de ${nomeDe(p.insumo_id)}`, detalhe: p.fornecedor, acao: acao("suprimentos", "Ver") })),
   };
+}
+
+/**
+ * Os pontos do Hoje que saem dos gastos e do orçamento, como `servicos/hoje.py`: comprovante para conferir, etapa que
+ * passou do orçado e gasto sem etapa. Na ordem da API dentro de cada prioridade.
+ */
+function pontosDeGastos(e: EstadoDemo, o: Obra): PontoHoje[] {
+  const bg = baseGastos(e);
+  const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+  const lista = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} e ${xs.at(-1)}`);
+  const pontos: PontoHoje[] = [];
+  const fila = e.gastos.comprovantes.filter((c) => c.obra_id === o.id && c.status === "a_revisar");
+  if (fila.length) {
+    const lidos = fila.map((c) => gastos.detalheDoComprovante(bg, c.id).revisao.valor).filter((v) => v.opcoes.length).map((v) => Number(v.opcoes[0]!.valor));
+    const faltam = fila.length - lidos.length;
+    const detalhe = lidos.length
+      ? `${fmtReais(lidos.reduce((t, v) => t + v, 0))} pelo que já foi lido${faltam ? `; ${faltam} ainda sem leitura.` : "."} Falta você confirmar.`
+      : "Ainda sem leitura. Falta você conferir o valor e confirmar.";
+    pontos.push({ tipo: "gastos_a_conferir", prioridade: "pede_voce", titulo: `${plural(fila.length, "comprovante", "comprovantes")} para conferir.`, detalhe, acao: { tela: "gastos", rotulo: "Conferir", filtro: { status: "a_revisar" } } });
+  }
+  const estouradas = orcamentoDemo(e, o).etapas.filter((x) => x.estourou);
+  if (estouradas.length) {
+    const excesso = estouradas.reduce((t, x) => t - x.saldo, 0);
+    const um = estouradas[0]!;
+    pontos.push({
+      tipo: "etapas_estouradas",
+      prioridade: "atencao",
+      titulo: estouradas.length === 1 ? `${um.descricao} passou do orçado em ${fmtReais(excesso)}.` : `${estouradas.length} etapas passaram do orçado.`,
+      detalhe: estouradas.length === 1 ? `Comprometido ${fmtReais(um.comprometido)} de ${fmtReais(um.atual)} orçados.` : `${lista(estouradas.map((x) => x.descricao))}: ${fmtReais(excesso)} acima do orçado.`,
+      acao: { tela: "orcamento", rotulo: "Ver o orçamento", filtro: null },
+    });
+  }
+  const semEtapa = e.gastos.gastos.filter((g) => g.obra_id === o.id && !g.estornado && g.etapa === null);
+  if (semEtapa.length)
+    pontos.push({
+      tipo: "gastos_sem_etapa",
+      prioridade: "atencao",
+      titulo: `${plural(semEtapa.length, "gasto", "gastos")} sem etapa.`,
+      detalhe: `${fmtReais(semEtapa.reduce((t, g) => t + g.valor, 0))} contam na obra e em nenhuma etapa até você definir.`,
+      acao: { tela: "gastos", rotulo: "Definir a etapa", filtro: { status: "a_definir" } },
+    });
+  return pontos;
 }
 
 /** PATCH de um item do orçamento. O id do item na demo é "<versão>-<posição>", a posição contando as etapas da versão. */
@@ -674,7 +747,7 @@ function semearVersoes(e: EstadoDemo): void {
   }
 }
 
-function semear(): EstadoDemo {
+function semear(semPedidos = false): EstadoDemo {
   const doc = <T extends object>(x: T, criado = agoraISO()) => ({ id: uuid7(), tenant_id: TENANT, criado_em: criado, ...x });
   const obra: Obra = doc({
     ...OBRA_VAZIA,
@@ -773,6 +846,8 @@ function semear(): EstadoDemo {
     chave: null,
     creditos: { saldo: 0, franquia: 20_000_000 },
     uso: semearUso(obra.id, outras[0]!.id),
+    gastos: gastos.gastosVazios(),
+    semPedidos,
   };
   semearVersoes(e);
   // A obra em andamento já tem cronograma (começou há dois meses), para Cronograma, Compras e o placar contarem a
@@ -852,7 +927,114 @@ function semear(): EstadoDemo {
   reg("Saída de 190 un de Bloco cerâmico 14×19×29 · Quebra no descarregamento", "Joana (mestre)", "whatsapp", 4);
   reg("PED-0160: aprovado → enviado", "Rizzi", "tela", 3, 11);
   reg("PED-0167 criado: 600 kg de Aço CA-50 10 mm com Aço Forte · distribuidor (fictício) (R$ 4.020,00)", "Rizzi", "tela", 1, 16);
+  if (semPedidos) semearSemPedidos(e, obra);
   return e;
+}
+
+/** Item do orçamento em unidades de gente (quantidade e R$); a demo guarda em milésimos e centavos. */
+const itemOrc = (nome: string, unidade: string, quantidade: number, reais: number) => ({ nome, unidade, quantidade: Math.round(quantidade * 1000), valor_unitario: Math.round(reais * 100) });
+
+/** O orçamento da Casa Vila Nova na versão sem pedidos: a obra inteira, etapa por etapa, como a planilha de um sobrado. */
+const ORCAMENTO_SEM_PEDIDOS: VersaoDemo["etapas"] = [
+  { descricao: "Serviços preliminares", itens: [itemOrc("Tapume e barracão de obra", "vb", 1, 9_000), itemOrc("Ligações provisórias de água e energia", "vb", 1, 3_000), itemOrc("Limpeza e locação da obra", "m²", 300, 20)] },
+  { descricao: "Fundação", itens: [itemOrc("Escavação manual", "m³", 60, 70), itemOrc("Concreto fck 25 MPa", "m³", 36, 480), itemOrc("Aço CA-50", "kg", 1_500, 6.6), itemOrc("Mão de obra da fundação", "vb", 1, 10_620)] },
+  { descricao: "Estrutura", itens: [itemOrc("Concreto fck 30 MPa", "m³", 60, 510), itemOrc("Aço CA-50 e CA-60", "kg", 4_000, 6.6), itemOrc("Fôrmas e escoramento", "m²", 500, 30), itemOrc("Mão de obra da estrutura", "vb", 1, 24_000)] },
+  { descricao: "Alvenaria", itens: [itemOrc("Bloco cerâmico 14×19×29", "un", 9_000, 3.2), itemOrc("Argamassa de assentamento", "m³", 30, 240), itemOrc("Mão de obra da alvenaria", "m²", 400, 30)] },
+  { descricao: "Cobertura", itens: [itemOrc("Estrutura de madeira do telhado", "m²", 120, 140), itemOrc("Telha cerâmica", "m²", 120, 90), itemOrc("Calhas e rufos", "m", 60, 140)] },
+  { descricao: "Instalações elétricas", itens: [itemOrc("Padrão de entrada de energia", "vb", 1, 2_500), itemOrc("Fiação e eletrodutos", "vb", 1, 14_500), itemOrc("Quadros, tomadas e luminárias", "vb", 1, 11_000)] },
+  { descricao: "Instalações hidrossanitárias", itens: [itemOrc("Tubos e conexões", "vb", 1, 12_000), itemOrc("Louças e metais", "vb", 1, 14_000)] },
+  { descricao: "Revestimentos", itens: [itemOrc("Chapisco e reboco", "m²", 900, 38), itemOrc("Azulejo das áreas molhadas", "m²", 180, 110)] },
+  { descricao: "Pisos", itens: [itemOrc("Contrapiso", "m²", 186, 45), itemOrc("Porcelanato", "m²", 186, 155), itemOrc("Rodapé", "m", 120, 6.75)] },
+  { descricao: "Esquadrias", itens: [itemOrc("Portas de madeira", "un", 12, 1_100), itemOrc("Janelas de alumínio", "m²", 24, 780)] },
+  { descricao: "Pintura", itens: [itemOrc("Massa e tinta", "m²", 1_100, 20)] },
+  { descricao: "Limpeza e entrega", itens: [itemOrc("Limpeza final da obra", "vb", 1, 6_000)] },
+];
+
+/** % de cada etapa por mês (centésimos de %), 12 meses: a obra começou há três meses e está na estrutura. */
+const CRONOGRAMA_SEM_PEDIDOS: number[][] = [
+  [10000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [4000, 6000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 2000, 4000, 4000, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 3000, 4000, 3000, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 5000, 5000, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 2000, 0, 3000, 0, 3000, 0, 2000, 0],
+  [0, 0, 0, 0, 2000, 0, 3000, 0, 3000, 0, 2000, 0],
+  [0, 0, 0, 0, 0, 0, 2500, 3500, 4000, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 3000, 4000, 3000, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 5000, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 5000],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10000],
+];
+
+/**
+ * A Casa Vila Nova da versão de teste sem pedidos (CANTEIRO_SEM_PEDIDOS): sem insumo, movimento, pedido nem proposta
+ * de compra. No lugar, o orçamento da obra inteira por etapas, o cronograma delas e o dinheiro que já saiu, comprovante
+ * por comprovante, coerente entre Orçamento, Cronograma, Gastos e o resumo. A Fundação passou do orçado (o Resumo e o
+ * Hoje têm o que avisar) e dois comprovantes esperam conferência.
+ */
+function semearSemPedidos(e: EstadoDemo, obra: Obra) {
+  e.insumos = new Map();
+  e.movimentos = [];
+  e.pedidos = [];
+  e.propostas = [];
+  e.registro = e.registro.filter((r) => r.obra_id !== obra.id);
+  e.versoes = e.versoes.filter((v) => v.versao.obra_id !== obra.id);
+  const total = ORCAMENTO_SEM_PEDIDOS.reduce((t, et) => t + et.itens.reduce((a, i) => a + Math.round((i.quantidade * i.valor_unitario) / 1000), 0), 0);
+  e.versoes.push({
+    versao: { id: `demo-orcamento-${obra.id}`, obra_id: obra.id, tipo: "contrato", numero: 0, descricao: "Orçamento", data: diasAtras(100).slice(0, 10), arquivo: "", itens: ORCAMENTO_SEM_PEDIDOS.reduce((t, et) => t + et.itens.length, 0), etapas: ORCAMENTO_SEM_PEDIDOS.length, total, ativa: true, substitui: null, registro_id: null, criado_em: diasAtras(100) },
+    etapas: ORCAMENTO_SEM_PEDIDOS,
+    chave: null,
+  });
+  e.cronogramas.set(obra.id, {
+    inicio: somarMes(hojeSP().slice(0, 7), -3),
+    meses: 12,
+    etapas: CRONOGRAMA_SEM_PEDIDOS.map((percentuais, i) => ({ etapa: String(i + 1), percentuais })),
+    registro_id: null,
+  });
+
+  const admin = e.usuarios[0]!;
+  const mestre: Usuario = { id: "mestre-demo", nome: "Joana (mestre)", tenant_id: TENANT, papel: "admin" };
+  const bg = baseGastos(e);
+  const dia = (n: number) => diasAtras(n).slice(0, 10);
+  const historico: [string, number, string][] = [
+    [`Aprovou o orçamento de ${obra.nome} (12 etapas, ${fmtReais(total)})`, 98, admin.nome],
+    [`Montou o cronograma de ${obra.nome} (12 meses)`, 96, admin.nome],
+  ];
+  const lancarGasto = (valor: number, dias: number, favorecido: string, descricao: string, etapa: string | null, tipo: string) => {
+    const gs = gastos.semearGasto(bg, mestre, admin, obra.id, { valor, data: dia(dias), favorecido, descricao, etapa, tipo });
+    const onde = etapa === null ? "sem etapa (ver depois)" : `em ${etapa} ${ORCAMENTO_SEM_PEDIDOS[Number(etapa) - 1]!.descricao}`;
+    historico.push([`Gasto de ${fmtReais(valor)} ${onde}: ${gs.descricao} (${gs.favorecido})`, dias, admin.nome]);
+  };
+  lancarGasto(780_000, 85, "Madeireira São Bento (fictícia)", "Tapume e barracão de obra", "1", "Nota fiscal");
+  lancarGasto(235_000, 82, "Elétrica Bom Jesus (fictícia)", "Ligação provisória de energia", "1", "Comprovante de Pix");
+  lancarGasto(490_000, 80, "Terraplenagem Rio Verde (fictícia)", "Limpeza e locação do terreno", "1", "Recibo");
+  lancarGasto(390_000, 70, "Terraplenagem Rio Verde (fictícia)", "Escavação das sapatas", "2", "Recibo");
+  lancarGasto(987_000, 66, "Aço Forte · distribuidor (fictício)", "Aço CA-50 da fundação", "2", "Nota fiscal");
+  lancarGasto(1_840_000, 62, "Concreteira Campinas (fictícia)", "Concreto usinado fck 25 (fundação)", "2", "Nota fiscal");
+  lancarGasto(1_250_000, 55, "Edson Ferreira Construções (fictício)", "Mão de obra da fundação (empreitada)", "2", "Comprovante de transferência");
+  lancarGasto(2_130_000, 40, "Aço Forte · distribuidor (fictício)", "Aço CA-50 e CA-60 dos pilares e vigas", "3", "Nota fiscal");
+  lancarGasto(840_000, 38, "Loca Obra Equipamentos (fictícia)", "Locação de fôrmas e escoras", "3", "Boleto pago");
+  lancarGasto(189_000, 30, "Elétrica Bom Jesus (fictícia)", "Padrão de entrada de energia", "6", "Nota fiscal");
+  lancarGasto(1_495_000, 20, "Concreteira Campinas (fictícia)", "Concreto usinado fck 30 (1ª laje)", "3", "Nota fiscal");
+  lancarGasto(1_500_000, 12, "Edson Ferreira Construções (fictício)", "Mão de obra da estrutura (1ª parcela)", "3", "Comprovante de transferência");
+  lancarGasto(38_000, 6, "Loca Obra Equipamentos (fictícia)", "Locação de betoneira", null, "Boleto pago");
+
+  // A fila de conferência: o que o mestre mandou e o Plumo já leu, um com certeza e um com dúvida.
+  const fio = gastos.semearComprovante(bg, mestre, obra.id, "fio e disjuntores da elétrica", ["Comprovante de Pix", "Recebedor: Elétrica Bom Jesus (fictícia)", "Valor: R$ 1.245,90", "Documento fictício da demonstração"], diasAtras(1, 10));
+  gastos.lerSimulado(bg, fio.id, { duvida: false });
+  const diaria = gastos.semearComprovante(bg, mestre, obra.id, "diária do pedreiro", ["Recibo", "Recebi de Casa Vila Nova", "Diárias de pedreiro (5 dias)", "Valor: R$ 1.250,00", "Documento fictício da demonstração"], diasAtras(0, 8));
+  gastos.lerSimulado(bg, diaria.id, { duvida: true });
+
+  const DIARIO = [
+    "Diário de obra: concretagem das sapatas do eixo A",
+    "Diário de obra: chuva forte, serviço parado à tarde",
+    "Diário de obra: armação dos pilares do térreo",
+    "Diário de obra: desforma da 1ª laje",
+    "Diário de obra: equipe de 6 na obra",
+  ];
+  for (let i = 0; i < 40; i++) historico.push([DIARIO[i % DIARIO.length]!, 90 - i * 2, "Marina Duarte"]);
+  for (const [texto, dias, quem] of historico)
+    e.registro.push({ id: uuid7(), tenant_id: TENANT, criado_em: diasAtras(dias, 16), quem, quem_nome: quem, obra_id: obra.id, origem: "tela", texto, proposta_id: null, desfazer: null, desfeito: false });
 }
 
 /** AAAA-MM-DD no fuso do canteiro, como a API grava `UsoIA.dia`. */
@@ -882,7 +1064,10 @@ function semearUso(obraA: string, obraB: string): EstadoDemo["uso"] {
 const g = globalThis as unknown as { __canteiroDemo?: EstadoDemo };
 /** Um estado por processo; sobrevive ao recarregamento de módulo do `next dev`. */
 export const estado = () => {
-  const e = (g.__canteiroDemo ??= semear());
+  const semPedidos = chaveSemPedidos();
+  // A chave mudou entre um reinício e outro do servidor (o estado sobrevive ao hot reload): semeia a demo do modo novo.
+  if (g.__canteiroDemo && (g.__canteiroDemo.semPedidos ?? false) !== semPedidos) g.__canteiroDemo = undefined;
+  const e = (g.__canteiroDemo ??= semear(semPedidos));
   // Estado em memória anterior ao campo `versoes` (hot reload): cria e semeia sem reiniciar (não perde o que a pessoa subiu).
   if (!e.versoes) {
     e.versoes = [];
@@ -890,10 +1075,12 @@ export const estado = () => {
   }
   // Estado anterior ao campo `cronogramas` (hot reload): o Map vazio basta — sem ele, montarCronogramaDemo quebra.
   if (!e.cronogramas) e.cronogramas = new Map();
+  // Estado anterior aos gastos (hot reload): começa sem nenhum.
+  if (!e.gastos) e.gastos = gastos.gastosVazios();
   return e;
 };
 export const reiniciarDemo = () => {
-  g.__canteiroDemo = semear();
+  g.__canteiroDemo = semear(chaveSemPedidos());
   return g.__canteiroDemo;
 };
 
@@ -1234,10 +1421,7 @@ function descreverAjuste(antes: Record<string, unknown>, depois: Record<string, 
     .join("; ");
 }
 
-export class NaoEncontrado extends Error {}
-/** 409 do contrato: já decidido, já desfeito, fora de ordem. */
-export class Conflito extends Error {}
-export class Proibido extends Error {}
+export { NaoEncontrado, Conflito, Proibido };
 
 function exigirAdmin(u: Usuario) {
   if (u.papel === "viewer") throw new Proibido("Seu papel (leitura) não aprova nem opera. Peça a um admin.");
@@ -1340,7 +1524,10 @@ export function desfazer(registroId: string, u: Usuario) {
   if (!ent.desfazer) throw new RegraViolada("Esta entrada não tem como ser desfeita.");
   const d = ent.desfazer as { op: string; pedido_id: string; de: StatusPedido; para: StatusPedido; status_criado?: StatusPedido; movimento_id: string | null; movimentos_extra?: string[] };
   let texto: string;
-  if (d.op === "cancelar_pedido") {
+  const deGastos = gastos.desfazerGasto(baseGastos(e), ent.desfazer as Record<string, unknown>);
+  if (deGastos !== null) {
+    texto = deGastos;
+  } else if (d.op === "cancelar_pedido") {
     const p = pedidoPorId(e, d.pedido_id);
     if (p.status !== (d.status_criado ?? "em_cotacao")) throw new Conflito(`${p.numero} já andou (${p.status}); cancele pelo fluxo do pedido.`);
     p.status = "cancelado";
@@ -1513,6 +1700,56 @@ export interface RespostaDemo {
   corpo: unknown;
 }
 
+/** Rotas de compra: na versão sem pedidos, a escrita nelas responde como rota fora do contrato. */
+const DE_PEDIDOS: ReadonlySet<string> = new Set(["pedidos", "insumos", "movimentos", "fornecedores"]);
+
+/**
+ * As etapas do orçamento vigente, numeradas como `orcamentoDemo` numera (uma por etapa de cada versão ativa, na ordem):
+ * é a chave que a árvore de gastos usa. Sem versão ativa, a obra não tem orçamento (a árvore cai na lista padrão).
+ */
+function etapasDoOrcamento(e: EstadoDemo, obraId: string) {
+  const ativas = e.versoes.filter((v) => v.versao.obra_id === obraId && v.versao.ativa);
+  if (!ativas.length) return null;
+  return ativas.flatMap((v) => v.etapas).map((et, i) => ({ etapa: String(i + 1), descricao: et.descricao || "Estrutura" }));
+}
+
+/** O que lib/demo/gastos.ts precisa saber da loja. */
+function baseGastos(e: EstadoDemo): gastos.Base {
+  return {
+    g: e.gastos,
+    obra: (id) => obraPorId(e, id),
+    etapasDoOrcamento: (obraId) => etapasDoOrcamento(e, obraId),
+    registrar: (u, r) => registrar(e, u, { ...r, proposta_id: null, origem: "tela" }),
+    hoje: () => hojeSP(),
+  };
+}
+
+/** POST /srv/agente/leitura na demonstração: a leitura simulada (o roteiro não chama modelo nenhum). */
+export function lerComprovanteDemo(id: string) {
+  return gastos.lerSimulado(baseGastos(estado()), id);
+}
+
+/**
+ * O retrato da obra que o roteiro do agente cita na versão sem pedidos: as mesmas respostas das rotas (orçamento,
+ * resumo dos gastos, cronograma, a fila de comprovantes), para o agente não fazer conta nenhuma, como o de verdade.
+ */
+export function retratoDemo(obraId: string) {
+  const e = estado();
+  const o = obraPorId(e, obraId);
+  const bg = baseGastos(e);
+  return {
+    orcamento: orcamentoDemo(e, o),
+    gastos: gastos.resumoGastos(bg, o.id),
+    cronograma: montarCronogramaDemo(e, o),
+    aConferir: e.gastos.comprovantes.filter((c) => c.obra_id === o.id && c.status === "a_revisar").length,
+  };
+}
+
+/** GET /comprovantes/{id}/arquivo na demonstração: os bytes, não JSON (por isso fica fora do `responder`). */
+export function arquivoComprovanteDemo(id: string) {
+  return gastos.arquivoDoComprovante(baseGastos(estado()), id);
+}
+
 const ok = (corpo: unknown, status = 200): RespostaDemo => ({ status, corpo });
 const erro = (status: number, detail: string): RespostaDemo => ({ status, corpo: { detail } });
 
@@ -1564,8 +1801,19 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       const reg = registrar(e, u, { obra_id: o.id, texto: `Criou a obra ${o.nome}`, proposta_id: null, desfazer: null, origem: "tela" });
       return ok({ ...o, registro_id: reg.id }, 201);
     }
+    // Sem pedidos, a demo não tem compra: escrita de pedido, insumo, movimento ou fornecedor some do contrato, como se a
+    // rota não existisse. Assim nada que sobrou numa tela consegue criar pedido por baixo.
+    if (e.semPedidos && metodo !== "GET" && (DE_PEDIDOS.has(a ?? "") || (a === "obras" && DE_PEDIDOS.has(b ?? "")))) return erro(404, "Rota fora do contrato.");
     if (a === "obras" && id) {
       if (!e.obras.some((o) => o.id === id)) return erro(404, "Obra não encontrada.");
+      const bg = baseGastos(e);
+      if (metodo === "GET" && b === "arvore" && !id2) return ok(gastos.arvore(bg, id));
+      if (metodo === "POST" && b === "etapas-extras" && !id2) return ok(gastos.criarEtapaExtra(bg, u, id, c), 201);
+      if (metodo === "POST" && b === "topicos" && !id2) return ok(gastos.criarTopico(bg, u, id, c), 201);
+      if (metodo === "POST" && b === "comprovantes" && !id2) return gastos.enviarComprovante(bg, u, id, c);
+      if (metodo === "GET" && b === "comprovantes" && !id2) return ok(gastos.listarComprovantes(bg, id, params));
+      if (metodo === "GET" && b === "gastos" && id2 === "resumo") return ok(gastos.resumoGastos(bg, id));
+      if (metodo === "GET" && b === "gastos" && !id2) return ok(gastos.listarGastos(bg, id, params));
       if (metodo === "PATCH" && !b) {
         exigirAdmin(u);
         const o = obraPorId(e, id) as unknown as Record<string, unknown>;
@@ -1609,13 +1857,18 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         const realizado = orc.totais.realizado;
         const c = montarCronogramaDemo(e, ob);
         const mesAtual = new Date().toISOString().slice(0, 7);
+        // o gasto confirmado sai do caixa no mês do pagamento (a demo não tem pedido entregue a pagar)
+        const pagoNoMes = gastos.pagoPorMes(baseGastos(e), ob.id);
+        const pago = [...pagoNoMes.values()].reduce((t, v) => t + v, 0);
+        const realizadoDe = (etapa: string) => orc.etapas.find((x) => x.etapa === etapa)?.realizado ?? 0;
         if (c.inicio && c.meses > 0) {
           const meses = c.mensal.map((m) => {
             const p = m.mes >= mesAtual ? m.previsto : 0;
-            return { mes: m.mes, pago: 0, previsto: m.previsto, projetado: p, projetado_no_ritmo: p };
+            return { mes: m.mes, pago: pagoNoMes.get(m.mes) ?? 0, previsto: m.previsto, projetado: p, projetado_no_ritmo: p };
           });
-          const atrasado = c.mensal.filter((m) => m.mes < mesAtual).reduce((t, m) => t + m.previsto, 0);
-          const falta = orc.totais.atual;
+          // o que o cronograma previa para antes de hoje e não saiu (previsto − pago) entra no mês corrente
+          const atrasado = Math.max(0, c.mensal.filter((m) => m.mes < mesAtual).reduce((t, m) => t + m.previsto - (pagoNoMes.get(m.mes) ?? 0), 0));
+          const falta = Math.max(0, orc.totais.atual - realizado);
           return ok({
             mes_atual: mesAtual,
             base: "gastos",
@@ -1626,8 +1879,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             termino_no_ritmo: c.prazo.termino_contratual,
             // o que o cronograma previa para antes de hoje e não saiu entra no mês corrente
             meses: meses.map((m) => (m.mes === mesAtual ? { ...m, projetado: m.projetado + atrasado, projetado_no_ritmo: m.projetado_no_ritmo + atrasado } : m)),
-            etapas: c.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, realizado: 0, executado_pct: 0, falta: x.atual, devido_agora: 0, sem_cronograma: !x.percentuais.some((q) => q > 0) })),
-            totais: { orcado: orc.totais.atual, realizado, pago: 0, falta, custo_final: falta, desvio: 0, entregue_sem_pagamento: realizado, sem_mes: 0 },
+            etapas: c.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, realizado: realizadoDe(x.etapa), executado_pct: 0, falta: Math.max(0, x.atual - realizadoDe(x.etapa)), devido_agora: 0, sem_cronograma: !x.percentuais.some((q) => q > 0) })),
+            totais: { orcado: orc.totais.atual, realizado, pago, falta, custo_final: realizado + falta, desvio: realizado + falta - orc.totais.atual, entregue_sem_pagamento: Math.max(0, realizado - pago), sem_mes: 0 },
           });
         }
         return ok({
@@ -1640,8 +1893,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           termino_no_ritmo: null,
           meses: [],
           etapas: [],
-          // a demo não lança pagamento: todo o realizado é entregue e ainda a pagar, como o resumo diz
-          totais: { orcado: orc.totais.atual, realizado, pago: 0, falta: 0, custo_final: realizado, desvio: 0, entregue_sem_pagamento: realizado, sem_mes: 0 },
+          totais: { orcado: orc.totais.atual, realizado, pago, falta: 0, custo_final: realizado, desvio: 0, entregue_sem_pagamento: Math.max(0, realizado - pago), sem_mes: 0 },
         });
       }
       if (metodo === "GET" && b === "resumo" && !id2) {
@@ -1651,6 +1903,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         // Mesma regra da API (servicos/resumo.py): só o contrato vigente faz a obra "ter orçamento".
         const tem = orc.versoes.some((v) => v.ativa && v.tipo === "contrato");
         const pendentes = e.propostas.filter((p) => p.obra_id === obra.id && p.status === "pendente");
+        const rg = gastos.resumoGastos(baseGastos(e), obra.id);
         return ok({
           obra,
           hoje: new Date().toISOString().slice(0, 10),
@@ -1665,14 +1918,20 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             cotando: t.cotando,
             comprometido: t.comprometido,
             realizado: t.realizado,
-            // sem pagamento lançado na demo: o realizado inteiro é entrega ainda a pagar
-            pago: 0,
-            entregue_a_pagar: t.realizado,
+            // o que saiu do caixa é o gasto confirmado; a demo não entrega pedido, então nada fica entregue a pagar
+            pago: rg.total,
+            entregue_a_pagar: Math.max(0, t.realizado - rg.total),
             saldo: t.saldo,
             falta_gastar: Math.max(0, t.atual - t.realizado),
             realizado_pct: t.atual ? Math.round((t.realizado * 10000) / t.atual) : null,
-            etapas_estouradas: [],
-            gastos: { total: 0, nas_etapas: 0, fora_do_orcamento: 0, na_lista_padrao: 0, sem_etapa_do_orcamento: 0 },
+            etapas_estouradas: orc.etapas.filter((x) => x.estourou).map((x) => ({ etapa: x.etapa, descricao: x.descricao, saldo: x.saldo })),
+            gastos: {
+              total: rg.total,
+              nas_etapas: rg.total - (rg.a_definir ?? 0) - (rg.fora_do_orcamento as number) - (rg.sem_etapa_do_orcamento as number),
+              fora_do_orcamento: rg.fora_do_orcamento,
+              na_lista_padrao: tem ? 0 : rg.total - (rg.a_definir ?? 0),
+              sem_etapa_do_orcamento: rg.sem_etapa_do_orcamento,
+            },
           },
           entregas: { hoje: [], atrasadas: [], proximos_7_dias: [], sem_previsao: [], nf_para_conferir: [] },
           almoxarifado: { insumos: 0, falta_comprar: [], sem_previsao: [], consumo_projetado: false },
@@ -1778,7 +2037,16 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           if (o.status !== "em_orcamento") return erro(409, "O orçamento já foi aprovado.");
           // Aprovar o orçamento é o que cria as compras: cada item das versões vigentes (ex.: a etapa "Estrutura"
           // vinda do projeto) vira um insumo da obra, com a quantidade do orçamento como o que precisa. Só aqui o
-          // material entra em Compras — antes de aprovar, o projeto fica só no orçamento.
+          // material entra em Compras — antes de aprovar, o projeto fica só no orçamento. Sem pedidos não há Compras:
+          // aprovar só põe a obra em andamento.
+          if (e.semPedidos) {
+            const vs = e.versoes.filter((x) => x.versao.obra_id === id && x.versao.ativa);
+            if (!vs.length) return erro(422, "Lance o projeto (ou importe o orçamento) antes de aprovar.");
+            const totalVs = vs.reduce((t, v) => t + v.versao.total, 0);
+            o.status = "em_andamento";
+            const regVs = registrar(e, u, { obra_id: id, texto: `Aprovou o orçamento de ${o.nome} (${fmtReais(totalVs)})`, proposta_id: null, desfazer: { op: "reabrir_orcamento", obra_id: id }, origem: "tela" });
+            return ok({ ...o, registro_id: regVs.id });
+          }
           for (const v of e.versoes.filter((x) => x.versao.obra_id === id && x.versao.ativa)) {
             for (const et of v.etapas) {
               for (const it of et.itens) {
@@ -1897,6 +2165,12 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
         return ok({ ...r.mov, registro_id: r.registro?.id ?? null }, 201);
       }
     }
+    if (a === "etapas-extras" && id && metodo === "PATCH" && !b) return ok(gastos.editarEtapaExtra(baseGastos(e), u, id, c));
+    if (a === "topicos" && id && metodo === "PATCH" && !b) return ok(gastos.editarTopico(baseGastos(e), u, id, c));
+    if (a === "comprovantes" && id && metodo === "GET" && !b) return ok(gastos.detalheDoComprovante(baseGastos(e), id));
+    if (a === "comprovantes" && id && metodo === "POST" && b === "confirmar") return gastos.confirmar(baseGastos(e), u, id, c);
+    if (a === "comprovantes" && id && metodo === "POST" && b === "descartar") return ok(gastos.descartar(baseGastos(e), u, id, c));
+    if (a === "gastos" && id && metodo === "PATCH" && !b) return ok(gastos.mudarEtapa(baseGastos(e), u, id, c));
     if (metodo === "POST" && a === "pedidos" && id && b === "avancar") {
       exigirAdmin(u);
       const p = pedidoPorId(e, id);
@@ -1974,6 +2248,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
     if (x instanceof Proibido) return erro(403, x.message);
     if (x instanceof NaoEncontrado) return erro(404, x.message);
     if (x instanceof Conflito) return erro(409, x.message);
+    if (x instanceof ArquivoGrande) return erro(413, x.message);
     if (x instanceof RegraViolada || x instanceof PlanilhaInvalida) return erro(422, x.message);
     throw x;
   }
