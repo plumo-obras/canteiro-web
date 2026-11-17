@@ -1,8 +1,8 @@
 "use client";
 /**
- * A casa da obra: o que importa hoje, sem gastar token. As contas e as frases vêm prontas de GET /obras/{id}/hoje; aqui
- * só entram a saudação, o dia e o que já está na casca (as propostas esperando). Cada ponto leva à tela certa.
- * O que espera a pessoa e a semana viram etiquetas no topo: a conversa fica com a largura e o detalhe abre numa gaveta.
+ * A casa da obra, no Resumo: o que importa hoje, sem gastar token. As contas e as frases vêm prontas de
+ * GET /obras/{id}/hoje; aqui só entram a saudação, o dia e o que já está na casca (as propostas esperando). Cada ponto
+ * leva à tela certa. O que espera a pessoa e a semana viram etiquetas no topo, e o detalhe abre numa gaveta.
  */
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { AcaoHoje, EventoSemana, HojeNaObra as HojeT, Obra, PontoHoje, PrioridadeHoje } from "@/lib/contrato";
@@ -134,11 +134,10 @@ function EsperandoVoce({ obraId }: { obraId: string }) {
 }
 
 /**
- * `alternativa`: o que mostrar se a API no ar ainda não tem a rota. `abaixo`: o que vem depois do resumo. `visivel`: a
- * conversa fica montada e escondida atrás das outras telas; escondida, ela não busca, e ao voltar relê se algo mudou.
+ * `alternativa`: o que mostrar se a API no ar ainda não tem a rota. `visivel`: quem monta a casa escondida (atrás de
+ * outra tela) passa false; escondida, ela não busca, e ao voltar relê se algo mudou.
  */
-/** `soEtiquetas`: numa conversa que já tem mensagens fica só a linha de etiquetas no topo (o resumo do dia sai). */
-export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; visivel?: boolean; soEtiquetas?: boolean }) {
+export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; visivel?: boolean }) {
   const { versao, podeOperar } = useCasca();
   const { visivel = true } = props;
   // "versão ao chegar aqui": só anda com a casa à vista, e é o que dispara a busca
@@ -152,7 +151,7 @@ export function HojeNaObra(props: { obra: Obra; alternativa: ReactNode; abaixo?:
 
 type Gaveta = "esperando" | "semana";
 
-function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { obra: Obra; alternativa: ReactNode; abaixo?: ReactNode; versao: number; podeOperar: boolean; soEtiquetas?: boolean }) {
+function Casa({ obra, alternativa, versao, podeOperar }: { obra: Obra; alternativa: ReactNode; versao: number; podeOperar: boolean }) {
   const { dado, erro, carregando } = useCarregar(() => api.hojeNaObra(obra.id), [obra.id, versao]);
   const { cartoes, irParaTela } = useCasca();
   const [gaveta, setGaveta] = useState<Gaveta | null>(null);
@@ -255,8 +254,8 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { 
             Esta semana{dado.semana.length ? ` · ${dado.semana.length}` : ""}
           </button>
         </div>
-        {/* o resumo do dia é uma mensagem do Plumo, não um título: a conversa continua embaixo dela */}
-        <section className={s.hoje} aria-labelledby="hoje-titulo" hidden={soEtiquetas}>
+        {/* o resumo do dia é uma mensagem do Plumo, não um título */}
+        <section className={s.hoje} aria-labelledby="hoje-titulo">
           <h2 className="sr-only">Hoje na obra</h2>
           <div className={s.cabeca}>
             <span className={s.mestre} aria-hidden="true">
@@ -284,7 +283,6 @@ function Casa({ obra, alternativa, abaixo, versao, podeOperar, soEtiquetas }: { 
           )}
           {dado.mais ? <p className={`mut sm ${s.mais}`}>E mais {dado.mais === 1 ? "1 ponto" : `${dado.mais} pontos`} depois destes.</p> : null}
         </section>
-        {abaixo && !soEtiquetas ? <div className={s.nota}>{abaixo}</div> : null}
       </div>
       {gaveta ? (
         <>

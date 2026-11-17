@@ -7,7 +7,6 @@ import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
 import { conversar } from "@/lib/cliente";
 import { CartaoProposta } from "./CartaoProposta";
-import { HojeNaObra } from "./hoje/HojeNaObra";
 import { mensagemDe, useCasca } from "./contexto";
 import { Icone } from "./Icone";
 import { MensagemMarkdown } from "./MensagemMarkdown";
@@ -95,7 +94,7 @@ function ConversaVazia({ sugestoes, perguntar }: { sugestoes: string[]; pergunta
   );
 }
 
-export function Conversa({ sessao, obra, resumo = null, despachar, visivel = true }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; visivel?: boolean; despachar: Dispatch<AcaoSessoes> }) {
+export function Conversa({ sessao, obra, resumo = null, despachar }: { sessao: Sessao; obra: Obra | undefined; resumo?: ResumoDaObra | null; despachar: Dispatch<AcaoSessoes> }) {
   const { receberPropostas, avisar } = useCasca();
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -106,8 +105,6 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
   const lista = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLTextAreaElement>(null);
   const colado = useRef(true);
-  // A casa da obra abre com a conversa nova e fica acima dela; conversa antiga aberta do histórico vem sem ela.
-  const [comCasa] = useState(() => !!obra && sessao.carregada && sessao.mensagens.length === 0);
 
   // Acompanha o fim da conversa enquanto o texto chega, a não ser que a pessoa tenha subido para reler.
   useLayoutEffect(() => {
@@ -161,7 +158,7 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
   return (
     <>
       <div
-        className={`msgs${comCasa || obra ? " com-casa" : ""}`}
+        className={`msgs${obra ? " com-casa" : ""}`}
         ref={lista}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -169,8 +166,8 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
         }}
         aria-label="Mensagens da conversa"
         role="log"
-        // ao vivo, o resumo inteiro seria lido em voz alta ao carregar; quem avisa da resposta é o status abaixo
-        aria-live={comCasa || obra ? "off" : undefined}
+        // ao vivo, cada pedaço da resposta seria lido em voz alta enquanto chega; quem avisa da resposta é o status abaixo
+        aria-live={obra ? "off" : undefined}
       >
         {!sessao.carregada ? (
           sessao.erroCarga ? (
@@ -189,45 +186,10 @@ export function Conversa({ sessao, obra, resumo = null, despachar, visivel = tru
               Abrindo a conversa…
             </div>
           )
-        ) : comCasa && obra ? (
-          <>
-            <HojeNaObra
-              obra={obra}
-              visivel={visivel}
-              soEtiquetas={sessao.mensagens.length > 0}
-              alternativa={sessao.mensagens.length ? null : <ConversaVazia sugestoes={sugestoesDaObra(obra, resumo)} perguntar={(s) => void perguntar(s)} />}
-              abaixo={
-                sessao.mensagens.length ? null : (
-                  <div className="chips conv-sugestoes">
-                    {sugestoesDaObra(obra, resumo).map((s) => (
-                      <button key={s} type="button" className="chip" onClick={() => void perguntar(s)}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )
-              }
-            />
-            {sessao.mensagens.length ? (
-              <div className="conv-sob-casa">
-                {sessao.mensagens.map((m) =>
-                  m.papel === "eu" ? (
-                    <div key={m.id} className="msg me mv-entra">
-                      {m.texto}
-                    </div>
-                  ) : (
-                    <BalaoAgente key={m.id} m={m} />
-                  ),
-                )}
-              </div>
-            ) : null}
-          </>
         ) : sessao.mensagens.length === 0 ? (
           <ConversaVazia sugestoes={obra ? sugestoesDaObra(obra, resumo) : []} perguntar={(s) => void perguntar(s)} />
         ) : (
           <>
-            {/* numa conversa antiga as etiquetas da obra continuam no topo, como na conversa nova */}
-            {obra ? <HojeNaObra obra={obra} visivel={visivel} soEtiquetas alternativa={null} /> : null}
             {sessao.mensagens.map((m) =>
               m.papel === "eu" ? (
                 <div key={m.id} className="msg me mv-entra">

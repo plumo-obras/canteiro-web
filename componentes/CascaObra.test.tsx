@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Obra } from "@/lib/contrato";
 import { limparSessao } from "@/lib/sessao";
 import { criarRede, json, renovarOk } from "@/testes/rede";
@@ -98,20 +98,12 @@ const rede = (extra: Parameters<typeof criarRede>[0]) =>
   });
 const telaAtiva = () => document.querySelector("[aria-current=page]")?.textContent;
 
-describe("a obra abre onde faz sentido", () => {
-  it("sem orçamento, cai em Projeto", async () => {
+describe("a obra abre no Resumo", () => {
+  it("sem ?tela=, abre no Resumo, tenha orçamento ou não, e a URL fica limpa", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", false) });
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
-    await waitFor(() => expect(window.location.search).toBe("?obra=o-emei&tela=projeto"));
-  });
-
-  it("com orçamento, abre no Plumo", async () => {
-    rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true) });
-    window.history.replaceState(null, "", "/?obra=o-emei");
-    render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
+    await waitFor(() => expect(telaAtiva()).toBe("Resumo"));
     expect(window.location.search).toBe("?obra=o-emei");
   });
 
@@ -138,55 +130,21 @@ describe("a obra abre onde faz sentido", () => {
     erro.mockRestore();
   });
 
-  describe("com a API lenta", () => {
-    const adiado = (id: string, tem: boolean) => {
-      let soltar = () => {};
-      const resposta = new Promise<Response>((ok) => {
-        soltar = () => ok(resumo(id, tem)());
-      });
-      return { rota: () => resposta, soltar: () => soltar() };
-    };
-
-    it("a obra troca na hora, antes de o resumo chegar", async () => {
-      const lento = adiado("o-casa", false);
-      rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": lento.rota });
-      window.history.replaceState(null, "", "/?obra=o-emei");
-      render(<Casca demo={false} />);
-      await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
-      fireEvent.click(document.querySelector(".seletor-bt")!);
-      fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
-      await waitFor(() => expect(document.querySelector(".seletor-nome")?.textContent).toBe("Casa Vila Nova"));
-      expect(telaAtiva()).toBe("Plumo");
-      lento.soltar();
-      await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
+  it("o resumo que chega depois não tira a pessoa da aba que ela clicou", async () => {
+    let soltar = () => {};
+    const resposta = new Promise<Response>((ok) => {
+      soltar = () => ok(resumo("o-emei", false)());
     });
-
-    it("a resposta atrasada não tira a pessoa da aba que ela clicou", async () => {
-      const lento = adiado("o-emei", false);
-      const r = rede({ "GET /srv/api/obras/o-emei/resumo": lento.rota });
-      window.history.replaceState(null, "", "/?obra=o-emei");
-      render(<Casca demo={false} />);
-      await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
-      fireEvent.click(screen.getByRole("button", { name: "Compras" }));
-      await waitFor(() => expect(telaAtiva()).toBe("Compras"));
-      lento.soltar();
-      await waitFor(() => expect(document.querySelector(".placar-v")).toBeTruthy());
-      await waitFor(() => expect(r.chamadas.some((c) => c.caminho.endsWith("/resumo"))).toBe(true));
-      await new Promise((f) => setTimeout(f, 0));
-      expect(telaAtiva()).toBe("Compras");
-    });
-
-    it("clicar na mesma aba em que já está também conta como escolha", async () => {
-      const lento = adiado("o-emei", false);
-      rede({ "GET /srv/api/obras/o-emei/resumo": lento.rota });
-      window.history.replaceState(null, "", "/?obra=o-emei");
-      render(<Casca demo={false} />);
-      await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
-      fireEvent.click(document.querySelector(".pilula.plumo")!);
-      lento.soltar();
-      await waitFor(() => expect(window.location.search).toContain("tela=conversa"));
-      expect(telaAtiva()).toBe("Plumo");
-    });
+    rede({ "GET /srv/api/obras/o-emei/resumo": () => resposta });
+    window.history.replaceState(null, "", "/?obra=o-emei");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Compras" }));
+    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+    soltar();
+    await waitFor(() => expect(document.querySelector(".placar-v")).toBeTruthy());
+    await new Promise((f) => setTimeout(f, 0));
+    expect(telaAtiva()).toBe("Compras");
   });
 
   it("o resumo sai uma vez só ao abrir e ao trocar de obra", async () => {
@@ -194,26 +152,37 @@ describe("a obra abre onde faz sentido", () => {
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
     const doResumo = (id: string) => r.chamadas.filter((c) => c.caminho === `/srv/api/obras/${id}/resumo`);
-    // O Plumo já está ativo antes de o resumo sair (a chamada ainda espera o token): esperar a aba não garante a chamada.
     await waitFor(() => expect(doResumo("o-emei")).toHaveLength(1));
-    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
-    await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
+    await waitFor(() => expect(doResumo("o-casa")).toHaveLength(1));
     // só no fim: o tempo da troca de obra é o que deixaria aparecer uma chamada repetida
+    await new Promise((f) => setTimeout(f, 0));
     expect(doResumo("o-casa")).toHaveLength(1);
     expect(doResumo("o-emei")).toHaveLength(1);
   });
 
-  it("trocar de obra segue a mesma regra", async () => {
+  it("trocar de obra abre o Resumo da outra, de qualquer tela", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
-    window.history.replaceState(null, "", "/?obra=o-emei");
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=suprimentos");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Plumo"));
+    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
-    await waitFor(() => expect(telaAtiva()).toBe("Projeto"));
+    await waitFor(() => expect(telaAtiva()).toBe("Resumo"));
     expect(document.querySelector(".seletor-nome")?.textContent).toBe("Casa Vila Nova");
+    await waitFor(() => expect(window.location.search).toBe("?obra=o-casa"));
+  });
+
+  it("a linha do tempo do Resumo leva à aba da etapa", async () => {
+    rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true) });
+    window.history.replaceState(null, "", "/?obra=o-emei");
+    render(<Casca demo={false} />);
+    const etapas = await screen.findByRole("navigation", { name: "Etapas da obra" });
+    expect([...etapas.querySelectorAll("button")].map((b) => b.querySelector("span span")?.textContent)).toEqual(["Projeto", "Orçamento", "Cronograma", "Compras", "Gastos"]);
+    fireEvent.click(within(etapas).getByRole("button", { name: /^Cronograma/ }));
+    await waitFor(() => expect(telaAtiva()).toBe("Cronograma"));
+    expect(window.location.search).toContain("tela=cronograma");
   });
 });
 
@@ -224,13 +193,15 @@ describe("a barra da obra", () => {
     await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
   };
 
-  it("o Plumo e as cinco abas, nesta ordem e sem números", async () => {
+  it("o Resumo e as cinco abas na ordem da obra, sem números, e o Plumo separado no fim", async () => {
     await abrir();
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Plumo", "Projeto", "Cronograma", "Orçamento", "Compras", "Gastos"]);
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Compras", "Gastos", "Plumo"]);
   });
 
   it("sem trilho: a lista de conversas abre pelo botão da própria conversa", async () => {
-    await abrir();
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=conversa");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
     expect(document.querySelector(".trilho")).toBeNull();
     // no computador a lista começa aberta; o botão fecha e reabre
     const bt = await screen.findByRole("button", { name: "Conversas" });
@@ -279,22 +250,22 @@ describe("a barra do celular", () => {
   };
   const barra = () => [...document.querySelectorAll(".barra-inf .bi-item")].map((b) => b.querySelector(".bi-rot")?.textContent);
 
-  it("orçamento aprovado: Plumo, Cronograma, Compras, Gastos e Mais", async () => {
+  it("orçamento aprovado: Resumo, Plumo, Compras, Gastos e Mais", async () => {
     await abrir(resumo("o-emei", true));
-    await waitFor(() => expect(barra()).toEqual(["Plumo", "Cronograma", "Compras", "Gastos", "Mais"]));
-    expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Plumo");
+    await waitFor(() => expect(barra()).toEqual(["Resumo", "Plumo", "Compras", "Gastos", "Mais"]));
+    expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Resumo");
   });
 
-  it("sem orçamento: Plumo, Projeto, Orçamento, Gastos e Mais", async () => {
+  it("sem orçamento: Resumo, Plumo, Projeto, Orçamento e Mais", async () => {
     await abrir(resumo("o-emei", false));
-    await waitFor(() => expect(barra()).toEqual(["Plumo", "Projeto", "Orçamento", "Gastos", "Mais"]));
+    await waitFor(() => expect(barra()).toEqual(["Resumo", "Plumo", "Projeto", "Orçamento", "Mais"]));
   });
 
   it("orçamento ainda não aprovado também fica nos primeiros passos, e o resto vai para o Mais", async () => {
     await abrir(resumo("o-emei", true), "em_orcamento");
-    await waitFor(() => expect(barra()).toEqual(["Plumo", "Projeto", "Orçamento", "Gastos", "Mais"]));
+    await waitFor(() => expect(barra()).toEqual(["Resumo", "Plumo", "Projeto", "Orçamento", "Mais"]));
     fireEvent.click(screen.getByRole("button", { name: "Mais" }));
-    expect([...document.querySelectorAll(".folha-item")].map((b) => b.textContent)).toEqual(expect.arrayContaining(["Compras", "Cronograma", "Tributos", "Histórico"]));
+    expect([...document.querySelectorAll(".folha-item")].map((b) => b.textContent)).toEqual(expect.arrayContaining(["Compras", "Cronograma", "Gastos", "Tributos", "Histórico"]));
   });
 });
 

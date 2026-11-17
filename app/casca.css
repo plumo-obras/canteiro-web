@@ -83,8 +83,9 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .topo-sino:active{transform:scale(.95)}
 .topo-sino.on{background:var(--ativo);color:var(--ink)}
 .topo-sino-n{position:absolute;top:3px;right:2px;min-width:18px;padding:0 4px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);font:700 11px/18px var(--sans);text-align:center}
-/* o Plumo é a casa da obra: a pílula dele tem a cor da marca */
-.pilula.plumo{color:var(--accentInk)}
+/* o Plumo tem a cor da marca e fica separado das etapas da obra por um traço: não é uma etapa, é quem ajuda em todas */
+.pilula.plumo{color:var(--accentInk);position:relative;margin-left:13px}
+.pilula.plumo::before{content:"";position:absolute;left:-8px;top:11px;bottom:11px;width:1px;background:var(--line)}
 .pilula.plumo.on{background:var(--accentSoft);color:var(--accentInk)}
 .topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
 .topo-nav + .topo-dir{margin-left:0}
@@ -321,13 +322,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .ca-anexo{width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;margin-left:-6px}
 @media (hover:hover){ .ca-anexo:hover{background:var(--sunk);color:var(--ink)} }
 
-/* gaveta da casa da obra aberta (Esperando você, Esta semana): a conversa e o campo abrem espaço à direita */
-@media (min-width:900px){
-  .palco-conversa{position:relative}
-  .palco-conversa:has(#hoje-gaveta) .msgs.com-casa,.palco-conversa:has(#hoje-gaveta) .conversa-cab{padding-right:max(456px,calc((100% - 780px)/2))}
-  .palco-conversa:has(#hoje-gaveta) .ca-pe{padding-right:440px}
-  .composer{background:var(--card)}
-}
+@media (min-width:900px){ .composer{background:var(--card)} }
 /* cartão de proposta compacto (gaveta): o porquê recolhido em "Ver a conta" */
 .ld-compacto{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:var(--ri);border:1px solid var(--line2);background:var(--sunk)}
 .ld-compacto.feito{opacity:.85}

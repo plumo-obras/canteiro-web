@@ -11,17 +11,16 @@ pelo menu do perfil depois da primeira reação dele.
 O Canteiro **age**: avisa o que vai faltar antes de faltar, propõe a ação pronta e só grava com o
 seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da nota), não por formulário.
 
-## Navegação: o agente no centro, uma coisa por vez
+## Navegação: a obra em ordem, o agente a um clique
 
-- **A conversa é a home.** Ao abrir, você cai na conversa **Geral** (todas as obras), e a 1ª mensagem do agente é o
-  briefing do dia em cartões de decisão: uma ação por linha, o resto no "⋯".
-- **A lateral só tem conversas:** a Geral e as sessões agrupadas por obra. O escopo é da sessão e aparece no título
-  ("Casa Vila Nova · Atraso do aço"). `@Vila Nova` no campo vale só para uma mensagem.
-- **Cada sessão tem abas.** A aba **Conversa** é fixa. As telas (Pedidos, Almoxarifado, Orçamento, Cronograma,
-  Equipe…) viram abas da sessão quando **você** clica em "Abrir" num cartão do agente, num link `PED-…`, no **"+"**
-  (o único menu de telas) ou digita `/almox`. O agente nunca abre aba sozinho. A aba ativa ocupa a tela inteira:
-  ou a conversa, ou a tela. As abas ficam guardadas na sessão.
-- **Dentro de uma tela**, o campo fixo "Perguntar ao agente sobre isto" leva a pergunta para a Conversa, com o contexto.
+- **O Resumo é a home da obra.**
+  Toda obra abre nele: a linha do tempo (Projeto, Orçamento, Cronograma, Compras, Gastos) mostra o que já foi feito e onde a obra está, e embaixo vem o que pede você hoje (aprovações, pontos de atenção, a semana).
+  Cada etapa da linha do tempo leva à aba dela.
+- **As abas seguem a ordem da obra:** Resumo · Projeto · Orçamento · Cronograma · Compras · Gastos.
+  Tributos, Histórico e Dados da obra ficam no "⋯".
+- **O Plumo fica separado das etapas**, no fim da fileira: é quem ajuda em todas.
+  A conversa vazia abre com perguntas prontas para o momento da obra.
+- No celular, a barra de baixo traz Resumo, Plumo e as duas telas do dia a dia da fase (antes de aprovar: Projeto e Orçamento; depois: Compras e Gastos); o resto fica no Mais.
 - No menu do perfil (rodapé da lateral): notas de validação (desligadas por padrão), Nova obra, Celular do mestre, Mapa de fluxos.
 - Roteiro da demo (aparece como sugestão acima do campo): "vamos começar pela Vila Nova, quero um relatório da fase da
   obra" · "por que só tem 2.760 blocos?" · "o que chega amanhã?" · "quem está na obra hoje?" · "estamos no prazo?" ·
