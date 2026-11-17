@@ -90,6 +90,9 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
   const [errosTipo, setErrosTipo] = useState<{ descricao?: string | null; data?: string | null }>({});
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [mapa, setMapa] = useState<Mapeamento | null>(null);
+  // A data-base que a planilha diz ter vira a da obra ao importar, se a pessoa deixar marcado. Vem marcado só quando a
+  // obra ainda não tem data-base: trocar uma que alguém já informou é decisão de quem olha.
+  const [usarDataBase, setUsarDataBase] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
@@ -153,6 +156,7 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
       setDestinos({});
       setArquivo(arq);
       setMapa(leitura.sugestao);
+      setUsarDataBase(!!leitura.data_base && !obra.data_base);
       setPasso({ k: "colunas", leitura });
     });
 
@@ -262,6 +266,13 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
         // a planilha mudou entre a prévia e o aplicar (ou alguém gravou no meio): mostra o que a API viu
         setPasso({ ...passoAtual, previa: r });
         return;
+      }
+      const dataBase = passoAtual.leitura.data_base;
+      if (usarDataBase && dataBase && dataBase !== obra.data_base) {
+        // o orçamento já está gravado: falhar aqui não desfaz o import, só avisa para informar à mão
+        await api.editarObra(obra.id, { data_base: dataBase }).catch(() =>
+          avisar(`O orçamento entrou, mas não consegui gravar a data-base ${mesAno(dataBase)}. Informe nos dados da obra.`),
+        );
       }
       mudou();
       fechar();
@@ -491,6 +502,9 @@ export function ImportarOrcamento({ obra, fechar, feito, inicio }: { obra: Obra;
         </>
       ) : passo.k === "colunas" && mapa ? (
         <Colunas
+          obra={obra}
+          usarDataBase={usarDataBase}
+          setUsarDataBase={setUsarDataBase}
           leitura={passo.leitura}
           campos={campos}
           mapa={mapa}
@@ -596,7 +610,30 @@ function EscolhaSomar(props: {
   );
 }
 
+const mesAno = (d: string) => `${d.slice(5, 7)}/${d.slice(0, 4)}`;
+
+/** De quando são os preços, como a planilha diz: o orçado só se compara ao gasto de hoje sabendo o mês do preço. */
+function DataBaseLida(props: { obra: Obra; leitura: LeituraPlanilha; usar: boolean; setUsar: (v: boolean) => void; ocupado: boolean }) {
+  const { data_base: lida, banco } = props.leitura;
+  if (!lida) return null;
+  const atual = props.obra.data_base;
+  const origem = `${banco ? `${banco}, ` : ""}preços de ${mesAno(lida)}`;
+  if (atual === lida) return <p className="mut" style={{ margin: "8px 0 0" }}>A planilha diz: {origem}. É a data-base da obra.</p>;
+  return (
+    <label className="check">
+      <input type="checkbox" checked={props.usar} disabled={props.ocupado} onChange={(e) => props.setUsar(e.target.checked)} />
+      <span>
+        {atual ? `Trocar a data-base da obra de ${mesAno(atual)} para ${mesAno(lida)}` : `Usar ${mesAno(lida)} como data-base da obra`}
+        <small>A planilha diz: {origem}.</small>
+      </span>
+    </label>
+  );
+}
+
 function Colunas(props: {
+  obra: Obra;
+  usarDataBase: boolean;
+  setUsarDataBase: (v: boolean) => void;
   leitura: LeituraPlanilha;
   campos: typeof CAMPOS;
   mapa: Mapeamento;
@@ -613,6 +650,7 @@ function Colunas(props: {
         Achei o cabeçalho na linha {leitura.linha_cabecalho}
         {leitura.planilhas.length > 1 ? ` da aba «${leitura.planilha}»` : ""}. Confira qual coluna é qual: o que veio marcado é palpite pelo título.
       </p>
+      <DataBaseLida obra={props.obra} leitura={leitura} usar={props.usarDataBase} setUsar={props.setUsarDataBase} ocupado={props.ocupado} />
       {leitura.planilhas.length > 1 ? (
         <div className="campo">
           <label className="l" htmlFor="aba-orc">

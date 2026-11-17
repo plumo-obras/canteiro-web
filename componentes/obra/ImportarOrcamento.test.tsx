@@ -305,3 +305,42 @@ describe("orçamento novo: encaixe nas etapas padrão, custo ou venda", () => {
     expect(await screen.findByText("escolhida por você")).toBeInTheDocument();
   });
 });
+
+describe("data-base lida da planilha", () => {
+  const COM_REFERENCIA = { ...LEITURA, data_base: "2023-05", banco: "SINAPI não desonerado" };
+  const patches = (rede: ReturnType<typeof criarRede>) =>
+    rede.chamadas.filter((c) => c.caminho === "/srv/api/obras/o1" && c.init.method === "PATCH").map((c) => JSON.parse(String(c.init.body)));
+
+  it("obra sem data-base: vem marcado e, ao importar, a obra fica com a data-base da planilha", async () => {
+    const u = userEvent.setup();
+    const { rede, fechar } = montar(EM_ORCAMENTO, {
+      "POST /srv/api/obras/o1/orcamento/ler": () => json(COM_REFERENCIA),
+      "PATCH /srv/api/obras/o1": () => json({ ...EM_ORCAMENTO, data_base: "2023-05", registro_id: "r9" }),
+    });
+    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
+    await u.click(screen.getByRole("button", { name: "Continuar" }));
+    await u.upload(screen.getByLabelText("Arquivo da planilha"), new File(["x"], "planilha.csv", { type: "text/csv" }));
+    const caixa = await screen.findByRole("checkbox", { name: /Usar 05\/2023 como data-base da obra/ });
+    expect(caixa).toBeChecked();
+    expect(screen.getByText("A planilha diz: SINAPI não desonerado, preços de 05/2023.")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Ver a prévia" }));
+    await u.click(await screen.findByRole("button", { name: /Somar ao orçamento/ }));
+    await waitFor(() => expect(fechar).toHaveBeenCalled());
+    expect(patches(rede)).toEqual([{ data_base: "2023-05" }]);
+  });
+
+  it("obra com outra data-base: oferece trocar, desmarcado; sem marcar, não mexe na obra", async () => {
+    const u = userEvent.setup();
+    const { rede, fechar } = montar({ ...EM_ORCAMENTO, data_base: "2017-01" } as Obra, {
+      "POST /srv/api/obras/o1/orcamento/ler": () => json(COM_REFERENCIA),
+    });
+    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
+    await u.click(screen.getByRole("button", { name: "Continuar" }));
+    await u.upload(screen.getByLabelText("Arquivo da planilha"), new File(["x"], "planilha.csv", { type: "text/csv" }));
+    expect(await screen.findByRole("checkbox", { name: /Trocar a data-base da obra de 01\/2017 para 05\/2023/ })).not.toBeChecked();
+    await u.click(screen.getByRole("button", { name: "Ver a prévia" }));
+    await u.click(await screen.findByRole("button", { name: /Somar ao orçamento/ }));
+    await waitFor(() => expect(fechar).toHaveBeenCalled());
+    expect(patches(rede)).toEqual([]);
+  });
+});
