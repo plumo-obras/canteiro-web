@@ -171,8 +171,9 @@ export const foraDoOrcamento = (arvore: EtapaNaArvore[], etapa: string | null) =
  */
 export function codigoDaEtapa(e: Pick<EtapaNaArvore, "chave" | "codigo" | "origem">): string | null {
   if (e.codigo) return e.codigo;
-  // a etapa extra ("x-<id>") convive com as do orçamento, mas não tem código: a chave dela é só um id
-  return e.origem === "orcamento" && !e.chave.startsWith("x-") ? e.chave : null;
+  // a etapa extra ("x-<id>") convive com as do orçamento, mas não tem código: a chave dela é só um id; e a chave do
+  // orçamento padronizado ("alvenaria") ou da etapa sem número (o nome normalizado) não é código de nada
+  return e.origem === "orcamento" && !e.chave.startsWith("x-") && /\d/.test(e.chave) ? e.chave : null;
 }
 
 /** "18 · INSTALAÇÃO ELÉTRICA - 220V" na etapa do orçamento; o nome sozinho na padrão. */

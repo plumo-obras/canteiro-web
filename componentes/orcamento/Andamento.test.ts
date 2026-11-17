@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Orcamento } from "@/lib/contrato";
-import { csvAndamento, fmtPctAditivo, linhasAndamento, porDesvio } from "./Andamento";
+import { csvAndamento, fmtPctAditivo, linhasAndamento, numeroVisivel, porDesvio } from "./Andamento";
 
 const z = { cotando: 0, comprometido: 0, realizado: 0 };
 const et = (etapa: string, descricao: string, atual: number, g: Partial<typeof z> = {}) => ({
@@ -41,5 +41,11 @@ describe("andamento por etapa", () => {
     expect(fmtPctAditivo(102_200)).toBe("+1.022%");
     expect(fmtPctAditivo(-150)).toBe("−1,5%");
     expect(fmtPctAditivo(null)).toBe("+0%");
+  });
+});
+
+describe("numeroVisivel", () => {
+  it("mostra a chave da planilha e esconde a da lista padrão e a do nome", () => {
+    expect(["18", "A1", "2", "alvenaria", "revestimento_interno", "fundacoes", ""].map(numeroVisivel)).toEqual(["18", "A1", "2", "", "", "", ""]);
   });
 });

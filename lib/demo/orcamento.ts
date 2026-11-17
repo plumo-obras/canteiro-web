@@ -79,6 +79,35 @@ const precoSolto = (titulo: string) =>
       .join(" "),
   );
 
+// Espelha _referencia_do_topo da API: o topo da planilha diz de quando são os preços. Só linhas que falam de
+// referência, para endereço ("Chácara 22") e "outros 12" não virarem data-base.
+const BANCOS = ["sinapi", "sicro", "seinfra", "orse", "setop", "emop", "sudecap", "cpos", "fde", "agetop", "sbc"];
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const FALA_DE_REFERENCIA = new RegExp(`\\b(data|refer|base|tabela|preco|precos|mes)\\w*|\\b(${BANCOS.join("|")})\\b`);
+
+function dataBaseDe(n: string): string | null {
+  const porNome = new RegExp(`\\b(${MESES.join("|")})[a-z]*\\s*(\\d{4}|\\d{2})\\b`).exec(n.replace(/[/.-]/g, " "));
+  if (porNome) {
+    const ano = Number(porNome[2]) + (porNome[2]!.length === 2 ? 2000 : 0);
+    return `${ano}-${String(MESES.indexOf(porNome[1]!) + 1).padStart(2, "0")}`;
+  }
+  const porNumero = /\b(0?[1-9]|1[0-2])\s*\/\s*(\d{4})\b/.exec(n);
+  return porNumero ? `${porNumero[2]}-${porNumero[1]!.padStart(2, "0")}` : null;
+}
+
+export function referenciaDoTopo(linhas: string[]): { data_base: string | null; banco: string | null } {
+  let data_base: string | null = null;
+  let banco: string | null = null;
+  for (const linha of linhas) {
+    const n = semAcento(linha);
+    if (!FALA_DE_REFERENCIA.test(n)) continue;
+    data_base ??= dataBaseDe(n);
+    const b: RegExpExecArray | null = banco === null ? new RegExp(`\\b(${BANCOS.join("|")})\\b`).exec(n) : null;
+    if (b) banco = b[1]!.toUpperCase() + (/nao desonerad|sem desonera/.test(n) ? " não desonerado" : /desonerad/.test(n) ? " desonerado" : "");
+  }
+  return { data_base, banco };
+}
+
 export function lerPlanilhaDemo(texto: string, nomeArquivo: string): LeituraPlanilha {
   if (/\.xlsx?$/i.test(nomeArquivo)) throw new PlanilhaInvalida("Na demonstração só dá para importar CSV. Na plataforma de verdade, .xlsx também.");
   const g = lerCsv(texto);
@@ -115,6 +144,11 @@ export function lerPlanilhaDemo(texto: string, nomeArquivo: string): LeituraPlan
     colunas: cabecalho.map((titulo, indice) => ({ indice, titulo })).filter((c) => c.titulo),
     amostra: g.slice(cab + 1, cab + 9),
     sugestao,
+    // como na API: o mês no título da coluna vale antes do topo
+    ...(() => {
+      const topo = referenciaDoTopo(g.slice(0, cab).map((l) => l.filter(Boolean).join(" ")));
+      return { data_base: cabecalho.map((c) => dataBaseDe(semAcento(c))).find(Boolean) ?? topo.data_base, banco: topo.banco };
+    })(),
   };
 }
 
