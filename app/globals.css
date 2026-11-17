@@ -96,8 +96,7 @@ p{text-wrap:pretty}
 .sm{font-size:var(--t-meta)}
 
 /* ---------------- Menus flutuantes: o da casca (obra, perfil), o ⋯ e a ajuda ---------------- */
-/* 360 a 1920 px. ≥ 900 px: lateral em coluna, recolhível num trilho de 64 px; < 900 px: lateral em gaveta. */
-/* a casca (topo em pílulas, trilho, painel de conversas) mora em app/casca.css */
+/* a casca (topo em pílulas, painel do Plumo, barra do celular) mora em app/casca.css */
 .pop-sec{font-size:12px;color:var(--muted);padding:6px 10px 2px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .ca-menu-pop{position:absolute;top:calc(100% + 6px);left:0;min-width:280px;padding:6px;z-index:10;transform-origin:top left;animation:mvPop .14s var(--ease);
   border-radius:18px;background:var(--menu);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edgeHi);box-shadow:var(--hl),0 0 0 1px var(--edge),var(--shadowUp)}
@@ -124,8 +123,8 @@ p{text-wrap:pretty}
    do cabeçalho e do campo) ganham área de acerto de 44px sem crescer o desenho. O inset negativo só cobre o que falta
    em cada eixo: botão que já passa de 44px fica como está. */
 @media (pointer:coarse),(max-width:899px){
-  .mm-b,.vs-enviar,.conversa-cab .btn.sm,.composer .btn.sm{position:relative}
-  .mm-b::before,.vs-enviar::before,.dlg-x::before,.conversa-cab .btn.sm::before,.composer .btn.sm::before{
+  .mm-b,.vs-enviar,.composer .btn.sm{position:relative}
+  .mm-b::before,.vs-enviar::before,.dlg-x::before,.composer .btn.sm::before{
     content:"";position:absolute;inset:min(0px,calc(50% - 22px))}
 }
 @media (hover:hover){

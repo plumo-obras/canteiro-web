@@ -1,11 +1,11 @@
 "use client";
 /**
- * A casca do app: topo de vidro com a obra, o Resumo e as cinco telas em pílulas, o Plumo (a conversa com o agente), o
- * menu "⋯" e o sino das aprovações; a lista das conversas abre à esquerda, só na tela do Plumo. Uma tela por vez no palco; a
- * conversa fica montada (escondida) enquanto outra tela está aberta, para o texto digitado e o "Parar" não se
- * perderem. Início e Conta ficam no logo e no avatar. No celular a lista vira gaveta e as telas vão para a barra de baixo.
+ * A casca do app: topo de vidro com a obra, o campo "Pergunte ao Plumo", o sino e a conta; embaixo, o Resumo e as cinco
+ * telas em pílulas, na ordem da obra, e o menu "⋯". Uma tela por vez no palco. O Plumo (a conversa com o agente) não é
+ * uma tela: abre num painel ao lado dela, que fica montado mesmo fechado, para o texto digitado e o "Parar" não se
+ * perderem. Início e Conta ficam no logo e no avatar. No celular as telas vão para a barra de baixo, com o Plumo no meio.
  */
-import { Fragment, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Obra, ResumoDaObra, Usuario } from "@/lib/contrato";
@@ -13,7 +13,8 @@ import { api } from "@/lib/cliente";
 import { formatarHistorico } from "@/lib/historico";
 import { Aprovacoes } from "./Aprovacoes";
 import { ProvedorCasca, mensagemDe, useCasca } from "./contexto";
-import { Conversa } from "./Conversa";
+import type { PedidoConversa } from "./Conversa";
+import { CampoPlumo, PainelPlumo } from "./plumo/PainelPlumo";
 import { Icone, Logo, type NomeIcone } from "./Icone";
 import { MenuMais, type ItemMenu } from "./MenuMais";
 import { Suprimentos } from "./Suprimentos";
@@ -76,35 +77,27 @@ export function Casca({ demo }: { demo: boolean }) {
   );
 }
 
-/** Abaixo disto o painel das conversas vira gaveta. */
+/** Abaixo disto o painel do Plumo vira folha que cobre a tela; acima de LADO_A_LADO ele divide a largura com a tela. */
 const MOVEL = "(max-width: 899px)";
-const CHAVE_PAINEL = "plumo.painel";
+const LADO_A_LADO = "(min-width: 1280px)";
+const CHAVE_PLUMO = "plumo.painelPlumo";
 // Última obra aberta neste navegador: uma aba nova em "/" volta nela, não na 1ª em andamento da lista.
 const CHAVE_OBRA = "plumo.obra";
 const LIMITE_CONVERSAS = 30;
 function useMovel() {
   return useMidia(MOVEL);
 }
-/** Começa aberto no computador, como no desenho da casa da obra; quem fechou continua com ele fechado (fica salvo). */
-export function lerPainel() {
+/**
+ * O painel do Plumo lado a lado com a tela fica como a pessoa deixou (aberto ou fechado), neste navegador. Mais
+ * estreito, ele cobriria a tela que acabou de abrir: começa sempre fechado.
+ */
+export function lerPlumo(ladoALado: boolean) {
+  if (!ladoALado) return false;
   try {
-    return localStorage.getItem(CHAVE_PAINEL) !== "fechado";
+    return localStorage.getItem(CHAVE_PLUMO) === "aberto";
   } catch {
-    return true;
+    return false;
   }
-}
-
-/** "Hoje", "Esta semana", "Este mês" ou o mês por extenso: os grupos da lista de conversas, das mais novas às mais velhas. */
-export function grupoDaData(iso: string, agora = new Date()): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Mais antigas";
-  const dia = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const dias = Math.round((dia(agora) - dia(d)) / 86400000);
-  if (dias <= 0) return "Hoje";
-  if (dias < 7) return "Esta semana";
-  if (d.getFullYear() === agora.getFullYear() && d.getMonth() === agora.getMonth()) return "Este mês";
-  const mes = new Intl.DateTimeFormat("pt-BR", { month: "long", ...(d.getFullYear() === agora.getFullYear() ? {} : { year: "numeric" }) }).format(d);
-  return mes[0]!.toUpperCase() + mes.slice(1);
 }
 
 function App({ usuario }: { usuario: Usuario }) {
@@ -119,31 +112,72 @@ function App({ usuario }: { usuario: Usuario }) {
   // Vindo da Nova obra por "já tenho a planilha": abre o import do orçamento uma vez, nesta obra. A URL reescrita
   // abaixo já não carrega o ?importar=, então recarregar não abre de novo.
   const [importarEm, setImportarEm] = useState<string | null>(null);
-  const irPara = useCallback((t: AbaAtiva) => setTela(t), []);
-  useEffect(() => registrarNavegacao(irPara), [registrarNavegacao, irPara]);
   const [dadosObra, setDadosObra] = useState(false);
   const movel = useMovel();
+  const ladoALado = useMidia(LADO_A_LADO);
   const barraCelular = useCelular();
-  const [painelDesk, setPainelDesk] = useState(lerPainel);
-  const [gaveta, setGaveta] = useState(false);
-  const painel = useRef<HTMLElement>(null);
+  // O painel do Plumo. Quem abriu recebe o foco de volta ao fechar; o pedido é a pergunta feita no campo do topo.
+  const [plumo, setPlumo] = useState(() => lerPlumo(typeof window !== "undefined" && window.matchMedia?.(LADO_A_LADO).matches));
+  const [pedido, setPedido] = useState<PedidoConversa | null>(null);
   const quemAbriu = useRef<HTMLElement | null>(null);
-  // No desktop o painel acompanha o Plumo: nas outras telas o espaço é delas.
-  const painelAberto = movel ? gaveta : painelDesk && tela === "conversa";
+  const campoPlumo = useRef<HTMLInputElement>(null);
+  const lembrarPlumo = useCallback(
+    (aberto: boolean) => {
+      if (!ladoALado) return;
+      try {
+        localStorage.setItem(CHAVE_PLUMO, aberto ? "aberto" : "fechado");
+      } catch {
+        // navegador sem armazenamento: a escolha vale só nesta aba
+      }
+    },
+    [ladoALado],
+  );
+  const abrirPlumo = useCallback(
+    (texto = "") => {
+      const ativo = document.activeElement as HTMLElement | null;
+      // quem abriu pelo campo do topo volta para ele; pelo botão, volta para o botão
+      if (ativo && ativo !== document.body && !ativo.closest("#painel-plumo")) quemAbriu.current = ativo;
+      setPlumo(true);
+      lembrarPlumo(true);
+      if (texto) setPedido((p) => ({ n: (p?.n ?? 0) + 1, texto }));
+      // o campo da conversa só existe à vista no quadro seguinte (o painel estava hidden)
+      requestAnimationFrame(() => document.querySelector<HTMLElement>("#painel-plumo .composer textarea")?.focus({ preventScroll: true }));
+    },
+    [lembrarPlumo],
+  );
+  const fecharPlumo = useCallback(() => {
+    setPlumo(false);
+    lembrarPlumo(false);
+    requestAnimationFrame(() => quemAbriu.current?.focus({ preventScroll: true }));
+  }, [lembrarPlumo]);
+  // O Plumo não é uma tela: quem pede a conversa (o "Perguntar ao Plumo" das telas, um link antigo) abre o painel.
+  const irPara = useCallback((t: AbaAtiva) => (t === "conversa" ? abrirPlumo() : setTela(t)), [abrirPlumo]);
+  useEffect(() => registrarNavegacao(irPara), [registrarNavegacao, irPara]);
+  // ⌘K / Ctrl+K: no computador foca o campo do topo; sem ele (celular), abre o painel.
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k" || e.altKey || e.shiftKey) return;
+      e.preventDefault();
+      if (campoPlumo.current) campoPlumo.current.focus();
+      else abrirPlumo();
+    };
+    document.addEventListener("keydown", tecla);
+    return () => document.removeEventListener("keydown", tecla);
+  }, [abrirPlumo]);
   // Conversas mais antigas, por obra. A 1ª lista é global (as 30 mais recentes de todas as obras): tudo o que é mais
   // novo que a última dela já está aqui, então o cursor de TODAS as obras começa nessa data.
   const [cursorGlobal, setCursorGlobal] = useState<string | null>(null);
   const [maisConversas, setMaisConversas] = useState<Record<string, { antes: string | null; buscando?: boolean }>>({});
-  const [buscaConversa, setBuscaConversa] = useState("");
 
   const iniciou = useRef(false);
   useEffect(() => {
     // Uma vez só (o StrictMode do dev roda o efeito duas vezes e abriria duas conversas vazias).
     if (iniciou.current) return;
     iniciou.current = true;
-    // A página inicial abre uma obra (e a conversa mais recente dela) por ?obra=&sessao=; ?tela= abre uma tela junto.
-    // Sem ?tela=, a obra abre no Resumo. A obra, a conversa e a tela ficam na URL (o efeito abaixo as reescreve), para
-    // o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar na obra errada.
+    // A obra vem por ?obra= e abre no Resumo; ?tela= abre uma tela, e ?sessao= abre o painel do Plumo naquela conversa
+    // (?tela=conversa, de quando o Plumo era uma aba, também abre o painel). A obra, a conversa e a tela ficam na URL (o
+    // efeito abaixo as reescreve), para o recarregar voltar no mesmo lugar: abrir outra obra em silêncio leva a lançar
+    // na obra errada.
     const qs = new URLSearchParams(window.location.search);
     let ultima: string | null = null;
     try {
@@ -154,8 +188,9 @@ function App({ usuario }: { usuario: Usuario }) {
     const querObra = qs.get("obra") ?? ultima;
     const querSessao = qs.get("sessao");
     const querTela = abaDe(qs.get("tela"));
-    // link com ?tela=gastos aberto na demonstração cai na conversa: a tela não existe lá
-    if (querTela && telaNoModo(querTela, demo)) setTela(querTela);
+    // link com ?tela=gastos aberto na demonstração cai no Resumo: a tela não existe lá
+    if (querTela === "conversa" || querSessao) setPlumo(true);
+    else if (querTela && telaNoModo(querTela, demo)) setTela(querTela);
     if (querTela === "orcamento" && qs.get("importar") === "1" && querObra) setImportarEm(querObra);
     api
       .listarObras()
@@ -220,47 +255,13 @@ function App({ usuario }: { usuario: Usuario }) {
       .catch(() => undefined);
   }, [versao, receberPropostas]);
 
-  const fecharGaveta = (devolverFoco = true) => {
-    setGaveta(false);
-    // quem abriu só volta a aparecer quando a gaveta sai (com ela aberta ele fica escondido): foca no quadro seguinte
-    if (devolverFoco) requestAnimationFrame(() => quemAbriu.current?.focus({ preventScroll: true }));
-  };
-  const alternarPainel = () => {
-    if (movel) {
-      if (gaveta) fecharGaveta();
-      else {
-        quemAbriu.current = document.activeElement as HTMLElement | null;
-        setGaveta(true);
-      }
-      return;
-    }
-    if (tela !== "conversa") {
-      irPara("conversa");
-      if (painelDesk) return;
-    }
-    const novo = !painelDesk;
-    setPainelDesk(novo);
-    try {
-      localStorage.setItem(CHAVE_PAINEL, novo ? "aberto" : "fechado");
-    } catch {
-      // navegador sem armazenamento: a escolha vale só nesta aba
-    }
-  };
-  useEffect(() => {
-    if (!gaveta || !movel) return;
-    painel.current?.querySelector<HTMLElement>("button,a")?.focus({ preventScroll: true });
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && fecharGaveta();
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [gaveta, movel]);
-
   const sessaoAberta = sessoes.find((s) => s.id === atual);
   const obraAberta = obras?.find((o) => o.id === sessaoAberta?.obraId)?.id;
   // O Desfazer fixo (somar, reordenar) fala da tela onde a pessoa mexeu: em outra tela ou obra, ele confundiria.
   useEffect(() => fecharAvisoFixo(), [tela, obraAberta, fecharAvisoFixo]);
-  // A conversa também vai para a URL: recarregar (o portal recarrega a página ao trocar desktop ↔ celular) voltava em
-  // "Nova conversa". Só a que já tem mensagem: a vazia ainda não existe no servidor e não teria como ser reaberta.
-  const sessaoNaUrl = sessaoAberta && (sessaoAberta.mensagens.length || !sessaoAberta.carregada) ? sessaoAberta.servidorId : null;
+  // Com o painel aberto, a conversa também vai para a URL: recarregar (o portal recarrega a página ao trocar desktop ↔
+  // celular) voltava em "Nova conversa". Só a que já tem mensagem: a vazia ainda não existe no servidor.
+  const sessaoNaUrl = plumo && sessaoAberta && (sessaoAberta.mensagens.length || !sessaoAberta.carregada) ? sessaoAberta.servidorId : null;
   const { dado: resumoLido, erro: erroResumo } = useCarregar(() => (obraAberta ? api.resumoObra(obraAberta) : Promise.resolve(null)), [obraAberta, versao]);
   // useCarregar mantém o dado anterior: sem conferir, a obra nova mostraria por um instante os números da outra.
   const resumo = resumoLido?.obra.id === obraAberta ? resumoLido : null;
@@ -269,7 +270,7 @@ function App({ usuario }: { usuario: Usuario }) {
     if (!obraAberta) return;
     const qs = new URLSearchParams({ obra: obraAberta });
     if (sessaoNaUrl) qs.set("sessao", sessaoNaUrl);
-    if (tela !== "resumo") qs.set("tela", tela);
+    if (tela !== "resumo" && tela !== "conversa") qs.set("tela", tela);
     window.history.replaceState(null, "", `${window.location.pathname}?${qs}`);
     try {
       localStorage.setItem(CHAVE_OBRA, obraAberta);
@@ -282,15 +283,11 @@ function App({ usuario }: { usuario: Usuario }) {
   const sessao = sessoes.find((s) => s.id === atual);
   const obra = obras?.find((o) => o.id === sessao?.obraId);
 
-  const escolherSessao = (id: string) => {
-    setAtual(id);
-    irPara("conversa");
-    if (movel) fecharGaveta(false);
-  };
   const abrirNova = (obraId: string) => {
     const s = novaSessao(obraId);
     despachar({ tipo: "nova", sessao: s });
-    escolherSessao(s.id);
+    setAtual(s.id);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>("#painel-plumo .composer textarea")?.focus({ preventScroll: true }));
   };
   /** Trocar de obra é abrir a obra: o Resumo dela, e a conversa vai para a mais recente dela (ou uma nova). */
   const trocarObra = (obraId: string) => {
@@ -318,8 +315,6 @@ function App({ usuario }: { usuario: Usuario }) {
       setMaisConversas((m) => ({ ...m, [obraId]: { antes } }));
     }
   };
-  // lista recolhida no computador: sobra uma faixa estreita com mostrar a lista e começar outra conversa
-  const trilhoConversas = !movel && tela === "conversa" && !painelAberto && Boolean(obra);
   const conteudo = erro ? (
     <div className="aviso-erro" role="alert">
       <Icone nome="alert" tam={15} />
@@ -328,7 +323,7 @@ function App({ usuario }: { usuario: Usuario }) {
   ) : !obras || (obras.length && !sessao) ? (
     <div className="carregando page" role="status">
       <Icone nome="loader" className="spin" tam={15} />
-      {obras ? "Abrindo a conversa…" : "Carregando obras…"}
+      {obras ? "Abrindo a obra…" : "Carregando obras…"}
     </div>
   ) : !sessao || !obra ? (
     <div className="card vazio">
@@ -344,7 +339,7 @@ function App({ usuario }: { usuario: Usuario }) {
   ) : null;
 
   return (
-    <div className={`app${painelAberto ? " com-painel" : trilhoConversas ? " com-trilho" : ""}`}>
+    <div className={`app${plumo && sessao && obra && !conteudo ? (ladoALado ? " com-plumo" : movel ? "" : " plumo-por-cima") : ""}`}>
       <Topo
         semAbas={barraCelular}
         obras={obras ?? []}
@@ -357,178 +352,95 @@ function App({ usuario }: { usuario: Usuario }) {
         usuario={usuario}
         demo={demo}
         abrirDados={() => setDadosObra(true)}
-        inerte={movel && gaveta}
+        inerte={movel && plumo}
+        campoPlumo={obra && !conteudo && !barraCelular ? <CampoPlumo perguntar={(t) => abrirPlumo(t)} campo={campoPlumo} /> : null}
       />
       {obra && !conteudo ? <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} /> : null}
-      {trilhoConversas && obra ? (
-        <nav className="trilho-conv" aria-label="Conversas">
-          <button type="button" className="tr-btn" aria-label="Mostrar a lista de conversas" title="Conversas" aria-expanded={false} aria-controls="painel-conversas" onClick={alternarPainel}>
-            <Icone nome="painel" tam={18} />
-          </button>
-          <button type="button" className="tr-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
-            <Icone nome="plus" tam={18} />
-          </button>
-        </nav>
-      ) : null}
-      <aside className="painel" id="painel-conversas" aria-label="Conversas" ref={painel} hidden={!painelAberto} inert={!painelAberto}>
-        <div className="painel-cab">
-          <div className="painel-t">Conversas</div>
-          <button type="button" className="tr-btn painel-x" aria-label="Recolher as conversas" onClick={() => (movel ? fecharGaveta() : alternarPainel())}>
-            <Icone nome={movel ? "x" : "painel"} tam={16} />
-          </button>
-        </div>
-        {obra ? (
-          <button type="button" className="painel-nova" onClick={() => abrirNova(obra.id)}>
-            <Icone nome="plus" tam={16} />
-            Nova conversa
-          </button>
-        ) : null}
-        <label className="busca painel-busca">
-          <Icone nome="busca" tam={15} />
-          <span className="sr-only">Buscar nas conversas</span>
-          <input type="search" placeholder="Buscar nas conversas" value={buscaConversa} onChange={(e) => setBuscaConversa(e.target.value)} />
-        </label>
-        <div className="painel-lista">
-          {(() => {
-            const q = buscaConversa.trim().toLowerCase();
-            const lista = sessoes
-              // A conversa nova e vazia já é o botão "Nova conversa" acima: não entra na lista duas vezes.
-              .filter((s) => s.obraId === obra?.id && !(s.carregada && s.mensagens.length === 0))
-              .filter((s) => !q || s.titulo.toLowerCase().includes(q));
-            if (q && !lista.length) return <p className="painel-vazio">Nenhuma conversa com «{buscaConversa.trim()}».</p>;
-            let anterior = "";
-            return lista.map((s) => {
-              const grupo = grupoDaData(s.atualizadoEm);
-              const cab = grupo !== anterior ? grupo : null;
-              anterior = grupo;
-              return (
-                <Fragment key={s.id}>
-                  {cab ? <p className="painel-grupo">{cab}</p> : null}
-                  <button
-                    type="button"
-                    className={`painel-sess${s.id === atual ? (tela === "conversa" ? " on" : " atual") : ""}`}
-                    aria-current={s.id === atual ? "true" : undefined}
-                    title={s.titulo}
-                    onClick={() => escolherSessao(s.id)}
-                  >
-                    <span className="sess-t">{s.titulo}</span>
-                  </button>
-                </Fragment>
-              );
-            });
-          })()}
-          {obra && cursorDa(obra.id) ? (
-            <button
-              type="button"
-              className="painel-mais"
-              disabled={maisConversas[obra.id]?.buscando}
-              aria-busy={maisConversas[obra.id]?.buscando}
-              onClick={() => carregarConversas(obra.id)}
-            >
-              {maisConversas[obra.id]?.buscando ? <Icone nome="loader" className="spin" tam={14} /> : null}
-              Conversas mais antigas
-            </button>
-          ) : null}
-        </div>
-        {movel ? (
-          <div className="painel-pe">
-            <Link href="/inicio" className="painel-link">
-              <Icone nome="home" tam={16} />
-              Início
-            </Link>
-            {podeCadastrar ? (
-              <Link href="/obras/nova" className="painel-link">
-                <Icone nome="predio" tam={16} />
-                Nova obra
-              </Link>
-            ) : null}
-            <Link href="/conta" className="painel-link">
-              <Icone nome="user" tam={16} />
-              Conta e créditos
-            </Link>
-          </div>
-        ) : null}
-        {demo ? (
-          <div className="fict" role="note">
-            <Icone nome="info" tam={14} />
-            <span>Modo de demonstração: dados fictícios, em memória. Nada vai para a API.</span>
-          </div>
-        ) : null}
-      </aside>
-      {movel ? <div className="gaveta-fundo" aria-hidden="true" hidden={!gaveta} onClick={() => fecharGaveta()} /> : null}
 
-      <main className="palco" inert={movel && gaveta}>
+      <main className="palco" inert={movel && plumo}>
         {conteudo ??
           (sessao && obra ? (
-            <>
-              {/* escondida, não desmontada: o texto digitado e o "Parar" sobrevivem à troca de tela */}
-              <section className="palco-conversa" id="painel-conversa" aria-label="Conversa com o Plumo" hidden={tela !== "conversa"}>
-                <div className="conversa-cab">
-                  <h1 className="conversa-t" title={sessao.titulo}>
-                    {sessao.titulo}
-                  </h1>
-                  <button type="button" className="btn sm conversa-nova" aria-label="Nova conversa" title="Nova conversa" onClick={() => abrirNova(obra.id)}>
-                    <Icone nome="plus" tam={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn sm conversa-lista${painelAberto ? " on" : ""}`}
-                    aria-label="Conversas"
-                    title="Conversas"
-                    aria-expanded={painelAberto}
-                    aria-controls="painel-conversas"
-                    onClick={alternarPainel}
-                  >
-                    <Icone nome="painel" tam={16} />
-                    <span className="rot">Conversas</span>
-                  </button>
-                </div>
-                <Conversa key={sessao.id} sessao={sessao} obra={obra} resumo={resumo} despachar={despachar} />
-              </section>
-              {tela !== "conversa" ? (
-                // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do
-                // cronograma, por exemplo) ficava montado com a obra B, e "Salvar" gravava o de A em B.
-                <section key={obra.id} className="palco-tela" aria-label={ROTULOS[tela].rotulo}>
-                  {tela === "resumo" ? (
-                    <Resumo obra={obra} resumo={resumo} />
-                  ) : tela === "orcamento" ? (
-                    <Orcamento obra={obra} abrirImportar={importarEm === obra.id} aoAbrirImportar={() => setImportarEm(null)} />
-                  ) : tela === "cronograma" ? (
-                    <Cronograma obra={obra} />
-                  ) : tela === "suprimentos" ? (
-                    <Suprimentos obra={obra} />
-                  ) : tela === "gastos" ? (
-                    <Gastos obra={obra} />
-                  ) : tela === "tributos" ? (
-                    <Tributos obra={obra} />
-                  ) : tela === "projeto" ? (
-                    <Projeto obra={obra} />
-                  ) : tela === "historico" ? (
-                    <Historico obra={obra} />
-                  ) : (
-                    <Aprovacoes obra={obra} obras={obras ?? []} />
-                  )}
-                </section>
-              ) : null}
-            </>
+            // key pela obra: trocar de obra remonta a tela. Sem isso o estado de A (o rascunho do editor do
+            // cronograma, por exemplo) ficava montado com a obra B, e "Salvar" gravava o de A em B.
+            <section key={obra.id} className="palco-tela" aria-label={ROTULOS[tela].rotulo}>
+              {tela === "orcamento" ? (
+                <Orcamento obra={obra} abrirImportar={importarEm === obra.id} aoAbrirImportar={() => setImportarEm(null)} />
+              ) : tela === "cronograma" ? (
+                <Cronograma obra={obra} />
+              ) : tela === "suprimentos" ? (
+                <Suprimentos obra={obra} />
+              ) : tela === "gastos" ? (
+                <Gastos obra={obra} />
+              ) : tela === "tributos" ? (
+                <Tributos obra={obra} />
+              ) : tela === "projeto" ? (
+                <Projeto obra={obra} />
+              ) : tela === "historico" ? (
+                <Historico obra={obra} />
+              ) : tela === "aprovacoes" ? (
+                <Aprovacoes obra={obra} obras={obras ?? []} />
+              ) : (
+                <Resumo obra={obra} resumo={resumo} />
+              )}
+            </section>
           ) : null)}
       </main>
-      {obra && !conteudo && barraCelular ? <BarraInferior aprovada={obra.status !== "em_orcamento" && !semOrcamento} tela={tela} setTela={irPara} abrirDados={() => setDadosObra(true)} inerte={movel && gaveta} demo={demo} /> : null}
+      {sessao && obra && !conteudo ? (
+        <PainelPlumo
+          aberto={plumo}
+          modal={movel}
+          fechar={fecharPlumo}
+          sessao={sessao}
+          obra={obra}
+          resumo={resumo}
+          despachar={despachar}
+          conversas={sessoes.filter((x) => x.obraId === obra.id)}
+          escolher={setAtual}
+          abrirNova={() => abrirNova(obra.id)}
+          maisAntigas={{ existe: !!cursorDa(obra.id), buscando: !!maisConversas[obra.id]?.buscando, carregar: () => void carregarConversas(obra.id) }}
+          pedido={pedido}
+          atenderPedido={() => setPedido(null)}
+          demo={demo}
+        />
+      ) : null}
+      {obra && !conteudo && barraCelular ? (
+        <BarraInferior
+          aprovada={obra.status !== "em_orcamento" && !semOrcamento}
+          tela={tela}
+          setTela={irPara}
+          plumo={plumo}
+          abrirPlumo={() => abrirPlumo()}
+          abrirDados={() => setDadosObra(true)}
+          inerte={movel && plumo}
+          demo={demo}
+          podeCadastrar={podeCadastrar}
+        />
+      ) : null}
       {obra && dadosObra ? <ModalDadosObra obra={obra} fechar={() => setDadosObra(false)} leitura={!podeOperar} /> : null}
     </div>
   );
 }
 
 /** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
-// O Resumo e o Plumo sempre; antes do orçamento aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar
-// e lançar (o Cronograma, que se consulta menos no celular, vai para o Mais).
+// O Resumo sempre, e o Plumo no meio (o lugar mais à mão: ele não é uma tela, abre o painel); antes do orçamento
+// aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar e lançar (o Cronograma vai para o Mais).
 function barraDe(aprovada: boolean, demo: boolean): AbaAtiva[] {
-  const abas: AbaAtiva[] = aprovada ? ["resumo", "conversa", "suprimentos", "gastos"] : ["resumo", "conversa", "projeto", "orcamento"];
+  const abas: AbaAtiva[] = aprovada ? ["resumo", "suprimentos", "conversa", "gastos"] : ["resumo", "projeto", "conversa", "orcamento"];
   // Na demonstração não há Gastos: outra tela fica no lugar, e a barra continua com cinco colunas.
   return demo ? abas.map((k) => (k !== "gastos" ? k : "cronograma")) : abas;
 }
 
-function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaAtiva) => void; abrirDados: () => void; inerte: boolean; demo: boolean }) {
+function BarraInferior(p: {
+  aprovada: boolean;
+  tela: AbaAtiva;
+  setTela: (t: AbaAtiva) => void;
+  plumo: boolean;
+  abrirPlumo: () => void;
+  abrirDados: () => void;
+  inerte: boolean;
+  demo: boolean;
+  podeCadastrar: boolean;
+}) {
   const itens = barraDe(p.aprovada, p.demo);
   const [mais, setMais] = useState(false);
   // Trocou de tela (pela folha ou por fora dela): a folha fecha, nunca fica cobrindo a tela nova.
@@ -551,12 +463,31 @@ function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaA
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const naFolha = [...ABAS, "conversa" as const, ...NO_MENU].filter((k) => telaNoModo(k, p.demo) && !itens.includes(k));
+  const naFolha = [...ABAS, ...NO_MENU].filter((k) => telaNoModo(k, p.demo) && !itens.includes(k));
   const noMais = naFolha.includes(p.tela);
   return (
     <>
       <nav ref={barra} className={`barra-inf${compacta ? " compacta" : ""}`} aria-label="Telas da obra" inert={p.inerte}>
-        {itens.map((k) => (
+        {itens.map((k) =>
+          k === "conversa" ? (
+            <button
+              key={k}
+              type="button"
+              className="bi-item bi-plumo"
+              aria-label="Plumo"
+              aria-haspopup="dialog"
+              aria-expanded={p.plumo}
+              aria-controls="painel-plumo"
+              onClick={p.abrirPlumo}
+            >
+              <span className="bi-bola" aria-hidden="true">
+                <Icone nome="spark" tam={22} />
+              </span>
+              <span className="bi-rot" aria-hidden="true">
+                Plumo
+              </span>
+            </button>
+          ) : (
           <button
             key={k}
             type="button"
@@ -570,7 +501,8 @@ function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaA
               {ROTULOS[k].rotulo}
             </span>
           </button>
-        ))}
+          ),
+        )}
         <button
           type="button"
           className={`bi-item${noMais ? " on" : ""}`}
@@ -597,14 +529,15 @@ function BarraInferior(p: { aprovada: boolean; tela: AbaAtiva; setTela: (t: AbaA
             setMais(false);
             p.abrirDados();
           }}
+          podeCadastrar={p.podeCadastrar}
         />
       ) : null}
     </>
   );
 }
 
-/** A folha do Mais: as telas que não couberam na barra, Dados da obra, Conta e Tema. Esc ou toque fora fecham. */
-function FolhaMais(p: { fechar: () => void; telas: AbaAtiva[]; ir: (t: AbaAtiva) => void; abrirDados: () => void }) {
+/** A folha do Mais: as telas que não couberam na barra, Dados da obra, Início, Nova obra, Conta e Tema. Esc ou toque fora fecham. */
+function FolhaMais(p: { fechar: () => void; telas: AbaAtiva[]; ir: (t: AbaAtiva) => void; abrirDados: () => void; podeCadastrar: boolean }) {
   const { fechar } = p;
   const caixa = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -642,6 +575,16 @@ function FolhaMais(p: { fechar: () => void; telas: AbaAtiva[]; ir: (t: AbaAtiva)
           <Icone nome="predio" tam={18} />
           <span>Dados da obra</span>
         </button>
+        <Link href="/inicio" className="folha-item">
+          <Icone nome="home" tam={18} />
+          <span>Início</span>
+        </Link>
+        {p.podeCadastrar ? (
+          <Link href="/obras/nova" className="folha-item">
+            <Icone nome="plus" tam={18} />
+            <span>Nova obra</span>
+          </Link>
+        ) : null}
         <Link href="/conta" className="folha-item">
           <Icone nome="user" tam={18} />
           <span>Conta</span>
@@ -676,6 +619,8 @@ function Topo(p: {
   demo: boolean;
   abrirDados: () => void;
   inerte: boolean;
+  /** O campo "Pergunte ao Plumo" (só no computador; no celular o Plumo está no meio da barra de baixo). */
+  campoPlumo: React.ReactNode;
 }) {
   const { obra, tela } = p;
   const nav = useRef<HTMLDivElement>(null);
@@ -723,17 +668,11 @@ function Topo(p: {
         {p.demo ? <span className="tag">demo</span> : null}
       </Link>
       {obra ? <SeletorObra obras={p.obras} obra={obra} resumo={p.resumo} trocar={p.trocarObra} /> : null}
+      {p.campoPlumo}
       {obra && !p.semAbas ? (
         <nav className="topo-nav" ref={nav} aria-label="Telas da obra">
-          {[...ABAS, "conversa" as const].filter((k) => telaNoModo(k, p.demo)).map((k) => (
-            <button
-              key={k}
-              type="button"
-              className={`pilula${k === "conversa" ? " plumo" : ""}${tela === k ? " on" : ""}`}
-              aria-current={tela === k ? "page" : undefined}
-              onClick={() => p.setTela(k)}
-            >
-              {k === "conversa" ? <Icone nome="spark" tam={16} /> : null}
+          {ABAS.filter((k) => telaNoModo(k, p.demo)).map((k) => (
+            <button key={k} type="button" className={`pilula${tela === k ? " on" : ""}`} aria-current={tela === k ? "page" : undefined} onClick={() => p.setTela(k)}>
               {ROTULOS[k].rotulo}
             </button>
           ))}

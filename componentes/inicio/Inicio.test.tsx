@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ResumoObra, Usuario } from "@/lib/contrato";
-import type { SessaoApi } from "@/lib/historico";
 import { criarRede, json } from "@/testes/rede";
 import { Inicio, avisosDe, hrefDaObra, resumoDoDia, saudacao } from "./Inicio";
 
@@ -12,15 +11,12 @@ afterEach(() => vi.unstubAllGlobals());
 const obra = (id: string, nome: string, status: ResumoObra["obra"]["status"] = "em_andamento") => ({
   id, nome, status, cidade: "Campinas", cep: "", verba: 0, tenant_id: "t", criado_em: "",
 });
-const sessao = (id: string, obra_id: string | null) => ({ id, obra_id }) as SessaoApi;
 const eu: Usuario = { id: "u", nome: "Marina Duarte", tenant_id: "t", papel: "admin" };
 
 describe("hrefDaObra", () => {
-  it("abre a sessão mais recente da obra ou uma nova", () => {
-    const ss = [sessao("s-b", "b"), sessao("s-a2", "a"), sessao("s-a1", "a")];
-    expect(hrefDaObra("a", ss)).toBe("/?obra=a&sessao=s-a2");
-    expect(hrefDaObra("c", ss)).toBe("/?obra=c");
-    expect(hrefDaObra("a", ss, "aprovacoes")).toBe("/?obra=a&sessao=s-a2&tela=aprovacoes");
+  it("abre o Resumo da obra, ou a tela pedida, sem abrir o painel do Plumo", () => {
+    expect(hrefDaObra("a")).toBe("/?obra=a");
+    expect(hrefDaObra("a", "aprovacoes")).toBe("/?obra=a&tela=aprovacoes");
   });
 });
 
@@ -32,7 +28,6 @@ describe("Inicio", () => {
           { obra: obra("a", "Obra Sem Nada", "em_orcamento"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, tem_orcamento: false },
           { obra: obra("b", "Obra Orcada", "em_orcamento"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, tem_orcamento: true },
         ]),
-      "GET /srv/api/sessoes": () => json([]),
     });
     render(<Inicio usuario={eu} />);
     const sem = (await screen.findByRole("heading", { name: "Obra Sem Nada" })).closest("a")!;
@@ -48,7 +43,6 @@ describe("Inicio", () => {
           { obra: obra("b", "Reforma Loja", "concluida"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null },
           { obra: obra("a", "Casa Vila Nova"), pendencias: 2, falta_comprar: 1, pedidos_abertos: 3, valor_pedidos_abertos: 2980000, nf_para_conferir: 1, ultima_atividade: new Date().toISOString() },
         ]),
-      "GET /srv/api/sessoes": () => json([sessao("s1", "a")]),
     });
     render(<Inicio usuario={eu} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(`${saudacao()}, Marina`);
@@ -63,7 +57,7 @@ describe("Inicio", () => {
     // o cartão inteiro é o link; sem botão "Abrir obra"
     expect(screen.queryByRole("link", { name: "Abrir obra" })).toBeNull();
     const abrir = within(lista).getAllByRole("link");
-    expect(abrir[0]!.getAttribute("href")).toBe("/?obra=a&sessao=s1");
+    expect(abrir[0]!.getAttribute("href")).toBe("/?obra=a");
     expect(abrir[1]!.getAttribute("href")).toBe("/?obra=b");
     expect(within(cartoes[0]!).getByText("2 aprovações")).toBeTruthy();
     expect(await screen.findByText("Duas obras, três coisas esperando você.")).toBeTruthy();
@@ -73,8 +67,8 @@ describe("Inicio", () => {
     expect(cartoes.at(-1)!.textContent).toContain("Sem atividade ainda");
     // com uma obra só esperando, a etiqueta do topo leva direto à tela dela
     const avisos = screen.getByRole("group", { name: "Esperando você" });
-    expect(within(avisos).getByRole("link", { name: /2 aprovações/ }).getAttribute("href")).toBe("/?obra=a&sessao=s1&tela=aprovacoes");
-    expect(within(avisos).getByRole("link", { name: /1 comprovante para conferir/ }).getAttribute("href")).toBe("/?obra=a&sessao=s1&tela=suprimentos");
+    expect(within(avisos).getByRole("link", { name: /2 aprovações/ }).getAttribute("href")).toBe("/?obra=a&tela=aprovacoes");
+    expect(within(avisos).getByRole("link", { name: /1 comprovante para conferir/ }).getAttribute("href")).toBe("/?obra=a&tela=suprimentos");
   });
 
   it("etiqueta que soma várias obras filtra os cartões; a situação mostra os contadores", async () => {
@@ -83,7 +77,6 @@ describe("Inicio", () => {
     });
     criarRede({
       "GET /srv/api/obras/resumo": () => json([r("a", "Obra A", 1), r("b", "Obra B", 2), r("c", "Obra C", 0, "em_orcamento")]),
-      "GET /srv/api/sessoes": () => json([]),
     });
     render(<Inicio usuario={eu} />);
     const situacao = await screen.findByRole("group", { name: "Situação" });

@@ -18,9 +18,12 @@ seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da 
   Cada etapa da linha do tempo leva à aba dela.
 - **As abas seguem a ordem da obra:** Resumo · Projeto · Orçamento · Cronograma · Compras · Gastos.
   Tributos, Histórico e Dados da obra ficam no "⋯".
-- **O Plumo fica separado das etapas**, no fim da fileira: é quem ajuda em todas.
-  A conversa vazia abre com perguntas prontas para o momento da obra.
-- No celular, a barra de baixo traz Resumo, Plumo e as duas telas do dia a dia da fase (antes de aprovar: Projeto e Orçamento; depois: Compras e Gastos); o resto fica no Mais.
+- **O Plumo não é uma aba: está sempre à mão.**
+  No computador, o campo "Pergunte ao Plumo" fica no topo (⌘K ou Ctrl+K); Enter manda a pergunta e abre a conversa num painel ao lado da tela, que continua à vista.
+  A partir de 1280 px o painel divide a largura com a tela; mais estreito, flutua por cima dela.
+  A lista de conversas mora dentro do painel, e a conversa vazia abre com perguntas prontas para o momento da obra.
+  O "Perguntar ao Plumo" das telas também abre o painel.
+- No celular, a barra de baixo traz Resumo, o Plumo no meio (abre a conversa numa folha que cobre a tela) e as duas telas do dia a dia da fase (antes de aprovar: Projeto e Orçamento; depois: Compras e Gastos); o resto, com Início, Nova obra e Conta, fica no Mais.
 - No menu do perfil (rodapé da lateral): notas de validação (desligadas por padrão), Nova obra, Celular do mestre, Mapa de fluxos.
 - Roteiro da demo (aparece como sugestão acima do campo): "vamos começar pela Vila Nova, quero um relatório da fase da
   obra" · "por que só tem 2.760 blocos?" · "o que chega amanhã?" · "quem está na obra hoje?" · "estamos no prazo?" ·

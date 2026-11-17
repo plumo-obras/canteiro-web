@@ -1,21 +1,24 @@
 /* =====================================================================================================
-   Casca do workspace: topo (marca · obra · Plumo e telas em pílulas · ⋯ · sino · conta), painel das conversas e o
-   palco. Tudo flutua em vidro sobre a foto desfocada do fundo. Os tokens (cores, vidro, sombras) vêm do globals.css,
+   Casca do workspace: topo (marca · obra · campo do Plumo · sino · conta, e embaixo as telas em pílulas · ⋯), o palco e
+   o painel do Plumo. Tudo flutua em vidro sobre a foto desfocada do fundo. Os tokens (cores, vidro, sombras) vêm do globals.css,
    nos dois temas; aqui só a forma e o lugar das peças.
-   ≥ 900 px: painel das conversas à esquerda do palco, só na tela do Plumo (abre e fecha). < 900 px: painel em gaveta,
-   pílulas numa linha que rola na horizontal; ≤ 760 px, barra fixa embaixo.
+   Painel do Plumo: ≥ 1280 px divide a largura com o palco (coluna à direita); de 900 a 1279 px flutua por cima do palco,
+   à direita; < 900 px é uma folha que cobre a tela. ≤ 760 px, barra fixa embaixo, com o Plumo no meio.
    ===================================================================================================== */
 html:has(.app),html:has(.app) body{overflow:hidden}
 .app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);gap:14px;height:100vh;height:100dvh;overflow:hidden;
   padding:14px 18px}
-.app.com-painel{grid-template-columns:264px minmax(0,1fr)}
-.app.com-trilho{grid-template-columns:44px minmax(0,1fr)}
-.app>.trilho-conv{grid-column:1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px}
+.app.com-plumo{grid-template-columns:minmax(0,1fr) 420px}
 .app>.topo{grid-column:1/-1;grid-row:1}
 /* a linha dos números fica logo abaixo do topo, de ponta a ponta; a lista de conversas e o palco vêm embaixo dela */
 .app>.placar{grid-column:1/-1;grid-row:2;margin-bottom:-4px}
-.app>.painel{grid-column:1;grid-row:3}
-.app>.palco{grid-column:-2/-1;grid-row:3}
+.app>.palco{grid-column:1;grid-row:3}
+/* o painel do Plumo desce do topo até o pé, ao lado do placar e do palco; o placar fica só sobre o palco */
+.app.com-plumo>.placar{grid-column:1}
+.app>#painel-plumo{grid-column:2;grid-row:2/4}
+/* mais estreito, o painel flutua por cima do palco, à direita, e a tela continua por baixo */
+.app.plumo-por-cima>#painel-plumo{grid-column:1;grid-row:2/4;justify-self:end;width:min(420px,100%);z-index:25;
+  background:var(--cardSolido);-webkit-backdrop-filter:none;backdrop-filter:none}
 @media (prefers-reduced-motion:no-preference){ .app{transition:grid-template-columns var(--mv-base) var(--ease)} }
 
 /* a barra do topo tem fundo próprio, como a da landing: escura no tema escuro, vidro claro no claro */
@@ -29,11 +32,11 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   background:linear-gradient(150deg,#f5c978 0%,#e8b04a 55%,#d99a2e 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 2px 6px -1px rgba(0,0,0,.3)}
 
 /* vidro das peças que flutuam */
-.painel,.palco-conversa,.placar{
+.placar{
   background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   border:1px solid var(--edge);box-shadow:var(--hl),var(--shadow)}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .painel,.palco-conversa,.placar{background:var(--cardSolido,var(--card))}
+  .placar{background:var(--cardSolido,var(--card))}
   .topo{background:var(--cardSolido,var(--card))}
 }
 
@@ -83,12 +86,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .topo-sino:active{transform:scale(.95)}
 .topo-sino.on{background:var(--ativo);color:var(--ink)}
 .topo-sino-n{position:absolute;top:3px;right:2px;min-width:18px;padding:0 4px;border-radius:99px;background:var(--accent);color:var(--onAccent,#1d1505);font:700 11px/18px var(--sans);text-align:center}
-/* o Plumo tem a cor da marca e fica separado das etapas da obra por um traço: não é uma etapa, é quem ajuda em todas */
-.pilula.plumo{color:var(--accentInk);position:relative;margin-left:13px}
-.pilula.plumo::before{content:"";position:absolute;left:-8px;top:11px;bottom:11px;width:1px;background:var(--line)}
-.pilula.plumo.on{background:var(--accentSoft);color:var(--accentInk)}
 .topo-dir{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto}
-.topo-nav + .topo-dir{margin-left:0}
 /* não coube: menos espaço entre as pílulas e seletor mais estreito (medido em Casca.tsx, classe "aperto") */
 .topo.aperto{gap:6px}
 .topo.aperto .pilula{padding:0 9px}
@@ -115,48 +113,13 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .seletor-bt:hover{background:var(--hover,var(--sunk))}
 }
 
-/* ---------- painel das conversas ---------- */
-.painel{display:flex;flex-direction:column;gap:6px;min-height:0;padding:16px 12px 12px;border-radius:24px;overflow:hidden}
-.painel[hidden]{display:none}
-.painel-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:0 4px 6px}
-.painel-t{font-size:var(--t-sec);font-weight:600}
-.painel-x{width:34px;height:34px;margin:-4px -4px 0 0}
-.painel-nova{display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;border:0;border-radius:999px;background:var(--accent);color:var(--onAccent,#1d1505);
-  font-weight:600;flex:none;transition:transform .12s var(--ease),filter .15s var(--ease)}
-.painel-nova:active{transform:scale(.97)}
-.painel-lista{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0;margin:6px -4px 0;padding:0 4px;scrollbar-width:thin}
-.painel-sess{display:flex;align-items:center;gap:9px;min-height:38px;padding:6px 12px;border:0;border-radius:14px;background:none;color:var(--ink2);text-align:left;font-size:var(--t-body);
-  transition:background-color .15s var(--ease),color .15s var(--ease)}
-.painel-sess .ic{color:var(--muted);flex:none}
-.painel-sess.on{background:var(--ativo);color:var(--ink);font-weight:500}
-.painel-sess.atual{color:var(--ink)}
-.painel-sess.atual .ic{color:var(--accentInk)}
-@media (hover:hover){ .painel-sess:not(.on):hover{background:var(--sunk);color:var(--ink)} .painel-nova:hover{filter:brightness(1.06)} }
-.painel-busca{flex:none;margin:6px 0 0;min-width:0}
-.painel-busca input{min-height:38px}
-.painel-grupo{margin:12px 12px 2px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
-.painel-grupo:first-child{margin-top:4px}
-.painel-vazio{margin:10px 12px;color:var(--muted);font-size:var(--t-meta)}
-.sess-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.painel-mais{display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;margin-top:6px;border:1px dashed var(--line);border-radius:14px;background:none;
-  color:var(--muted);font-size:var(--t-meta)}
-@media (hover:hover){ .painel-mais:hover{color:var(--ink);border-style:solid} }
-.painel-pe{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line2)}
-.painel-link{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:14px;color:var(--ink2)}
-.painel-link .ic{color:var(--muted)}
 .fict{display:flex;gap:8px;margin-top:auto;padding:8px 6px 0;color:var(--muted);font-size:12px;line-height:1.45}
-.painel-pe + .fict{margin-top:8px}
 .fict .ic{margin-top:1px;color:var(--accentInk);flex:none}
 
 /* ---------- palco ---------- */
 .palco{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .palco-tela{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain}
 .palco-tela .page{padding:6px 6px 32px}
-.palco-conversa{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:24px;overflow:hidden}
-.palco-conversa[hidden]{display:none}
-.conversa-cab{display:flex;align-items:center;gap:12px;padding:14px 22px 10px;border-bottom:1px solid var(--line2);flex:none}
-.conversa-lista.on{background:var(--ativo);color:var(--ink)}
-.conversa-t{margin:0;font:600 var(--t-sec) var(--sans);letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .palco>.card.vazio,.palco>.aviso-erro,.palco>.carregando{margin-top:24px}
 
 /* ---------- placar: fica fora da rolagem da tela, sempre à vista ----------
@@ -175,8 +138,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .placar-v.t-neg{color:var(--redInk)}
 
 /* ---------- celular e tablet ---------- */
-.gaveta-fundo{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);animation:mvAparece var(--mv-base) var(--ease)}
-.gaveta-fundo[hidden]{display:none}
 /* notebook de 1366: o Plumo, as cinco abas, o ⋯, o sino e o nome da obra cabem sem cortar a última */
 @media (max-width:1480px) and (min-width:1181px){
   .topo-marca-t{display:none}
@@ -189,7 +150,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .seletor-bt{max-width:200px}
 }
 @media (max-width:899px){
-  .app,.app.com-painel{grid-template-columns:minmax(0,1fr);gap:10px;padding:calc(8px + env(safe-area-inset-top)) 10px 0 10px}
+  .app{grid-template-columns:minmax(0,1fr);gap:10px;padding:calc(8px + env(safe-area-inset-top)) 10px 0 10px}
   .app>.palco{grid-column:1}
   .topo{flex-wrap:wrap;gap:6px;padding:6px}
   .topo-marca .logo{width:32px;height:32px}
@@ -205,13 +166,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .av-bt{width:44px;height:44px}
   .tr-btn{width:44px;height:44px}
   .topo-menu{width:42px;height:42px}
-  /* a gaveta desliza da esquerda; fechada, sai da árvore de foco (inert) e da tela */
-  .app>.painel{position:fixed;top:0;bottom:0;left:0;z-index:50;width:min(320px,86vw);border-radius:0 24px 24px 0;background:var(--glassStrong);
-    padding:calc(14px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
-    animation:mvGaveta 260ms var(--ease)}
-  .painel-sess{min-height:44px}
-  .palco-conversa{border-radius:20px 20px 0 0}
-  .conversa-cab{padding:10px 12px 8px 16px}
   .palco-tela .page{padding:4px 2px calc(24px + env(safe-area-inset-bottom))}
 }
 @media (max-width:899px){
@@ -250,15 +204,13 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .placar-s{display:none}
   .placar-v.t-mut + .placar-s,.placar-s.fixo{display:block;min-height:0}
 }
-@keyframes mvGaveta{from{transform:translateX(-100%)}to{transform:none}}
-@media (prefers-reduced-motion:reduce){ .app>.painel{animation:none} }
 
 /* ---------- celular (≤ 760 px): barra fixa embaixo no lugar das pílulas que rolavam ---------- */
 .barra-inf,.folha-fundo{display:none}
 @media (max-width:760px){
   .topo-nav{display:none}
   .topo{flex-wrap:nowrap}
-  .app,.app.com-painel{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+  .app{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
   .barra-inf{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:40;
     padding:4px 4px env(safe-area-inset-bottom);background:var(--barra);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
     border-top:1px solid var(--edge);box-shadow:0 -10px 30px -18px rgba(0,0,0,.5)}
@@ -301,24 +253,11 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 @media (max-width:760px){
   /* sem as abas, o seletor da obra ocupa o espaço entre o logo e o avatar */
   .topo .seletor{flex:1 1 auto;min-width:0}
-  html:has(.crono-editor) .app,html:has(.crono-editor) .app.com-painel{padding-bottom:env(safe-area-inset-bottom)}
+  html:has(.crono-editor) .app{padding-bottom:env(safe-area-inset-bottom)}
 }
 
-/* ---------- redesenho: a conversa solta sobre o fundo, como no protótipo ---------- */
-@media (min-width:900px){
-  .palco-conversa{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:0;overflow:visible}
-  .conversa-cab{border-bottom:0;padding:4px max(28px,calc((100% - 780px)/2)) 0}
-  .conversa-t{font:600 22px/1.3 var(--serif);letter-spacing:-.02em}
-  .msgs.com-casa{padding-left:max(28px,calc((100% - 780px)/2));padding-right:max(28px,calc((100% - 780px)/2))}
-  .painel{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border-color:var(--line2)}
-}
-/* com a lista aberta o botão Conversas some do título: quem recolhe é o ícone do próprio painel */
-@media (min-width:900px){ .app.com-painel .conversa-lista{display:none} }
-.conversa-lista{order:-1;width:40px;height:40px;padding:0;justify-content:center}
-.conversa-lista .rot{display:none}
-.painel-nova{background:var(--accentSoft);color:var(--accentInk);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:12px;font-weight:600}
-@media (hover:hover){ .painel-nova:hover{filter:none;border-color:var(--accent)} }
-.painel-cab{align-items:center}
+/* ---------- a conversa no painel do Plumo: coluna estreita, as mensagens com a mesma folga dos dois lados ---------- */
+#painel-plumo .msgs{padding:20px 20px 12px;gap:20px}
 .ca-anexo{width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;margin-left:-6px}
 @media (hover:hover){ .ca-anexo:hover{background:var(--sunk);color:var(--ink)} }
 
@@ -342,23 +281,30 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .ai-meta{display:block;font-size:var(--t-meta);color:var(--faint);margin-bottom:4px}
 .msg.me{border-radius:18px 18px 6px 18px;padding:10px 14px}
 
-/* no computador o botão de lista sai do título: quem mostra a lista é a faixa estreita (ou o ícone do painel) */
-@media (min-width:900px){
-  .conversa-lista{display:none!important}
-  .conversa-cab{padding-top:14px;padding-bottom:6px}
-}
-
 /* celular: sem a linha dos números (o protótipo do celular não tem; os números estão nas telas) */
 @media (max-width:760px){ .app>.placar{display:none} }
-/* celular: o + de nova conversa no fim do cabeçalho da conversa */
-.conversa-nova{display:none}
-@media (max-width:899px){ .conversa-nova{display:grid;place-items:center;width:40px;height:40px;padding:0;margin-left:auto} }
-
-/* celular e tablet: sem vidro no palco da conversa (o backdrop-filter prendia o position:fixed da folha "Esperando você"
-   dentro dele); com a folha aberta, a barra de baixo some, como com qualquer gaveta */
+/* celular e tablet: com a folha "Esperando você" ou o Plumo abertos, a barra de baixo some, como com qualquer gaveta */
 @media (max-width:899px){
-  .palco-conversa{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--cardSolido)}
-  html:has(#hoje-gaveta) .barra-inf,html:has(#hoje-gaveta) .barra-inf.compacta{display:none!important}
+  html:has(#hoje-gaveta) .barra-inf,html:has(#hoje-gaveta) .barra-inf.compacta,
+  html:has(#painel-plumo:not([hidden])) .barra-inf,html:has(#painel-plumo:not([hidden])) .barra-inf.compacta{display:none!important}
 }
 @media (max-width:899px){ .ca-anexo{width:44px;height:44px} }
 @media (max-width:760px){ .bi-rot,.bi-item span:last-child{font-size:12px} }
+
+/* ---------- topo em duas linhas no computador: obra, Plumo, sino e conta em cima; as telas da obra embaixo ---------- */
+@media (min-width:761px){
+  .topo{flex-wrap:wrap;row-gap:4px}
+  .topo-nav{order:5;flex:1 0 100%;margin:0;justify-content:flex-start;padding:4px 0 0;border-top:1px solid var(--line2)}
+  .pilula{height:38px}
+  .topo-mais .mm-b{width:38px;height:38px}
+}
+
+/* ---------- celular: o Plumo no meio da barra de baixo, em destaque (é o atalho mais usado) ---------- */
+@media (max-width:760px){
+  .bi-plumo{overflow:visible!important}
+  .bi-bola{display:grid;place-items:center;width:46px;height:46px;margin-top:-20px;border-radius:50%;color:var(--onAccent,#1d1505);
+    background:linear-gradient(150deg,#f5c978 0%,#e8b04a 55%,#d99a2e 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 20px -6px rgba(232,176,74,.6)}
+  .bi-plumo .bi-rot{color:var(--accentInk)}
+  .barra-inf.compacta .bi-plumo .bi-rot{display:none}
+  .bi-plumo:active .bi-bola{transform:scale(.95)}
+}
