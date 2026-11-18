@@ -23,7 +23,6 @@ import s from "./painel.module.css";
 /** AAAA-MM de hoje no fuso da obra. */
 const mesDeHoje = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 7);
 const indiceDoMes = (inicio: string, mes: string) => (Number(mes.slice(0, 4)) - Number(inicio.slice(0, 4))) * 12 + Number(mes.slice(5, 7)) - Number(inicio.slice(5, 7));
-const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
 export function Painel({ obra, resumo }: { obra: Obra; resumo: ResumoDaObra | null }) {
   const { versao, modo } = useCasca();
@@ -94,8 +93,20 @@ function Numeros({ resumo, orc, crono }: { resumo: ResumoDaObra; orc: Orcamento 
       </div>
       <div>
         <dt>Etapas</dt>
-        <dd className={s.valor}>{orc ? `${comGasto} de ${etapas.length} com gasto` : "—"}</dd>
-        <dd className={`${s.sub}${passaram ? ` ${s.ruim}` : ""}`}>{passaram ? `${plural(passaram, "passou", "passaram")} do orçado` : "nenhuma passou do orçado"}</dd>
+        {orc ? (
+          <>
+            <dd className={s.linhaIcone}>
+              <Icone nome="recibo" tam={15} />
+              {comGasto} de {etapas.length} {comGasto === 1 ? "etapa possui gastos" : "etapas possuem gastos"}
+            </dd>
+            <dd className={`${s.linhaIcone}${passaram ? ` ${s.ruim}` : ""}`}>
+              <Icone nome="planilha" tam={15} />
+              {passaram} de {etapas.length} passou do orçado
+            </dd>
+          </>
+        ) : (
+          <dd className={s.valor}>—</dd>
+        )}
       </div>
     </dl>
   );

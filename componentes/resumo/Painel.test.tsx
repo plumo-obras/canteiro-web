@@ -40,8 +40,8 @@ describe("painel do Resumo", () => {
     );
     const numeros = await screen.findByLabelText("Como está a obra");
     expect(numeros).toHaveTextContent("Mês 1 de 3");
-    expect(numeros).toHaveTextContent("2 de 3 com gasto");
-    expect(numeros).toHaveTextContent("1 passou do orçado");
+    expect(numeros).toHaveTextContent("2 de 3 etapas possuem gastos");
+    expect(numeros).toHaveTextContent("1 de 3 passou do orçado");
     const etapas = within(await screen.findByRole("region", { name: "Etapas em andamento" })).getAllByRole("listitem");
     expect(etapas.map((li) => li.textContent)).toEqual([expect.stringContaining("Fundação"), expect.stringContaining("Preliminares")]);
     const proximas = screen.getByRole("region", { name: "O que vem no cronograma" });
