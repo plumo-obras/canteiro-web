@@ -15,6 +15,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Icone } from "../Icone";
 import { CelulaEditavel } from "./CelulaEditavel";
 import { useCelular } from "../midia";
+import { BarraConsumo, LegendaConsumo } from "./BarraConsumo";
 import { Barra, fmtPct, linhasAndamento, numeroVisivel, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
 import { PilulaPedido, hojeSP, seloDoPedido, type SeloPedido } from "../suprimentos/Pedidos";
 import { pedidosDoItem } from "@/lib/simulado/orcamento";
@@ -245,6 +246,11 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         </p>
       ) : null}
 
+      {semPedidos && !celular ? (
+        <p className="le-legenda">
+          <LegendaConsumo />
+        </p>
+      ) : null}
       {podeOrdenar ? <p className="mut sm">Use as setas para pôr as etapas na ordem em que a obra acontece: as compras seguem essa ordem.</p> : null}
       {celular ? (
         <EtapasCelular obra={obra} lista={lista} versoes={versoes} nomeVersao={nomeVersao} />
@@ -290,7 +296,13 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                   <Icone nome="chevRight" tam={14} className="le-seta" />
                   {numeroVisivel(l.etapa) ? <span className="eap-num">{numeroVisivel(l.etapa)}</span> : null}
                   <span className="le-desc">{l.descricao}</span>
-                  {semCompra ? null : <Barra l={l} />}
+                  {semCompra ? null : semPedidos ? (
+                    <span className="le-consumo">
+                      <BarraConsumo orcado={l.atual} gasto={l.comprometido} saldo={l.saldo} frase={false} />
+                    </span>
+                  ) : (
+                    <Barra l={l} />
+                  )}
                 </span>
                 <span className="num le-orc">{l.atual ? fmtReais(l.atual) : <Estimado l={l} centavos />}</span>
                 {semCompra ? null : (
@@ -696,7 +708,9 @@ function TabelaItens(props: {
             <th scope="col" className={s.num}>
               {semPedidos ? "Falta gastar" : "Saldo"}
             </th>
-            <th scope="col">{semPedidos ? "% gasto" : "Pedidos"}</th>
+            <th scope="col" className={semPedidos ? s.colConsumo : undefined}>
+              {semPedidos ? "Consumo do orçado" : "Pedidos"}
+            </th>
             {ordem ? (
               <th scope="col">
                 <span className="sr-only">Ordem</span>
@@ -728,8 +742,8 @@ function TabelaItens(props: {
                 <td className={`${s.num}${l.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(l.saldo)}>
                   {semCompra ? reaisInteiros(l.atual) : reaisInteiros(l.saldo)}
                 </td>
-                <td>
-                  <SeloEtapa l={l} />
+                <td className={semPedidos ? s.colConsumo : undefined}>
+                  {semPedidos ? <BarraConsumo orcado={l.atual} gasto={l.comprometido} saldo={l.saldo} /> : <SeloEtapa l={l} />}
                 </td>
                 {ordem ? <td className={s.ordem}>{l.semEtapa ? null : ordem(l)}</td> : null}
               </tr>

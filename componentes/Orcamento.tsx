@@ -22,6 +22,7 @@ import { baixarCsv } from "@/lib/csv";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
 import { BotaoPlumo } from "./BotaoPlumo";
 import { situacao } from "./suprimentos/Itens";
+import { BarraConsumo } from "./orcamento/BarraConsumo";
 import s from "./orcamento/orcamento.module.css";
 
 
@@ -347,7 +348,7 @@ export function reaisCurtos(c: number): string {
 function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obra: Obra; celular: boolean }) {
   const { semPedidos } = useCasca();
   const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
-  const celulas: { rotulo: string; valor: number; sub?: ReactNode; neg?: boolean }[] = [
+  const celulas: { rotulo: string; valor: number; sub?: ReactNode; grafico?: ReactNode; neg?: boolean }[] = [
     {
       rotulo: "Orçado atual",
       valor: t.atual,
@@ -368,7 +369,7 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
     },
     // sem pedidos, comprometido e realizado são o mesmo gasto confirmado: uma célula só, "Gasto"
     ...(semPedidos
-      ? [{ rotulo: "Gasto", valor: t.realizado, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` }]
+      ? [{ rotulo: "Gasto", valor: t.realizado, grafico: <BarraConsumo orcado={t.atual} gasto={t.realizado} saldo={t.saldo} alta /> }]
       : [
           { rotulo: "Comprometido", valor: t.comprometido, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` },
           // o realizado é custo de compra, não o % executado da etapa
@@ -396,6 +397,8 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
                 <small>{c.sub}</small>
               </dd>
             ) : null}
+            {/* a barra vale também no celular: é o que se lê primeiro */}
+            {c.grafico ? <dd className={s.grafico}>{c.grafico}</dd> : null}
           </div>
         ))}
       </dl>
