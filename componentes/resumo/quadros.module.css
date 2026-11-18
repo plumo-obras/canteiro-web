@@ -1,0 +1,92 @@
+/* Os quadros do Resumo (PedeVoce.tsx, Quadros.tsx): Pede você, Dinheiro e Prazo lado a lado no computador, um embaixo do
+   outro no celular. Cada quadro: cabeçalho com ícone, o veredito numa faixa, o número grande, o medidor e os valores de
+   apoio no pé. Feitos para ler de relance: a cor e a palavra dizem como está; o detalhe fica na tela de destino. */
+.quadros{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:var(--s4);align-items:stretch;width:100%;max-width:1040px;margin:0 auto}
+.quadros.so{grid-template-columns:minmax(0,1fr)}
+
+.quadro{position:relative;display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px 20px;border-radius:22px;
+  transition:border-color var(--mv-rapido) var(--ease)}
+.cab{display:flex;align-items:center;gap:10px;min-width:0}
+.ico{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;background:var(--sunk);color:var(--ink2)}
+.icoAmb{background:var(--amberSoft);color:var(--amberInk)}
+.nome{flex:1;min-width:0;margin:0;font:600 var(--t-sec)/1.3 var(--sans);letter-spacing:0;color:var(--ink)}
+.seta{color:var(--faint)}
+/* o botão do nome cobre o quadro inteiro: um alvo grande, sem aninhar nada clicável dentro de outro */
+.abrir{padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left}
+.abrir::after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:1}
+.quadro:has(.abrir){border-radius:22px}
+.abrir:focus-visible{outline:none}
+.quadro:has(.abrir:focus-visible){outline:2px solid var(--accentInk);outline-offset:2px}
+@media (hover:hover){ .quadro:has(.abrir):hover{border-color:var(--line)} .quadro:has(.abrir):hover .seta{color:var(--ink2)} }
+.contador{min-width:28px;height:24px;padding:0 9px;border-radius:var(--rp);display:grid;place-items:center;background:var(--amber);color:var(--onAccent);font-weight:700;font-size:var(--t-meta)}
+
+/* o veredito: a cor tem o significado do app (vermelho perda, verde resolvido, cinza informação) */
+.estado{display:flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border-radius:12px;font-size:var(--t-meta);font-weight:500;line-height:1.35}
+.estado .ic{flex:none}
+.bola{width:8px;height:8px;border-radius:var(--rp);flex:none;background:currentColor}
+.ruim{background:var(--redSoft);color:var(--redInk)}
+.ok{background:var(--greenSoft);color:var(--greenInk)}
+.neutro{background:var(--sunk);color:var(--ink2)}
+.neutro .bola{background:var(--gray)}
+
+.numero{display:flex;flex-direction:column;gap:6px;margin:0;font:600 32px/1.05 var(--sans);letter-spacing:-.02em;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.numero span{font:400 var(--t-meta)/1.3 var(--sans);letter-spacing:0;color:var(--muted);white-space:normal}
+
+.medidor{display:flex;align-items:center;gap:12px;min-width:0}
+.medidor>b{flex:none;min-width:36px;text-align:right;font-size:var(--t-meta);font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums}
+.meses{flex:1;display:grid;gap:3px;min-width:0}
+.meses>span{height:10px;border-radius:3px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line2)}
+.meses>.passou{background:var(--blue);box-shadow:none}
+.meses>.agora{background:var(--blueSoft);box-shadow:inset 0 0 0 1.5px var(--blue)}
+/* o tempo passar não é bom nem ruim: azul, sem cor de estado */
+.tempo{position:relative;flex:1;display:block;height:10px;border-radius:var(--rp);background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line2);overflow:hidden}
+.tempo>span{position:absolute;inset:0 auto 0 0;border-radius:var(--rp);background:var(--blue)}
+
+/* os valores de apoio: uma linha cada, rótulo à esquerda e valor à direita (cabe em qualquer largura de quadro) */
+.pares{display:grid;gap:8px;margin:auto 0 0;padding-top:14px;border-top:1px solid var(--line2)}
+.pares>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0}
+.pares dt{font-size:var(--t-meta);color:var(--muted)}
+.pares dd{margin:0;font-size:var(--t-body);font-weight:600;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Pede você: número · coisa · verbo */
+.pendencias{list-style:none;margin:0;padding:0;display:grid}
+.pendencias li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line2)}
+.pendencias li:first-child{border-top:0;padding-top:0}
+.n{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--sunk);color:var(--ink);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.nAmb{background:var(--amberSoft);color:var(--amberInk)}
+.pTexto{display:flex;flex-direction:column;gap:1px;min-width:0}
+.pTexto b{font-size:var(--t-body);font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pTexto small{font-size:12px;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.verbo{white-space:nowrap}
+.mais{margin:-4px 0 0 44px;font-size:12px;color:var(--muted)}
+.aviso{margin:0;padding:0}
+.pede .estado{align-self:flex-start}
+
+/* a gaveta das aprovações ocupa a lateral direita do palco, do alto ao pé (o Resumo abre espaço: resumo.module.css, :has) */
+.gaveta{position:absolute;top:0;right:0;bottom:12px;z-index:5;width:420px;max-width:calc(100% - 24px);box-sizing:border-box;overflow:auto;padding:18px 18px 16px;
+  scrollbar-width:thin;border-radius:var(--r);background:var(--cardForte);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .gaveta{background:var(--cardSolido)} }
+.cartoes{display:flex;flex-direction:column;gap:12px}
+.fechar{position:absolute;top:12px;right:12px;width:36px;height:36px;padding:0}
+.fundo{display:none}
+.tituloGaveta{font-size:var(--t-sec);margin:0 0 10px}
+.nada{margin:0;padding:16px 20px;color:var(--muted)}
+.verTodas{margin-top:8px}
+
+@media (max-width:1100px){
+  .quadros{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .quadros>.pede{grid-column:1/-1}
+}
+@media (max-width:899px){
+  .fundo{display:block;position:fixed;inset:0;z-index:54;background:var(--veu)}
+  .gaveta{position:fixed;top:auto;left:0;right:0;bottom:0;z-index:55;width:auto;max-width:none;background:var(--cardSolido);max-height:80dvh;border-radius:22px 22px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:sobe 240ms var(--ease)}
+  .pendencias .verbo{min-height:44px}
+}
+@media (max-width:760px){
+  .quadros{grid-template-columns:minmax(0,1fr);gap:var(--s3)}
+  .quadro{padding:16px;gap:12px}
+  .numero{font-size:28px}
+}
+@keyframes sobe{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){ .gaveta{animation:none} .quadro{transition:none} }

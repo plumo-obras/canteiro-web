@@ -21,7 +21,17 @@ import s from "./moldura.module.css";
 
 export type Rota = "inicio" | "conta";
 
-export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; children: (u: Usuario) => ReactNode }) {
+export function Moldura({
+  demo,
+  semPedidos = false,
+  rota,
+  children,
+}: {
+  demo: boolean;
+  semPedidos?: boolean;
+  rota: Rota;
+  children: (u: Usuario) => ReactNode;
+}) {
   const { usuario, semServidor, tentarAgora } = useSessaoGarantida();
   const celular = useCelular();
 
@@ -34,7 +44,7 @@ export function Moldura({ demo, rota, children }: { demo: boolean; rota: Rota; c
   );
 
   return (
-    <ProvedorCasca usuario={usuario} demo={demo}>
+    <ProvedorCasca usuario={usuario} demo={demo} semPedidos={semPedidos}>
       <div className={s.pagina}>
         <header className={s.topo}>
           {celular && rota === "conta" ? (

@@ -1,14 +1,23 @@
-/* O Resumo: a linha do tempo da obra em cima e a casa da obra embaixo, na mesma coluna de 780 px da casa.
-   No computador a linha é horizontal (etapas ligadas por um traço); no celular vira lista, uma etapa por linha. */
+/* O Resumo: "Montando a obra" (só enquanto falta algum passo), a saudação, os quadros e os blocos, todos na mesma coluna
+   de 1040 px. No computador os passos ficam numa linha ligada por um traço; no celular viram lista, um por linha. */
 .resumo{position:relative;min-height:100%;display:grid;align-content:start;gap:var(--s5)}
-/* a gaveta da casa (Esperando você, Esta semana) abre à direita: a coluna abre espaço para ela, como na conversa */
+/* a gaveta das aprovações abre à direita: a coluna abre espaço para ela, como na conversa */
 @media (min-width:900px){ .resumo:has(:global(#hoje-gaveta)){padding-right:456px} }
 
-.linha,.reserva{width:100%;max-width:780px;margin:0 auto}
-.reserva{height:64px}
-.linha{list-style:none;padding:8px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
-.etapa{position:relative;min-width:0}
-/* o traço que liga uma etapa à seguinte: cada etapa desenha a metade que chega nela e a que sai para a próxima,
+.saudacao{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;width:100%;max-width:1040px;margin:0 auto -8px}
+.saudacao b{font:600 var(--t-bloco)/1.2 var(--serif);letter-spacing:-.02em;color:var(--ink)}
+.saudacao span{font-size:var(--t-meta);color:var(--muted)}
+
+.montagem{width:100%;max-width:1040px;margin:0 auto;display:grid;gap:14px;padding:18px 20px 20px;border-radius:22px;
+  background:var(--card);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--edge);box-shadow:var(--hl),var(--shadow)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .montagem{background:var(--cardSolido)} }
+.montagemCab{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin:0}
+.montagemCab b{font:600 var(--t-sec)/1.3 var(--sans);color:var(--ink)}
+.montagemCab span{font-size:var(--t-meta);color:var(--muted)}
+
+.linha{list-style:none;margin:0;padding:4px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.etapa{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+/* o traço que liga um passo ao seguinte: cada passo desenha a metade que chega nele e a que sai para o próximo,
    verde até onde a obra já chegou (classes entra e sai, em Resumo.tsx) */
 .etapa{--entra:var(--line);--sai:var(--line)}
 .entra{--entra:var(--green)}
@@ -17,35 +26,32 @@
 .etapa:first-child::before{left:50%;background:var(--sai)}
 .etapa:last-child::before{right:50%;background:var(--entra)}
 
-.botao{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 4px 6px;border:0;background:none;border-radius:var(--ri);text-align:center}
-@media (hover:hover){ .botao:hover .rotulo{color:var(--ink)} .botao:hover .marca{border-color:var(--ink2)} }
-.marca{width:28px;height:28px;border-radius:var(--rp);display:grid;place-items:center;background:var(--cardSolido);border:2px solid var(--line);color:var(--bg);flex:none}
+.marca{position:relative;width:28px;height:28px;border-radius:var(--rp);display:grid;place-items:center;background:var(--cardSolido);border:2px solid var(--line);color:var(--bg);flex:none}
 .feita .marca{background:var(--green);border-color:var(--green)}
 .atual .marca{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 5px var(--accentSoft)}
 .atencao .marca{background:var(--red);border-color:var(--red);box-shadow:0 0 0 5px var(--redSoft)}
 
 .texto{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:100%}
-.rotulo{font-weight:600;color:var(--ink2);transition:color .15s var(--ease)}
+.rotulo{font-weight:600;color:var(--ink2)}
 .feita .rotulo{color:var(--ink)}
 .atual .rotulo{color:var(--accentInk)}
 .atencao .rotulo{color:var(--redInk)}
 .depois .rotulo{color:var(--muted)}
-.detalhe{font-size:var(--t-meta);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.detalhe{font-size:var(--t-meta);color:var(--muted)}
+.acao{margin-top:2px}
 
-.semHoje{display:flex;align-items:center;gap:8px;margin:0 auto;max-width:780px;width:100%;padding:16px 20px;color:var(--muted)}
-
-/* celular: lista vertical, o traço desce entre as marcas */
+/* celular: lista vertical, o traço desce entre as marcas; o botão do passo atual fica embaixo do nome */
 @media (max-width:760px){
   .resumo{gap:var(--s4)}
-  /* a folga à esquerda é do halo da etapa atual, que a rolagem lateral da tela cortaria */
-  .linha{grid-template-columns:minmax(0,1fr);max-width:520px;margin:0;padding:4px 0 0 6px}
-  .reserva{height:220px}
-  .etapa::before{top:0;bottom:0;left:13px;right:auto;width:2px;height:auto}
+  .saudacao{margin-bottom:-4px}
+  .montagem{padding:16px}
+  /* a folga à esquerda é do halo do passo atual, que a rolagem lateral da tela cortaria */
+  .linha{grid-template-columns:minmax(0,1fr);padding:4px 0 0 6px}
+  .etapa{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;column-gap:12px;row-gap:6px;padding:8px 0;text-align:left}
+  .etapa::before{top:0;bottom:0;left:13px;right:auto;width:2px;height:auto;background:linear-gradient(180deg,var(--entra) 50%,var(--sai) 50%)}
   .etapa:first-child::before{left:13px;top:50%}
   .etapa:last-child::before{right:auto;bottom:50%}
-  .etapa::before{background:linear-gradient(180deg,var(--entra) 50%,var(--sai) 50%)}
-  .botao{flex-direction:row;align-items:center;gap:12px;padding:6px 0;min-height:48px;text-align:left}
-  .texto{flex:1;flex-direction:row;align-items:baseline;justify-content:space-between;gap:12px}
+  .texto{flex-direction:row;align-items:baseline;justify-content:space-between;gap:12px}
   .rotulo{font-size:15px}
-  .detalhe{font-size:15px;flex:none;max-width:60%}
+  .acao{grid-column:2;justify-self:start;min-height:44px;margin:0}
 }

@@ -1,14 +1,35 @@
 /** Repasse das rotas de dados do contrato para a API central (ou para a demonstração). */
 import { modoDemo, urlApi } from "@/lib/servidor/config";
 import { caminhoPermitido, headersDeRepasse, json } from "@/lib/servidor/repasse";
-import { responder, usuarioDoAcesso } from "@/lib/demo/loja";
+import { NaoEncontrado } from "@/lib/demo/erros";
+import { arquivoComprovanteDemo, responder, usuarioDoAcesso } from "@/lib/demo/loja";
 
-/** Formulário em objeto simples; arquivo vira {nome, texto}, que é tudo o que a demonstração lê (só CSV). */
+/**
+ * Formulário em objeto simples; arquivo vira {nome, texto, bytes}: o texto para a planilha (CSV), os bytes para o
+ * comprovante (foto ou PDF, que a demonstração guarda e devolve como veio).
+ */
 async function lerFormulario(req: Request): Promise<Record<string, unknown>> {
   const f = await req.formData().catch(() => null);
   const saida: Record<string, unknown> = {};
-  for (const [k, v] of f ?? []) saida[k] = typeof v === "string" ? v : { nome: v.name, texto: await v.text() };
+  for (const [k, v] of f ?? []) {
+    if (typeof v === "string") saida[k] = v;
+    else {
+      const bytes = new Uint8Array(await v.arrayBuffer());
+      saida[k] = { nome: v.name, texto: new TextDecoder().decode(bytes), bytes };
+    }
+  }
   return saida;
+}
+
+/** GET /comprovantes/{id}/arquivo na demonstração: o arquivo como veio, nunca em cache (dado pessoal). */
+function arquivoDemo(id: string): Response {
+  try {
+    const a = arquivoComprovanteDemo(id);
+    return new Response(a.bytes.slice().buffer, { status: 200, headers: { "content-type": a.tipo, "cache-control": "private, no-store" } });
+  } catch (x) {
+    if (x instanceof NaoEncontrado) return json({ detail: x.message }, 404);
+    throw x;
+  }
 }
 
 async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[] }> }) {
@@ -20,6 +41,7 @@ async function repassar(req: Request, ctx: { params: Promise<{ caminho: string[]
   if (modoDemo()) {
     const u = usuarioDoAcesso(req.headers.get("authorization"));
     if (!u) return json({ detail: "Sessão expirada." }, 401);
+    if (req.method === "GET" && caminho.length === 3 && caminho[0] === "comprovantes" && caminho[2] === "arquivo") return arquivoDemo(caminho[1]!);
     // A planilha do orçamento vem em multipart; o resto do contrato é JSON.
     const multipart = req.headers.get("content-type")?.startsWith("multipart/form-data");
     const corpo = !temCorpo ? undefined : multipart ? await lerFormulario(req) : await req.json().catch(() => ({}));

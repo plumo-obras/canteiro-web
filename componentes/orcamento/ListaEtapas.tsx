@@ -15,6 +15,7 @@ import { mensagemDe, useCasca } from "../contexto";
 import { Icone } from "../Icone";
 import { CelulaEditavel } from "./CelulaEditavel";
 import { useCelular } from "../midia";
+import { BarraConsumo, LegendaConsumo } from "./BarraConsumo";
 import { Barra, fmtPct, linhasAndamento, numeroVisivel, porDesvio, reaisInteiros, type LinhaAndamento } from "./Andamento";
 import { PilulaPedido, hojeSP, seloDoPedido, type SeloPedido } from "../suprimentos/Pedidos";
 import { pedidosDoItem } from "@/lib/simulado/orcamento";
@@ -90,7 +91,7 @@ const VISTAS: { k: Vista; rotulo: string }[] = [
 ];
 
 export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcamento; nomeVersao: (v: { tipo: "contrato" | "aditivo"; numero: number }) => string }) {
-  const { podeOperar, mudou, avisar } = useCasca();
+  const { podeOperar, semPedidos, mudou, avisar } = useCasca();
   // A ordem da planilha é a da obra (e a das compras); desvio e curva ABC são um toque na barra.
   const [filtro, setFiltro] = useState<FiltroLista>({ busca: "", curva: null, ordem: "planilha" });
   // Com uma etapa só (ex.: a Estrutura do projeto), já abre: a quantidade e o unitário de cada item ficam à vista
@@ -113,7 +114,8 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
 
   // Os pedidos da obra vêm com a planilha (a coluna Pedidos) ou quando a primeira etapa do Andamento é aberta.
   const [pedidos, setPedidos] = useState<{ dado: Pedido[] | null; erro: string | null }>({ dado: null, erro: null });
-  const precisaPedidos = (abertas.size > 0 || vista === "itens") && pedidos.dado === null && !pedidos.erro;
+  // Sem pedidos, nem se buscam: a etapa não lista pedido e a planilha não tem a coluna.
+  const precisaPedidos = !semPedidos && (abertas.size > 0 || vista === "itens") && pedidos.dado === null && !pedidos.erro;
   useEffect(() => {
     if (!precisaPedidos) return;
     let vivo = true;
@@ -244,12 +246,18 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         </p>
       ) : null}
 
+      {semPedidos && !celular ? (
+        <p className="le-legenda">
+          <LegendaConsumo />
+        </p>
+      ) : null}
       {podeOrdenar ? <p className="mut sm">Use as setas para pôr as etapas na ordem em que a obra acontece: as compras seguem essa ordem.</p> : null}
       {celular ? (
         <EtapasCelular obra={obra} lista={lista} versoes={versoes} nomeVersao={nomeVersao} />
       ) : vista === "itens" ? (
         <TabelaItens
           pedidos={pedidos.dado ?? []}
+          semPedidos={semPedidos}
           obra={obra}
           lista={lista}
           versoes={versoes}
@@ -267,13 +275,14 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
           agrupar={filtro.ordem !== "abc"}
         />
       ) : (
-      <ul className="le" aria-label="Etapas do orçamento" ref={guardarLista}>
+      <ul className={`le${semPedidos ? " sem-pedidos" : ""}`} aria-label="Etapas do orçamento" ref={guardarLista}>
+        {/* sem pedidos, comprometido e realizado são o mesmo número (o gasto confirmado): uma coluna só, "Gasto" */}
         <li className="le-cab" aria-hidden="true">
           <span>Etapa</span>
           <span className="num">Orçado atual</span>
-          <span className="num">Comprometido</span>
-          <span className="num">Realizado</span>
-          <span className="num">Saldo</span>
+          <span className="num">{semPedidos ? "Gasto" : "Comprometido"}</span>
+          {semPedidos ? null : <span className="num">Realizado</span>}
+          <span className="num">{semPedidos ? "Falta gastar" : "Saldo"}</span>
         </li>
         {lista.map(({ linha: l, itens, achou }) => {
           const k = chave(l);
@@ -287,7 +296,13 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                   <Icone nome="chevRight" tam={14} className="le-seta" />
                   {numeroVisivel(l.etapa) ? <span className="eap-num">{numeroVisivel(l.etapa)}</span> : null}
                   <span className="le-desc">{l.descricao}</span>
-                  {semCompra ? null : <Barra l={l} />}
+                  {semCompra ? null : semPedidos ? (
+                    <span className="le-consumo">
+                      <BarraConsumo orcado={l.atual} gasto={l.comprometido} saldo={l.saldo} frase={false} />
+                    </span>
+                  ) : (
+                    <Barra l={l} />
+                  )}
                 </span>
                 <span className="num le-orc">{l.atual ? fmtReais(l.atual) : <Estimado l={l} centavos />}</span>
                 {semCompra ? null : (
@@ -296,7 +311,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                       {fmtReais(l.comprometido)}
                       <small>{fmtPct(l.pct)}</small>
                     </span>
-                    <span className="num le-real">{fmtReais(l.realizado)}</span>
+                    {semPedidos ? null : <span className="num le-real">{fmtReais(l.realizado)}</span>}
                     <span className={`num le-saldo${l.saldo < 0 ? " t-neg" : ""}`}>{fmtReais(l.saldo)}</span>
                   </>
                 )}
@@ -316,7 +331,25 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
               ) : null}
               {aberta ? (
                 <div className="le-corpo" id={`le-${k}`}>
-                  {semCompra ? null : (
+                  {semCompra ? null : semPedidos ? (
+                    <dl className="and-det">
+                      <div>
+                        <dt>Orçado atual</dt>
+                        <dd>{fmtReais(l.atual)}</dd>
+                      </div>
+                      <div>
+                        <dt>Gasto</dt>
+                        <dd>
+                          {fmtReais(l.comprometido)}
+                          {l.comprometido ? <small> · {fmtPct(l.pct)}</small> : null}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{l.saldo < 0 ? "Passou do orçado" : "Falta gastar"}</dt>
+                        <dd className={l.saldo < 0 ? "t-neg" : ""}>{fmtReais(Math.abs(l.saldo))}</dd>
+                      </div>
+                    </dl>
+                  ) : (
                     <dl className="and-det">
                       <div>
                         <dt>Orçado atual</dt>
@@ -344,7 +377,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                     </dl>
                   )}
                   {l.topicos.length ? <TopicosDaEtapa topicos={l.topicos} /> : null}
-                  {semCompra ? null : <PedidosDaEtapa linha={l} etapas={orc.etapas.map((e) => e.etapa)} pedidos={pedidos} />}
+                  {semCompra || semPedidos ? null : <PedidosDaEtapa linha={l} etapas={orc.etapas.map((e) => e.etapa)} pedidos={pedidos} />}
                   {itens.length ? <ItensDaEtapa obra={obra} itens={itens} versoes={versoes} nomeVersao={nomeVersao} celular={celular} /> : semCompra ? <p className="mut sm">Sem itens nesta etapa.</p> : null}
                 </div>
               ) : null}
@@ -644,10 +677,12 @@ function TabelaItens(props: {
   guardar: (el: HTMLElement | null) => void;
   vazio: boolean;
   pedidos: Pedido[];
+  /** Versão sem pedidos: o comprometido é o gasto, e a última coluna mostra o % gasto em vez dos pedidos. */
+  semPedidos: boolean;
   /** Itens debaixo do tópico deles; na curva ABC não (a ordem é a do dinheiro). */
   agrupar: boolean;
 }) {
-  const { obra, lista, versoes, nomeVersao, fechada, alternar, ordem, movida, guardar, vazio, pedidos, agrupar } = props;
+  const { obra, lista, versoes, nomeVersao, fechada, alternar, ordem, movida, guardar, vazio, pedidos, semPedidos, agrupar } = props;
   const celulas = useCelulasItem(obra, versoes);
   const colunas = ordem ? 9 : 8;
   const hoje = hojeSP();
@@ -668,12 +703,14 @@ function TabelaItens(props: {
               Orçado
             </th>
             <th scope="col" className={s.num}>
-              Comprometido
+              {semPedidos ? "Gasto" : "Comprometido"}
             </th>
             <th scope="col" className={s.num}>
-              Saldo
+              {semPedidos ? "Falta gastar" : "Saldo"}
             </th>
-            <th scope="col">Pedidos</th>
+            <th scope="col" className={semPedidos ? s.colConsumo : undefined}>
+              {semPedidos ? "Consumo do orçado" : "Pedidos"}
+            </th>
             {ordem ? (
               <th scope="col">
                 <span className="sr-only">Ordem</span>
@@ -705,8 +742,8 @@ function TabelaItens(props: {
                 <td className={`${s.num}${l.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(l.saldo)}>
                   {semCompra ? reaisInteiros(l.atual) : reaisInteiros(l.saldo)}
                 </td>
-                <td>
-                  <SeloEtapa l={l} />
+                <td className={semPedidos ? s.colConsumo : undefined}>
+                  {semPedidos ? <BarraConsumo orcado={l.atual} gasto={l.comprometido} saldo={l.saldo} /> : <SeloEtapa l={l} />}
                 </td>
                 {ordem ? <td className={s.ordem}>{l.semEtapa ? null : ordem(l)}</td> : null}
               </tr>

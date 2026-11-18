@@ -317,6 +317,30 @@ describe("enviar comprovante", () => {
     expect(within(cimento).queryByText("avulso")).toBeNull();
   });
 
+  it("sem pedidos: sem coluna Origem, sem 'fora de pedido' e sem perguntar pelos pedidos; o topo mostra o que falta gastar", async () => {
+    const r = rede({
+      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala", fora_do_orcado: true }]),
+      "GET /srv/api/obras/o1/gastos/resumo": () =>
+        json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 0, fora_do_orcado: 35000, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, fora_do_orcado: 35000, topicos: [] }] }),
+      "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { realizado: 35000, realizado_pct: 1000, orcado_atual: 350000, falta_gastar: 315000 } }),
+    });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo semPedidos>
+        <Gastos obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    expect(await screen.findByText("Falta gastar")).toBeInTheDocument();
+    expect(screen.getByText("R$ 3.150,00")).toBeInTheDocument();
+    expect(screen.queryByText("Fora de pedido")).toBeNull();
+    expect(screen.queryByText("Entregue, ainda a pagar")).toBeNull();
+    const vidro = (await screen.findByText("Vidros da sala")).closest("li")!;
+    expect(within(vidro).queryByText("avulso")).toBeNull();
+    expect(screen.queryByText("Origem")).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
+    expect(screen.getByText("Fundações").closest("li")).not.toHaveTextContent("fora de pedido");
+    expect(r.chamadas.some((c) => c.caminho.includes("/pedidos"))).toBe(false);
+  });
+
   it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, etapa: null, etapa_nome: "Sem etapa", etapa_origem: "a_definir", topico_id: null }]),
@@ -583,6 +607,19 @@ describe("bloco A conferir", () => {
     await userEvent.click(within(bloco).getByRole("button", { name: "Confirmar gasto" }));
     expect(await screen.findByText("Gasto de R$ 486,00 lançado.")).toBeInTheDocument();
     expect(corpo).toMatchObject({ valor: 48600, data_pagamento: "2026-11-03", favorecido: "Madeireira Inventada", etapa: "fundacao" });
+  });
+
+  it("sem pedidos, o bloco não pergunta se o gasto é de um pedido", async () => {
+    const r = rede({ "GET /srv/api/obras/o1/comprovantes": () => json([COMPROVANTE]) });
+    render(
+      <ProvedorCasca usuario={USUARIO} demo semPedidos>
+        <Gastos obra={OBRA} />
+      </ProvedorCasca>,
+    );
+    const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
+    expect(await within(bloco).findByLabelText("Valor pago")).toHaveValue("R$ 486,00");
+    expect(within(bloco).queryByText(/É de um pedido/)).toBeNull();
+    expect(r.chamadas.some((c) => c.caminho.includes("/pedidos"))).toBe(false);
   });
 
   it("a leitura que chega depois do envio preenche o cartão sem recarregar a página", async () => {

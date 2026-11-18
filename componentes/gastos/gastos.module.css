@@ -205,6 +205,8 @@ div.lancados { border-radius: 16px; border: 1px solid var(--line2); background: 
 .lancLista { list-style: none; margin: 0; padding: 0; }
 /* uma grade por linha com colunas fixas: as linhas alinham como tabela sem virar tabela */
 .lancCab, .lanc { display: grid; grid-template-columns: 80px minmax(0, 2.4fr) minmax(0, 2.6fr) minmax(0, 1.4fr) minmax(0, 1.6fr) 130px; gap: 4px 12px; align-items: center; padding: 10px 12px; font-size: var(--t-meta); }
+/* sem pedidos não há a coluna Origem: a etapa fica com o espaço dela */
+.semOrigem .lancCab, .semOrigem .lanc { grid-template-columns: 80px minmax(0, 2.4fr) minmax(0, 2.6fr) minmax(0, 2.4fr) 130px; }
 .lancCab { background: var(--sunk); border-bottom: 1px solid var(--line2); font-weight: 600; color: var(--faint); }
 .lanc { border-top: 1px solid var(--line2); color: var(--ink2); }
 .lanc:first-child { border-top: 0; }

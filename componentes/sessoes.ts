@@ -16,9 +16,25 @@ export const telaDe = (t: string | null): Tela | undefined =>
 export type AbaAtiva = "resumo" | "conversa" | Tela;
 export const abaDe = (t: string | null): AbaAtiva | undefined => (t === "resumo" || t === "conversa" ? t : telaDe(t));
 
+/**
+ * Como o servidor subiu: com a API de verdade ou na demonstração, e, só na demonstração, a versão de teste sem pedidos
+ * (CANTEIRO_SEM_PEDIDOS). Vem do servidor na carga e não muda durante a sessão.
+ */
+export interface Modo {
+  demo: boolean;
+  semPedidos: boolean;
+}
+
 /** Telas que só existem com a API de verdade: a demonstração (dados em memória) não tem as rotas delas. */
 const SO_COM_API: ReadonlySet<Tela> = new Set(["gastos", "tributos"]);
-export const telaNoModo = <T extends AbaAtiva>(t: T, demo: boolean): boolean => !demo || !SO_COM_API.has(t as Tela);
+/** Telas que são pedido de ponta a ponta: na versão sem pedidos elas somem. */
+const DE_PEDIDOS: ReadonlySet<Tela> = new Set(["suprimentos"]);
+export const telaNoModo = <T extends AbaAtiva>(t: T, m: Modo): boolean => {
+  if (m.semPedidos && DE_PEDIDOS.has(t as Tela)) return false;
+  // A demonstração sem pedidos tem as rotas de Gastos (é o centro do teste); Tributos continua só com a API.
+  if (m.semPedidos && t === "gastos") return true;
+  return !m.demo || !SO_COM_API.has(t as Tela);
+};
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";
 

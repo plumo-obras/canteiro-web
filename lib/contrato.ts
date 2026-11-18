@@ -1032,9 +1032,9 @@ export interface EtapaNaArvore {
   /**
    * Em mudança na API ("opção 2"): `orcamento` quando a obra tem orçamento e as etapas são as dele (chave = código,
    * nome = descrição); `padrao` nas etapas fixas. Pode vir em cada etapa ou no topo da resposta (o cliente desce o do
-   * topo para cada etapa); ausente = `padrao`.
+   * topo para cada etapa); ausente = `padrao`. `extra` = etapa extra da obra (chave `x-<id>`).
    */
-  origem?: "orcamento" | "padrao";
+  origem?: "orcamento" | "padrao" | "extra";
   /** Código da etapa do orçamento, se a API mandar separado da chave. */
   codigo?: string;
 }
