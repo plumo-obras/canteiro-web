@@ -13,6 +13,8 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 /* a linha dos números fica logo abaixo do topo, de ponta a ponta; a lista de conversas e o palco vêm embaixo dela */
 .app>.placar{grid-column:1/-1;grid-row:2;margin-bottom:-4px}
 .app>.palco{grid-column:1;grid-row:3}
+/* sem o placar (no Resumo, onde os quadros fazem o papel dele) a linha dele fica vazia: o palco sobe o gap a mais */
+.app.sem-placar>.palco{margin-top:-14px}
 /* o painel do Plumo desce do topo até o pé, ao lado do placar e do palco; o placar fica só sobre o palco */
 .app.com-plumo>.placar{grid-column:1}
 .app>#painel-plumo{grid-column:2;grid-row:2/4}
@@ -152,6 +154,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 @media (max-width:899px){
   .app{grid-template-columns:minmax(0,1fr);gap:10px;padding:calc(8px + env(safe-area-inset-top)) 10px 0 10px}
   .app>.palco{grid-column:1}
+  .app.sem-placar>.palco{margin-top:-10px}
   .topo{flex-wrap:wrap;gap:6px;padding:6px}
   .topo-marca .logo{width:32px;height:32px}
   .topo-marca{min-height:42px;min-width:42px;justify-content:center}

@@ -339,8 +339,10 @@ function App({ usuario }: { usuario: Usuario }) {
     </div>
   ) : null;
 
+  // No Resumo os quadros fazem o papel do Placar (gasto, orçado, prazo): os dois juntos repetiam os mesmos números.
+  const comPlacar = !!obra && !conteudo && tela !== "resumo";
   return (
-    <div className={`app${plumo && sessao && obra && !conteudo ? (ladoALado ? " com-plumo" : movel ? "" : " plumo-por-cima") : ""}`}>
+    <div className={`app${plumo && sessao && obra && !conteudo ? (ladoALado ? " com-plumo" : movel ? "" : " plumo-por-cima") : ""}${comPlacar ? "" : " sem-placar"}`}>
       <Topo
         semAbas={barraCelular}
         obras={obras ?? []}
@@ -356,7 +358,7 @@ function App({ usuario }: { usuario: Usuario }) {
         inerte={movel && plumo}
         campoPlumo={obra && !conteudo && !barraCelular ? <CampoPlumo perguntar={(t) => abrirPlumo(t)} campo={campoPlumo} /> : null}
       />
-      {obra && !conteudo ? <Placar key={`placar-${obra.id}`} obra={obra} resumo={resumo} falhou={!!erroResumo} /> : null}
+      {comPlacar ? <Placar key={`placar-${obra!.id}`} obra={obra!} resumo={resumo} falhou={!!erroResumo} /> : null}
 
       <main className="palco" inert={movel && plumo}>
         {conteudo ??

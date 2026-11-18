@@ -1,21 +1,6 @@
-/* O painel da obra no Resumo (Painel.tsx): os números do topo numa faixa, como a do Orçamento, e os blocos em duas
-   colunas no computador, uma no celular. Cada bloco é um cartão com título, a linha que explica e o link do detalhe. */
+/* Os blocos do Resumo (Painel.tsx), embaixo dos quadros: duas colunas no computador, uma no celular. Cada bloco é um
+   cartão com título, a linha que explica e o link do detalhe. */
 .painel{display:grid;gap:var(--s4);width:100%;max-width:1040px;margin:0 auto}
-
-.numeros{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:0;border-radius:18px;overflow:hidden;border:1px solid var(--edge);background:var(--line2)}
-.numeros>div{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 16px;background:var(--cardSolido)}
-.numeros dt{font-size:var(--t-meta);color:var(--muted)}
-.numeros dd{margin:0}
-.valor{font:600 20px/1.3 var(--sans);color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sub{font-size:12px;color:var(--faint)}
-.ruim{color:var(--redInk);font-weight:500}
-.linhaIcone{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:var(--t-body);color:var(--ink)}
-.linhaIcone svg{flex:none;color:var(--muted)}
-.linhaIcone.ruim svg{color:var(--redInk)}
-.grafico{margin-top:6px}
-/* o tempo da obra: só a proporção do prazo que já passou, sem cor de estado (o tempo passar não é bom nem ruim) */
-.tempo{position:relative;display:block;height:8px;border-radius:var(--rp);background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line2);overflow:hidden}
-.tempo>span{position:absolute;inset:0 auto 0 0;border-radius:var(--rp);background:var(--blue)}
 
 .duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4);align-items:start}
 .duas:empty{display:none}
@@ -34,8 +19,33 @@
 .etapaValores{font-size:var(--t-meta);color:var(--ink2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .etapaBarra{grid-column:1/-1}
 
-/* o gráfico do desembolso já é um cartão no Cronograma: aqui ele entra sem moldura, dentro do bloco */
-.grafico :global(.curva-s){margin:0;padding:0;background:none;border:0;border-radius:0}
+/* O que vem: a semana e o cronograma, cada parte com um subtítulo pequeno */
+.parte{display:grid;gap:4px}
+.subtitulo{margin:4px 0 0;font:600 12px/1.4 var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.quando{flex:none;width:44px;font:var(--t-meta) var(--mono);color:var(--muted)}
+
+/* Dinheiro mês a mês (MesAMes.tsx): colunas sem eixo nem grade; cheio = pago, claro = vai sair, traço = previsto */
+.mesAMes{margin:4px 0 0;display:grid;gap:10px}
+.colunas{display:flex;align-items:stretch;gap:clamp(3px,.8%,8px);height:132px}
+.mesCol{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:6px}
+.pilha{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;border-bottom:1px solid var(--line)}
+.pago,.vaiSair{display:block;width:100%;min-height:2px}
+.pago{background:var(--ink2);opacity:.72;border-radius:4px 4px 0 0}
+.vaiSair{background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);border-radius:4px 4px 0 0}
+/* o que vai sair fica em cima do que já saiu: os dois formam uma coluna só, arredondada só no alto */
+.pilha>.vaiSair+.pago{border-radius:0}
+.previsto{position:absolute;left:-2px;right:-2px;height:2px;margin-bottom:-1px;border-radius:1px;background:var(--accent);z-index:1}
+.mes{height:16px;font-size:12px;line-height:16px;color:var(--muted);text-align:center;white-space:nowrap;overflow:visible}
+.mesAgora .mes{color:var(--ink);font-weight:600}
+.mesAgora .pilha{background:linear-gradient(var(--sunk),var(--sunk));border-radius:6px 6px 0 0}
+.mesCol:first-child .mes{text-align:left}
+.mesCol:last-child .mes{text-align:right}
+.legendaMes{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--muted)}
+.legendaMes>span{display:inline-flex;align-items:center;gap:6px}
+.legPago,.legVai{display:inline-block;width:10px;height:10px;border-radius:3px}
+.legPago{background:var(--ink2);opacity:.72}
+.legVai{background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.legPrev{display:inline-block;width:14px;height:2px;border-radius:1px;background:var(--accent)}
 
 .lista{list-style:none;margin:0;padding:0;display:grid}
 .lista li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line2)}
@@ -48,8 +58,6 @@
 
 @media (max-width:1100px){ .duas{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:760px){
-  .numeros{grid-template-columns:repeat(2,minmax(0,1fr));border-radius:16px}
-  .numeros>div{padding:10px 12px}
-  .valor{font-size:17px}
+  .colunas{height:112px}
   .bloco{padding:14px 16px}
 }

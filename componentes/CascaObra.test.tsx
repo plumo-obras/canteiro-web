@@ -111,6 +111,19 @@ describe("a obra abre no Resumo", () => {
     expect(window.location.search).toBe("?obra=o-emei");
   });
 
+  it("no Resumo o placar fica escondido (os quadros fazem o papel dele); nas outras telas ele volta", async () => {
+    rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true) });
+    window.history.replaceState(null, "", "/?obra=o-emei");
+    render(<Casca demo={false} />);
+    await waitFor(() => expect(telaAtiva()).toBe("Resumo"));
+    expect(screen.queryByRole("region", { name: "Placar da obra" })).toBeNull();
+    expect(document.querySelector(".app")).toHaveClass("sem-placar");
+    fireEvent.click(screen.getByRole("button", { name: "Cronograma" }));
+    await waitFor(() => expect(telaAtiva()).toBe("Cronograma"));
+    expect(screen.getByRole("region", { name: "Placar da obra" })).toBeInTheDocument();
+    expect(document.querySelector(".app")).not.toHaveClass("sem-placar");
+  });
+
   it("?tela= manda mais que a regra: recarregar não tira a pessoa da tela", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", false) });
     window.history.replaceState(null, "", "/?obra=o-emei&tela=cronograma");
@@ -186,13 +199,14 @@ describe("a obra abre no Resumo", () => {
     await waitFor(() => expect(window.location.search).toBe("?obra=o-casa"));
   });
 
-  it("a linha do tempo do Resumo leva à aba da etapa", async () => {
+  it("obra sendo montada: o Resumo mostra os passos e o botão do próximo leva à aba dele", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true) });
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
-    const etapas = await screen.findByRole("navigation", { name: "Etapas da obra" });
-    expect([...etapas.querySelectorAll("button")].map((b) => b.querySelector("span span")?.textContent)).toEqual(["Projeto", "Orçamento", "Cronograma", "Compras", "Gastos"]);
-    fireEvent.click(within(etapas).getByRole("button", { name: /^Cronograma/ }));
+    const passos = await screen.findByRole("navigation", { name: "Montando a obra" });
+    expect([...passos.querySelectorAll("li")].map((li) => li.firstElementChild?.nextElementSibling?.firstElementChild?.textContent)).toEqual(["Projeto", "Orçamento", "Cronograma"]);
+    // aprovada e sem cronograma: o próximo passo é montar o cronograma
+    fireEvent.click(within(passos).getByRole("button", { name: "Montar o cronograma" }));
     await waitFor(() => expect(telaAtiva()).toBe("Cronograma"));
     expect(window.location.search).toContain("tela=cronograma");
   });

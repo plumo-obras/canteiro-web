@@ -14,8 +14,12 @@ seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da 
 ## Navegação: a obra em ordem, o agente a um clique
 
 - **O Resumo é a home da obra.**
-  Toda obra abre nele: a linha do tempo (Projeto, Orçamento, Cronograma, Compras, Gastos) mostra o que já foi feito e onde a obra está, e embaixo vem o que pede você hoje (aprovações, pontos de atenção, a semana).
-  Cada etapa da linha do tempo leva à aba dela.
+  Toda obra abre nele, e ele é feito para ler de relance, não para ler inteiro.
+  Enquanto a obra está sendo montada, "Montando a obra" mostra os passos que faltam (Projeto, Orçamento, Cronograma), com o botão do próximo; com os três feitos, a linha some.
+  Ninguém avança passo na mão: eles saem do status da obra, e só voltam quando a aprovação do orçamento é desfeita.
+  Embaixo, três quadros: Pede você (aprovações e pendências, cada uma com o verbo que resolve), Dinheiro e Prazo (veredito, número e medidor).
+  Depois vêm os blocos de detalhe: etapas em andamento, o que vem (a semana e o cronograma), últimos gastos e o dinheiro mês a mês.
+  Cada dado aparece uma vez só na página; por isso o Placar do topo fica escondido no Resumo.
 - **As abas seguem a ordem da obra:** Resumo · Projeto · Orçamento · Cronograma · Compras · Gastos.
   Tributos, Histórico e Dados da obra ficam no "⋯".
 - **O Plumo não é uma aba: está sempre à mão.**
