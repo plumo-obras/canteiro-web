@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+head_tree=$(git rev-parse 'HEAD^{tree}')
+verificar=false
+while read -r ref sha destino anterior; do
+  [[ $sha =~ ^0+$ ]] && continue
+  [[ $(git rev-parse "$sha^{tree}") == "$head_tree" ]] || { echo "Faça checkout da árvore de $ref antes do push."; exit 1; }
+  verificar=true
+done
+if $verificar; then
+  [[ -z $(git status --porcelain --untracked-files=normal) ]] || { echo "Verifique a árvore enviada em um checkout limpo."; exit 1; }
+  pnpm verify
+fi
