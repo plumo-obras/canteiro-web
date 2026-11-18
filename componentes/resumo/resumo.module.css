@@ -4,7 +4,7 @@
 /* a gaveta da casa (Esperando você, Esta semana) abre à direita: a coluna abre espaço para ela, como na conversa */
 @media (min-width:900px){ .resumo:has(:global(#hoje-gaveta)){padding-right:456px} }
 
-.linha,.reserva{width:100%;max-width:780px;margin:0 auto}
+.linha,.reserva{width:100%;max-width:1040px;margin:0 auto}
 .reserva{height:64px}
 .linha{list-style:none;padding:8px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
 .etapa{position:relative;min-width:0}

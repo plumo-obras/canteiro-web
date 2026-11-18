@@ -1,13 +1,15 @@
 "use client";
 /**
  * O Resumo da obra, a primeira aba: onde a obra está (a linha do tempo, na ordem das abas) e o que pede a pessoa hoje
- * (a casa da obra, que antes só aparecia na conversa vazia). Dinheiro e prazo já estão no Placar logo acima.
+ * (a casa da obra, que antes só aparecia na conversa vazia) e, embaixo, o painel da obra: como está o dinheiro e o
+ * prazo, as etapas andando, o desembolso e o que vem a seguir (Painel.tsx).
  */
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
 import { useCasca } from "../contexto";
 import { HojeNaObra } from "../hoje/HojeNaObra";
 import { Icone } from "../Icone";
 import { etapasDaObra, type Etapa } from "./etapas";
+import { Painel } from "./Painel";
 import s from "./resumo.module.css";
 
 const ESTADO_LIDO: Record<Etapa["estado"], string> = { feita: "feita", atual: "etapa atual", atencao: "pede atenção", depois: "ainda não começou" };
@@ -55,6 +57,7 @@ export function Resumo({ obra, resumo }: { obra: Obra; resumo: ResumoDaObra | nu
           </p>
         }
       />
+      <Painel obra={obra} resumo={resumo} />
     </div>
   );
 }

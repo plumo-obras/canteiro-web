@@ -201,7 +201,7 @@ const A = 240;
 const M = { e: 92, d: 12, t: 14, b: 32 };   // margem esquerda larga: no celular o rótulo "1,2 mi" cresce
 
 /** Barras por mês: o pago (cheio) e o que vai sair (claro), com o previsto do cronograma em tracejado. SVG à mão, como a curva S. */
-function GraficoDesembolso({ d, cenario }: { d: DadosDesembolso; cenario: Cenario }) {
+export function GraficoDesembolso({ d, cenario }: { d: DadosDesembolso; cenario: Cenario }) {
   const ms = d.meses;
   if (!ms.length) return null;
   const n = ms.length;

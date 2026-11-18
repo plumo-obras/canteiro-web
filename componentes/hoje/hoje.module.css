@@ -1,7 +1,7 @@
 /* A casa da obra: uma coluna só, com as etiquetas no topo; o detalhe (o que espera, a semana) abre numa gaveta à direita
    que empurra a coluna. No celular a gaveta vira folha que sobe de baixo. */
 .casa{display:flex;gap:var(--s5);align-items:flex-start;width:100%}
-.principal{flex:1 1 auto;min-width:0;max-width:780px;margin:0 auto;display:grid;gap:var(--s4)}
+.principal{flex:1 1 auto;min-width:0;max-width:1040px;margin:0 auto;display:grid;gap:var(--s4)}
 @media (max-width:899px){ .mais{margin-left:0} }
 
 .etiquetas{display:flex;flex-wrap:wrap;gap:var(--s2)}
