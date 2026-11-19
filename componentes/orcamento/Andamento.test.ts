@@ -31,9 +31,9 @@ describe("andamento por etapa", () => {
 
   it("CSV para o Excel com total", () => {
     const linhas = csvAndamento(orc()).replace("﻿", "").trim().split("\r\n");
-    expect(linhas[0]).toBe("Etapa;Descrição;Orçado atual;Em cotação;Comprometido;Realizado;Saldo a comprometer;% comprometido");
-    expect(linhas[2]).toBe("3;FUNDAÇÕES;95503,46;500,00;100000,00;60000,00;-4496,54;104,7");
-    expect(linhas.at(-1)).toBe(";Total;253893,89;500,00;110000,00;60000,00;143893,89;43,3");
+    expect(linhas[0]).toBe("Etapa;Descrição;Orçado atual;Gasto;Falta gastar;% gasto");
+    expect(linhas[2]).toBe("3;FUNDAÇÕES;95503,46;100000,00;-4496,54;104,7");
+    expect(linhas.at(-1)).toBe(";Total;253893,89;110000,00;143893,89;43,3");
   });
 
   it("% de aditivo com sinal, sem limite nenhum", () => {

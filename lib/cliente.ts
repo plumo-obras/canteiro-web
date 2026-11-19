@@ -3,11 +3,8 @@
  * repassa para a API e o agente de verdade ou responde no modo de demonstração; o navegador nunca precisa saber qual.
  */
 import type {
-  AjustesProposta,
   ChavePropria,
   ComRegistro,
-  CorpoAvancar,
-  CorpoInsumo,
   CorpoObra,
   CorpoVersao,
   Orcamento,
@@ -16,22 +13,15 @@ import type {
   LeituraPlanilha,
   Mapeamento,
   MaterialDoProjeto,
-  PreviaOrcamento,
-  CorpoMovimento,
-  CorpoPedido,
   Cronograma,
   Desembolso,
   ResumoDaObra,
   CorpoCronograma,
   CorpoMedicao,
   RespostaMedicao,
-  CorpoEditarPedido,
   CorpoFornecedor,
-  CorpoRecebimento,
   EtapaObra,
   Fornecedor,
-  Recebimento,
-  RespostaRecebimento,
   CorpoConversa,
   ComprovanteDetalhe,
   Comprovante,
@@ -56,14 +46,9 @@ import type {
   ResumoObra,
   EntradaRegistro,
   EventoConversa,
-  Insumo,
-  ItemInsumo,
-  Movimento,
   Obra,
-  Pedido,
   Proposta,
   RespostaAprovar,
-  StatusPedido,
   StatusProposta,
 } from "./contrato";
 import type { MensagemSessao, SessaoApi } from "./historico";
@@ -175,17 +160,6 @@ export const api = {
     if (planilha) f.set("planilha", planilha);
     return chamar<LeituraPlanilha>("POST", `/obras/${seg(obraId)}/orcamento/ler`, f);
   },
-  /** `aplicar: false` é a prévia; com qualquer erro a API não grava nem com `aplicar: true`. */
-  importarOrcamento: (obraId: string, arquivo: File, mapeamento: Mapeamento, aplicar: boolean) => {
-    const f = new FormData();
-    f.set("arquivo", arquivo);
-    f.set("mapeamento", JSON.stringify(mapeamento));
-    f.set("aplicar", String(aplicar));
-    return chamar<PreviaOrcamento>("POST", `/obras/${seg(obraId)}/orcamento/importar`, f);
-  },
-  /** Os materiais das pranchas viram a lista de materiais da obra. `aplicar: false` é a prévia. */
-  materiaisDoProjeto: (obraId: string, origem: string, itens: MaterialDoProjeto[], aplicar: boolean) =>
-    chamar<PreviaOrcamento>("POST", `/obras/${seg(obraId)}/orcamento/materiais`, { origem, itens, aplicar }),
   /** Os materiais do projeto viram uma versão do orçamento (etapa "Estrutura"): contrato, ou aditivo se já houver. */
   /** Antes de aprovar, com orçamento já lançado, a API soma (`total_apos` na prévia); depois de aprovar, é aditivo. */
   estruturaDoProjeto: (obraId: string, itens: MaterialDoProjeto[], aplicar: boolean, chaveIdempotencia?: string, ignorarItens?: number[]) =>
@@ -246,32 +220,11 @@ export const api = {
   proporCronograma: (obraId: string) => chamar<Proposta>("POST", `/obras/${seg(obraId)}/cronograma/propor`, {}),
   criarMedicao: (obraId: string, corpo: CorpoMedicao) => chamar<RespostaMedicao>("POST", `/obras/${seg(obraId)}/medicoes`, corpo),
   aprovarOrcamento: (obraId: string) => chamar<ComRegistro<Obra>>("POST", `/obras/${seg(obraId)}/orcamento/aprovar`),
-  listarInsumos: (obraId: string) => chamar<ItemInsumo[]>("GET", `/obras/${seg(obraId)}/insumos`),
-  listarMovimentos: (obraId: string, insumoId: string, limite = 50, antes_de?: string) =>
-    chamar<Movimento[]>("GET", `/obras/${seg(obraId)}/insumos/${seg(insumoId)}/movimentos${q({ limite, antes_de })}`),
-  /** Vários status viram `?status=a&status=b` (a API filtra com "in"). Sem status: os mais recentes, até `limite`. */
-  listarPedidos: (obraId: string, filtro: { status?: StatusPedido | StatusPedido[]; limite?: number; antes_de?: string } = {}) => {
-    const p = new URLSearchParams();
-    for (const st of [filtro.status ?? []].flat()) p.append("status", st);
-    if (filtro.limite) p.set("limite", String(filtro.limite));
-    if (filtro.antes_de) p.set("antes_de", filtro.antes_de);
-    const t = p.toString();
-    return chamar<Pedido[]>("GET", `/obras/${seg(obraId)}/pedidos${t ? `?${t}` : ""}`);
-  },
-  avancarPedido: (pedidoId: string, para: StatusPedido, extra: Omit<CorpoAvancar, "para"> = {}) =>
-    chamar<ComRegistro<Pedido>>("POST", `/pedidos/${seg(pedidoId)}/avancar`, { para, ...extra }),
-  criarPedido: (obraId: string, corpo: CorpoPedido) => chamar<ComRegistro<Pedido>>("POST", `/obras/${seg(obraId)}/pedidos`, corpo),
-  editarPedido: (pedidoId: string, dados: CorpoEditarPedido) => chamar<ComRegistro<Pedido>>("PATCH", `/pedidos/${seg(pedidoId)}`, dados),
-  registrarRecebimento: (pedidoId: string, corpo: CorpoRecebimento) =>
-    chamar<RespostaRecebimento>("POST", `/pedidos/${seg(pedidoId)}/recebimentos`, corpo),
-  listarRecebimentos: (pedidoId: string) => chamar<Recebimento[]>("GET", `/pedidos/${seg(pedidoId)}/recebimentos`),
-  /** Etapas do orçamento vigente, para apropriar pedido e saída. Vazia = obra sem orçamento importado. */
+  /** Etapas do orçamento vigente. Vazia = obra sem orçamento importado. */
   etapas: (obraId: string) => chamar<EtapaObra[]>("GET", `/obras/${seg(obraId)}/etapas`),
   listarFornecedores: () => chamar<Fornecedor[]>("GET", "/fornecedores"),
   criarFornecedor: (corpo: CorpoFornecedor) => chamar<ComRegistro<Fornecedor>>("POST", "/fornecedores", corpo),
   editarFornecedor: (id: string, dados: Partial<CorpoFornecedor>) => chamar<ComRegistro<Fornecedor>>("PATCH", `/fornecedores/${seg(id)}`, dados),
-  criarInsumo: (obraId: string, corpo: CorpoInsumo) => chamar<ComRegistro<Insumo>>("POST", `/obras/${seg(obraId)}/insumos`, corpo),
-  lancarMovimento: (obraId: string, corpo: CorpoMovimento) => chamar<ComRegistro<Movimento>>("POST", `/obras/${seg(obraId)}/movimentos`, corpo),
   listarPropostas: (filtro: { status?: StatusProposta; obra_id?: string; limite?: number; antes_de?: string } = {}) =>
     chamar<Proposta[]>("GET", `/propostas${q({ ...filtro })}`),
   recusarProposta: (id: string, motivo: string) => chamar<Proposta>("POST", `/propostas/${seg(id)}/recusar`, { motivo }),
@@ -329,8 +282,7 @@ export const api = {
     semRota(chamar<ComRegistro<GastoObra>>("PATCH", `/gastos/${seg(gastoId)}/fiscal`, corpo), "Classificar um gasto para os tributos ainda não está disponível."),
 
   /** `{proposta, registro}`: o `registro.id` é o que o Desfazer usa. */
-  aprovarProposta: (id: string, ajustes?: AjustesProposta) =>
-    chamar<RespostaAprovar>("POST", `/propostas/${seg(id)}/aprovar`, ajustes && Object.keys(ajustes).length ? { ajustes } : undefined),
+  aprovarProposta: (id: string) => chamar<RespostaAprovar>("POST", `/propostas/${seg(id)}/aprovar`),
 };
 
 /** POST /conversa em SSE. Erros de HTTP antes do fluxo viram um evento `erro`, para a tela tratar num lugar só. */

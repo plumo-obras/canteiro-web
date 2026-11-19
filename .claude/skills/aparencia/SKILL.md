@@ -56,7 +56,7 @@ marca está em `DESIGN.md` (noite + ocre; nada de cara de desenho animado nem de
 
 1. `grep -nE '#[0-9a-fA-F]{3,6}\b|rgba?\(' <seu arquivo>` — cor literal fora dos blocos de token é suspeita (exceções
    existentes: o gradiente do `.logo`/`.av` e o `.toast`).
-2. Abra a tela nos **dois temas** (menu da conta → tema) e compare com uma tela vizinha (Orçamento, Suprimentos): mesmo
+2. Abra a tela nos **dois temas** (menu da conta → tema) e compare com uma tela vizinha (Orçamento, Gastos): mesmo
    raio, mesma sombra, mesmo peso de título, mesma cor de botão.
 3. `git diff package.json` vazio.
 4. Contraste AA (4,5:1 no corpo) nos dois temas, especialmente texto `--muted` sobre vidro.

@@ -530,12 +530,10 @@ function exigirDestino(b: Base, obraId: string, etapa: unknown, topicoId: unknow
 export function gastoApi(b: Base, g: GastoDemo): GastoObra {
   const { usuario_id: _u, ...x } = g;
   const nos = arvore(b, g.obra_id);
-  const temOrcamento = !!b.etapasDoOrcamento(g.obra_id);
   return {
     ...x,
     etapa_nome: g.etapa === null ? SEM_ETAPA : nomeDaEtapa(b, g.obra_id, g.etapa, nos),
     etapa_origem: origemDaEtapa(b, g.obra_id, g.etapa, nos),
-    fora_do_orcado: temOrcamento && !g.pedido_id && !g.estornado,
   };
 }
 
@@ -552,7 +550,6 @@ export function confirmar(b: Base, u: Usuario, id: string, c: Record<string, unk
   const descricao = limpo(c.descricao);
   if (!descricao) throw new RegraViolada("Diga o que foi pago.");
   if (!("etapa" in c)) throw new RegraViolada("Escolha a etapa (ou mande etapa: null para ver depois).");
-  if (c.pedido_id) throw new RegraViolada("Pedido não encontrado nesta obra.");
   const destino = exigirDestino(b, cp.obra_id, c.etapa, c.topico_id);
   const g: GastoDemo = {
     id: uuid7(),
@@ -564,7 +561,6 @@ export function confirmar(b: Base, u: Usuario, id: string, c: Record<string, unk
     fornecedor_id: null,
     descricao: descricao.slice(0, 200),
     ...destino,
-    pedido_id: null,
     quem: u.nome,
     usuario_id: u.id,
     estornado: false,
@@ -655,8 +651,6 @@ export function resumoGastos(b: Base, obraId: string): ResumoGastos & Record<str
       nome: etapa === null ? SEM_ETAPA : nomeDaEtapa(b, obraId, etapa, nos),
       origem: origemDaEtapa(b, obraId, etapa, nos),
       total: s.total,
-      fora_do_orcado: temOrcamento ? s.total : 0,
-      entregue_a_pagar: 0,
       topicos: [...s.topicos.entries()].map(([topico_id, total]) => ({ topico_id, nome: topico_id ? topicoNome(topico_id) : "Sem tópico", total })),
     }))
     // na ordem da árvore; as que saíram dela por último, e a sem etapa no fim
@@ -665,14 +659,11 @@ export function resumoGastos(b: Base, obraId: string): ResumoGastos & Record<str
   const total = etapas.reduce((t, e) => t + e.total, 0);
   return {
     total,
-    pagamentos_de_pedidos: 0,
     a_revisar: b.g.comprovantes.filter((c) => c.obra_id === obraId && c.status === "a_revisar").length,
     tem_orcamento: temOrcamento,
     fora_do_orcamento: temOrcamento ? parte("extra") : 0,
-    fora_do_orcado: temOrcamento ? total : 0,
     sem_etapa_do_orcamento: temOrcamento ? parte("sem_etapa_do_orcamento") : 0,
     a_definir: parte("a_definir"),
-    entregue_a_pagar: 0,
     etapas,
   };
 }
@@ -825,7 +816,6 @@ export function semearGasto(
     descricao: d.descricao,
     etapa: d.etapa,
     topico_id: null,
-    pedido_id: null,
     quem: confirma.nome,
     usuario_id: confirma.id,
     estornado: false,

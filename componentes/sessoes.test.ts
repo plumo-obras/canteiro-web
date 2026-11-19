@@ -71,23 +71,19 @@ describe("sessões da lateral", () => {
 });
 
 describe("telas por modo", () => {
-  it("Gastos só existe com a API de verdade; o resto vale nos dois modos", async () => {
+  it("Tributos só existe com a API de verdade; Gastos e o resto valem nos dois modos", async () => {
     const { telaNoModo } = await import("./sessoes");
-    const api = { demo: false, semPedidos: false };
-    const demo = { demo: true, semPedidos: false };
-    expect(telaNoModo("gastos", api)).toBe(true);
-    expect(telaNoModo("gastos", demo)).toBe(false);
+    const api = { demo: false };
+    const demo = { demo: true };
+    expect(telaNoModo("tributos", api)).toBe(true);
+    expect(telaNoModo("tributos", demo)).toBe(false);
+    expect(telaNoModo("gastos", demo)).toBe(true);
     expect(telaNoModo("cronograma", demo)).toBe(true);
     expect(telaNoModo("conversa", demo)).toBe(true);
-    expect(telaNoModo("suprimentos", demo)).toBe(true);
   });
 
-  it("sem pedidos: Compras some e Gastos existe na demonstração; Tributos continua só com a API", async () => {
-    const { telaNoModo } = await import("./sessoes");
-    const m = { demo: true, semPedidos: true };
-    expect(telaNoModo("suprimentos", m)).toBe(false);
-    expect(telaNoModo("gastos", m)).toBe(true);
-    expect(telaNoModo("tributos", m)).toBe(false);
-    expect(telaNoModo("orcamento", m)).toBe(true);
+  it("link antigo de Compras não abre tela nenhuma", async () => {
+    const { telaDe } = await import("./sessoes");
+    for (const t of ["suprimentos", "pedidos", "almoxarifado"]) expect(telaDe(t)).toBeUndefined();
   });
 });

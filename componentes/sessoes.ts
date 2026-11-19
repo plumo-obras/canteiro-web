@@ -7,34 +7,22 @@ import type { EventoConversa } from "@/lib/contrato";
 import type { Msg, MsgAgente, MsgEu, SessaoApi } from "@/lib/historico";
 import { uuid7 } from "@/lib/ids";
 
-export type Tela = "orcamento" | "cronograma" | "suprimentos" | "gastos" | "tributos" | "projeto" | "aprovacoes" | "historico";
-export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "suprimentos", "gastos", "tributos", "projeto", "aprovacoes", "historico"];
-/** Almoxarifado e Pedidos viraram Suprimentos: links antigos (?tela=pedidos) abrem a tela nova. */
-export const telaDe = (t: string | null): Tela | undefined =>
-  t === "almoxarifado" || t === "pedidos" ? "suprimentos" : TELAS_VALIDAS.find((x) => x === t);
+export type Tela = "orcamento" | "cronograma" | "gastos" | "tributos" | "projeto" | "aprovacoes" | "historico";
+export const TELAS_VALIDAS: Tela[] = ["orcamento", "cronograma", "gastos", "tributos", "projeto", "aprovacoes", "historico"];
+/** Compras (e o Almoxarifado e os Pedidos de antes dela) saiu do produto: link antigo cai no Resumo. */
+export const telaDe = (t: string | null): Tela | undefined => TELAS_VALIDAS.find((x) => x === t);
 /** O Resumo e a conversa não são telas de sessão (não abrem por cartão do agente nem guardam filtro): ficam fora de `Tela`. */
 export type AbaAtiva = "resumo" | "conversa" | Tela;
 export const abaDe = (t: string | null): AbaAtiva | undefined => (t === "resumo" || t === "conversa" ? t : telaDe(t));
 
-/**
- * Como o servidor subiu: com a API de verdade ou na demonstração, e, só na demonstração, a versão de teste sem pedidos
- * (CANTEIRO_SEM_PEDIDOS). Vem do servidor na carga e não muda durante a sessão.
- */
+/** Como o servidor subiu: com a API de verdade ou na demonstração. Vem do servidor na carga e não muda na sessão. */
 export interface Modo {
   demo: boolean;
-  semPedidos: boolean;
 }
 
 /** Telas que só existem com a API de verdade: a demonstração (dados em memória) não tem as rotas delas. */
-const SO_COM_API: ReadonlySet<Tela> = new Set(["gastos", "tributos"]);
-/** Telas que são pedido de ponta a ponta: na versão sem pedidos elas somem. */
-const DE_PEDIDOS: ReadonlySet<Tela> = new Set(["suprimentos"]);
-export const telaNoModo = <T extends AbaAtiva>(t: T, m: Modo): boolean => {
-  if (m.semPedidos && DE_PEDIDOS.has(t as Tela)) return false;
-  // A demonstração sem pedidos tem as rotas de Gastos (é o centro do teste); Tributos continua só com a API.
-  if (m.semPedidos && t === "gastos") return true;
-  return !m.demo || !SO_COM_API.has(t as Tela);
-};
+const SO_COM_API: ReadonlySet<Tela> = new Set(["tributos"]);
+export const telaNoModo = <T extends AbaAtiva>(t: T, m: Modo): boolean => !m.demo || !SO_COM_API.has(t as Tela);
 
 export type { Msg, MsgAgente, MsgEu } from "@/lib/historico";
 

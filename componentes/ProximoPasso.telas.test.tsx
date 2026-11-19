@@ -34,31 +34,18 @@ describe("faixa no Orçamento", () => {
     etapas: [{ etapa: "1", descricao: "Estrutura", atual: 100 }],
     totais: { contratado: 100, aditivos: 0, atual: 100, saldo: 100, comprometido: 0, realizado: 0, aditivos_pct: 0, n_itens: 1, n_etapas: 1 },
   };
-  const insumo = (falta: number) => ({ insumo: { precisa_ate_o_fim: 1000, valor_unitario: 1 }, conta: { precisa: 1000, falta } });
-  const rede = (insumos: unknown[]) =>
-    criarRede({
-      "POST /srv/auth/renovar": renovarOk,
-      "GET /srv/api/obras/o1/orcamento": () => json(ORC),
-      "GET /srv/api/obras/o1/insumos": () => json(insumos),
-    });
   const obra = (status: Obra["status"]) => ({ id: "o1", nome: "Casa Inventada", status, verba: 0 }) as Obra;
 
-  it("aprovado e com compra por fazer: leva a Compras dizendo quantos itens faltam", async () => {
-    rede([insumo(1000), insumo(1000), insumo(0)]);
-    noCasca(<Orcamento obra={obra("em_andamento")} />);
-    const faixa = await screen.findByRole("region", PASSO);
-    expect(faixa).toHaveTextContent("2 itens ainda não foram comprados.");
-    expect(screen.getByRole("link", { name: "Comprar o que vem primeiro" })).toHaveAttribute("href", "/?obra=o1&tela=suprimentos");
-    // no topo, antes das etapas: no fim da tela ficava a 1.800 px e quem acabava de aprovar não via
-    const etapa = screen.getByRole("table");
-    expect(faixa.compareDocumentPosition(etapa) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("antes de aprovar não sugere comprar", async () => {
-    rede([insumo(1000)]);
-    noCasca(<Orcamento obra={obra("em_orcamento")} />);
-    await screen.findByRole("table");
-    expect(screen.queryByRole("region", PASSO)).toBeNull();
+  it("nem antes nem depois de aprovar a tela empurra para comprar: não há faixa de próximo passo", async () => {
+    for (const status of ["em_orcamento", "em_andamento"] as const) {
+      const rede = criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/orcamento": () => json(ORC) });
+      const { unmount } = noCasca(<Orcamento obra={obra(status)} />);
+      await screen.findByRole("table");
+      expect(screen.queryByRole("region", PASSO)).toBeNull();
+      // a lista de insumos de Compras não existe mais: a tela nem pergunta por ela
+      expect(rede.chamadas.some((c) => c.caminho.includes("/insumos"))).toBe(false);
+      unmount();
+    }
   });
 });
 

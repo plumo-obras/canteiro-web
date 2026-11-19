@@ -5,7 +5,7 @@
  * comprovante segue "a revisar" e não conta em nada.
  */
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import type { CampoRevisao, ComprovanteDetalhe, EstadoCampo, EtapaNaArvore, Obra, Pedido } from "@/lib/contrato";
+import type { CampoRevisao, ComprovanteDetalhe, EstadoCampo, EtapaNaArvore, Obra } from "@/lib/contrato";
 import { api, arquivoComprovante, lerComprovante } from "@/lib/cliente";
 import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "../contexto";
@@ -14,8 +14,6 @@ import { Icone } from "../Icone";
 import { corpoConfirmar, escolhasIniciais, fmtDia, hojeNaObra, nomeComCodigo, pendencias, type Escolha, type Escolhas } from "./escolhas";
 import { NovaEtapa } from "./NovaEtapa";
 import s from "./gastos.module.css";
-
-const PAGOS = ["aprovado", "enviado", "em_transito", "recebido", "parcial", "conferido"] as const;
 
 const CAMPO_DA_PROPRIA = {
   valor: "valor",
@@ -48,10 +46,9 @@ const TIPO_DOC: Record<string, string> = {
  * `terminou` é chamado quando o comprovante sai da fila (confirmado ou descartado).
  */
 export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => void) {
-  const { podeOperar, semPedidos, mudou, avisar, avisarFeito } = useCasca();
+  const { podeOperar, mudou, avisar, avisarFeito } = useCasca();
   const [c, setC] = useState<ComprovanteDetalhe | null>(null);
   const [arvore, setArvore] = useState<EtapaNaArvore[]>([]);
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [esc, setEsc] = useState<Escolhas | null>(null);
   const [ocupado, setOcupado] = useState<"confirmar" | "depois" | "ler" | "descartar" | null>(null);
@@ -62,15 +59,9 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
   const hoje = hojeNaObra();
 
   const carregar = async () => {
-    const [d, a, ps] = await Promise.all([
-      api.comprovante(comprovanteId),
-      api.arvore(obra.id),
-      // sem pedidos, o gasto nunca paga um pedido: nem se pergunta
-      semPedidos ? Promise.resolve([] as Pedido[]) : api.listarPedidos(obra.id, { status: [...PAGOS], limite: 200 }).catch(() => [] as Pedido[]),
-    ]);
+    const [d, a] = await Promise.all([api.comprovante(comprovanteId), api.arvore(obra.id)]);
     setC(d);
     setArvore(a);
-    setPedidos(ps);
     setEsc(escolhasIniciais(d.revisao));
   };
 
@@ -146,7 +137,7 @@ export function useRevisao(comprovanteId: string, obra: Obra, terminou: () => vo
   };
 
   return {
-    podeOperar, semPedidos, c, arvore, setArvore, pedidos, erro, esc, mudar, proprio, ocupado, erroApi, descartando, setDescartando,
+    podeOperar, c, arvore, setArvore, erro, esc, mudar, proprio, ocupado, erroApi, descartando, setDescartando,
     confirmarLer, setConfirmarLer, motivo, setMotivo, hoje, falta, corpo: corpoBase, corpoSemEtapa, revisavel, confirmar, pedirLerDeNovo, lerDeNovo, descartar,
   };
 }
@@ -330,7 +321,6 @@ function CorpoRevisao({ r, obra }: { r: EstadoRevisao; obra: Obra }) {
               r.proprio("topico", ""); // o tópico escolhido era da etapa anterior
             }}
           />
-          <CampoPedido pedidos={r.pedidos} esc={esc} mudar={r.mudar} />
         </fieldset>
         {r.revisavel && r.podeOperar && r.falta.length ? (
           <p className={s.falta} role="status">
@@ -380,7 +370,6 @@ export function Revisao({ comprovanteId, obra, fechar }: { comprovanteId: string
 export function ConferirCartao(p: { comprovanteId: string; obra: Obra; selo: ReactNode; enviado: string; abrir: () => void; terminou: () => void }) {
   const r = useRevisao(p.comprovanteId, p.obra, p.terminou);
   const idMotivo = useId();
-  const idPedido = useId();
   const { c, esc } = r;
   if (r.erro)
     return (
@@ -469,23 +458,6 @@ export function ConferirCartao(p: { comprovanteId: string; obra: Obra; selo: Rea
           </div>
         ) : null}
         <div className={s.ccPe}>
-          {r.pedidos.length ? (
-            <label className={`mut sm ${s.ccPedido}`} htmlFor={idPedido}>
-              É de um pedido?
-              <select id={idPedido} disabled={!pode || !!r.ocupado} value={esc.pedido} onChange={(e) => r.mudar({ pedido: e.target.value })}>
-                <option value="">Não, gasto avulso.</option>
-                {[...r.pedidos]
-                  .sort((a, b) => b.criado_em.localeCompare(a.criado_em))
-                  .map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.numero} · {x.fornecedor} · {fmtReais(x.valor)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          ) : r.semPedidos ? null : (
-            <span className="mut sm">É de um pedido? Não, gasto avulso.</span>
-          )}
           <span className={s.sp} />
           {!pode ? (
             <span className="mut sm">{r.revisavel ? "Só quem opera a obra confirma o gasto." : "Este comprovante já saiu da fila."}</span>
@@ -830,32 +802,6 @@ function CampoEtapa(p: {
         </span>
       </label>
     </Grupo>
-  );
-}
-
-/** Opcional e sem IA: quando o gasto paga um pedido, ele marca o pedido como pago e não soma de novo na etapa. */
-function CampoPedido({ pedidos, esc, mudar }: { pedidos: Pedido[]; esc: Escolhas; mudar: (x: Partial<Escolhas>) => void }) {
-  const id = useId();
-  const ordenados = useMemo(() => [...pedidos].sort((a, b) => b.criado_em.localeCompare(a.criado_em)), [pedidos]);
-  if (!pedidos.length) return null;
-  return (
-    <div className="campo">
-      <label className="l" htmlFor={id}>
-        É o pagamento de um pedido? (opcional)
-      </label>
-      <select id={id} className="f" value={esc.pedido} onChange={(e) => mudar({ pedido: e.target.value })}>
-        <option value="">Não, é um gasto avulso</option>
-        {ordenados.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.numero} · {p.fornecedor} · {fmtReais(p.valor)}
-            {p.pago ? ` (pago ${fmtReais(p.pago)})` : ""}
-          </option>
-        ))}
-      </select>
-      {esc.pedido ? (
-        <div className="campo-dica">O custo do pedido já conta pela entrega: este pagamento marca o pedido como pago e não soma de novo na etapa.</div>
-      ) : null}
-    </div>
   );
 }
 

@@ -8,13 +8,6 @@ const ligada = (v: string | undefined) => ["1", "true", "sim"].includes((v ?? ""
 
 export const modoDemo = () => ligada(process.env.CANTEIRO_DEMO);
 
-/**
- * Versão de teste sem pedidos (CANTEIRO_SEM_PEDIDOS): a obra em Projeto, Orçamento, Cronograma e Gastos, sem compra,
- * pedido nem entrega. Só vale na demonstração: com a API de verdade a chave é ignorada, porque o agente real ainda
- * propõe compra e a tela não pode esconder o que o servidor faz.
- */
-export const semPedidos = () => modoDemo() && ligada(process.env.CANTEIRO_SEM_PEDIDOS);
-
 function url(nome: "API_URL" | "AGENTE_URL"): string {
   const v = process.env[nome];
   if (!v) throw new Error(`${nome} não configurada. Defina ${nome} ou ligue CANTEIRO_DEMO=1.`);
@@ -30,13 +23,6 @@ export const urlAgente = () => url("AGENTE_URL");
  */
 export const urlTradutor = (): string | null => process.env.TRADUTOR_URL?.replace(/\/+$/, "") || null;
 export const chaveTradutor = (): string | null => process.env.TRADUTOR_CHAVE || null;
-
-/**
- * O catálogo de produtos e preços da construção (bases oficiais: SINAPI, SICRO...) é outro serviço à parte e opcional:
- * sem PRODUTOS_URL o Compras esconde a busca na tabela oficial, em vez de quebrar. Vale também na demonstração.
- */
-export const urlProdutos = (): string | null => process.env.PRODUTOS_URL?.replace(/\/+$/, "") || null;
-export const chaveProdutos = (): string | null => process.env.PRODUTOS_CHAVE || null;
 
 export const COOKIE_RENOVACAO = "canteiro_renovacao";
 // Só as rotas de login recebem o cookie: as chamadas de dados nem o carregam.

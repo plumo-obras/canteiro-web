@@ -1,26 +1,18 @@
 /**
  * Agente de mentira do modo de demonstração: responde por roteiro, sem modelo de IA, emitindo os mesmos eventos SSE do
- * contrato (ferramenta → texto → proposta → fim). Como o agente de verdade, não faz conta: cita a Conta da "API"
- * (a loja de demonstração) e, quando falta material, só PROPÕE a compra. Na versão sem pedidos (CANTEIRO_SEM_PEDIDOS),
- * responde sobre orçamento, cronograma e gastos e não propõe compra nenhuma.
+ * contrato (ferramenta → texto → fim). Como o agente de verdade, não faz conta: cita o orçamento, os gastos e o
+ * cronograma que a "API" (a loja de demonstração) responde.
  */
 import "server-only";
 import type { Obra, Usuario } from "../contrato";
 import { fmtPct } from "../cronograma";
-import { fmtQtdUn, fmtReais } from "../formato";
-import { contaDoInsumo, estado, gravarNaSessao, linhaDeConta, propostaDeCompra, retratoDemo, uuid7 } from "./loja";
+import { fmtReais } from "../formato";
+import { estado, gravarNaSessao, retratoDemo, uuid7 } from "./loja";
 
 export interface EventoBruto {
   evento: "texto" | "ferramenta" | "proposta" | "fim" | "erro";
   dados: unknown;
 }
-
-const PALAVRAS: [string, RegExp][] = [
-  ["bloco", /bloco|tijolo/i],
-  ["aco", /a[çc]o|ferro|vergalh/i],
-  ["cimento", /cimento/i],
-  ["areia", /areia/i],
-];
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -40,62 +32,11 @@ export async function* roteiroDemo(
   }
 
   await espera(pausa * 6);
-  if (e.semPedidos) {
-    const r = respostaSemPedidos(obra, texto);
-    yield { evento: "ferramenta", dados: { nome: r.ferramenta, nivel: "consulta", resumo: `${r.resumo} · ${obra.nome}` } };
-    await espera(pausa * 8);
-    yield* emPedacos(r.texto, pausa);
-    gravarVolta(sessao_id, u, obra, texto, r.ferramenta, r.texto, null);
-    yield { evento: "fim", dados: { sessao_id, uso: { tokens: 0, custo: 0 } } };
-    return;
-  }
-  yield { evento: "ferramenta", dados: { nome: "consultar_estoque", nivel: "consulta", resumo: `consultou o estoque · ${obra.nome}` } };
+  const r = resposta(obra, texto);
+  yield { evento: "ferramenta", dados: { nome: r.ferramenta, nivel: "consulta", resumo: `${r.resumo} · ${obra.nome}` } };
   await espera(pausa * 8);
-
-  const chave = PALAVRAS.find(([, re]) => re.test(texto))?.[0];
-  const insumo = chave ? e.insumos.get(chave) : undefined;
-  let resposta: string;
-  let proposta = null;
-
-  if (insumo) {
-    const c = contaDoInsumo(e, insumo);
-    const n = (v: number) => fmtQtdUn(v, insumo.unidade);
-    const pendente = e.propostas.find((p) => p.status === "pendente" && p.tipo === "criar_pedido" && p.dados.insumo_id === insumo.id);
-    // Mesmo formato pedido ao agente de verdade (instrucao.py): parágrafos curtos, a conta numa linha própria,
-    // negrito só no número que importa e na ação.
-    resposta = `Pelo estoque da ${obra.nome}, ${insumo.nome} está assim:\n\n${linhaDeConta(c, insumo.unidade)}\n\n`;
-    if (c.falta === 0) {
-      resposta += "**Não precisa comprar**: o saldo, o que está a caminho e o que está em cotação cobrem até o fim da obra.";
-    } else if (pendente) {
-      resposta += `Faltam **${n(c.falta)}**, e já existe uma compra esperando aprovação em Aprovações.\n\nNão preparei outra para não comprar em dobro.`;
-    } else {
-      proposta = propostaDeCompra(e, insumo, c, `estoque · ${obra.nome}`);
-      resposta += `Faltam **${n(c.falta)}**. **Preparei a compra para você aprovar**; nada é pedido antes disso.`;
-    }
-  } else {
-    const faltas = [...e.insumos.values()]
-      .filter((i) => i.obra_id === obra.id)
-      .map((i) => ({ i, c: contaDoInsumo(e, i) }))
-      .filter((x) => x.c.falta > 0);
-    // Lista com "-" só a partir de 3 itens; com menos, um parágrafo por item lê melhor.
-    const itens = faltas.map((x) => `${x.i.nome}: **${fmtQtdUn(x.c.falta, x.i.unidade)}**`);
-    resposta = faltas.length
-      ? `Na ${obra.nome}, depois de descontar o que está a caminho e em cotação, ainda faltam:\n\n${
-          itens.length >= 3 ? itens.map((t) => `- ${t}`).join("\n") : itens.join("\n\n")
-        }\n\nPergunte por um item (ex.: "quanto falta de cimento?") e eu preparo a compra.`
-      : `Na ${obra.nome} nada falta: o que está no estoque, a caminho e em cotação cobre a obra até o fim.`;
-  }
-
-  yield* emPedacos(resposta, pausa);
-
-  if (proposta) {
-    yield { evento: "ferramenta", dados: { nome: "propor_pedido", nivel: "propoe", resumo: "preparou uma compra para aprovação" } };
-    await espera(pausa * 4);
-    e.propostas.push(proposta);
-    yield { evento: "proposta", dados: proposta };
-  }
-
-  gravarVolta(sessao_id, u, obra, texto, "consultar_estoque", resposta, proposta);
+  yield* emPedacos(r.texto, pausa);
+  gravarVolta(sessao_id, u, obra, texto, r.ferramenta, r.texto);
   yield { evento: "fim", dados: { sessao_id, uso: { tokens: 0, custo: 0 } } };
 }
 
@@ -109,23 +50,13 @@ async function* emPedacos(resposta: string, pausa: number): AsyncGenerator<Event
 }
 
 /** Grava a volta no mesmo formato do agente de verdade, para a lateral reabrir a conversa depois. */
-function gravarVolta(sessao_id: string, u: Usuario, obra: Obra, texto: string, ferramenta: string, resposta: string, proposta: { id: string } | null) {
+function gravarVolta(sessao_id: string, u: Usuario, obra: Obra, texto: string, ferramenta: string, resposta: string) {
   const uso1 = uuid7();
-  const uso2 = uuid7();
   gravarNaSessao(sessao_id, u, obra.id, texto, [
     { papel: "user", conteudo: [{ type: "text", text: `(Obra em foco na tela: obra_id=${obra.id})` }, { type: "text", text: texto }] },
     { papel: "assistant", conteudo: [{ type: "tool_use", id: uso1, name: ferramenta, input: { obra_id: obra.id } }] },
     { papel: "user", conteudo: [{ type: "tool_result", tool_use_id: uso1, content: "[…dados da obra…]" }] },
-    {
-      papel: "assistant",
-      conteudo: [
-        { type: "text", text: resposta },
-        ...(proposta ? [{ type: "tool_use", id: uso2, name: "propor_pedido", input: {} }] : []),
-      ],
-    },
-    ...(proposta
-      ? [{ papel: "user" as const, conteudo: [{ type: "tool_result", tool_use_id: uso2, content: JSON.stringify({ proposta_id: proposta.id, status: "pendente" }) }] }]
-      : []),
+    { papel: "assistant", conteudo: [{ type: "text", text: resposta }] },
   ]);
 }
 
@@ -133,10 +64,10 @@ const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, 
 const pctDe = (parte: number, todo: number) => (todo ? fmtPct(Math.round((parte * 10000) / todo)) : "—");
 
 /**
- * O roteiro da versão sem pedidos: orçamento, gastos e cronograma, citando o que as rotas da demo respondem. Não faz
- * compra nem propõe pedido; pergunta de compra recebe o que esta versão faz no lugar.
+ * O roteiro: orçamento, gastos e cronograma, citando o que as rotas da demo respondem. O Plumo não compra nem controla
+ * estoque; pergunta de compra recebe o que ele faz no lugar.
  */
-function respostaSemPedidos(obra: Obra, texto: string): { ferramenta: string; resumo: string; texto: string } {
+function resposta(obra: Obra, texto: string): { ferramenta: string; resumo: string; texto: string } {
   const r = retratoDemo(obra.id);
   const t = semAcento(texto);
   const etapas = r.orcamento.etapas;
@@ -146,7 +77,7 @@ function respostaSemPedidos(obra: Obra, texto: string): { ferramenta: string; re
     return {
       ferramenta: "resumo_obra",
       resumo: "consultou o resumo da obra",
-      texto: "Esta versão não faz compras nem controla estoque.\n\nAqui eu acompanho o **orçamento**, o **cronograma** e os **gastos**. Mandou pagar alguma coisa? Envie a foto do comprovante em Gastos que eu leio e já sugiro a etapa.",
+      texto: "Eu não faço compras nem controlo estoque.\n\nAqui eu acompanho o **orçamento**, o **cronograma** e os **gastos**. Mandou pagar alguma coisa? Envie a foto do comprovante em Gastos que eu leio e já sugiro a etapa.",
     };
 
   const etapa = etapas.find((x) => semAcento(x.descricao).split(/\s+/).some((p) => p.length >= 5 && t.includes(p)));

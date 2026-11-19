@@ -2,7 +2,7 @@
 /**
  * Aba Histórico: o registro da obra (quem fez o quê, quando e de onde), o mais novo em cima, agrupado por dia. Toda
  * escrita gera uma entrada; a que tem receita de desfazer e ainda não foi desfeita mostra o botão. Desfazer daqui é o
- * mesmo POST /registro/{id}/desfazer do aviso e do cartão de proposta: a API recusa (409) se o pedido já andou.
+ * mesmo POST /registro/{id}/desfazer do aviso e do cartão de proposta: a API recusa (409) se o que foi feito já mudou depois.
  */
 import { useEffect, useState } from "react";
 import type { EntradaRegistro, Obra } from "@/lib/contrato";
@@ -13,19 +13,12 @@ import { Confirmar } from "./Dialogo";
 import { Icone } from "./Icone";
 import { CabecalhoPagina } from "./CabecalhoPagina";
 import { Paginacao, useMaisAntigos, usePaginas } from "./Paginacao";
-import { ROTULO_STATUS } from "./CartaoProposta";
 
 // A API entrega em levas de 60 (3 páginas cheias); a tela mostra 20 por vez.
 const LIMITE = 60;
 const POR_PAGINA = 20;
 
 const ORIGEM: Record<string, string> = { tela: "pela tela", agente: "aprovou pelo Plumo", whatsapp: "pelo WhatsApp", sistema: "sistema" };
-
-// O registro grava o status como na API ("em_transito"); na tela vale o rótulo do quadro ("Em trânsito").
-const legivel = (t: string) =>
-  t.replace(/\b(em_cotacao|aprovado|enviado|em_transito|parcial|recebido|conferido|cancelado)\b/g, (st) =>
-    ROTULO_STATUS[st as keyof typeof ROTULO_STATUS].toLowerCase(),
-  );
 
 const fDia = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", timeZone: "America/Sao_Paulo" });
 const chaveDia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -50,18 +43,18 @@ function Linha({ r, autor }: { r: EntradaRegistro; autor: boolean }) {
   const refazer = !!r.desfazer && (r.desfazer as { refazer?: boolean }).refazer === true;
   // A receita de refazer traz o texto da ação original ("Atualizou a obra X: cliente"); sem ele, o da própria entrada.
   const textoOriginal = (r.desfazer as { texto?: unknown } | null)?.texto;
-  const oQue = typeof textoOriginal === "string" && textoOriginal ? legivel(textoOriginal) : legivel(r.texto).replace(/^Desfeito:\s*/, "");
+  const oQue = typeof textoOriginal === "string" && textoOriginal ? textoOriginal : r.texto.replace(/^Desfeito:\s*/, "");
   const desfazer = async () => {
     const d = await api.desfazerRegistro(r.id);
     setConfirmando(false);
     mudou();
-    avisar(d?.texto ? legivel(d.texto) : refazer ? `Refeito: ${oQue}` : `Desfeito: ${legivel(r.texto)}`);
+    avisar(d?.texto ? d.texto : refazer ? `Refeito: ${oQue}` : `Desfeito: ${r.texto}`);
   };
   return (
     <li className={`hist-l${r.desfeito ? " desfeito" : ""}`}>
       <span className="hist-h">{fmtHora(r.criado_em)}</span>
       <div className="hist-t">
-        <div>{legivel(r.texto)}</div>
+        <div>{r.texto}</div>
         {autor || r.desfeito ? (
           <div className="mut sm">
             {autor ? `${r.quem_nome ?? r.quem}${ORIGEM[r.origem] ? ` · ${ORIGEM[r.origem]}` : ""}` : ""}
@@ -77,7 +70,7 @@ function Linha({ r, autor }: { r: EntradaRegistro; autor: boolean }) {
       ) : null}
       {confirmando ? (
         <Confirmar
-          titulo={refazer ? `Refazer: ${oQue}?` : `Desfazer: ${legivel(r.texto)}?`}
+          titulo={refazer ? `Refazer: ${oQue}?` : `Desfazer: ${r.texto}?`}
           confirmar={refazer ? "Refazer" : "Desfazer"}
           fechar={() => setConfirmando(false)}
           aoConfirmar={desfazer}

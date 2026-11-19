@@ -4,7 +4,8 @@
  */
 import "server-only";
 
-export { RegraViolada } from "./regras-espelho";
+/** 422: a regra de negócio recusou (o espelho, só para a demo, do `RegraViolada` do domínio da API). */
+export class RegraViolada extends Error {}
 export class NaoEncontrado extends Error {}
 export class Conflito extends Error {}
 export class Proibido extends Error {}

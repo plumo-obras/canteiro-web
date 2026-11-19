@@ -39,7 +39,7 @@ O caminho de uma chamada: componente → `api.metodo()` (`lib/cliente.ts`) → `
 ## O que não fazer
 
 - Não fazer conta de regra de negócio na tela (falta, saldo, %, total a receber): a API devolve pronto; a web formata
-  com `lib/formato.ts`. O espelho de regras em `lib/demo/regras-espelho.ts` é **só** da demonstração.
+  com `lib/formato.ts`. O espelho de regras em `lib/demo/` é **só** da demonstração.
 - Não chamar `fetch` direto para a API nem para `/srv/api` fora do `cliente.ts`.
 - Não repassar header do navegador além dos de `headersDeRepasse()` (authorization, content-type, accept); nada de
   cookie para a API.

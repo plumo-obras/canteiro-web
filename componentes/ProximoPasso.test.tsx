@@ -23,11 +23,11 @@ const montar = (ir: (t: AbaAtiva) => void, para: AbaAtiva) =>
 describe("ProximoPasso", () => {
   it("o clique troca a tela na casca, e o link segue valendo para abrir em outra aba", async () => {
     const ir = vi.fn();
-    montar(ir, "suprimentos");
+    montar(ir, "gastos");
     const link = screen.getByRole("link", { name: "Seguir" });
-    expect(link).toHaveAttribute("href", "/?obra=o+1&tela=suprimentos");
+    expect(link).toHaveAttribute("href", "/?obra=o+1&tela=gastos");
     await userEvent.setup().click(link);
-    expect(ir).toHaveBeenCalledWith("suprimentos");
+    expect(ir).toHaveBeenCalledWith("gastos");
   });
 
   it("a conversa vai explícita na URL: sem ela, a obra sem orçamento abriria no Projeto", () => {

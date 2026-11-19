@@ -32,7 +32,6 @@ Histórico com Desfazer.
 pnpm install
 cp .env.exemplo .env.local                  # CANTEIRO_DEMO=1 já vem ligado
 pnpm dev                                    # http://localhost:3000
-CANTEIRO_SEM_PEDIDOS=1 pnpm dev             # demo da versão de teste sem pedidos (Projeto, Orçamento, Cronograma, Gastos)
 pnpm test && pnpm tipos && pnpm lint         # vitest (jsdom), tsc e as regras dos hooks
 python3 site/build.py                       # regenera a landing
 docker build -t canteiro-web . && docker run --env-file .env.local -p 3000:3000 canteiro-web

@@ -1,8 +1,8 @@
 "use client";
 /**
- * Fornecedores da empresa (valem para todas as obras): a lista e o cadastro. O CNPJ é o que amarra o fornecedor (a API
- * recusa repetido); a máscara e o dígito verificador conferem aqui antes de enviar, e o que a API devolve é a palavra
- * final. O pedido escolhe daqui ou leva só o nome digitado.
+ * Fornecedores da empresa (valem para todas as obras): a lista e o cadastro, numa gaveta de Gastos. O CNPJ é o que
+ * amarra o fornecedor (a API recusa repetido): a leitura do comprovante casa o CNPJ lido com ele e já marca quem
+ * recebeu. A máscara e o dígito verificador conferem aqui antes de enviar; o que a API devolve é a palavra final.
  */
 import { useRef, useState } from "react";
 import type { Fornecedor } from "@/lib/contrato";
@@ -12,6 +12,41 @@ import { useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
 import { Campo, ErroApi, useEnvio } from "../formularios/Campos";
+import { useCarregar } from "../useCarregar";
+
+/** A gaveta: a lista da empresa e, para quem opera, o cadastro e a edição. */
+export function Fornecedores() {
+  const { versao, podeOperar } = useCasca();
+  const { dado, erro, carregando } = useCarregar(() => api.listarFornecedores(), [versao]);
+  const [modal, setModal] = useState<{ f?: Fornecedor } | null>(null);
+  return (
+    <>
+      <p className="mut sm" style={{ marginTop: 0 }}>
+        Valem para todas as obras. Com o CNPJ cadastrado, o comprovante desse fornecedor já chega com ele marcado em quem recebeu.
+      </p>
+      {podeOperar ? (
+        <button type="button" className="btn amb" style={{ marginBottom: 12 }} onClick={() => setModal({})}>
+          <Icone nome="plus" tam={15} />
+          Novo fornecedor
+        </button>
+      ) : null}
+      {erro ? (
+        <div className="aviso-erro" role="alert">
+          <Icone nome="alert" tam={15} />
+          {erro}
+        </div>
+      ) : carregando && !dado ? (
+        <div className="carregando" role="status">
+          <Icone nome="loader" className="spin" tam={15} />
+          Carregando os fornecedores…
+        </div>
+      ) : (
+        <ListaFornecedores fornecedores={dado ?? []} editar={podeOperar ? (f) => setModal({ f }) : null} />
+      )}
+      {modal ? <ModalFornecedor fornecedor={modal.f} fechar={() => setModal(null)} /> : null}
+    </>
+  );
+}
 
 export function ListaFornecedores({ fornecedores, editar }: { fornecedores: Fornecedor[]; editar: ((f: Fornecedor) => void) | null }) {
   if (!fornecedores.length)
@@ -19,7 +54,7 @@ export function ListaFornecedores({ fornecedores, editar }: { fornecedores: Forn
       <div className="card vazio">
         <Icone nome="predio" tam={24} />
         <h3>Nenhum fornecedor cadastrado</h3>
-        <p>Cadastre quem vende e presta serviço para a empresa: o pedido escolhe daqui, e a folha impressa sai com o CNPJ.</p>
+        <p>Cadastre quem vende e presta serviço para a empresa: com o CNPJ, o comprovante dele já vem com quem recebeu marcado.</p>
       </div>
     );
   return (
@@ -106,7 +141,7 @@ export function ModalFornecedor({ fornecedor, fechar }: { fornecedor?: Fornecedo
         <Campo rotulo="Nome" erro={erros.nome}>
           {(a) => <input {...a} ref={primeiro} className="f" autoComplete="off" value={nome} onChange={(e) => setNome(e.target.value)} />}
         </Campo>
-        <Campo rotulo="CNPJ (opcional)" erro={erros.cnpj} dica="Sai na folha do pedido.">
+        <Campo rotulo="CNPJ (opcional)" erro={erros.cnpj} dica="É por ele que a leitura do comprovante reconhece o fornecedor.">
           {(a) => (
             <input
               {...a}

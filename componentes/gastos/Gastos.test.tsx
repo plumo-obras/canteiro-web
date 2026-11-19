@@ -65,7 +65,6 @@ const GASTO = {
   descricao: "mão de obra do quadro",
   etapa: "eletrica",
   topico_id: null,
-  pedido_id: null,
   quem: "Fulano",
   estornado: false,
   criado_em: "2026-11-05T10:00:00Z",
@@ -77,10 +76,9 @@ function rede(extra: Record<string, Rota> = {}) {
     "GET /srv/api/comprovantes/c1": () => json(DETALHE),
     "GET /srv/api/comprovantes/c1/arquivo": () => new Response(new Blob(["x"], { type: "image/png" })),
     "GET /srv/api/obras/o1/arvore": () => json(ARVORE),
-    "GET /srv/api/obras/o1/pedidos": () => json([]),
     "GET /srv/api/obras/o1/comprovantes": () => json([]),
     "GET /srv/api/obras/o1/gastos": () => json([GASTO]),
-    "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, etapas: [] }),
+    "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, etapas: [] }),
     ...extra,
   });
 }
@@ -260,16 +258,16 @@ describe("enviar comprovante", () => {
     expect(screen.getByRole("button", { name: "Enviar e ler" })).toBeDisabled();
   });
 
-  it("o Gasto até hoje é o realizado da obra (o do placar), nunca o total avulso do resumo de gastos", async () => {
+  it("o Gasto até hoje é o da obra (o do placar), nunca uma soma feita na tela", async () => {
     rede({
-      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 12000, a_revisar: 0, etapas: [] }),
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, etapas: [] }),
       "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { realizado: 1_000_000, realizado_pct: 250 }, cronograma: {} }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
     const resumo = await screen.findByLabelText("Resumo");
     expect(await within(resumo).findByText("R$ 10.000,00")).toBeInTheDocument();
     expect(within(resumo).getByText("2,5% do orçado")).toBeInTheDocument();
-    // os lançados mostram o gasto de R$ 350,00; a faixa não soma o avulso por conta própria
+    // os lançados mostram o gasto de R$ 350,00; a faixa não soma os lançados por conta própria
     expect(within(resumo).queryByText("R$ 350,00")).toBeNull();
   });
 
@@ -277,58 +275,17 @@ describe("enviar comprovante", () => {
     rede({ "GET /srv/api/obras/o1/resumo": () => json({ detail: "erro" }, 500) });
     render(comCasca(<Gastos obra={OBRA} />));
     const resumo = await screen.findByLabelText("Resumo");
-    expect(within(resumo).getByText("—")).toBeInTheDocument();
+    // o Gasto até hoje e o Falta gastar vêm do resumo da obra: sem ele, os dois ficam com traço
+    expect(within(resumo).getAllByText("—")).toHaveLength(2);
   });
 
-  it("Por etapa mostra o entregue e ainda a pagar junto do pago, e o total dele no topo", async () => {
-    rede({
-      "GET /srv/api/obras/o1/gastos/resumo": () =>
-        json({
-          total: 201_090, pagamentos_de_pedidos: 0, a_revisar: 0, entregue_a_pagar: 2_497_440,
-          etapas: [{ etapa: "1", nome: "Fundações", total: 201_090, entregue_a_pagar: 2_497_440, topicos: [] }],
-        }),
-    });
-    render(comCasca(<Gastos obra={OBRA} />));
-    expect(await screen.findByText("Entregue, ainda a pagar")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
-    const linha = screen.getByText("Fundações").closest("li")!;
-    expect(linha).toHaveTextContent("R$ 2.010,90");
-    expect(linha).toHaveTextContent("+ R$ 24.974,40 entregue, ainda a pagar");
-  });
-
-  it("gasto fora de pedido: origem 'avulso' no lançamento, número do pedido no outro, a soma no topo e na etapa (só marca)", async () => {
-    rede({
-      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala", fora_do_orcado: true }, { ...GASTO, id: "g2", descricao: "Cimento", pedido_id: "p1" }]),
-      "GET /srv/api/obras/o1/pedidos": () => json([{ id: "p1", numero: "PED-0007", fornecedor: "Depósito", valor: 35000, criado_em: "2026-11-01T10:00:00Z" }]),
-      "GET /srv/api/obras/o1/gastos/resumo": () =>
-        json({ total: 35000, pagamentos_de_pedidos: 35000, a_revisar: 0, fora_do_orcado: 35000, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, fora_do_orcado: 35000, topicos: [] }] }),
-    });
-    render(comCasca(<Gastos obra={OBRA} />));
-    expect(await screen.findByText("Fora de pedido")).toBeInTheDocument();
-    expect(screen.getByText("mão de obra e avulsos")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Por etapa" }));
-    const etapa = screen.getByText("Fundações").closest("li")!;
-    expect(etapa).toHaveTextContent("R$ 350,00 fora de pedido");
-    await userEvent.click(screen.getByRole("tab", { name: "Por data" }));
-    const vidro = (await screen.findByText("Vidros da sala")).closest("li")!;
-    expect(within(vidro).getByText("avulso")).toBeInTheDocument();
-    const cimento = screen.getByText("Cimento").closest("li")!;
-    expect(within(cimento).getByText("PED-0007")).toBeInTheDocument();
-    expect(within(cimento).queryByText("avulso")).toBeNull();
-  });
-
-  it("sem pedidos: sem coluna Origem, sem 'fora de pedido' e sem perguntar pelos pedidos; o topo mostra o que falta gastar", async () => {
+  it("o topo mostra o que falta gastar; nada de coluna Origem, 'fora de pedido' ou pergunta pelos pedidos", async () => {
     const r = rede({
-      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala", fora_do_orcado: true }]),
-      "GET /srv/api/obras/o1/gastos/resumo": () =>
-        json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 0, fora_do_orcado: 35000, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, fora_do_orcado: 35000, topicos: [] }] }),
+      "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala" }]),
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, a_definir: 0, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, topicos: [] }] }),
       "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { realizado: 35000, realizado_pct: 1000, orcado_atual: 350000, falta_gastar: 315000 } }),
     });
-    render(
-      <ProvedorCasca usuario={USUARIO} demo semPedidos>
-        <Gastos obra={OBRA} />
-      </ProvedorCasca>,
-    );
+    render(comCasca(<Gastos obra={OBRA} />));
     expect(await screen.findByText("Falta gastar")).toBeInTheDocument();
     expect(screen.getByText("R$ 3.150,00")).toBeInTheDocument();
     expect(screen.queryByText("Fora de pedido")).toBeNull();
@@ -344,7 +301,7 @@ describe("enviar comprovante", () => {
   it("gasto sem etapa aparece como 'Sem etapa · definir' e abre a escolha", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, etapa: null, etapa_nome: "Sem etapa", etapa_origem: "a_definir", topico_id: null }]),
-      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 35000, etapas: [{ etapa: null, nome: "Sem etapa", total: 35000, topicos: [] }] }),
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, a_definir: 35000, etapas: [{ etapa: null, nome: "Sem etapa", total: 35000, topicos: [] }] }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
     expect(await screen.findByText(/R\$ 350,00 em gastos sem etapa, para definir/)).toBeInTheDocument();
@@ -355,7 +312,7 @@ describe("enviar comprovante", () => {
   it("aberta por 'Definir a etapa', abre em Lançados só com os sem etapa", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, id: "g2", descricao: "gasto com etapa" }, { ...GASTO, descricao: "gasto sem etapa", etapa: null, topico_id: null }]),
-      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, a_definir: 35000, etapas: [] }),
+      "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, a_definir: 35000, etapas: [] }),
     });
     const Abre = () => {
       const { irParaTela, registrarNavegacao } = useCasca();
@@ -487,7 +444,7 @@ describe("aba Gastos", () => {
           ],
         }),
       "GET /srv/api/obras/o1/gastos/resumo": () =>
-        json({ total: 35000, pagamentos_de_pedidos: 0, a_revisar: 0, etapas: [{ etapa: "eletrica", nome: "Instalações elétricas", total: 35000, topicos: [] }] }),
+        json({ total: 35000, a_revisar: 0, etapas: [{ etapa: "eletrica", nome: "Instalações elétricas", total: 35000, topicos: [] }] }),
       "PATCH /srv/api/gastos/g1": ({ corpo }) => json({ ...GASTO, ...(corpo as object), registro_id: "reg-5" }),
       "POST /srv/api/registro/reg-5/desfazer": () => json({ id: "reg-6", texto: "Desfeito", criado_em: "2026-11-05T10:00:00Z" }),
     });
@@ -510,7 +467,7 @@ describe("aba Gastos", () => {
       "GET /srv/api/obras/o1/gastos/resumo": () =>
         json({
           total: 35000,
-          pagamentos_de_pedidos: 0,
+         
           a_revisar: 0,
           etapas: [
             { etapa: "eletrica", nome: "Instalações elétricas", total: 35000, topicos: [{ topico_id: "t-arq", nome: "Sapatas S1 a S12", total: 35000 }] },
@@ -609,13 +566,9 @@ describe("bloco A conferir", () => {
     expect(corpo).toMatchObject({ valor: 48600, data_pagamento: "2026-11-03", favorecido: "Madeireira Inventada", etapa: "fundacao" });
   });
 
-  it("sem pedidos, o bloco não pergunta se o gasto é de um pedido", async () => {
+  it("o bloco não pergunta se o gasto é de um pedido", async () => {
     const r = rede({ "GET /srv/api/obras/o1/comprovantes": () => json([COMPROVANTE]) });
-    render(
-      <ProvedorCasca usuario={USUARIO} demo semPedidos>
-        <Gastos obra={OBRA} />
-      </ProvedorCasca>,
-    );
+    render(comCasca(<Gastos obra={OBRA} />));
     const bloco = await screen.findByRole("region", { name: /A conferir · 1/ });
     expect(await within(bloco).findByLabelText("Valor pago")).toHaveValue("R$ 486,00");
     expect(within(bloco).queryByText(/É de um pedido/)).toBeNull();

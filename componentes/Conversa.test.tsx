@@ -37,11 +37,12 @@ const PROPOSTA = {
   tenant_id: "t-1",
   criado_em: "2026-10-30T13:00:00Z",
   obra_id: "o1",
-  tipo: "criar_pedido",
-  titulo: "Comprar 640 un de bloco",
-  conta: "precisa 3.400 un − saldo 2.760 un = falta 640 un",
-  fonte: "almoxarifado",
-  dados: { insumo_id: "i1", quantidade: 640000, fornecedor: "Cerâmica", valor: 204800 },
+  tipo: "cronograma",
+  titulo: "Cronograma da obra: 12 etapas em 12 meses",
+  conta: "12 meses · fundação em mar/2027",
+  fonte: "orçamento",
+  dados: { inicio: "2027-03", etapas: [] },
+  efeito: "cronograma",
   sugerido_por: "agente",
   status: "pendente",
   decidido_por: null,
@@ -65,10 +66,10 @@ afterEach(() => limparSessao());
 describe("conversa por SSE", () => {
   it("mostra ferramenta, texto em streaming e o cartão de proposta; aprovar executa só pelo clique", async () => {
     const corpoSSE =
-      ev("ferramenta", { nome: "consultar_estoque", nivel: "consulta", resumo: "usou almoxarifado · Casa Vila Nova" }) +
-      ev("texto", { delta: "O bloco: **falta " }) +
-      ev("texto", { delta: "640 un**." }) +
-      ev("ferramenta", { nome: "propor_pedido", nivel: "propoe", resumo: "preparou uma compra" }) +
+      ev("ferramenta", { nome: "consultar_orcamento", nivel: "consulta", resumo: "consultou o orçamento · Casa Vila Nova" }) +
+      ev("texto", { delta: "A obra cabe em **12 " }) +
+      ev("texto", { delta: "meses**." }) +
+      ev("ferramenta", { nome: "propor_cronograma", nivel: "propoe", resumo: "preparou o cronograma" }) +
       ev("proposta", PROPOSTA) +
       ev("fim", { sessao_id: "srv-1", uso: { tokens: 120, custo: 9 } });
     const rede = criarRede({
@@ -81,24 +82,24 @@ describe("conversa por SSE", () => {
         }),
     });
     render(<Harness />);
-    await userEvent.type(screen.getByLabelText("Pergunte ao Plumo"), "precisa comprar bloco?{Enter}");
+    await userEvent.type(screen.getByLabelText("Pergunte ao Plumo"), "monta o cronograma?{Enter}");
 
     const log = screen.getByRole("log");
-    expect(await within(log).findByText("usou almoxarifado · Casa Vila Nova")).toBeInTheDocument();
-    expect(await within(log).findByText("falta 640 un", { selector: "b" })).toBeInTheDocument();
-    expect(within(log).getByText("precisa comprar bloco?")).toBeInTheDocument();
+    expect(await within(log).findByText("consultou o orçamento · Casa Vila Nova")).toBeInTheDocument();
+    expect(await within(log).findByText("12 meses", { selector: "b" })).toBeInTheDocument();
+    expect(within(log).getByText("monta o cronograma?")).toBeInTheDocument();
     expect(await screen.findByTestId("sessao-servidor")).toHaveTextContent("srv-1");
 
     const pedido = rede.chamadas.find((c) => c.caminho === "/srv/agente/conversa")!;
     // a sessão nasce na web com um UUIDv7: o mesmo ID na lateral, no agente e na API
-    expect(pedido.corpo).toMatchObject({ obra_id: "o1", texto: "precisa comprar bloco?" });
+    expect(pedido.corpo).toMatchObject({ obra_id: "o1", texto: "monta o cronograma?" });
     expect((pedido.corpo as { sessao_id: string }).sessao_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/);
     expect(new Headers(pedido.init.headers).get("authorization")).toBe("Bearer acesso-1");
     // o agente propôs, mas nada foi aprovado sozinho
     expect(rede.chamadas.some((c) => c.caminho.endsWith("/aprovar"))).toBe(false);
 
-    const cartao = within(log).getByRole("group", { name: /Comprar 640 un de bloco/ });
-    await userEvent.click(within(cartao).getByRole("button", { name: "Aprovar R$ 2.048,00" }));
+    const cartao = within(log).getByRole("group", { name: /Cronograma da obra/ });
+    await userEvent.click(within(cartao).getByRole("button", { name: "Aprovar cronograma" }));
     expect(await within(cartao).findByText("Aprovado 10:32 por Rizzi")).toBeInTheDocument();
     expect(within(cartao).getByRole("button", { name: "Desfazer" })).toBeInTheDocument();
   });

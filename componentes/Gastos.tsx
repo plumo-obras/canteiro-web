@@ -6,7 +6,7 @@
  * etapa) e, numa gaveta, as etapas e tópicos onde eles entram.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Comprovante, GastoObra, Obra, Pedido, ResumoGastos } from "@/lib/contrato";
+import type { Comprovante, GastoObra, Obra, ResumoGastos } from "@/lib/contrato";
 import { api } from "@/lib/cliente";
 import { fmtPct } from "@/lib/cronograma";
 import { fmtDiaHora, fmtReais } from "@/lib/formato";
@@ -20,6 +20,7 @@ import { BotaoMais, useMaisAntigos } from "./Paginacao";
 import { useCarregar } from "./useCarregar";
 import { Arvore } from "./gastos/Arvore";
 import { EnviarComprovante } from "./gastos/EnviarComprovante";
+import { Fornecedores } from "./gastos/Fornecedores";
 import { MudarEtapa } from "./gastos/MudarEtapa";
 import { ConferirCartao, ConferirCompacto, Revisao } from "./gastos/Revisao";
 import { fmtDia, foraDoOrcamento, lidoNaFila, rotuloEtapa } from "./gastos/escolhas";
@@ -35,7 +36,7 @@ const AGRUPAR: { k: Agrupar; rotulo: string }[] = [
 const LENDO_MS = 2 * 60 * 1000;
 
 export function Gastos({ obra }: { obra: Obra }) {
-  const { versao, podeOperar, semPedidos, lerFiltroTela, limparFiltroTela } = useCasca();
+  const { versao, podeOperar, lerFiltroTela, limparFiltroTela } = useCasca();
   const celular = useCelular();
   const [mudando, setMudando] = useState<GastoObra | null>(null);
   const [soSemEtapa, setSoSemEtapa] = useState(() => lerFiltroTela("gastos")?.status === "a_definir");
@@ -44,6 +45,7 @@ export function Gastos({ obra }: { obra: Obra }) {
   const [enviando, setEnviando] = useState(false);
   const [revisando, setRevisando] = useState<string | null>(null);
   const [verArvore, setVerArvore] = useState(false);
+  const [verFornecedores, setVerFornecedores] = useState(false);
   // o comprovante aberto no bloco "A conferir"; sem escolha, o primeiro da fila
   const [atual, setAtual] = useState<string | null>(null);
   // confirmados ou descartados nesta tela: saem do bloco na hora, sem esperar a fila recarregar
@@ -55,14 +57,12 @@ export function Gastos({ obra }: { obra: Obra }) {
         api.listarComprovantes(obra.id, "a_revisar"),
         api.resumoGastos(obra.id),
         api.arvore(obra.id),
-        // o "Gasto até hoje" é o realizado da obra, o mesmo número do placar; sem ele a célula fica com traço
+        // o "Gasto até hoje" é o da obra, o mesmo número do placar; sem ele a célula fica com traço
         api.resumoObra(obra.id).catch(() => null),
-        // só para escrever o número do pedido na coluna Origem (sem pedidos, a coluna não existe)
-        semPedidos ? Promise.resolve([] as Pedido[]) : api.listarPedidos(obra.id, { limite: 200 }).catch(() => [] as Pedido[]),
       ]),
-    [obra.id, versao, semPedidos],
+    [obra.id, versao],
   );
-  const [filaToda, resumo, arvore, resumoObra, pedidos] = dado ?? [[], null, [], null, []];
+  const [filaToda, resumo, arvore, resumoObra] = dado ?? [[], null, [], null];
   // fila recarregada: o que ela trouxe de volta (Desfazer devolve o comprovante para "a revisar") volta a aparecer
   useEffect(() => setFeitos([]), [dado]);
   const fila = filaToda.filter((c) => !feitos.includes(c.id));
@@ -75,7 +75,6 @@ export function Gastos({ obra }: { obra: Obra }) {
     }
     return m;
   }, [resumo]);
-  const numeroPedido = useMemo(() => new Map(pedidos.map((p) => [p.id, p.numero])), [pedidos]);
   const realizado = resumoObra?.financeiro.realizado ?? null;
 
   const terminou = (id: string) => {
@@ -92,6 +91,7 @@ export function Gastos({ obra }: { obra: Obra }) {
           itens={[
             { rotulo: agrupar === "data" ? "Lançados por etapa" : "Lançados por data", acao: () => setAgrupar(agrupar === "data" ? "etapa" : "data") },
             { rotulo: "Etapas e tópicos", acao: () => setVerArvore(true) },
+            { rotulo: "Fornecedores", acao: () => setVerFornecedores(true) },
           ]}
         />
       </header>
@@ -142,37 +142,20 @@ export function Gastos({ obra }: { obra: Obra }) {
                 <dt>Gasto até hoje</dt>
                 <dd>{realizado === null ? "—" : fmtReais(realizado)}</dd>
                 <small>
-                  {!realizado ? "nenhum gasto lançado" : resumoObra?.financeiro.realizado_pct != null ? `${fmtPct(resumoObra.financeiro.realizado_pct)} do orçado` : "pago e entregue"}
+                  {!realizado ? "nenhum gasto lançado" : resumoObra?.financeiro.realizado_pct != null ? `${fmtPct(resumoObra.financeiro.realizado_pct)} do orçado` : "sem orçamento"}
                 </small>
               </div>
-              {semPedidos ? (
-                // sem pedido, o que a obra quer saber depois do gasto é quanto do orçado ainda resta e o que ficou sem etapa
-                <>
-                  <div>
-                    <dt>Falta gastar</dt>
-                    <dd>{resumoObra?.financeiro.falta_gastar != null ? fmtReais(resumoObra.financeiro.falta_gastar) : "—"}</dd>
-                    <small>{resumoObra?.financeiro.orcado_atual ? `de ${fmtReais(resumoObra.financeiro.orcado_atual)} orçados` : "sem orçamento"}</small>
-                  </div>
-                  <div>
-                    <dt>Sem etapa</dt>
-                    <dd>{fmtReais(resumo.a_definir ?? 0)}</dd>
-                    <small>{resumo.a_definir ? "conta na obra, em nenhuma etapa" : "todos com etapa"}</small>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <dt>Entregue, ainda a pagar</dt>
-                    <dd>{fmtReais(resumo.entregue_a_pagar ?? 0)}</dd>
-                    <small>já conta pela entrega</small>
-                  </div>
-                  <div>
-                    <dt>Fora de pedido</dt>
-                    <dd>{fmtReais(resumo.fora_do_orcado ?? 0)}</dd>
-                    <small>mão de obra e avulsos</small>
-                  </div>
-                </>
-              )}
+              {/* depois do gasto, o que a obra quer saber é quanto do orçado ainda resta e o que ficou sem etapa */}
+              <div>
+                <dt>Falta gastar</dt>
+                <dd>{resumoObra?.financeiro.falta_gastar != null ? fmtReais(resumoObra.financeiro.falta_gastar) : "—"}</dd>
+                <small>{resumoObra?.financeiro.orcado_atual ? `de ${fmtReais(resumoObra.financeiro.orcado_atual)} orçados` : "sem orçamento"}</small>
+              </div>
+              <div>
+                <dt>Sem etapa</dt>
+                <dd>{fmtReais(resumo.a_definir ?? 0)}</dd>
+                <small>{resumo.a_definir ? "conta na obra, em nenhuma etapa" : "todos com etapa"}</small>
+              </div>
             </dl>
           ) : null}
           <AConferir
@@ -205,19 +188,21 @@ export function Gastos({ obra }: { obra: Obra }) {
                   <button type="button" className="btn" aria-haspopup="dialog" onClick={() => setVerArvore(true)}>
                     Etapas e tópicos
                   </button>
+                  <button type="button" className="btn" aria-haspopup="dialog" onClick={() => setVerFornecedores(true)}>
+                    Fornecedores
+                  </button>
                 </>
               )}
             </div>
             <div role={celular ? undefined : "tabpanel"} aria-label={AGRUPAR.find((x) => x.k === agrupar)!.rotulo}>
               {agrupar === "etapa" ? (
-                <PorEtapa resumo={resumo} semPedidos={semPedidos} />
+                <PorEtapa resumo={resumo} />
               ) : (
                 <Lancados
                   obra={obra}
                   celular={celular}
                   semEtapa={(resumo?.etapas ?? []).filter((e) => foraDoOrcamento(arvore, e.etapa)).reduce((t, e) => t + e.total, 0)}
                   etapaDe={(g) => (g.etapa === null ? (g.etapa_nome ?? "Sem etapa") : rotuloEtapa(arvore, g.etapa, g.topico_id, nomesResumo))}
-                  pedidoDe={semPedidos ? null : (id) => numeroPedido.get(id) ?? "pedido"}
                   aDefinir={resumo?.a_definir ?? 0}
                   soSemEtapa={soSemEtapa}
                   verTodos={() => setSoSemEtapa(false)}
@@ -234,6 +219,11 @@ export function Gastos({ obra }: { obra: Obra }) {
       {verArvore ? (
         <Drawer titulo="Etapas e tópicos" fechar={() => setVerArvore(false)}>
           <Arvore obra={obra} arvore={arvore} resumo={resumo} />
+        </Drawer>
+      ) : null}
+      {verFornecedores ? (
+        <Drawer titulo="Fornecedores" fechar={() => setVerFornecedores(false)}>
+          <Fornecedores />
         </Drawer>
       ) : null}
       {enviando ? (
@@ -384,8 +374,8 @@ function Fila({ fila, aberto, abrir }: { fila: Comprovante[]; aberto: string; ab
   );
 }
 
-/** O gasto confirmado somado por etapa (e tópico), com o entregue a pagar e o fora de pedido de cada uma (sem pedidos, nada disso existe). */
-function PorEtapa({ resumo, semPedidos }: { resumo: ResumoGastos | null; semPedidos: boolean }) {
+/** O gasto confirmado somado por etapa (e tópico). */
+function PorEtapa({ resumo }: { resumo: ResumoGastos | null }) {
   if (!resumo?.etapas.length) return <Vazio texto="Nenhum gasto confirmado ainda. Envie um comprovante e confirme na revisão." />;
   return (
     <ul className={`card lista ${s.lista}`} role="list">
@@ -395,8 +385,6 @@ function PorEtapa({ resumo, semPedidos }: { resumo: ResumoGastos | null; semPedi
             <strong>{e.nome}</strong>
             <span className={s.valor}>{fmtReais(e.total)}</span>
           </div>
-          {e.entregue_a_pagar && !semPedidos ? <div className="mut sm">+ {fmtReais(e.entregue_a_pagar)} entregue, ainda a pagar</div> : null}
-          {e.fora_do_orcado && !semPedidos ? <div className="mut sm">{fmtReais(e.fora_do_orcado)} fora de pedido</div> : null}
           {e.topicos.length > 1 || e.topicos[0]?.topico_id ? (
             <ul className={s.sublista} role="list">
               {e.topicos.map((t) => (
@@ -433,8 +421,6 @@ function Lancados(p: {
   soSemEtapa: boolean;
   verTodos: () => void;
   etapaDe: (g: GastoObra) => string;
-  /** O número do pedido (PED-0150) para a coluna Origem; null na versão sem pedidos, que não tem a coluna. */
-  pedidoDe: ((id: string) => string) | null;
   celular: boolean;
   fora: (g: GastoObra) => boolean;
   podeMudar: boolean;
@@ -483,7 +469,7 @@ function Lancados(p: {
           </button>
         </p>
       ) : null}
-      <div className={`${s.lancados}${p.pedidoDe ? "" : ` ${s.semOrigem}`}`}>
+      <div className={s.lancados}>
         {/* os rótulos das colunas só no computador; cada linha já diz o que é para o leitor de tela */}
         {!p.celular ? (
           <div className={s.lancCab} aria-hidden="true">
@@ -491,7 +477,6 @@ function Lancados(p: {
             <span>O que foi pago</span>
             <span>Quem recebeu</span>
             <span>Etapa</span>
-            {p.pedidoDe ? <span>Origem</span> : null}
             <span className={s.lValor}>Valor</span>
           </div>
         ) : null}
@@ -527,8 +512,6 @@ function Lancados(p: {
                   )}
                 </>
               );
-            const pedidoDe = p.pedidoDe;
-            const origem = !pedidoDe ? null : g.pedido_id ? <span className={`pill ${s.selo} ${s.neutro}`}>{pedidoDe(g.pedido_id)}</span> : <span className={`pill ${s.selo} ${s.neutro}`}>avulso</span>;
             if (p.celular)
               return (
                 <li key={g.id} className={`${s.celLanc}${fora ? ` ${s.linhaFora}` : ""}`}>
@@ -547,7 +530,6 @@ function Lancados(p: {
                 <span className={s.lDesc}>{desc}</span>
                 <span className={s.lDesc}>{g.favorecido}</span>
                 <span className={s.lEtapa}>{etapa}</span>
-                {origem ? <span>{origem}</span> : null}
                 <span className={`${s.valor} ${s.lValor}`}>{fmtReais(g.valor)}</span>
               </li>
             );

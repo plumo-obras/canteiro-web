@@ -49,7 +49,6 @@ function rede(d = detalhe(), extra: Parameters<typeof criarRede>[0] = {}) {
     "POST /srv/auth/renovar": renovarOk,
     "GET /srv/api/comprovantes/c1": () => json(d),
     "GET /srv/api/obras/o1/arvore": () => json(ARVORE),
-    "GET /srv/api/obras/o1/pedidos": () => json([]),
     "GET /srv/api/comprovantes/c1/arquivo": () => new Response(new Blob(["foto"], { type: "image/jpeg" })),
     ...extra,
   });
@@ -114,7 +113,6 @@ describe("revisão do comprovante", () => {
       etapa: "eletrica",
       topico_id: "t1",
       fornecedor_id: "f1",
-      pedido_id: null,
     });
   });
 
