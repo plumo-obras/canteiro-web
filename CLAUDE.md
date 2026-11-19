@@ -44,6 +44,13 @@ O produto inteiro em contêineres sobe pelo `docker-compose.completo.yml` do can
 
 Use o Node de `.node-version` e instale com `pnpm install --frozen-lockfile`. A instalação ativa o hook versionado. Rode `pnpm verify` durante o trabalho e `pnpm verify:pr` antes de marcar o rascunho pronto. Consulte [docs/CI.md](docs/CI.md) para reproduzir cada gate.
 
+<<<<<<< HEAD
 ## PR, testes afetados e recibos
 
 Abra como rascunho. Rode `pnpm verify:pr` e, com a árvore final commitada, marque pronto. O CI pula verificações apenas conforme o plano e o agregador. Veja [docs/CI.md](docs/CI.md) antes de alterar a matriz.
+=======
+
+As regras de validação compartilhadas estão em [AGENTS.md](AGENTS.md) e os detalhes dos gates em [docs/CI.md](docs/CI.md).
+>>>>>>> 893af7c6eb45f5eac2be7a81f08d37080bf71f7c
+
+As instruções compartilhadas para agentes estão em [AGENTS.md](AGENTS.md).
