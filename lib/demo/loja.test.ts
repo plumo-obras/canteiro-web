@@ -18,6 +18,14 @@ beforeEach(() => {
 });
 
 describe("demonstração: dados de exemplo (Casa Vila Nova)", () => {
+  it("o resumo das obras traz o prazo de quem tem cronograma, como a API", () => {
+    const lista = chamar("GET", "obras/resumo").corpo as import("../contrato").ResumoObra[];
+    const casa = lista.find((x) => x.obra.id === obraId())!;
+    expect(casa.prazo?.termino_contratual).toMatch(/^\d{4}-\d{2}$/);
+    expect(casa.tem_orcamento).toBe(true);
+    expect(lista.filter((x) => x.obra.id !== obraId()).every((x) => x.prazo === null)).toBe(true);
+  });
+
   it("a obra em andamento tem orçamento por etapas, cronograma e gastos; nenhuma compra", () => {
     const orc = chamar("GET", `obras/${obraId()}/orcamento`).corpo as import("../contrato").Orcamento;
     expect(orc.etapas).toHaveLength(12);
