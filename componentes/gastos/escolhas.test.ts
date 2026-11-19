@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CampoRevisao, Revisao } from "@/lib/contrato";
-import { corpoConfirmar, escolhaInicial, escolhasIniciais, fmtDia, hojeNaObra, pendencias, rotuloEtapa } from "./escolhas";
+import { cnpjLido, corpoConfirmar, escolhaInicial, escolhasIniciais, favorecidoEscolhido, fmtDia, hojeNaObra, pendencias, rotuloEtapa } from "./escolhas";
 
 const campo = (estado: CampoRevisao["estado"], ...valores: (string | number)[]): CampoRevisao => ({
   estado,
@@ -75,6 +75,23 @@ describe("o que falta para confirmar", () => {
       favorecido: "Casa do João",
       fornecedor_id: null,
     });
+  });
+
+  it("fornecedor salvo na revisão só vale enquanto quem recebeu for o mesmo", () => {
+    const r = revisao({ data_pagamento: campo("lido", "2026-11-03"), descricao: campo("lido", "fio") });
+    const e = { ...escolhasIniciais(r), favorecido: "propria" as const, fornecedorSalvo: { id: "f9", para: "Casa do João" } };
+    e.propria = { ...e.propria, favorecido: "Casa do João" };
+    expect(favorecidoEscolhido(r, e)).toEqual({ favorecido: "Casa do João", fornecedor_id: "f9" });
+    expect(corpoConfirmar(r, e, HOJE)).toMatchObject({ fornecedor_id: "f9" });
+    e.propria = { ...e.propria, favorecido: "Outra loja" };
+    expect(favorecidoEscolhido(r, e).fornecedor_id).toBeNull();
+  });
+
+  it("CNPJ lido só quando vem inteiro", () => {
+    expect(cnpjLido({ cnpj_favorecido: "11.222.333/0001-81" })).toBe("11222333000181");
+    expect(cnpjLido({ cnpj_favorecido: "11.222.333" })).toBeNull();
+    expect(cnpjLido(null)).toBeNull();
+    expect(cnpjLido({ cnpj_favorecido: 123 })).toBeNull();
   });
 
   it("valor ilegível, zero e data no futuro não passam", () => {

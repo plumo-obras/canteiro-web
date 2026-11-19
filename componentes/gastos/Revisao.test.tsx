@@ -116,6 +116,36 @@ describe("revisão do comprovante", () => {
     });
   });
 
+  it("quem recebeu sem cadastro vira fornecedor daqui mesmo, com o CNPJ lido, e o gasto sai ligado a ele", async () => {
+    const d = detalhe({ favorecido: { estado: "lido", escolhido: 0, opcoes: [op("Concreto Forte Ltda", "Concreto Forte Ltda", "lido no Pix")] } });
+    d.leitura = { cnpj_favorecido: "11.222.333/0001-81" };
+    const r = rede(d, {
+      "POST /srv/api/fornecedores": () => json({ id: "f9", nome: "Concreto Forte Ltda", cnpj: "11222333000181", contato: "", telefone: "", email: "", registro_id: "r9" }, 201),
+      "POST /srv/api/comprovantes/c1/confirmar": () => json({ gasto: { id: "g1", valor: 35000 } as GastoObra, comprovante: { id: "c1" }, registro_id: "r1" }, 201),
+    });
+    const fechar = abrir();
+    await userEvent.click(await screen.findByRole("button", { name: "Salvar Concreto Forte Ltda como fornecedor" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Novo fornecedor" });
+    expect(within(dialogo).getByRole("textbox", { name: "Nome" })).toHaveValue("Concreto Forte Ltda");
+    expect(within(dialogo).getByRole("textbox", { name: /CNPJ/ })).toHaveValue("11.222.333/0001-81");
+    await userEvent.click(within(dialogo).getByRole("button", { name: "Cadastrar" }));
+    expect(await screen.findByText(/Cadastrado como fornecedor/)).toBeInTheDocument();
+    expect(r.chamadas.find((c) => c.caminho.endsWith("/fornecedores"))!.corpo).toMatchObject({ nome: "Concreto Forte Ltda", cnpj: "11222333000181" });
+
+    await userEvent.click(screen.getByRole("radio", { name: /28\/10\/2026/ }));
+    await userEvent.type(screen.getByRole("textbox", { name: "O que foi pago (outro)" }), "concreto da sapata");
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar gasto" }));
+    await waitFor(() => expect(fechar).toHaveBeenCalled());
+    expect(r.chamadas.find((c) => c.caminho.endsWith("/confirmar"))!.corpo).toMatchObject({ favorecido: "Concreto Forte Ltda", fornecedor_id: "f9" });
+  });
+
+  it("quem já é fornecedor cadastrado não mostra o Salvar como fornecedor", async () => {
+    rede();
+    abrir();
+    await screen.findByRole("radiogroup", { name: "Quem recebeu" });
+    expect(screen.queryByRole("button", { name: /como fornecedor/ })).not.toBeInTheDocument();
+  });
+
   it("Ver depois confirma sem etapa e sem tópico", async () => {
     const r = rede(detalhe(), {
       "POST /srv/api/comprovantes/c1/confirmar": () => json({ gasto: { id: "g1", valor: 35000 } as GastoObra, comprovante: { id: "c1" }, registro_id: "r1" }, 201),
