@@ -10,11 +10,11 @@ import { Resumo } from "./Resumo";
 const OBRA = { id: "o1", tenant_id: "t-1", nome: "Casa Exemplo", status: "em_andamento", verba: 75_000_00 } as Obra;
 const RESUMO = {
   obra: OBRA,
-  financeiro: { tem_orcamento: true, orcado_atual: 70_000_00, comprometido: 59_720_00, realizado: 59_720_00, saldo: 10_280_00, falta_gastar: 10_280_00, realizado_pct: 8531, etapas_estouradas: [{}] },
+  financeiro: { tem_orcamento: true, orcado_atual: 70_000_00, gasto: 59_720_00, saldo: 10_280_00, falta_gastar: 10_280_00, realizado_pct: 8531, etapas_estouradas: [{}] },
   cronograma: { cadastrado: true, termino_contratual: "2027-07", termino_projetado: null, atraso_decimos: null },
 } as ResumoDaObra;
-const etapa = (etapa: string, descricao: string, atual: number, realizado: number) => ({
-  etapa, descricao, atual, realizado, comprometido: realizado, cotando: 0, saldo: atual - realizado, estourou: realizado > atual, contratado: atual, aditivos: 0,
+const etapa = (etapa: string, descricao: string, atual: number, gasto: number) => ({
+  etapa, descricao, atual, gasto, saldo: atual - gasto, estourou: gasto > atual, contratado: atual, aditivos: 0,
 });
 const mes = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 7);
 const HOJE: HojeNaObra = {

@@ -5,7 +5,7 @@ import { Placar, celulasPlacar } from "./Placar";
 
 type Fin = ResumoDaObra["financeiro"];
 type Cro = ResumoDaObra["cronograma"];
-const fin = (f: Partial<Fin> = {}): Fin => ({ tem_orcamento: true, orcado_atual: 44044500, comprometido: 2133730, realizado: 2133730, saldo: 41910770, falta_gastar: 41910770, realizado_pct: 480, ...f });
+const fin = (f: Partial<Fin> = {}): Fin => ({ tem_orcamento: true, orcado_atual: 44044500, gasto: 2133730, saldo: 41910770, falta_gastar: 41910770, realizado_pct: 480, ...f });
 const cro = (c: Partial<Cro> = {}): Cro => ({ cadastrado: true, termino_contratual: "2027-03", termino_projetado: null, atraso_decimos: null, ...c });
 const r = (f?: Partial<Fin>, c?: Partial<Cro>) => ({ obra: {}, financeiro: fin(f), cronograma: cro(c) }) as ResumoDaObra;
 const valores = (...a: Parameters<typeof celulasPlacar>) => celulasPlacar(...a).map((c) => [c.valor, c.sub]);
@@ -21,7 +21,7 @@ describe("o placar da obra", () => {
   });
 
   it("sem orçamento e sem cronograma: — com o texto do protótipo", () => {
-    const sem = r({ tem_orcamento: false, realizado: 0, orcado_atual: 0, falta_gastar: 0, realizado_pct: null }, { cadastrado: false, termino_contratual: null });
+    const sem = r({ tem_orcamento: false, gasto: 0, orcado_atual: 0, falta_gastar: 0, realizado_pct: null }, { cadastrado: false, termino_contratual: null });
     expect(valores({ verba: 0 }, sem, false)).toEqual([
       ["—", "não informado"],
       ["—", "aparece com o orçamento"],

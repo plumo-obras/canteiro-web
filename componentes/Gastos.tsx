@@ -75,7 +75,7 @@ export function Gastos({ obra }: { obra: Obra }) {
     }
     return m;
   }, [resumo]);
-  const realizado = resumoObra?.financeiro.realizado ?? null;
+  const gastoAteHoje = resumoObra?.financeiro.gasto ?? null;
 
   const terminou = (id: string) => {
     setFeitos((f) => [...f, id]);
@@ -140,9 +140,9 @@ export function Gastos({ obra }: { obra: Obra }) {
             <dl className={s.faixa} aria-label="Resumo">
               <div>
                 <dt>Gasto até hoje</dt>
-                <dd>{realizado === null ? "—" : fmtReais(realizado)}</dd>
+                <dd>{gastoAteHoje === null ? "—" : fmtReais(gastoAteHoje)}</dd>
                 <small>
-                  {!realizado ? "nenhum gasto lançado" : resumoObra?.financeiro.realizado_pct != null ? `${fmtPct(resumoObra.financeiro.realizado_pct)} do orçado` : "sem orçamento"}
+                  {!gastoAteHoje ? "nenhum gasto lançado" : resumoObra?.financeiro.realizado_pct != null ? `${fmtPct(resumoObra.financeiro.realizado_pct)} do orçado` : "sem orçamento"}
                 </small>
               </div>
               {/* depois do gasto, o que a obra quer saber é quanto do orçado ainda resta e o que ficou sem etapa */}
@@ -175,7 +175,7 @@ export function Gastos({ obra }: { obra: Obra }) {
               </h2>
               <span className={s.sp} />
               {celular ? (
-                realizado !== null ? <span className="mut sm">{semCentavos(realizado)} até hoje</span> : null
+                gastoAteHoje !== null ? <span className="mut sm">{semCentavos(gastoAteHoje)} até hoje</span> : null
               ) : (
                 <>
                   <div className="seg" role="tablist" aria-label="Agrupar os lançados">

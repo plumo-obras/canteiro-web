@@ -89,7 +89,7 @@ describe("a obra aberta sobrevive ao recarregar", () => {
 const resumo = (id: string, tem_orcamento: boolean) => () =>
   json({
     obra: OBRAS.find((o) => o.id === id),
-    financeiro: { tem_orcamento, orcado_atual: 0, comprometido: 0, realizado: 0, saldo: 0 },
+    financeiro: { tem_orcamento, orcado_atual: 0, gasto: 0, saldo: 0 },
     cronograma: { cadastrado: false, termino_contratual: null, termino_projetado: null, atraso_decimos: null },
   });
 const rede = (extra: Parameters<typeof criarRede>[0]) =>

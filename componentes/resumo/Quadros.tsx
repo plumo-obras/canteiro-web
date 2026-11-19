@@ -81,11 +81,11 @@ export function QuadroDinheiro({ obra, resumo, orc }: { obra: Obra; resumo: Resu
   return (
     <Quadro id="quadro-dinheiro" nome="Dinheiro" icone="carteira" tela="orcamento" veredito={vereditoDinheiro(orc, resumo)}>
       <p className={s.numero}>
-        {reaisInteiros(f.realizado)}
-        <span>{f.realizado ? "gastos até hoje" : "nenhum gasto lançado"}</span>
+        {reaisInteiros(f.gasto)}
+        <span>{f.gasto ? "gastos até hoje" : "nenhum gasto lançado"}</span>
       </p>
       <div className={s.medidor}>
-        <BarraConsumo orcado={f.orcado_atual} gasto={f.realizado} saldo={f.saldo} frase={false} alta />
+        <BarraConsumo orcado={f.orcado_atual} gasto={f.gasto} saldo={f.saldo} frase={false} alta />
         {pct ? <b aria-hidden="true">{pct}</b> : null}
       </div>
       <dl className={s.pares}>

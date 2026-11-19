@@ -1,10 +1,10 @@
 "use client";
 /**
- * Previsto × realizado por etapa (Fase 3): as contas e a barra que a lista única de etapas (ListaEtapas) usa, o CSV e o
+ * Orçado × gasto por etapa: as contas e a barra que a lista única de etapas (ListaEtapas) usa, o CSV e o
  * bloco de aditivos. Os números vêm somados da API (GET /obras/{id}/orcamento); o saldo e o % de aditivo também vêm prontos;
  * aqui só se ordena, se calcula o % gasto da barra e se desenha. Nenhuma soma de gasto é refeita.
  */
-import type { EtapaOrcamento, Gasto, Orcamento, TopicoOrcamento, VersaoOrcamento } from "@/lib/contrato";
+import type { EtapaOrcamento, GastoNoOrcamento, Orcamento, TopicoOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { centavosCsv, gerarCsv } from "@/lib/csv";
 import { fmtReais } from "@/lib/formato";
 
@@ -17,12 +17,12 @@ export const fmtPctAditivo = (centesimos: number | null) => {
   return `${p < 0 ? "−" : "+"}${Math.abs(p).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 };
 
-export interface LinhaAndamento extends Gasto {
+export interface LinhaAndamento extends GastoNoOrcamento {
   etapa: string;
   descricao: string;
   atual: number;
   saldo: number;
-  /** gasto (comprometido) ÷ atual; Infinity quando há gasto numa etapa sem orçado. */
+  /** gasto ÷ atual; Infinity quando há gasto numa etapa sem orçado. */
   pct: number;
   semEtapa?: boolean;
   /** A etapa aberta por tópico (vazio quando ela não tem). */
@@ -37,29 +37,27 @@ export interface LinhaAndamento extends Gasto {
  */
 export const numeroVisivel = (etapa: string) => (/\d/.test(etapa) ? etapa : "");
 
-const pctDe = (comprometido: number, atual: number) => (atual ? comprometido / atual : comprometido ? Infinity : 0);
+const pctDe = (gasto: number, atual: number) => (atual ? gasto / atual : gasto ? Infinity : 0);
 
 export function linhasAndamento(orc: Orcamento): LinhaAndamento[] {
   const ls: LinhaAndamento[] = orc.etapas.map((e: EtapaOrcamento) => ({
     etapa: e.etapa,
     descricao: e.descricao,
     atual: e.atual,
-    cotando: e.cotando,
-    comprometido: e.comprometido,
-    realizado: e.realizado,
+    gasto: e.gasto,
     saldo: e.saldo,
-    pct: pctDe(e.comprometido, e.atual),
+    pct: pctDe(e.gasto, e.atual),
     topicos: e.topicos ?? [],
     estimado: e.estimado ?? 0,
   }));
   const s = orc.totais.sem_etapa;
-  if (s && (s.cotando || s.comprometido || s.realizado))
-    ls.push({ etapa: "", descricao: "Sem etapa", atual: 0, ...s, saldo: -s.comprometido, pct: pctDe(s.comprometido, 0), semEtapa: true, topicos: [], estimado: 0 });
+  if (s?.gasto)
+    ls.push({ etapa: "", descricao: "Sem etapa", atual: 0, gasto: s.gasto, saldo: -s.gasto, pct: pctDe(s.gasto, 0), semEtapa: true, topicos: [], estimado: 0 });
   return ls;
 }
 
 /** Maior desvio primeiro: o que já gastou mais do orçado da etapa (estouro no topo, em vermelho). */
-export const porDesvio = (a: LinhaAndamento, b: LinhaAndamento) => b.pct - a.pct || b.comprometido - a.comprometido;
+export const porDesvio = (a: LinhaAndamento, b: LinhaAndamento) => b.pct - a.pct || b.gasto - a.gasto;
 
 /** "R$ 24.250": a lista do celular arredonda ao real; o detalhe mostra os centavos. */
 export const reaisInteiros = (c: number) => fmtReais(Math.round(c / 100) * 100).replace(/,00$/, "");
@@ -72,8 +70,8 @@ export function csvAndamento(orc: Orcamento): string {
   const pct = (p: number) => (p === Infinity ? "" : (p * 100).toFixed(1).replace(".", ","));
   return gerarCsv([
     ["Etapa", "Descrição", "Orçado atual", "Gasto", "Falta gastar", "% gasto"],
-    ...ls.map((l) => [l.etapa, l.descricao, centavosCsv(l.atual), centavosCsv(l.comprometido), centavosCsv(l.saldo), pct(l.pct)]),
-    ["", "Total", centavosCsv(t.atual), centavosCsv(t.comprometido), centavosCsv(t.saldo), pct(pctDe(t.comprometido, t.atual))],
+    ...ls.map((l) => [l.etapa, l.descricao, centavosCsv(l.atual), centavosCsv(l.gasto), centavosCsv(l.saldo), pct(l.pct)]),
+    ["", "Total", centavosCsv(t.atual), centavosCsv(t.gasto), centavosCsv(t.saldo), pct(pctDe(t.gasto, t.atual))],
   ]);
 }
 

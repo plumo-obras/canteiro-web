@@ -57,8 +57,8 @@ function EtapasAndando({ orc, crono }: { orc: Orcamento; crono: Cronograma | nul
   const doMes = new Set((crono?.etapas ?? []).filter((e) => (e.percentuais[j] ?? 0) > 0).map((e) => e.etapa));
   const peso = (t: string) => (t === "estouro" ? 0 : t === "perto" ? 1 : 2);
   const andando = orc.etapas
-    .filter((e) => e.estourou || doMes.has(e.etapa) || (e.realizado > 0 && e.realizado < e.atual))
-    .sort((a, b) => peso(tomDoConsumo(a.atual, a.realizado)) - peso(tomDoConsumo(b.atual, b.realizado)));
+    .filter((e) => e.estourou || doMes.has(e.etapa) || (e.gasto > 0 && e.gasto < e.atual))
+    .sort((a, b) => peso(tomDoConsumo(a.atual, a.gasto)) - peso(tomDoConsumo(b.atual, b.gasto)));
   return (
     <section className={`card ${s.bloco}`} aria-labelledby="painel-etapas">
       <div className={s.cab}>
@@ -75,10 +75,10 @@ function EtapasAndando({ orc, crono }: { orc: Orcamento; crono: Cronograma | nul
                 {e.descricao}
               </span>
               <span className={s.etapaValores}>
-                {reaisInteiros(e.realizado)} <span className="mut">de {reaisInteiros(e.atual)}</span>
+                {reaisInteiros(e.gasto)} <span className="mut">de {reaisInteiros(e.atual)}</span>
               </span>
               <span className={s.etapaBarra}>
-                <BarraConsumo orcado={e.atual} gasto={e.realizado} saldo={e.saldo} />
+                <BarraConsumo orcado={e.atual} gasto={e.gasto} saldo={e.saldo} />
               </span>
             </li>
           ))}

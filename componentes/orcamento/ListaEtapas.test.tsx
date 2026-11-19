@@ -7,12 +7,12 @@ import { ProvedorCasca } from "../contexto";
 import { ListaEtapas } from "./ListaEtapas";
 
 const OBRA = { id: "o1", tenant_id: "t-1", nome: "Casa Inventada", status: "em_andamento" } as Obra;
-const contas = (atual: number, comprometido: number) => ({
-  contratado: atual, aditivos: 0, atual, cotando: 0, comprometido, realizado: comprometido,
-  saldo: atual - comprometido, estourou: comprometido > atual,
+const contas = (atual: number, gasto: number) => ({
+  contratado: atual, aditivos: 0, atual, gasto,
+  saldo: atual - gasto, estourou: gasto > atual,
 });
-const topico = (id: string, nome: string, atual: number, comprometido: number): TopicoOrcamento => ({
-  topico_id: id, nome, origem: "orcamento", ...contas(atual, comprometido),
+const topico = (id: string, nome: string, atual: number, gasto: number): TopicoOrcamento => ({
+  topico_id: id, nome, origem: "orcamento", ...contas(atual, gasto),
 });
 const item = (n: string, descricao: string, total: number, topico_id: string) =>
   ({ id: `i-${n}`, obra_id: "o1", versao_id: "v", ordem: 0, tipo: "item", numero: n, nivel: 2, etapa: "esquadrias", codigo: "",
@@ -31,7 +31,7 @@ const ORC: Orcamento = {
     etapa: "esquadrias", descricao: "Esquadrias", ...contas(600_000, 150_000),
     topicos: [topico("t-mad", "ESQUADRIA MADEIRA", 400_000, 150_000), topico("t-met", "Esquadria metálica", 200_000, 0)],
   }],
-  totais: { ...contas(600_000, 150_000), aditivos_pct: 0, n_itens: 3, n_etapas: 1, sem_etapa: { cotando: 0, comprometido: 0, realizado: 0 } },
+  totais: { ...contas(600_000, 150_000), aditivos_pct: 0, n_itens: 3, n_etapas: 1, sem_etapa: { gasto: 0 } },
 } as Orcamento;
 
 beforeEach(() => {
@@ -41,14 +41,14 @@ beforeEach(() => {
 afterEach(limparSessao);
 
 describe("Orçamento por tópico", () => {
-  it("abre a etapa em tópicos com orçado, comprometido e saldo; o tópico de um item só não repete o nome", async () => {
+  it("abre a etapa em tópicos com orçado, gasto e saldo; o tópico de um item só não repete o nome", async () => {
     render(
       <ProvedorCasca usuario={USUARIO} demo={false}>
         <ListaEtapas obra={OBRA} orc={ORC} nomeVersao={() => "Contrato"} />
       </ProvedorCasca>,
     );
     const madeira = (await screen.findByText("ESQUADRIA MADEIRA")).closest("tr")!;
-    // R$ 4.000 orçados, R$ 1.500 comprometidos, R$ 2.500 de saldo (centavos da API, mostrados em reais inteiros)
+    // R$ 4.000 orçados, R$ 1.500 gastos, R$ 2.500 de saldo (centavos da API, mostrados em reais inteiros)
     expect(within(madeira).getByTitle("R$ 4.000,00")).toBeTruthy();
     expect(within(madeira).getByTitle("R$ 1.500,00")).toBeTruthy();
     expect(within(madeira).getByTitle("R$ 2.500,00")).toBeTruthy();

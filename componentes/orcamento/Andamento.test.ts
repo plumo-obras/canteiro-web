@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import type { Orcamento } from "@/lib/contrato";
 import { csvAndamento, fmtPctAditivo, linhasAndamento, numeroVisivel, porDesvio } from "./Andamento";
 
-const z = { cotando: 0, comprometido: 0, realizado: 0 };
+const z = { gasto: 0 };
 const et = (etapa: string, descricao: string, atual: number, g: Partial<typeof z> = {}) => ({
   etapa, descricao, contratado: atual, aditivos: 0, atual, ...z, ...g,
   // saldo e estouro vêm prontos da API; aqui o dublê os preenche como ela faria
-  saldo: atual - (g.comprometido ?? 0), estourou: (g.comprometido ?? 0) > atual,
+  saldo: atual - (g.gasto ?? 0), estourou: (g.gasto ?? 0) > atual,
 });
 const orc = (sem = z): Orcamento => ({
   versoes: [],
   itens: [],
-  etapas: [et("1", "SERVIÇOS PRELIMINARES", 4_543_363), et("3", "FUNDAÇÕES", 9_550_346, { comprometido: 10_000_000, realizado: 6_000_000, cotando: 50_000 }), et("4", "SUPERESTRUTURA", 11_295_680, { comprometido: 1_000_000 })],
-  totais: { contratado: 25_389_389, aditivos: 0, atual: 25_389_389, saldo: 25_389_389 - 11_000_000 - sem.comprometido, aditivos_pct: 0, n_itens: 3, n_etapas: 3, cotando: 50_000 + sem.cotando, comprometido: 11_000_000 + sem.comprometido, realizado: 6_000_000 + sem.realizado, sem_etapa: sem },
+  etapas: [et("1", "SERVIÇOS PRELIMINARES", 4_543_363), et("3", "FUNDAÇÕES", 9_550_346, { gasto: 10_000_000 }), et("4", "SUPERESTRUTURA", 11_295_680, { gasto: 1_000_000 })],
+  totais: { contratado: 25_389_389, aditivos: 0, atual: 25_389_389, saldo: 25_389_389 - 11_000_000 - sem.gasto, aditivos_pct: 0, n_itens: 3, n_etapas: 3, gasto: 11_000_000 + sem.gasto, sem_etapa: sem },
 });
 
 describe("andamento por etapa", () => {
@@ -25,8 +25,8 @@ describe("andamento por etapa", () => {
 
   it("linha Sem etapa só quando há gasto sem etapa, e vai para o topo do desvio", () => {
     expect(linhasAndamento(orc()).some((l) => l.semEtapa)).toBe(false);
-    const ls = linhasAndamento(orc({ cotando: 0, comprometido: 91_000, realizado: 0 })).sort(porDesvio);
-    expect(ls[0]).toMatchObject({ semEtapa: true, descricao: "Sem etapa", comprometido: 91_000, saldo: -91_000 });
+    const ls = linhasAndamento(orc({ gasto: 91_000 })).sort(porDesvio);
+    expect(ls[0]).toMatchObject({ semEtapa: true, descricao: "Sem etapa", gasto: 91_000, saldo: -91_000 });
   });
 
   it("CSV para o Excel com total", () => {

@@ -336,8 +336,7 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
         </>
       ) : undefined,
     },
-    // sem pedido, comprometido e realizado são o mesmo gasto confirmado: uma célula só
-    { rotulo: "Gasto", valor: t.realizado, grafico: <BarraConsumo orcado={t.atual} gasto={t.realizado} saldo={t.saldo} alta /> },
+    { rotulo: "Gasto", valor: t.gasto, grafico: <BarraConsumo orcado={t.atual} gasto={t.gasto} saldo={t.saldo} alta /> },
     {
       rotulo: "Falta gastar",
       valor: t.saldo,

@@ -255,7 +255,6 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         />
       ) : (
       <ul className="le" aria-label="Etapas do orçamento" ref={guardarLista}>
-        {/* sem pedido, comprometido e realizado são o mesmo número (o gasto confirmado): uma coluna só, "Gasto" */}
         <li className="le-cab" aria-hidden="true">
           <span>Etapa</span>
           <span className="num">Orçado atual</span>
@@ -265,8 +264,8 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
         {lista.map(({ linha: l, itens, achou }) => {
           const k = chave(l);
           const aberta = achou || abertas.has(k);
-          const semGasto = !l.comprometido && !l.cotando && !l.realizado;
-          const estouro = l.comprometido > l.atual;
+          const semGasto = !l.gasto;
+          const estouro = l.gasto > l.atual;
           return (
             <li key={k} className={`le-l${semGasto ? " sem-gasto" : ""}${estouro ? " estouro" : ""}${aberta ? " aberta" : ""}${podeOrdenar ? " ordenando" : ""}${podeOrdenar && doAviso?.etapa === l.etapa ? " movida" : ""}`}>
               <button type="button" className="le-linha" aria-expanded={aberta} aria-controls={`le-${k}`} onClick={() => alternar(k)}>
@@ -276,7 +275,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                   <span className="le-desc">{l.descricao}</span>
                   {semGasto ? null : (
                     <span className="le-consumo">
-                      <BarraConsumo orcado={l.atual} gasto={l.comprometido} saldo={l.saldo} frase={false} />
+                      <BarraConsumo orcado={l.atual} gasto={l.gasto} saldo={l.saldo} frase={false} />
                     </span>
                   )}
                 </span>
@@ -284,7 +283,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                 {semGasto ? null : (
                   <>
                     <span className="num le-comp">
-                      {fmtReais(l.comprometido)}
+                      {fmtReais(l.gasto)}
                       <small>{fmtPct(l.pct)}</small>
                     </span>
                     <span className={`num le-saldo${l.saldo < 0 ? " t-neg" : ""}`}>{fmtReais(l.saldo)}</span>
@@ -292,7 +291,7 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                 )}
                 {/* celular: nome + um valor; com gasto, "gasto de orçado · %" embaixo da barra */}
                 <span className="le-movel">
-                  {semGasto ? `${reaisInteiros(l.atual)} orçado` : `${reaisInteiros(l.comprometido)} de ${reaisInteiros(l.atual)} · ${fmtPct(l.pct)}`}
+                  {semGasto ? `${reaisInteiros(l.atual)} orçado` : `${reaisInteiros(l.gasto)} de ${reaisInteiros(l.atual)} · ${fmtPct(l.pct)}`}
                 </span>
               </button>
               {podeOrdenar && !l.semEtapa ? (
@@ -315,8 +314,8 @@ export function ListaEtapas({ obra, orc, nomeVersao }: { obra: Obra; orc: Orcame
                       <div>
                         <dt>Gasto</dt>
                         <dd>
-                          {fmtReais(l.comprometido)}
-                          {l.comprometido ? <small> · {fmtPct(l.pct)}</small> : null}
+                          {fmtReais(l.gasto)}
+                          {l.gasto ? <small> · {fmtPct(l.pct)}</small> : null}
                         </dd>
                       </div>
                       <div>
@@ -487,7 +486,7 @@ function Estimado({ l, centavos = false }: { l: LinhaAndamento; centavos?: boole
 }
 
 /**
- * Os itens da etapa debaixo do tópico deles, cada um com as contas que a API manda (orçado, comprometido, saldo). Sem
+ * Os itens da etapa debaixo do tópico deles, cada um com as contas que a API manda (orçado, gasto, saldo). Sem
  * tópico na etapa, ou na curva ABC (a ordem é a do dinheiro), a lista fica como veio. O título de grupo da planilha
  * (nível 2) sai: o tópico já diz o grupo. Item de tópico que a etapa não lista (versão antiga) vai para o fim.
  */
@@ -528,7 +527,7 @@ function TopicosDaEtapa({ topicos }: { topicos: TopicoOrcamento[] }) {
               <tr key={t.topico_id ?? "sem"}>
                 <td className="eap-d">{t.nome}</td>
                 <td className="num">{fmtReais(t.atual)}</td>
-                <td className="num">{fmtReais(t.comprometido)}</td>
+                <td className="num">{fmtReais(t.gasto)}</td>
                 <td className={`num${t.saldo < 0 ? " t-neg" : ""}`}>{fmtReais(t.saldo)}</td>
               </tr>
             ))}
@@ -595,8 +594,8 @@ function TabelaItens(props: {
         {lista.map(({ linha: l, itens, achou }) => {
           const k = l.semEtapa ? "_sem" : l.etapa;
           const aberta = achou || !fechada(k);
-          const semGasto = !l.comprometido && !l.cotando && !l.realizado;
-          const estouro = l.comprometido > l.atual;
+          const semGasto = !l.gasto;
+          const estouro = l.gasto > l.atual;
           return (
             <tbody key={k}>
               <tr className={`${s.etapa}${estouro ? ` ${s.estouro}` : ""}${movida && movida === l.etapa ? ` ${s.movida} movida` : ""}`}>
@@ -610,14 +609,14 @@ function TabelaItens(props: {
                 <td className={s.num} title={fmtReais(l.atual)}>
                   {l.atual ? reaisInteiros(l.atual) : <Estimado l={l} />}
                 </td>
-                <td className={`${s.num} ${s.comp}`} title={fmtReais(l.comprometido)}>
-                  {semGasto ? "—" : reaisInteiros(l.comprometido)}
+                <td className={`${s.num} ${s.comp}`} title={fmtReais(l.gasto)}>
+                  {semGasto ? "—" : reaisInteiros(l.gasto)}
                 </td>
                 <td className={`${s.num}${l.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(l.saldo)}>
                   {semGasto ? reaisInteiros(l.atual) : reaisInteiros(l.saldo)}
                 </td>
                 <td className={s.colConsumo}>
-                  <BarraConsumo orcado={l.atual} gasto={l.comprometido} saldo={l.saldo} />
+                  <BarraConsumo orcado={l.atual} gasto={l.gasto} saldo={l.saldo} />
                 </td>
                 {ordem ? <td className={s.ordem}>{l.semEtapa ? null : ordem(l)}</td> : null}
               </tr>
@@ -634,8 +633,8 @@ function TabelaItens(props: {
                             <td className={s.num} title={fmtReais(t.atual)}>
                               {t.atual ? reaisInteiros(t.atual) : "—"}
                             </td>
-                            <td className={`${s.num} ${s.comp}`} title={fmtReais(t.comprometido)}>
-                              {t.comprometido ? reaisInteiros(t.comprometido) : "—"}
+                            <td className={`${s.num} ${s.comp}`} title={fmtReais(t.gasto)}>
+                              {t.gasto ? reaisInteiros(t.gasto) : "—"}
                             </td>
                             <td className={`${s.num}${t.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(t.saldo)}>
                               {reaisInteiros(t.saldo)}
@@ -669,8 +668,8 @@ function TabelaItens(props: {
                             contas são as do tópico, que vêm prontas */}
                         {fundido ? (
                           <>
-                            <td className={`${s.num} ${s.comp}`} title={fmtReais(fundido.comprometido)}>
-                              {fundido.comprometido ? reaisInteiros(fundido.comprometido) : "—"}
+                            <td className={`${s.num} ${s.comp}`} title={fmtReais(fundido.gasto)}>
+                              {fundido.gasto ? reaisInteiros(fundido.gasto) : "—"}
                             </td>
                             <td className={`${s.num}${fundido.saldo < 0 ? " t-neg" : ""}`} title={fmtReais(fundido.saldo)}>
                               {reaisInteiros(fundido.saldo)}
@@ -734,7 +733,7 @@ function EtapasCelular(props: { obra: Obra; lista: EtapaDaLista[]; versoes: Mapa
       {lista.map(({ linha: l, itens, achou }) => {
         const k = l.semEtapa ? "_sem" : l.etapa;
         const aberto = achou || aberta(k);
-        const estouro = l.comprometido > l.atual;
+        const estouro = l.gasto > l.atual;
         const largura = l.pct === Infinity ? 100 : Math.min(100, Math.round(l.pct * 100));
         return (
           <li key={k}>

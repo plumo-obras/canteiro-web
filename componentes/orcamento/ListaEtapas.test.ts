@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Orcamento } from "@/lib/contrato";
 import { montarLista } from "./ListaEtapas";
 
-const z = { cotando: 0, comprometido: 0, realizado: 0 };
+const z = { gasto: 0 };
 const et = (etapa: string, descricao: string, atual: number, g: Partial<typeof z> = {}) => ({
   etapa, descricao, contratado: atual, aditivos: 0, atual, ...z, ...g,
   // saldo e estouro vêm prontos da API; aqui o dublê os preenche como ela faria
-  saldo: atual - (g.comprometido ?? 0), estourou: (g.comprometido ?? 0) > atual,
+  saldo: atual - (g.gasto ?? 0), estourou: (g.gasto ?? 0) > atual,
 });
 const item = (etapa: string, n: string, descricao: string, curva: "A" | "B" | "C", tipo: "item" | "etapa" = "item", nivel = 2) =>
   ({ id: `${etapa}-${n}`, obra_id: "o", versao_id: "v", ordem: 0, tipo, numero: n, nivel, etapa, codigo: "", fonte: "", descricao, unidade: "m³", quantidade: 1000, valor_unitario: 100, total: 100, linha: 1, curva }) as Orcamento["itens"][number];
@@ -19,8 +19,8 @@ const orc: Orcamento = {
     item("3", "3.1", "Concreto fck 25", "A"),
     item("3", "3.2", "Forma de madeira", "B"),
   ],
-  etapas: [et("1", "SERVIÇOS PRELIMINARES", 4_543_363), et("3", "FUNDAÇÕES", 9_550_346, { comprometido: 2_425_000, realizado: 2_334_000 })],
-  totais: { contratado: 14_093_709, aditivos: 0, atual: 14_093_709, saldo: 14_093_709 - 2_425_000, aditivos_pct: 0, n_itens: 3, n_etapas: 2, ...z, comprometido: 2_425_000, realizado: 2_334_000, sem_etapa: z },
+  etapas: [et("1", "SERVIÇOS PRELIMINARES", 4_543_363), et("3", "FUNDAÇÕES", 9_550_346, { gasto: 2_425_000 })],
+  totais: { contratado: 14_093_709, aditivos: 0, atual: 14_093_709, saldo: 14_093_709 - 2_425_000, aditivos_pct: 0, n_itens: 3, n_etapas: 2, gasto: 2_425_000, sem_etapa: z },
 };
 
 describe("Orçamento: lista única de etapas e itens", () => {
