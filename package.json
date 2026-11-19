@@ -14,7 +14,7 @@
     "lint": "eslint --max-warnings 0 .",
     "prepare": "if [ -e .git ]; then git config --local core.hooksPath .githooks; fi",
     "verify": "scripts/verify.sh",
-    "verify:pr": "pnpm verify && CANTEIRO_DEMO=1 pnpm build && scripts/check-imagem.sh"
+    "verify:pr": "scripts/verify-pr.sh"
   },
   "engines": {
     "node": ">=22"

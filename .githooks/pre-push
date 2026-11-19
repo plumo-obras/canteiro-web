@@ -10,5 +10,12 @@ while read -r ref sha destino anterior; do
 done
 if $verificar; then
   [[ -z $(git status --porcelain --untracked-files=normal) ]] || { echo "Verifique a árvore enviada em um checkout limpo."; exit 1; }
+  scripts/check-ambiente.sh
+  if scripts/recibo-local.sh tem rapido; then
+    echo "Árvore já verificada."
+    exit 0
+  fi
   pnpm verify
+  [[ $(git rev-parse 'HEAD^{tree}') == "$head_tree" ]]
+  scripts/recibo-local.sh grava rapido
 fi
