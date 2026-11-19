@@ -54,7 +54,7 @@ export interface Aviso {
 
 /**
  * As etiquetas do topo, uma por tipo, somando todas as obras: o que espera alguém. Só aprovações e comprovantes (NFs) a
- * conferir: compra e entrega já estão no cartão da obra, e aqui viraria lista de tarefas.
+ * conferir: o resto já está no cartão da obra, e aqui viraria lista de tarefas.
  */
 export function avisosDe(resumos: ResumoObra[]): Aviso[] {
   const avisos: Aviso[] = [];

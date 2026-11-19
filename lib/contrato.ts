@@ -108,8 +108,6 @@ export interface Mapeamento {
   quantidade: number | null;
   valor_unitario: number | null;
   valor_total: number | null;
-  saldo: number | null;
-  curva: number | null;
   /** Só no orçamento: medida, marca ou detalhe da linha ("0,60 x 2,10"). Ausente na API antiga. */
   complemento?: number | null;
 }
@@ -125,33 +123,6 @@ export interface LeituraPlanilha {
   data_base?: string | null;
   /** Banco de preços dito no topo da planilha ("SINAPI não desonerado"); só para mostrar. */
   banco?: string | null;
-}
-
-export interface LinhaOrcamento {
-  linhas: number[];
-  nome: string;
-  unidade: string;
-  quantidade: Milesimos;
-  valor_unitario: Centavos;
-  total: Centavos;
-  curva: CurvaABC;
-  saldo: Milesimos;
-  situacao: "novo" | "atualiza";
-  precisa_antes: Milesimos | null;
-  valor_antes: Centavos | null;
-}
-
-export interface PreviaOrcamento {
-  aplicado: boolean;
-  linhas: LinhaOrcamento[];
-  ignoradas: { linha: number; texto: string; motivo: string }[];
-  erros: { linha: number; campo: string | null; mensagem: string }[];
-  total: Centavos;
-  novos: number;
-  atualizados: number;
-  juntadas: number;
-  /** Só depois de aplicada: uma entrada do registro por lote (é o que o Desfazer usa). */
-  registro_ids?: string[];
 }
 
 /** Um material do projeto estrutural levado para a obra (POST /obras/{id}/orcamento/materiais). */
