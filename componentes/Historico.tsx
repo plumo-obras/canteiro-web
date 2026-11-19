@@ -125,7 +125,7 @@ export function Historico({ obra }: { obra: Obra }) {
         <div className="card vazio">
           <Icone nome="history" tam={24} />
           <h3>Nada registrado ainda</h3>
-          <p>Cada aprovação, pedido e lançamento no almoxarifado aparece aqui, com quem fez e o botão de desfazer.</p>
+          <p>Cada aprovação, gasto e mudança no orçamento aparece aqui, com quem fez e o botão de desfazer.</p>
         </div>
       ) : (
         dias.map(([dia, rs]) => (

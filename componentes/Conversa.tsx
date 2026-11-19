@@ -1,7 +1,7 @@
 "use client";
 /**
  * A conversa com o Plumo (no painel ao lado da tela): histórico, campo e o streaming do POST /conversa. Cada evento SSE vira estado na hora: `ferramenta`
- * vira o chip "usou almoxarifado…", `texto` cresce o balão, `proposta` vira o cartão de decisão (que só a pessoa aprova).
+ * vira o chip "consultou o orçamento…", `texto` cresce o balão, `proposta` vira o cartão de decisão (que só a pessoa aprova).
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from "react";
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
