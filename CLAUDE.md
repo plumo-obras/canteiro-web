@@ -49,5 +49,3 @@ Use o Node de `.node-version` e instale com `pnpm install --frozen-lockfile`. A 
 Abra como rascunho. Rode `pnpm verify:pr` e, com a árvore final commitada, marque pronto. O CI pula verificações conforme o plano e o agregador. Consulte [docs/CI.md](docs/CI.md) antes de alterar a matriz.
 
 As regras compartilhadas estão em [AGENTS.md](AGENTS.md).
-
-As instruções compartilhadas para agentes estão em [AGENTS.md](AGENTS.md).

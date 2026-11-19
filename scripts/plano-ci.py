@@ -72,9 +72,10 @@ def main():
     arquivos = []
     if pr:
         sha = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())["pull_request"]["base"]["sha"]
-        base = git("rev-parse", f"{sha}^{{tree}}").decode().strip()
+        merge_base = git("merge-base", sha, "HEAD").decode().strip()
+        base = git("rev-parse", f"{merge_base}^{{tree}}").decode().strip()
         candidatas.add(base)
-        arquivos = git("diff", "--no-renames", "--name-only", "-z", sha, "HEAD").decode(
+        arquivos = git("diff", "--no-renames", "--name-only", "-z", merge_base, "HEAD").decode(
             errors="surrogateescape").split("\0")[:-1]
     verdes = recibos(candidatas)
     web, imagem, leve, emitir, motivo = planejar(pr, arquivos, arvore in verdes, base in verdes)
