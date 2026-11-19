@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Plumo · tu obra a plomo</title>
-<meta name="description" content="Inventario, pedidos, facturas y cronograma de todas tus obras en un solo lugar, con un agente que lo revisa todo de madrugada, prevé faltantes, cotiza y espera tu OK. Únete a la lista de espera.">
+<meta name="description" content="Presupuesto, gastos y cronograma de todas tus obras en un solo lugar, con un agente que lee los comprobantes, revisa todo de madrugada y espera tu OK. Únete a la lista de espera.">
 <meta name="theme-color" content="#0f1a2e">
 <meta property="og:title" content="Plumo · tu obra a plomo">
 <meta property="og:description" content="Mientras la obra duerme, Plumo revisa. Únete a la lista de espera.">
@@ -58,7 +58,7 @@
     <div class="hero-in">
     <div class="hero-txt">
       <h1 id="h-hero">Mientras la obra duerme, Plumo&nbsp;<span class="troca" id="troca" aria-live="off">revisa</span>.</h1>
-      <p class="lead">Inventario, pedidos, facturas y cronograma de todas tus obras en un solo lugar, con un asesor que no deja pasar nada. Prevé el faltante antes de que la cuadrilla se detenga, detecta la compra duplicada y el material que desaparece, y espera tu OK en la mañana.</p>
+      <p class="lead">Presupuesto, gastos y cronograma de todas tus obras en un solo lugar, con un consultor que no deja pasar nada. Lee cada comprobante, te dice cuánto lleva gastado cada etapa y cuánto falta, avisa lo que se pasó del presupuesto y espera tu OK en la mañana.</p>
       <form class="inscricao" data-form="rapida" novalidate>
         <label class="sr-only" for="email-hero">Tu correo de trabajo</label>
         <input id="email-hero" name="email" type="email" inputmode="email" autocomplete="email" placeholder="tu@constructora.com" required>
@@ -72,13 +72,13 @@
       <aside class="bilhete" aria-label="Ejemplo de lo que el agente escribe de madrugada">
         <div class="bilhete-topo"><span class="clima" aria-hidden="true"></span>Residencial Aroeira<span class="sp"></span><span class="hora">23:40</span></div>
         <ol class="linhas" id="linhas-hero">
-          <li>Cemento Portland 50 kg, frente de la losa del 3.er piso</li>
-          <li class="conta"><span>necesita 120</span><span>− en bodega 38</span><span>− en camino 40</span><b>= faltan 42 sacos</b></li>
-          <li>Se acaba el jueves a las 14 h. El colado es el viernes: sin esto, la cuadrilla se detiene.</li>
-          <li class="acao">Coticé con 3 proveedores. El mejor entrega el miércoles, a $38.90 el saco.</li>
+          <li>Cimentación, Residencial Aroeira</li>
+          <li class="conta"><span>presupuesto 85,000</span><span>− gastado 79,400</span><span>− pago de hoy 6,800</span><b>= se pasó 1,200</b></li>
+          <li>Con el pago de hoy, la cimentación se pasa del presupuesto, y la medición dice que aún falta el 30% de la etapa.</li>
+          <li class="acao">Leí el comprobante: $6,800.00 a Concreto Forte, RFC verificado. Sugerí la etapa Cimentación.</li>
           <li class="espera">Espero tu OK en la mañana.</li>
         </ol>
-        <p class="fonte">fuente: bodega 23:12 · pedido PED-0162 · cronograma</p>
+        <p class="fonte">fuente: comprobante 23:12 · presupuesto · medición de octubre</p>
       </aside>
     </div>
     <p class="ficticio">Ejemplo ilustrativo, con obras y cifras ficticias.</p>
@@ -92,10 +92,10 @@
         <p class="sec-lead">Hoy la obra vive repartida entre hojas de cálculo, grupos de WhatsApp y la cabeza de alguien, y es por esas grietas que se escapa el dinero. Plumo lo junta todo y lo revisa cada noche, mostrando de dónde salió cada número.</p>
       </div>
       <ol class="eixo" id="eixo">
-        <li><span class="rot">02:10</span><h3>Ve el faltante</h3><p>Cruza lo que necesita cada frente de trabajo con lo que hay en bodega y lo que ya viene en camino, antes de que la cuadrilla se quede parada.</p></li>
-        <li><span class="rot">02:14</span><h3>Busca antes de comprar</h3><p>Si otra obra tiene sobrante del mismo insumo, primero va el traspaso. Comprar es la última opción.</p></li>
-        <li><span class="rot">02:31</span><h3>Cotiza y compara</h3><p>Pide precio a tus proveedores, lo compara con la última compra y con los precios de referencia, y separa la mejor propuesta.</p></li>
-        <li><span class="rot">02:32</span><h3>Se detiene y te espera</h3><p>Nada se compra, se paga ni se reprograma sin el OK de una persona. Y todo lo aprobado se puede deshacer.</p></li>
+        <li><span class="rot">02:10</span><h3>Lee lo que se pagó</h3><p>Toma el comprobante que llegó en el día (transferencia, factura, recibo), lee monto, fecha y quién recibió, y sugiere la etapa.</p></li>
+        <li><span class="rot">02:14</span><h3>Lo pone en la etapa correcta</h3><p>Suma cada gasto en la etapa de tu presupuesto, como tu hoja de cálculo ya divide la obra.</p></li>
+        <li><span class="rot">02:31</span><h3>Compara con el presupuesto y el plazo</h3><p>Cruza el gasto con el presupuesto y con la medición: la etapa que se pasó o se atrasó en el cronograma aparece primero.</p></li>
+        <li><span class="rot">02:32</span><h3>Se detiene y te espera</h3><p>Nada se registra, aprueba ni reprograma sin el OK de una persona. Y todo lo aprobado se puede deshacer.</p></li>
       </ol>
     </div>
   </section>
@@ -105,57 +105,30 @@
     <div class="sec-in">
       <div class="cabeca centro-txt">
         <h2 id="h-tras">Por dentro, el agente une todo lo que la obra ya tiene.</h2>
-        <p class="sec-lead">Bodega, pedidos, facturas, cronograma, cotizaciones: lo que hoy está en cinco lugares queda en uno solo. El agente cruza la información, busca precios en internet, le pide la cuenta a las reglas y te entrega una propuesta lista. Cada hilo es una consulta real.</p>
+        <p class="sec-lead">Presupuesto, comprobantes, mediciones, cronograma, impuestos: lo que hoy está en cinco lugares se vuelve uno solo. El agente cruza la información, le pide la cuenta a las reglas y te entrega una propuesta lista. Cada hilo es una consulta real.</p>
       </div>
       <div class="palco" id="palco" aria-label="Ejemplo animado: el agente consulta las fuentes de la obra para armar una propuesta">
         <svg class="fios" id="fios" aria-hidden="true"></svg>
         <div class="lado">
-          <div class="peca" data-peca="almox"><b>Bodega de obra</b><span>existencias por frente de trabajo</span><em>Portland · 38 sacos</em></div>
-          <div class="peca" data-peca="pedidos"><b>Pedidos y facturas</b><span>lo que ya viene en camino</span><em>PED-0162 · 40 sacos</em></div>
-          <div class="peca" data-peca="obras"><b>Otras obras</b><span>sobrante que se puede traspasar</span><em>Ipê y Jatobá · sin cemento</em></div>
+          <div class="peca" data-peca="almox"><b>Comprobantes</b><span>lo que se pagó, leído de la foto</span><em>pago · $6,800</em></div>
+          <div class="peca" data-peca="pedidos"><b>Presupuesto</b><span>tu hoja de cálculo, por etapa</span><em>Cimentación · $85,000</em></div>
+          <div class="peca" data-peca="obras"><b>Mediciones</b><span>cuánto de cada etapa ya se hizo</span><em>Cimentación · 70%</em></div>
         </div>
         <div class="centro">
-          <div class="peca" data-peca="regras"><b>Reglas de Plumo</b><span>la cuenta la hace el sistema, no la IA</span><em>120 − 38 − 40 = 42</em></div>
+          <div class="peca" data-peca="regras"><b>Reglas de Plumo</b><span>la cuenta la hace el sistema, no la IA</span><em>79,400 + 6,800 − 85,000 = 1,200</em></div>
           <div class="agente">
             <div class="agente-topo"><span class="avatar" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/><path d="M23 32h18L32 61z" fill="currentColor"/></svg></span><div><b>Agente Plumo</b><span id="agente-estado">trabajando · Residencial Aroeira</span></div></div>
             <ol class="log" id="log" aria-live="off"></ol>
           </div>
-          <div class="peca" data-peca="proposta"><b>Propuesta para ti</b><span>nada se compra sin tu OK</span><em>42 sacos · $1,633.80</em></div>
+          <div class="peca" data-peca="proposta"><b>Propuesta para ti</b><span>nada se registra sin tu OK</span><em>gasto en Cimentación</em></div>
         </div>
         <div class="lado">
-          <div class="peca" data-peca="web"><b>Internet · proveedores</b><span>precio y plazo en tu zona</span><em>3 cotizaciones</em></div>
-          <div class="peca" data-peca="sinapi"><b>Precios de referencia</b><span>costo de mercado del insumo</span><em>$39.40 el saco</em></div>
-          <div class="peca" data-peca="crono"><b>Cronograma</b><span>cuándo lo necesita cada frente</span><em>losa del 3.er piso · viernes</em></div>
+          <div class="peca" data-peca="web"><b>Impuestos de la obra</b><span>estimados por obra</span><em>factura con los datos de la obra</em></div>
+          <div class="peca" data-peca="sinapi"><b>Precios de referencia</b><span>precio de referencia del presupuesto</span><em>concreto dentro del rango</em></div>
+          <div class="peca" data-peca="crono"><b>Cronograma</b><span>cuándo ocurre cada etapa</span><em>Cimentación · hasta noviembre</em></div>
         </div>
       </div>
-      <p class="ficticio-sec">Ejemplo ilustrativo, con obras, precios y proveedores ficticios.</p>
-    </div>
-  </section>
-
-  <!-- ================= entre obras: a foto do estoque com a tela por cima, o texto ao lado ================= -->
-  <section class="faixa" id="between-sites" aria-labelledby="h-costura">
-    <div class="faixa-foto">
-      <img src="/img/obra-estoque-1600.jpg" srcset="/img/obra-estoque-960.jpg 960w, /img/obra-estoque-1600.jpg 1600w" sizes="(max-width: 980px) 100vw, 50vw" alt="" width="1600" height="1067" loading="lazy">
-      <figure class="janela estoque" id="estoque" aria-label="Ejemplo: traspaso de varilla entre dos obras">
-        <div class="janela-topo"><span class="pontos" aria-hidden="true"><i></i><i></i><i></i></span><b>Inventario entre obras</b><span class="alerta">1 cruce posible</span></div>
-        <table>
-          <thead><tr><th scope="col">Material</th><th scope="col">Galpão Ipê</th><th scope="col">Casa Jatobá</th></tr></thead>
-          <tbody>
-            <tr class="cruza"><th scope="row">Varilla 10 mm</th><td><span class="cel sobra" data-depois="envia">sobran 12</span></td><td><span class="cel falta" data-depois="recebe">faltan 12</span></td></tr>
-            <tr><th scope="row">Cemento Portland 50 kg</th><td>0</td><td>0</td></tr>
-            <tr><th scope="row">Block 14×19×39</th><td>340 pzas</td><td>1,200 pzas</td></tr>
-            <tr><th scope="row">Arena media</th><td>4 m³</td><td>6 m³</td></tr>
-          </tbody>
-        </table>
-        <figcaption class="proposta" id="proposta-costura" hidden>
-          <b>Traspasar 12 varillas de acero de 10 mm</b><span>Galpão Ipê → Casa Jatobá · evita una compra de $1,140</span><span class="rot">TRF-0005 · esperando aprobación</span>
-        </figcaption>
-      </figure>
-    </div>
-    <div class="faixa-txt">
-      <h2 id="h-costura">El sobrante de una obra es el faltante de otra.</h2>
-      <p class="sec-lead">Varilla, cemento y block olvidados en una esquina de una obra se vuelven compra duplicada en la otra: dinero parado que nadie ve, porque nadie mira las dos al mismo tiempo. Plumo las mira y arma el traspaso.</p>
-      <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false" aria-controls="estoque">Cruzar las dos obras</button>
+      <p class="ficticio-sec">Ejemplo ilustrativo, con obras, montos y proveedores ficticios.</p>
     </div>
   </section>
 
@@ -166,17 +139,17 @@
       <div class="fone" aria-label="Ejemplo de conversación por WhatsApp entre el maestro de obra y Plumo">
         <div class="fone-topo"><span class="avatar" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 4v22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="25.5" y="24" width="13" height="6" rx="1.4" fill="currentColor"/><path d="M23 32h18L32 61z" fill="currentColor"/></svg></span><div><b>Plumo</b><span>Residencial Aroeira</span></div></div>
         <ol class="msgs" id="msgs">
-          <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">Audio:</span> "Llegó el cemento. Creo que vinieron sacos de menos." <time>06:41</time></li>
-          <li class="msg ele foto"><span class="nf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Foto de la factura <time>06:41</time></li>
-          <li class="msg eu">Revisé la factura 4512 partida por partida contra el pedido PED-0162: llegaron <b>35 de 40 sacos</b>. Registré 35 en bodega. <time>06:42</time></li>
-          <li class="msg eu">¿Abro un reclamo con el proveedor y retengo <b>$194.50</b> del pago hasta que lleguen los 5? <time>06:42</time><span class="opcoes"><span>Sí, ábrelo</span><span>Luego lo veo</span></span></li>
+          <li class="msg ele"><span class="audio" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="sr-only">Audio:</span> "Acabo de pagar el concreto de la zapata." <time>06:41</time></li>
+          <li class="msg ele foto"><span class="nf" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Foto del comprobante <time>06:41</time></li>
+          <li class="msg eu">Leí el comprobante: <b>$6,800.00</b> a Concreto Forte, hoy. Con él, la cimentación se pasa <b>$1,200</b> del presupuesto. <time>06:42</time></li>
+          <li class="msg eu">¿Lo registro en Cimentación, en la zapata? <time>06:42</time><span class="opcoes"><span>Sí, regístralo</span><span>Otra etapa</span></span></li>
         </ol>
       </div>
     </div>
     <div class="faixa-txt">
-      <h2 id="h-canteiro">El maestro de obra no abre sistemas. Manda audios.</h2>
-      <p class="sec-lead">La obra habla con Plumo por el WhatsApp que ya usa: audio, foto de la factura, foto de la pila de material. El agente lo convierte en registro, lo compara con el pedido y solo pregunta lo necesario.</p>
-      <p class="sec-lead">Nadie llena formularios con las manos llenas de mezcla, y la entrega incompleta se detecta el mismo día, no al cierre del mes.</p>
+      <h2 id="h-canteiro">La obra no abre sistemas. Manda la foto.</h2>
+      <p class="sec-lead">La obra habla con Plumo por el canal que ya usa: la foto de la transferencia, la factura o el recibo. El agente lee, sugiere la etapa y solo pregunta lo necesario.</p>
+      <p class="sec-lead">Nadie llena formularios con las manos llenas de mezcla, y el gasto entra el mismo día, no en el cierre del mes.</p>
     </div>
   </section>
 
@@ -185,28 +158,28 @@
     <div class="sec-in">
       <div class="cabeca">
         <h2 id="h-manha">En la mañana, la decisión ya viene lista.</h2>
-        <p class="sec-lead">Abres Plumo en el auto o en la oficina y ves solo lo que te necesita, en orden de plazo. Apruebas con un toque y ves al momento lo que dejaste de perder. Todo queda registrado con quién, cuándo y por qué.</p>
+        <p class="sec-lead">Abres Plumo en el coche o en la oficina y ves solo lo que te toca, en orden de plazo. Decides con un toque y ves al instante lo que dejó de escaparse. Todo queda en el registro con quién, cuándo y por qué.</p>
       </div>
       <div class="janela briefing" aria-label="Ejemplo interactivo del resumen de la mañana">
         <div class="janela-topo"><span class="pontos" aria-hidden="true"><i></i><i></i><i></i></span><b>Buenos días · 07:00 · 3 decisiones</b><span class="rot">3 obras · datos ficticios</span></div>
         <ul id="decisoes">
           <li class="decisao" data-protege="0" data-equipe="1">
-            <span class="prazo urg">jueves</span>
-            <div class="dec-txt"><b>Comprar 42 sacos de cemento Portland</b><span>Residencial Aroeira · necesita 120 − en bodega 38 − en camino 40 = faltan 42</span></div>
-            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Aprobar $1,633.80</button>
+            <span class="prazo urg">hoy</span>
+            <div class="dec-txt"><b>Aprobar el cronograma propuesto</b><span>Casa Jatobá · 6 etapas en 8 meses, armado con el presupuesto</span></div>
+            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Aprobar cronograma</button>
           </li>
           <li class="decisao" data-protege="1140">
-            <span class="prazo">viernes</span>
-            <div class="dec-txt"><b>Traspasar 12 varillas de 10 mm</b><span>Galpão Ipê → Casa Jatobá · evita una compra de $1,140</span></div>
-            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Aprobar traspaso</button>
+            <span class="prazo">hoy</span>
+            <div class="dec-txt"><b>Descartar comprobante repetido</b><span>Galpão Ipê · el mismo pago de $1,140 llegó dos veces</span></div>
+            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Descartar repetido</button>
           </li>
           <li class="decisao" data-protege="194.5">
-            <span class="prazo">hoy</span>
-            <div class="dec-txt"><b>Retener $194.50 al proveedor</b><span>Factura 4512 · llegaron 35 de 40 sacos · reclamo abierto</span></div>
-            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Retener pago</button>
+            <span class="prazo">viernes</span>
+            <div class="dec-txt"><b>Pedir de nuevo la factura con los datos de la obra</b><span>Residencial Aroeira · sin ellos, $194.50 de impuestos no se pueden descontar</span></div>
+            <button class="btn btn-tinta btn-p" type="button" data-acao="aprovar">Marcar para pedir</button>
           </li>
         </ul>
-        <div class="protegido" id="protegido" aria-live="polite"><span class="protegido-rot">Esta mañana</span><span id="protegido-txt">aprueba para ver lo que deja de escaparse</span></div>
+        <div class="protegido" id="protegido" aria-live="polite"><span class="protegido-rot">Esta mañana</span><span id="protegido-txt">decide para ver lo que deja de escaparse</span></div>
       </div>
     </div>
   </section>
@@ -215,23 +188,23 @@
   <section class="sec ciclo-sec" aria-labelledby="h-ciclo">
     <div class="sec-in">
       <div class="cabeca">
-        <h2 id="h-ciclo">Del faltante al sobrante, sin soltar nada en el camino.</h2>
-        <p class="sec-lead">Es en el camino entre la compra y la obra donde se escapa el dinero: entregas incompletas pagadas completas, compras duplicadas, sobrantes olvidados, material que desaparece. Plumo sigue cada material desde la previsión hasta el sobrante, sin soltarlo a la mitad.</p>
+        <h2 id="h-ciclo">Del presupuesto al último pago, sin soltar a la mitad.</h2>
+        <p class="sec-lead">Entre el presupuesto y el último pago es donde se escapa el dinero: gasto registrado dos veces, etapa que se pasa sin que nadie lo vea, factura sin los datos de la obra, pago adelantado a lo ejecutado. Plumo acompaña cada peso del presupuesto hasta el cierre, y no suelta a la mitad.</p>
       </div>
       <ol class="ciclo" id="ciclo">
-        <li><span class="rot">01</span><b>Faltante previsto</b><span>antes de parar la cuadrilla</span></li>
-        <li><span class="rot">02</span><b>Cotización</b><span>con tus proveedores</span></li>
-        <li><span class="rot">03</span><b>Pedido</b><span>aprobado por ti</span></li>
-        <li><span class="rot">04</span><b>Entrega</b><span>avisada desde la obra</span></li>
-        <li><span class="rot">05</span><b>Factura revisada</b><span>partida por partida</span></li>
-        <li><span class="rot">06</span><b>Inventario por frente</b><span>losa, muros, eléctrico</span></li>
-        <li><span class="rot">07</span><b>Sobrante</b><span>pasa a otra obra</span></li>
+        <li><span class="rot">01</span><b>Presupuesto</b><span>tu hoja, como viene</span></li>
+        <li><span class="rot">02</span><b>Aprobación</b><span>el presupuesto pasa a valer</span></li>
+        <li><span class="rot">03</span><b>Cronograma</b><span>propuesto y aprobado por ti</span></li>
+        <li><span class="rot">04</span><b>Comprobante</b><span>la foto de lo que se pagó</span></li>
+        <li><span class="rot">05</span><b>Gasto en la etapa</b><span>revisado por una persona</span></li>
+        <li><span class="rot">06</span><b>Medición</b><span>lo que ya se hizo</span></li>
+        <li><span class="rot">07</span><b>Flujo de pagos</b><span>cuánto falta salir, y cuándo</span></li>
       </ol>
       <ul class="promessas">
-        <li><h3>Todo en un solo lugar.</h3><p>Inventario, compras, facturas, cronograma y la obra misma, de todos tus proyectos, con un asesor que lo revisa todo cada noche.</p></li>
-        <li><h3>El agente solo propone.</h3><p>Comprar, pagar y reprogramar dependen del OK de una persona de tu equipo.</p></li>
+        <li><h3>Todo en un solo lugar.</h3><p>Presupuesto, gastos, cronograma e impuestos de todas las obras, con un consultor que revisa todo cada noche.</p></li>
+        <li><h3>El agente solo propone.</h3><p>Registrar, aprobar y reprogramar dependen del OK de una persona de tu equipo.</p></li>
         <li><h3>Todo se puede deshacer.</h3><p>Cada aprobación queda registrada con quién, cuándo y la cuenta que la justificó.</p></li>
-        <li><h3>La cuenta la hace el sistema, no la IA.</h3><p>Existencias y faltantes se calculan con reglas; el agente solo cita el resultado.</p></li>
+        <li><h3>La cuenta la hace el sistema, no la IA.</h3><p>Gasto, saldo y atraso se calculan con reglas; el agente solo cita el resultado.</p></li>
       </ul>
     </div>
   </section>
@@ -242,11 +215,11 @@
     <div class="sec-in dois">
       <div>
         <h2 id="h-lista">Pon tu obra a plomo.</h2>
-        <p class="sec-lead">¿Cuánto cuesta un día de cuadrilla parada esperando cemento? ¿Y la factura que llegó incompleta y se pagó completa? Estamos abriendo poco a poco, para constructoras pequeñas y medianas y para quien lleva su propia obra. Cuéntanos un poco de ti y te avisamos cuando sea tu turno.</p>
+        <p class="sec-lead">¿Cuánto lleva gastado cada etapa de tu obra, ahora mismo? ¿Y cuánto falta? Estamos abriendo poco a poco, para constructoras pequeñas y medianas y para quien lleva su propia obra. Cuéntanos un poco de ti y te avisamos cuando sea tu turno.</p>
         <div class="faqs">
           <details class="faq"><summary>¿Cuánto va a costar?</summary><p>Todavía no definimos el precio. Quien esté en la lista se entera primero y entra con condiciones de fundador.</p></details>
           <details class="faq"><summary>¿Tengo que cambiar mi hoja de cálculo o mi ERP?</summary><p>No. La idea es empezar junto a lo que ya usas y traer los datos poco a poco.</p></details>
-          <details class="faq"><summary>¿El agente compra solo?</summary><p>Nunca. Prepara la cotización, el pedido o el traspaso y espera a que alguien de tu equipo lo apruebe.</p></details>
+          <details class="faq"><summary>¿El agente registra o paga solo?</summary><p>Nunca. Lee el comprobante, propone la etapa o el cronograma y espera que alguien de tu equipo apruebe. Plumo no hace compras ni pagos.</p></details>
           <details class="faq"><summary>¿Tengo que pagar la IA aparte?</summary><p>Tú eliges: usas tu propia clave de Anthropic o los créditos de la plataforma, con el consumo mostrado por obra.</p></details>
           <details class="faq"><summary>¿Qué hacen con mi correo?</summary><p>Solo lo usamos para avisarte sobre Plumo. No lo compartimos con terceros y puedes salir de la lista cuando quieras.</p></details>
         </div>
@@ -283,7 +256,7 @@
   </div>
 </footer>
 
-<script id="textos" type="application/json">{"locale": "es-MX", "moeda": "MXN", "palavras": ["revisa", "prevé", "cotiza", "propone", "avisa"], "roteiro": [["almox", "Leyendo la bodega de Aroeira", "cemento Portland 50 kg: <b>38 sacos en bodega<\/b>"], ["pedidos", "Revisando pedidos y facturas abiertos", "PED-0162: <b>40 sacos en camino<\/b>, entrega el martes"], ["crono", "Mirando el cronograma", "colado de la losa del 3.er piso el viernes: <b>necesita 120 sacos<\/b>"], ["regras", "Pidiendo la cuenta a las reglas", "120 − 38 − 40 = <b>faltan 42 sacos<\/b>"], ["obras", "Buscando sobrantes en otras obras", "Ipê y Jatobá: <b>sin cemento de sobra<\/b>"], ["web", "Buscando proveedores en internet", "<b>3 cotizaciones<\/b>: $38.90 · $40.20 · $41.50"], ["sinapi", "Comparando con precios de referencia", "referencia $39.40: <b>el mejor precio está por debajo<\/b>"], ["proposta", "Propuesta lista: 42 sacos por $1,633.80", "entrega el miércoles · <b>esperando tu OK<\/b>"]], "estado_trab": "trabajando · Residencial Aroeira", "estado_pronto": "propuesta lista · esperándote", "aprovado": "Aprobado a las {h} por ti", "desfazer": "Deshacer", "costurar": "Cruzar las dos obras", "descosturar": "Deshacer", "prot_vazio": "aprueba para ver lo que deja de escaparse", "prot_valor": "{v} que dejaron de escaparse", "prot_equipe": "la cuadrilla de la losa no se detiene", "email_invalido": "Revisa el correo: falta la @ o el dominio.", "acordando": "Despertando el servidor, un momento…", "ok_novo": "Listo, ya estás en la lista. Te avisamos por correo.", "ok_ja": "Ya estabas en la lista. Te avisamos cuando sea tu turno.", "erro_429": "Demasiados intentos desde esta red. Espera unos minutos y vuelve a intentar.", "erro_422": "Algún campo no es válido. Revisa el correo y el número de obras.", "erro_rede": "No pudimos conectar con el servidor. Vuelve a intentar en un momento.", "est_envia": "envía 12", "est_recebe": "recibe 12"}</script>
+<script id="textos" type="application/json">{"locale": "es-MX", "moeda": "MXN", "palavras": ["revisa", "lee", "suma", "propone", "avisa"], "roteiro": [["almox", "Leyendo el comprobante de hoy", "pago: <b>$6,800.00<\/b> · Concreto Forte"], ["pedidos", "Abriendo el presupuesto de Aroeira", "Cimentación: <b>presupuesto $85,000<\/b>"], ["crono", "Revisando el cronograma", "la cimentación va <b>hasta noviembre<\/b>"], ["regras", "Pidiendo la cuenta a las reglas", "79,400 + 6,800 = <b>86,200 de 85,000<\/b>"], ["obras", "Revisando la medición", "Cimentación: <b>70% hecho<\/b>"], ["web", "Revisando los impuestos de la obra", "factura de servicio <b>con los datos de la obra<\/b>"], ["sinapi", "Comparando con la referencia", "concreto <b>dentro de la referencia<\/b>"], ["proposta", "Propuesta lista: gasto en Cimentación", "se pasa $1,200 del presupuesto · <b>esperando tu OK<\/b>"]], "estado_trab": "trabajando · Residencial Aroeira", "estado_pronto": "propuesta lista · esperándote", "aprovado": "Aprobado a las {h} por ti", "desfazer": "Deshacer", "prot_vazio": "decide para ver lo que deja de escaparse", "prot_valor": "{v} que dejaron de escaparse", "prot_equipe": "el cronograma de Jatobá empieza a valer", "email_invalido": "Revisa el correo: falta la @ o el dominio.", "acordando": "Despertando el servidor, un momento…", "ok_novo": "Listo, ya estás en la lista. Te avisamos por correo.", "ok_ja": "Ya estabas en la lista. Te avisamos cuando sea tu turno.", "erro_429": "Demasiados intentos desde esta red. Espera unos minutos y vuelve a intentar.", "erro_422": "Algún campo no es válido. Revisa el correo y el número de obras.", "erro_rede": "No pudimos conectar con el servidor. Vuelve a intentar en un momento."}</script>
 <script src="/app.js" defer></script>
 </body>
 </html>

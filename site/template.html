@@ -115,7 +115,7 @@
           <div class="peca" data-peca="obras"><b>{{p_obras}}</b><span>{{p_obras_s}}</span><em>{{p_obras_e}}</em></div>
         </div>
         <div class="centro">
-          <div class="peca" data-peca="regras"><b>{{p_regras}}</b><span>{{p_regras_s}}</span><em>120 − 38 − 40 = 42</em></div>
+          <div class="peca" data-peca="regras"><b>{{p_regras}}</b><span>{{p_regras_s}}</span><em>{{p_regras_e}}</em></div>
           <div class="agente">
             <div class="agente-topo">{{logo_pq}}<div><b>{{agente_nome}}</b><span id="agente-estado">{{estado_trab}}</span></div></div>
             <ol class="log" id="log" aria-live="off"></ol>
@@ -129,33 +129,6 @@
         </div>
       </div>
       <p class="ficticio-sec">{{ficticio_tras}}</p>
-    </div>
-  </section>
-
-  <!-- ================= entre obras: a foto do estoque com a tela por cima, o texto ao lado ================= -->
-  <section class="faixa" id="between-sites" aria-labelledby="h-costura">
-    <div class="faixa-foto">
-      <img src="/img/obra-estoque-1600.jpg" srcset="/img/obra-estoque-960.jpg 960w, /img/obra-estoque-1600.jpg 1600w" sizes="(max-width: 980px) 100vw, 50vw" alt="" width="1600" height="1067" loading="lazy">
-      <figure class="janela estoque" id="estoque" aria-label="{{cost_aria}}">
-        <div class="janela-topo"><span class="pontos" aria-hidden="true"><i></i><i></i><i></i></span><b>{{est_janela}}</b><span class="alerta">{{est_alerta}}</span></div>
-        <table>
-          <thead><tr><th scope="col">{{est_mat}}</th><th scope="col">Galpão Ipê</th><th scope="col">Casa Jatobá</th></tr></thead>
-          <tbody>
-            <tr class="cruza"><th scope="row">{{est_aco}}</th><td><span class="cel sobra" data-depois="envia">{{c_sobra}}</span></td><td><span class="cel falta" data-depois="recebe">{{c_falta}}</span></td></tr>
-            <tr><th scope="row">{{est_cim}}</th><td>0</td><td>0</td></tr>
-            <tr><th scope="row">{{est_bloco}}</th><td>{{est_bl_i}}</td><td>{{est_bl_j}}</td></tr>
-            <tr><th scope="row">{{est_areia}}</th><td>{{est_ar_i}}</td><td>{{est_ar_j}}</td></tr>
-          </tbody>
-        </table>
-        <figcaption class="proposta" id="proposta-costura" hidden>
-          <b>{{c_prop_b}}</b><span>{{c_prop_s}}</span><span class="rot">{{c_prop_m}}</span>
-        </figcaption>
-      </figure>
-    </div>
-    <div class="faixa-txt">
-      <h2 id="h-costura">{{cost_h2}}</h2>
-      <p class="sec-lead">{{cost_lead}}</p>
-      <button class="btn btn-linha" type="button" id="costurar" aria-pressed="false" aria-controls="estoque">{{costurar}}</button>
     </div>
   </section>
 
