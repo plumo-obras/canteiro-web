@@ -4,4 +4,4 @@ scripts/check-ambiente.sh
 pnpm exec next typegen
 pnpm tipos
 pnpm lint
-pnpm test
+scripts/check-testes.sh "$@"

@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -14,36 +15,79 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  plano:
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.plano.outputs.web }}
+      imagem: ${{ steps.plano.outputs.imagem }}
+      leve: ${{ steps.plano.outputs.leve }}
+      emitir: ${{ steps.plano.outputs.emitir }}
+      arvore: ${{ steps.plano.outputs.arvore }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plano
+        run: python3 scripts/plano-ci.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   web:
+    needs: plano
+    if: needs.plano.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
-      - run: pnpm build
+      - run: scripts/check-web-ci.sh
         env:
-          CANTEIRO_DEMO: "1"
+          VERIFY_BASE: ${{ github.event.pull_request.base.sha }}
 
   imagem:
+    needs: plano
+    if: needs.plano.outputs.imagem == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: scripts/check-imagem.sh
 
-  gate:
-    if: always()
-    needs: [web, imagem]
+  leve:
+    needs: plano
+    if: needs.plano.outputs.leve == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - run: scripts/check-gate.sh "$WEB" "$IMAGEM"
+      - run: python3 site/build.py --conferir
+      - run: scripts/check-segredos.sh
+
+  gate:
+    if: always() && (github.event_name == 'push' || !github.event.pull_request.draft)
+    needs: [plano, web, imagem, leve]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: scripts/check-gate.sh "$PLANO" "$WEB" "$RESULTADO_WEB" "$IMAGEM" "$RESULTADO_IMAGEM" "$LEVE" "$RESULTADO_LEVE"
         env:
-          WEB: ${{ needs.web.result }}
-          IMAGEM: ${{ needs.imagem.result }}
+          PLANO: ${{ needs.plano.result }}
+          WEB: ${{ needs.plano.outputs.web }}
+          RESULTADO_WEB: ${{ needs.web.result }}
+          IMAGEM: ${{ needs.plano.outputs.imagem }}
+          RESULTADO_IMAGEM: ${{ needs.imagem.result }}
+          LEVE: ${{ needs.plano.outputs.leve }}
+          RESULTADO_LEVE: ${{ needs.leve.result }}
+      - name: recibo-${{ needs.plano.outputs.arvore }}
+        if: success() && needs.plano.outputs.emitir == 'true'
+        run: echo 'Árvore aprovada'
