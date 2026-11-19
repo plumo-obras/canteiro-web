@@ -222,7 +222,8 @@ describe("demonstração: cadastro de obra e orçamento por planilha", () => {
       sugestao: Record<string, unknown>;
     };
     expect(l.linha_cabecalho).toBe(3);
-    expect(l.sugestao).toMatchObject({ nome: 1, unidade: 2, quantidade: 3, valor_unitario: 4, valor_total: 5, saldo: null, curva: null });
+    expect(l.sugestao).toMatchObject({ nome: 1, unidade: 2, quantidade: 3, valor_unitario: 4, valor_total: 5 });
+    expect("saldo" in l.sugestao || "curva" in l.sugestao).toBe(false);
     expect(chamar("POST", `obras/${o.id}/orcamento/ler`, { arquivo: { nome: "orc.xlsx", texto: "" } }).status).toBe(422);
   });
 

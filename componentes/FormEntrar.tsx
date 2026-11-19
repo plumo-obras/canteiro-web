@@ -9,7 +9,7 @@ import { BotaoTema } from "./tema";
 import s from "./entrar.module.css";
 
 // O que o Plumo faz, na ordem em que acontece: é a promessa da vitrine, não um menu.
-const PASSOS = ["Modelo 3D", "Orçamento e compras", "Cronograma", "Acompanhe conversando"];
+const PASSOS = ["Modelo 3D", "Orçamento e gastos", "Cronograma", "Acompanhe conversando"];
 const FACES = [s.f0, s.f1, s.f2, s.f3, s.f4, s.f5, s.f6, s.f7, s.f8] as const;
 // As disciplinas sobre o modelo: o que já saiu das pranchas e o que vem em seguida (decorativo, como o próprio modelo).
 const SELOS = [
