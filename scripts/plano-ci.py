@@ -12,7 +12,7 @@ def git(*args):
 
 def api(path):
     return json.loads(subprocess.check_output(
-        ["gh", "api", "repos/{}/{}".format(os.environ["GITHUB_REPOSITORY"], path)],
+        ["gh", "api", "repos/{}/{}".format(os.environ.get("GITHUB_REPOSITORY", ""), path)],
         timeout=15,
     ))
 
@@ -20,7 +20,9 @@ def api(path):
 def recibos(arvores):
     """O GitHub registra o nome e o resultado da etapa, fora do ambiente dos testes."""
     encontrados = set()
-    repo = os.environ["GITHUB_REPOSITORY"]
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    if not repo:
+        return set()
     limite = (datetime.now(timezone.utc) - timedelta(days=7)).date().isoformat()
     try:
         runs = api(f"actions/workflows/ci.yml/runs?status=success&created=%3E%3D{limite}&per_page=30")
@@ -63,7 +65,7 @@ def planejar(pr, arquivos, igual, base_verde):
 
 
 def main():
-    pr = os.environ["GITHUB_EVENT_NAME"] == "pull_request"
+    pr = os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
     arvore = git("rev-parse", "HEAD^{tree}").decode().strip()
     candidatas = {arvore}
     base = ""
