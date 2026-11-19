@@ -78,8 +78,8 @@ export function ListaFornecedores({ fornecedores, editar }: { fornecedores: Forn
                 <td>
                   <b>{f.nome}</b>
                 </td>
-                <td className={`forn-cnpj${f.cnpj ? "" : " vazio"}`}>{f.cnpj ? mascararCnpj(f.cnpj) : "—"}</td>
-                <td className={`sm${contatoDe(f) ? "" : " vazio"}`}>{contatoDe(f) || "—"}</td>
+                <td className={`forn-cnpj${f.cnpj ? "" : " sem-dado"}`}>{f.cnpj ? mascararCnpj(f.cnpj) : "—"}</td>
+                <td className={`sm${contatoDe(f) ? "" : " sem-dado"}`}>{contatoDe(f) || "—"}</td>
                 {editar ? (
                   <td className="num">
                     <button type="button" className="btn sm" onClick={() => editar(f)} aria-label={`Editar ${f.nome}`}>

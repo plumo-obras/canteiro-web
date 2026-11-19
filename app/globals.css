@@ -285,7 +285,7 @@ tr.click{cursor:pointer}
   .card.lista tr:last-child{border-bottom:0}
   .card.lista td{display:block;padding:0;border:0;grid-column:1}
   /* no cartão empilhado, o traço de campo vazio vira uma linha solta sem rótulo: some */
-  .card.lista td.vazio{display:none}
+  .card.lista td.sem-dado{display:none}
   .card.lista td.num{grid-column:2;grid-row:1;text-align:right}
   /* mais de um número na linha: só o 1º fica ao lado do nome; os outros descem, senão se sobrepõem na mesma célula */
   .card.lista td.num ~ td.num{grid-row:auto;grid-column:1/-1;text-align:left;color:var(--muted);font-size:var(--t-meta)}
