@@ -2,14 +2,14 @@
 # em tempo de execução (docker run --env-file .env), nunca embutidos no build.
 # A base vai fixada pelo digest do índice multi-arquitetura (amd64 e arm64): a tag node:24-slim muda por baixo sem
 # aviso; o Dependabot propõe o digest novo.
-FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS deps
+FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS deps
 RUN corepack enable
 WORKDIR /app
 # o .pnpmfile.cjs entra na conta do lockfile: sem ele o install congelado recusa
 COPY package.json pnpm-lock.yaml .pnpmfile.cjs .node-version ./
 RUN test "$(node -p process.versions.node)" = "$(cat .node-version)" && pnpm install --frozen-lockfile
 
-FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS build
 RUN corepack enable
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -17,7 +17,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 # Os arquivos do app ficam do root: o processo roda como node e não consegue reescrever o próprio código.
