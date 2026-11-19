@@ -6,8 +6,8 @@ FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf
 RUN corepack enable
 WORKDIR /app
 # o .pnpmfile.cjs entra na conta do lockfile: sem ele o install congelado recusa
-COPY package.json pnpm-lock.yaml .pnpmfile.cjs ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml .pnpmfile.cjs .node-version ./
+RUN test "$(node -p process.versions.node)" = "$(cat .node-version)" && pnpm install --frozen-lockfile
 
 FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 RUN corepack enable
