@@ -5,7 +5,7 @@ import { etapasDaObra, montando } from "./etapas";
 const obra = (status: Obra["status"]): Obra => ({ id: "o1", nome: "Casa", status }) as unknown as Obra;
 const resumo = (o: Obra, f: Partial<ResumoDaObra["financeiro"]> = {}, c: Partial<ResumoDaObra["cronograma"]> = {}): ResumoDaObra => ({
   obra: o,
-  financeiro: { tem_orcamento: false, orcado_atual: 0, comprometido: 0, realizado: 0, saldo: 0, ...f },
+  financeiro: { tem_orcamento: false, orcado_atual: 0, gasto: 0, saldo: 0, ...f },
   cronograma: { cadastrado: false, termino_contratual: null, termino_projetado: null, atraso_decimos: null, ...c },
 });
 /** "Projeto:feita" … um passo por item, fácil de ler no erro. */

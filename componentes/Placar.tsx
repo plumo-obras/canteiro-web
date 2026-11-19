@@ -1,7 +1,7 @@
 "use client";
 /**
  * O placar fixo no topo de toda tela da obra: Valor fechado · Orçado · Gasto até hoje · Prazo. É onde o "gasto" é um
- * número só no app: o realizado do orçamento, igual ao da API para o agente. A casca busca o resumo; aqui só formata.
+ * número só no app: o gasto do orçamento, igual ao da API para o agente. A casca busca o resumo; aqui só formata.
  */
 import { useId, useState } from "react";
 import type { Obra, ResumoDaObra } from "@/lib/contrato";
@@ -48,8 +48,8 @@ export function celulasPlacar(obra: Pick<Obra, "verba">, r: ResumoDaObra | null,
   const pct = f.tem_orcamento && f.realizado_pct != null ? `${(f.realizado_pct / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` : "";
   const gasto: Celula = {
     rotulo: "Gasto até hoje",
-    valor: reaisInteiros(f.realizado),
-    sub: !f.realizado ? "nenhum gasto lançado" : f.tem_orcamento ? pct : "sem orçamento para comparar",
+    valor: reaisInteiros(f.gasto),
+    sub: !f.gasto ? "nenhum gasto lançado" : f.tem_orcamento ? pct : "sem orçamento para comparar",
   };
   // o que falta gastar continua no subtítulo do Orçado: a linha fina mostra só os quatro números do desenho
   const orcado: Celula = !f.tem_orcamento

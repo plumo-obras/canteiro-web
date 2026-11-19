@@ -1018,7 +1018,7 @@ function ItensComDestino(props: {
 
 /**
  * Custo ou venda: a planilha de quem orça à mão já é o custo; a do engenheiro é o preço do cliente, com o BDI dentro.
- * Sem tirar o BDI, o orçado × realizado mostraria a margem como dinheiro que ainda falta gastar.
+ * Sem tirar o BDI, o orçado × gasto mostraria a margem como dinheiro que ainda falta gastar.
  */
 function NaturezaPlanilha(props: {
   natureza: "custo" | "venda";
@@ -1048,7 +1048,7 @@ function NaturezaPlanilha(props: {
       <p className="mut sm" style={{ margin: "6px 0 0" }}>
         {props.natureza === "venda"
           ? "O custo de cada linha sai do preço ÷ (1 + BDI). O preço de venda fica guardado à parte."
-          : "Use para a planilha de custo, feita por quem orça a obra. O orçado × realizado compara custo com custo."}
+          : "Use para a planilha de custo, feita por quem orça a obra. O orçado × gasto compara custo com custo."}
       </p>
     </fieldset>
   );

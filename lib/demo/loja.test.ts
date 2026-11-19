@@ -21,9 +21,8 @@ describe("demonstração: dados de exemplo (Casa Vila Nova)", () => {
   it("a obra em andamento tem orçamento por etapas, cronograma e gastos; nenhuma compra", () => {
     const orc = chamar("GET", `obras/${obraId()}/orcamento`).corpo as import("../contrato").Orcamento;
     expect(orc.etapas).toHaveLength(12);
-    expect(orc.totais.realizado).toBeGreaterThan(0);
-    expect(orc.totais.cotando).toBe(0);
-    expect(orc.totais.comprometido).toBe(orc.totais.realizado);
+    expect(orc.totais.gasto).toBeGreaterThan(0);
+    expect("comprometido" in orc.totais || "realizado" in orc.totais || "cotando" in orc.totais).toBe(false);
     expect(e.propostas).toEqual([]);
     expect("pedidos" in e || "insumos" in e || "movimentos" in e).toBe(false);
   });
@@ -44,7 +43,7 @@ describe("demonstração: resumo da obra (o placar e a abertura)", () => {
 
   it("o gasto é o que já saiu do caixa, igual ao desembolso", () => {
     const f = (chamar("GET", `obras/${obraId()}/resumo`).corpo as import("../contrato").ResumoDaObra).financeiro;
-    expect(f.pago).toBe(f.realizado);
+    expect(f.pago).toBe(f.gasto);
     const d = chamar("GET", `obras/${obraId()}/desembolso`).corpo as import("../contrato").Desembolso;
     expect(d.totais.pago).toBe(f.pago);
   });
@@ -422,7 +421,7 @@ describe("demonstração: cronograma (Fase 4)", () => {
     expect(r.corpo).toMatchObject({ base: "sem_cronograma", meses: [], termino_projetado: null });
     const d = chamar("GET", `obras/${obraId()}/desembolso`).corpo as import("../contrato").Desembolso;
     expect(d.meses).toHaveLength(12);
-    expect(d.totais.realizado).toBeGreaterThan(0);
+    expect(d.totais.gasto).toBeGreaterThan(0);
     expect(d.totais.falta).toBeLessThan(d.totais.orcado);
     // o que já foi pago sai da conta: o projetado dos meses que vêm não passa do previsto do cronograma inteiro
     const projetado = d.meses.reduce((t, m) => t + m.projetado, 0);

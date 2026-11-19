@@ -14,8 +14,8 @@ const ORC = {
     { id: "i1", versao_id: "v1", tipo: "item", numero: "1.1", nivel: 2, etapa: "1", descricao: "Aço CA-50", unidade: "kg", quantidade: 220_300, valor_unitario: 0, total: 0, codigo: "", fonte: "", curva: "C" },
     { id: "i2", versao_id: "v1", tipo: "item", numero: "1.2", nivel: 2, etapa: "1", descricao: "Concreto", unidade: "m³", quantidade: 3_000, valor_unitario: 50_000, total: 150_000, codigo: "", fonte: "", curva: "A" },
   ],
-  etapas: [{ etapa: "1", descricao: "Estrutura", contratado: 0, aditivos: 0, atual: 0, cotando: 0, comprometido: 0, realizado: 0, saldo: 0, estourou: false }],
-  totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, cotando: 0, comprometido: 0, realizado: 0, aditivos_pct: 0, n_itens: 1, n_etapas: 1, sem_etapa: {} },
+  etapas: [{ etapa: "1", descricao: "Estrutura", contratado: 0, aditivos: 0, atual: 0, gasto: 0, saldo: 0, estourou: false }],
+  totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, gasto: 0, aditivos_pct: 0, n_itens: 1, n_etapas: 1, sem_etapa: {} },
 } as unknown as Orcamento;
 const OBRA = { id: "o1", nome: "Casa Inventada", status: "em_orcamento" } as Obra;
 const PATCH = "PATCH /srv/api/obras/o1/orcamento/itens/i1";

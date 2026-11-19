@@ -299,18 +299,13 @@ export interface PreviaVersao {
   registro_id: string | null;
 }
 
-/**
- * O que a etapa já gastou: os gastos confirmados por comprovante. Sem pedido, `cotando` é 0 e `comprometido` e
- * `realizado` são o mesmo número; a tela lê `comprometido` até a API trocar os três por `gasto`.
- */
-export interface Gasto {
-  cotando: Centavos;
-  comprometido: Centavos;
-  realizado: Centavos;
+/** O que a etapa já gastou: os gastos confirmados por comprovante. */
+export interface GastoNoOrcamento {
+  gasto: Centavos;
 }
 
-/** As contas de orçado × realizado de uma etapa ou de um tópico, prontas da API. */
-export interface ContasOrcado extends Gasto {
+/** As contas de orçado × gasto de uma etapa ou de um tópico, prontas da API. */
+export interface ContasOrcado extends GastoNoOrcamento {
   contratado: Centavos;
   aditivos: Centavos;
   atual: Centavos;
@@ -344,17 +339,17 @@ export interface Orcamento {
   itens: (ItemOrcamento & { curva: CurvaABC | null })[];
   etapas: EtapaOrcamento[];
   /** Os gastos já incluem `sem_etapa` (gasto sem etapa ou em etapa fora das versões vigentes). */
-  totais: Gasto & {
+  totais: GastoNoOrcamento & {
     contratado: Centavos;
     aditivos: Centavos;
     atual: Centavos;
-    /** atual − comprometido. */
+    /** atual − gasto. */
     saldo: Centavos;
     /** aditivos ÷ contratado em centésimos de % (294 = 2,94%); null sem contrato. */
     aditivos_pct: number | null;
     n_itens: number;
     n_etapas: number;
-    sem_etapa: Gasto;
+    sem_etapa: GastoNoOrcamento;
     /** Fora do orçado: a soma do `estimado` das etapas. Ausente na API antiga. */
     estimado?: Centavos;
     /** O preço do cliente da obra (planilha de venda); null sem ela. */
@@ -676,14 +671,14 @@ export interface ResumoDaObra {
   financeiro: {
     tem_orcamento: boolean;
     orcado_atual: Centavos;
-    comprometido: Centavos;
-    realizado: Centavos;
+    /** Os gastos confirmados da obra. */
+    gasto: Centavos;
     saldo: Centavos;
-    /** Orçado atual − realizado, nunca negativo. Opcional: a API de antes não manda. */
+    /** Orçado atual − gasto, nunca negativo. */
     falta_gastar?: Centavos;
-    /** Os gastos confirmados; sem pedido, o mesmo que `realizado`. Ausente em API antiga. */
+    /** Os gastos confirmados; o mesmo que `gasto`. */
     pago?: Centavos;
-    /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
+    /** Gasto sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
     realizado_pct?: number | null;
     etapas_estouradas?: unknown[];
   };
@@ -755,7 +750,7 @@ export interface EtapaDesembolso {
   etapa: string;
   descricao: string;
   atual: Centavos;
-  realizado: Centavos;
+  gasto: Centavos;
   executado_pct: Centesimos;
   falta: Centavos;
   devido_agora: Centavos;
@@ -776,7 +771,7 @@ export interface Desembolso {
   etapas: EtapaDesembolso[];
   totais: {
     orcado: Centavos;
-    realizado: Centavos;
+    gasto: Centavos;
     pago: Centavos;
     falta: Centavos;
     custo_final: Centavos;
@@ -900,7 +895,7 @@ export interface CorpoConfirmar {
   fornecedor_id?: string | null;
 }
 
-/** Gasto confirmado (dinheiro que saiu). Não confundir com `Gasto` do orçamento (cotando/comprometido/realizado). */
+/** Gasto confirmado (dinheiro que saiu). Não confundir com `GastoNoOrcamento` (a soma por etapa). */
 export interface GastoObra {
   id: string;
   obra_id: string;

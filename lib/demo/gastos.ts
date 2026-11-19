@@ -619,7 +619,7 @@ export function mudarEtapa(b: Base, u: Usuario, id: string, c: Record<string, un
   return { ...gastoApi(b, g), registro_id: reg.id };
 }
 
-/** Os gastos que somam no realizado, por chave de etapa (null = sem etapa) e por tópico. */
+/** Os gastos que somam no orçamento, por chave de etapa (null = sem etapa) e por tópico. */
 export function somaPorEtapa(b: Base, obraId: string): Map<string | null, { total: number; topicos: Map<string | null, number> }> {
   const m = new Map<string | null, { total: number; topicos: Map<string | null, number> }>();
   for (const g of ativos(b, obraId)) {

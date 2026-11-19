@@ -60,7 +60,7 @@ describe("demonstração: gastos na demo de hoje", () => {
     expect(d.revisao.valor.opcoes[0]).toMatchObject({ valor: 156_000, rotulo: "R$ 1.560,00" });
   });
 
-  it("confirmar cria o gasto, soma no realizado da etapa e o Desfazer estorna e devolve o comprovante para a fila", () => {
+  it("confirmar cria o gasto, soma no gasto da etapa e o Desfazer estorna e devolve o comprovante para a fila", () => {
     const antes = orcamento();
     const nGastos = (chamar("GET", `obras/${casa().id}/gastos`).corpo as GastoObra[]).length;
     const c = enviar(png(2)).corpo as Comprovante;
@@ -72,14 +72,13 @@ describe("demonstração: gastos na demo de hoje", () => {
     const { gasto, registro_id } = r.corpo as { gasto: GastoObra; registro_id: string };
     expect(gasto).toMatchObject({ valor: 35_000, etapa: "3", etapa_nome: "3 Estrutura", etapa_origem: "orcamento", estornado: false });
     const depois = orcamento();
-    expect(depois.etapas[2]!.realizado - antes.etapas[2]!.realizado).toBe(35_000);
-    expect(depois.etapas[2]!.comprometido).toBe(depois.etapas[2]!.realizado);
-    expect(depois.totais.realizado - antes.totais.realizado).toBe(35_000);
+    expect(depois.etapas[2]!.gasto - antes.etapas[2]!.gasto).toBe(35_000);
+    expect(depois.totais.gasto - antes.totais.gasto).toBe(35_000);
     expect(chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("3")).status).toBe(409);
     expect(e.registro.find((x) => x.id === registro_id)!.texto).toBe("Gasto de R$ 350,00 em 3 Estrutura: Diária de pedreiro (João da Silva)");
 
     desfazer(registro_id, admin());
-    expect(orcamento().totais.realizado).toBe(antes.totais.realizado);
+    expect(orcamento().totais.gasto).toBe(antes.totais.gasto);
     expect((chamar("GET", `obras/${casa().id}/comprovantes?status=a_revisar`).corpo as Comprovante[]).find((x) => x.id === c.id)).toMatchObject({ gasto_id: null });
     expect(chamar("GET", `obras/${casa().id}/gastos`).corpo).toHaveLength(nGastos);
   });
@@ -89,15 +88,15 @@ describe("demonstração: gastos na demo de hoje", () => {
     const aDefinir = (chamar("GET", `obras/${casa().id}/gastos/resumo`).corpo as ResumoGastos).a_definir!;
     const c = enviar(png(3)).corpo as Comprovante;
     const { gasto } = chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar(null)).corpo as { gasto: GastoObra };
-    expect(orcamento().totais.sem_etapa.realizado - antes.totais.sem_etapa.realizado).toBe(35_000);
+    expect(orcamento().totais.sem_etapa.gasto - antes.totais.sem_etapa.gasto).toBe(35_000);
     expect((chamar("GET", `obras/${casa().id}/gastos/resumo`).corpo as ResumoGastos).a_definir).toBe(aDefinir + 35_000);
     expect(chamar("PATCH", `gastos/${gasto.id}`, { etapa: "3" }, leitura()).status).toBe(403);
     const r = chamar("PATCH", `gastos/${gasto.id}`, { etapa: "3" });
     expect(r.corpo).toMatchObject({ etapa: "3", etapa_nome: "3 Estrutura" });
     expect(chamar("PATCH", `gastos/${gasto.id}`, { etapa: "3" }).corpo).toEqual({ detail: "Nada mudou." });
-    expect(orcamento().etapas[2]!.realizado - antes.etapas[2]!.realizado).toBe(35_000);
+    expect(orcamento().etapas[2]!.gasto - antes.etapas[2]!.gasto).toBe(35_000);
     desfazer((r.corpo as { registro_id: string }).registro_id, admin());
-    expect(orcamento().etapas[2]!.realizado).toBe(antes.etapas[2]!.realizado);
+    expect(orcamento().etapas[2]!.gasto).toBe(antes.etapas[2]!.gasto);
   });
 
   it("descartar tira da fila e o Desfazer reabre", () => {
@@ -143,10 +142,10 @@ describe("demonstração: a Casa Vila Nova em Orçamento, Cronograma e Gastos", 
     const g = chamar("GET", `obras/${casa().id}/gastos/resumo`).corpo as ResumoGastos;
     const f = (chamar("GET", `obras/${casa().id}/resumo`).corpo as ResumoDaObra).financeiro;
     const d = chamar("GET", `obras/${casa().id}/desembolso`).corpo as import("../contrato").Desembolso;
-    expect(g.total).toBe(o.totais.realizado);
-    expect([f.realizado, f.pago]).toEqual([o.totais.realizado, o.totais.realizado]);
-    expect(d.totais.pago).toBe(o.totais.realizado);
-    expect(d.meses.reduce((t, m) => t + m.pago, 0)).toBe(o.totais.realizado);
+    expect(g.total).toBe(o.totais.gasto);
+    expect([f.gasto, f.pago]).toEqual([o.totais.gasto, o.totais.gasto]);
+    expect(d.totais.pago).toBe(o.totais.gasto);
+    expect(d.meses.reduce((t, m) => t + m.pago, 0)).toBe(o.totais.gasto);
     expect(f.etapas_estouradas).toEqual([expect.objectContaining({ descricao: "Fundação" })]);
     expect(g.a_definir).toBe(38_000);
   });

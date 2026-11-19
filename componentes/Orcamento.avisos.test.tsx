@@ -11,8 +11,8 @@ const OBRA = { id: "o1", nome: "Casa Inventada", status: "em_orcamento", verba: 
 const orc = (arquivo: string, precos: number[]) => ({
   versoes: [{ id: "v1", tipo: "contrato", numero: 0, descricao: "Estrutura", arquivo, ativa: true, itens: precos.length, etapas: 1, total: 0, registro_id: "r1" }],
   itens: precos.map((valor_unitario, i) => ({ id: `i${i}`, versao_id: "v1", tipo: "item", etapa: "1", descricao: `Item ${i}`, unidade: "kg", quantidade: 1000, valor_unitario, total: valor_unitario, curva: null })),
-  etapas: [{ etapa: "1", descricao: "Estrutura", contratado: 0, aditivos: 0, atual: 0, cotando: 0, comprometido: 0, realizado: 0, saldo: 0, estourou: false }],
-  totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, cotando: 0, comprometido: 0, realizado: 0, aditivos_pct: 0, n_itens: precos.length, n_etapas: 1, sem_etapa: {} },
+  etapas: [{ etapa: "1", descricao: "Estrutura", contratado: 0, aditivos: 0, atual: 0, gasto: 0, saldo: 0, estourou: false }],
+  totais: { contratado: 0, aditivos: 0, atual: 0, saldo: 0, gasto: 0, aditivos_pct: 0, n_itens: precos.length, n_etapas: 1, sem_etapa: {} },
 });
 const montar = (dados: unknown, usuario: Usuario = USUARIO) => {
   criarRede({
@@ -189,7 +189,7 @@ describe("versões depois de somar a planilha", () => {
 });
 
 describe("ordem das etapas antes de aprovar", () => {
-  const etapa = (n: string, descricao: string) => ({ etapa: n, descricao, contratado: 0, aditivos: 0, atual: 1000, cotando: 0, comprometido: 0, realizado: 0, saldo: 1000, estourou: false });
+  const etapa = (n: string, descricao: string) => ({ etapa: n, descricao, contratado: 0, aditivos: 0, atual: 1000, gasto: 0, saldo: 1000, estourou: false });
   const dados = (nomes: string[]) => ({
     ...orc("planilha.xlsx", []),
     itens: [],

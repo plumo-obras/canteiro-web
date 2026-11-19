@@ -261,7 +261,7 @@ describe("enviar comprovante", () => {
   it("o Gasto até hoje é o da obra (o do placar), nunca uma soma feita na tela", async () => {
     rede({
       "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, etapas: [] }),
-      "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { realizado: 1_000_000, realizado_pct: 250 }, cronograma: {} }),
+      "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { gasto: 1_000_000, realizado_pct: 250 }, cronograma: {} }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
     const resumo = await screen.findByLabelText("Resumo");
@@ -283,7 +283,7 @@ describe("enviar comprovante", () => {
     const r = rede({
       "GET /srv/api/obras/o1/gastos": () => json([{ ...GASTO, descricao: "Vidros da sala" }]),
       "GET /srv/api/obras/o1/gastos/resumo": () => json({ total: 35000, a_revisar: 0, a_definir: 0, etapas: [{ etapa: "1", nome: "Fundações", total: 35000, topicos: [] }] }),
-      "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { realizado: 35000, realizado_pct: 1000, orcado_atual: 350000, falta_gastar: 315000 } }),
+      "GET /srv/api/obras/o1/resumo": () => json({ obra: OBRA, financeiro: { gasto: 35000, realizado_pct: 1000, orcado_atual: 350000, falta_gastar: 315000 } }),
     });
     render(comCasca(<Gastos obra={OBRA} />));
     expect(await screen.findByText("Falta gastar")).toBeInTheDocument();

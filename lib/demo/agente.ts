@@ -82,10 +82,10 @@ function resposta(obra: Obra, texto: string): { ferramenta: string; resumo: stri
 
   const etapa = etapas.find((x) => semAcento(x.descricao).split(/\s+/).some((p) => p.length >= 5 && t.includes(p)));
   if (etapa) {
-    const linha = `Orçado ${fmtReais(etapa.atual)} · gasto ${fmtReais(etapa.realizado)} (${pctDe(etapa.realizado, etapa.atual)})`;
+    const linha = `Orçado ${fmtReais(etapa.atual)} · gasto ${fmtReais(etapa.gasto)} (${pctDe(etapa.gasto, etapa.atual)})`;
     const fim = etapa.estourou
       ? `**Passou do orçado em ${fmtReais(-etapa.saldo)}.** Vale olhar os gastos dela em Gastos, por etapa.`
-      : etapa.realizado
+      : etapa.gasto
         ? `Faltam **${fmtReais(etapa.saldo)}** para chegar ao orçado.`
         : "Ainda não tem gasto lançado.";
     return { ferramenta: "consultar_orcamento", resumo: "consultou o orçamento", texto: `Em ${etapa.etapa} ${etapa.descricao}:\n\n${linha}\n\n${fim}` };
@@ -97,8 +97,8 @@ function resposta(obra: Obra, texto: string): { ferramenta: string; resumo: stri
       ferramenta: "consultar_orcamento",
       resumo: "consultou o orçamento",
       texto: est.length
-        ? `${est.length === 1 ? "Uma etapa passou" : `${est.length} etapas passaram`} do orçado:\n\n${est.map((x) => `${x.etapa} ${x.descricao}: **${fmtReais(-x.saldo)}** acima (gasto ${fmtReais(x.realizado)} de ${fmtReais(x.atual)})`).join("\n\n")}\n\nNo total, a obra gastou ${fmtReais(total.realizado)} de ${fmtReais(total.atual)} orçados (${pctDe(total.realizado, total.atual)}).`
-        : `Nenhuma etapa passou do orçado. A obra gastou ${fmtReais(total.realizado)} de ${fmtReais(total.atual)} (${pctDe(total.realizado, total.atual)}).`,
+        ? `${est.length === 1 ? "Uma etapa passou" : `${est.length} etapas passaram`} do orçado:\n\n${est.map((x) => `${x.etapa} ${x.descricao}: **${fmtReais(-x.saldo)}** acima (gasto ${fmtReais(x.gasto)} de ${fmtReais(x.atual)})`).join("\n\n")}\n\nNo total, a obra gastou ${fmtReais(total.gasto)} de ${fmtReais(total.atual)} orçados (${pctDe(total.gasto, total.atual)}).`
+        : `Nenhuma etapa passou do orçado. A obra gastou ${fmtReais(total.gasto)} de ${fmtReais(total.atual)} (${pctDe(total.gasto, total.atual)}).`,
     };
   }
 
@@ -114,7 +114,7 @@ function resposta(obra: Obra, texto: string): { ferramenta: string; resumo: stri
     return {
       ferramenta: "consultar_cronograma",
       resumo: "consultou o cronograma",
-      texto: `${termino ? `Pelo cronograma, a obra termina em **${termino.slice(5, 7)}/${termino.slice(0, 4)}**.` : "O cronograma não tem término definido."}${agora.length ? `\n\nNeste mês estão previstas: ${agora.join(", ")}.` : ""}\n\nAinda não há medição lançada, então não dá para afirmar o que está atrasado no físico. O que dá para ver é o dinheiro: a obra gastou ${fmtReais(total.realizado)} (${pctDe(total.realizado, total.atual)} do orçado).`,
+      texto: `${termino ? `Pelo cronograma, a obra termina em **${termino.slice(5, 7)}/${termino.slice(0, 4)}**.` : "O cronograma não tem término definido."}${agora.length ? `\n\nNeste mês estão previstas: ${agora.join(", ")}.` : ""}\n\nAinda não há medição lançada, então não dá para afirmar o que está atrasado no físico. O que dá para ver é o dinheiro: a obra gastou ${fmtReais(total.gasto)} (${pctDe(total.gasto, total.atual)} do orçado).`,
     };
   }
 
@@ -127,7 +127,7 @@ function resposta(obra: Obra, texto: string): { ferramenta: string; resumo: stri
   return {
     ferramenta: "consultar_orcamento",
     resumo: "consultou o orçamento e os gastos",
-    texto: `Na ${obra.nome}, o gasto até hoje é **${fmtReais(total.realizado)}** de ${fmtReais(total.atual)} orçados (${pctDe(total.realizado, total.atual)}).${avisos.length ? `\n\n${avisos.join("\n\n")}` : ""}\n\nPergunte por uma etapa (ex.: "quanto já gastei na estrutura?") e eu mostro o orçado e o gasto dela.`,
+    texto: `Na ${obra.nome}, o gasto até hoje é **${fmtReais(total.gasto)}** de ${fmtReais(total.atual)} orçados (${pctDe(total.gasto, total.atual)}).${avisos.length ? `\n\n${avisos.join("\n\n")}` : ""}\n\nPergunte por uma etapa (ex.: "quanto já gastei na estrutura?") e eu mostro o orçado e o gasto dela.`,
   };
 }
 

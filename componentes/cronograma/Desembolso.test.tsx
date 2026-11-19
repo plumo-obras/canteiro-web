@@ -28,8 +28,8 @@ const D: DadosDesembolso = {
     mes("2026-05", 0, 0, 0, 50_000),
     mes("2026-06", 0, 0, 0, 40_000),
   ],
-  etapas: [{ etapa: "1", descricao: "Preliminares", atual: 100_000, realizado: 30_000, executado_pct: 5000, falta: 70_000, devido_agora: 20_000, sem_cronograma: false }],
-  totais: { orcado: 300_000, realizado: 30_000, pago: 30_000, falta: 270_000, custo_final: 300_000, desvio: 0, sem_mes: 0 },
+  etapas: [{ etapa: "1", descricao: "Preliminares", atual: 100_000, gasto: 30_000, executado_pct: 5000, falta: 70_000, devido_agora: 20_000, sem_cronograma: false }],
+  totais: { orcado: 300_000, gasto: 30_000, pago: 30_000, falta: 270_000, custo_final: 300_000, desvio: 0, sem_mes: 0 },
 };
 
 afterEach(() => {

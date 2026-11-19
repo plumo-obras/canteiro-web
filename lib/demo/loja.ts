@@ -153,7 +153,7 @@ function dadosObra(c: Record<string, unknown>): DadosObra {
  * como a API faz — a tela não refaz conta. Sem versão ativa, o orçamento é vazio (não se inventa um dos insumos).
  */
 function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
-  const zero = { cotando: 0, comprometido: 0, realizado: 0 };
+  const zero = { gasto: 0 };
   const versoesDaObra = e.versoes.filter((v) => v.versao.obra_id === o.id);
   const ativas = versoesDaObra.filter((v) => v.versao.ativa);
   // como a API: fora de vigência, foi desfeita se o registro dela foi desfeito; senão, outra a substituiu
@@ -205,10 +205,9 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
       itens.push({ ...base, id: `${v.versao.id}-${pos}`, ordem: ordem++, tipo: "item", numero: `${num}.${k + 1}`, nivel: 2, descricao: l.nome, unidade: l.unidade, quantidade: l.quantidade, valor_unitario: l.valor_unitario, total: l.total, linha: linha++, curva: curvaDe.get(l) ?? null });
     });
     const aditivo = v.versao.tipo === "aditivo";
-    // O gasto confirmado soma no comprometido e no realizado da etapa (sem pedido, os dois são o mesmo número).
+    // o gasto confirmado soma na etapa dele
     const gasto = somaGastos.get(num)?.total ?? 0;
-    const contas = { cotando: 0, comprometido: gasto, realizado: gasto };
-    etapas.push({ etapa: num, descricao: desc, contratado: aditivo ? 0 : totalEtapa, aditivos: aditivo ? totalEtapa : 0, atual: totalEtapa, saldo: totalEtapa - gasto, estourou: gasto > totalEtapa, ...contas });
+    etapas.push({ etapa: num, descricao: desc, contratado: aditivo ? 0 : totalEtapa, aditivos: aditivo ? totalEtapa : 0, atual: totalEtapa, saldo: totalEtapa - gasto, estourou: gasto > totalEtapa, gasto });
   });
 
   const contratado = ativas.filter((v) => v.versao.tipo === "contrato").reduce((s, v) => s + v.versao.total, 0);
@@ -217,7 +216,7 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
   // gasto sem etapa, em etapa extra ou em chave que saiu do orçamento: conta na obra e em nenhuma etapa
   const chaves = new Set(etapas.map((x) => x.etapa));
   const fora = [...somaGastos.entries()].filter(([k]) => k === null || !chaves.has(k)).reduce((t, [, v]) => t + v.total, 0);
-  const realizado = [...somaGastos.values()].reduce((t, v) => t + v.total, 0);
+  const gasto = [...somaGastos.values()].reduce((t, v) => t + v.total, 0);
   return {
     versoes: metas,
     itens,
@@ -226,14 +225,12 @@ function orcamentoDemo(e: EstadoDemo, o: Obra): Orcamento {
       contratado,
       aditivos,
       atual,
-      saldo: atual - realizado,
+      saldo: atual - gasto,
       aditivos_pct: contratado ? Math.round((aditivos / contratado) * 10000) : null,
       n_itens: planas.length,
       n_etapas: etapas.length,
-      cotando: 0,
-      comprometido: realizado,
-      realizado,
-      sem_etapa: { cotando: 0, comprometido: fora, realizado: fora },
+      gasto,
+      sem_etapa: { gasto: fora },
     },
   };
 }
@@ -571,7 +568,7 @@ function pontosDeGastos(e: EstadoDemo, o: Obra): PontoHoje[] {
       tipo: "etapas_estouradas",
       prioridade: "atencao",
       titulo: estouradas.length === 1 ? `${um.descricao} passou do orçado em ${fmtReais(excesso)}.` : `${estouradas.length} etapas passaram do orçado.`,
-      detalhe: estouradas.length === 1 ? `Gasto ${fmtReais(um.comprometido)} de ${fmtReais(um.atual)} orçados.` : `${lista(estouradas.map((x) => x.descricao))}: ${fmtReais(excesso)} acima do orçado.`,
+      detalhe: estouradas.length === 1 ? `Gasto ${fmtReais(um.gasto)} de ${fmtReais(um.atual)} orçados.` : `${lista(estouradas.map((x) => x.descricao))}: ${fmtReais(excesso)} acima do orçado.`,
       acao: { tela: "orcamento", rotulo: "Ver o orçamento", filtro: null },
     });
   }
@@ -1333,13 +1330,13 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
       if (metodo === "GET" && b === "desembolso" && !id2) {
         const ob = obraPorId(e, id);
         const orc = orcamentoDemo(e, ob);
-        const realizado = orc.totais.realizado;
+        const gasto = orc.totais.gasto;
         const c = montarCronogramaDemo(e, ob);
         const mesAtual = new Date().toISOString().slice(0, 7);
         // o gasto confirmado sai do caixa no mês do pagamento
         const pagoNoMes = gastos.pagoPorMes(baseGastos(e), ob.id);
         const pago = [...pagoNoMes.values()].reduce((t, v) => t + v, 0);
-        const realizadoDe = (etapa: string) => orc.etapas.find((x) => x.etapa === etapa)?.realizado ?? 0;
+        const gastoDe = (etapa: string) => orc.etapas.find((x) => x.etapa === etapa)?.gasto ?? 0;
         if (c.inicio && c.meses > 0) {
           const meses = c.mensal.map((m) => {
             const p = m.mes >= mesAtual ? m.previsto : 0;
@@ -1347,7 +1344,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           });
           // o que o cronograma previa para antes de hoje e não saiu (previsto − pago) entra no mês corrente
           const atrasado = Math.max(0, c.mensal.filter((m) => m.mes < mesAtual).reduce((t, m) => t + m.previsto - (pagoNoMes.get(m.mes) ?? 0), 0));
-          const falta = Math.max(0, orc.totais.atual - realizado);
+          const falta = Math.max(0, orc.totais.atual - gasto);
           return ok({
             mes_atual: mesAtual,
             base: "gastos",
@@ -1358,8 +1355,8 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             termino_no_ritmo: c.prazo.termino_contratual,
             // o que o cronograma previa para antes de hoje e não saiu entra no mês corrente
             meses: meses.map((m) => (m.mes === mesAtual ? { ...m, projetado: m.projetado + atrasado, projetado_no_ritmo: m.projetado_no_ritmo + atrasado } : m)),
-            etapas: c.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, realizado: realizadoDe(x.etapa), executado_pct: 0, falta: Math.max(0, x.atual - realizadoDe(x.etapa)), devido_agora: 0, sem_cronograma: !x.percentuais.some((q) => q > 0) })),
-            totais: { orcado: orc.totais.atual, realizado, pago, falta, custo_final: realizado + falta, desvio: realizado + falta - orc.totais.atual, sem_mes: 0 },
+            etapas: c.etapas.map((x) => ({ etapa: x.etapa, descricao: x.descricao, atual: x.atual, gasto: gastoDe(x.etapa), executado_pct: 0, falta: Math.max(0, x.atual - gastoDe(x.etapa)), devido_agora: 0, sem_cronograma: !x.percentuais.some((q) => q > 0) })),
+            totais: { orcado: orc.totais.atual, gasto, pago, falta, custo_final: gasto + falta, desvio: gasto + falta - orc.totais.atual, sem_mes: 0 },
           });
         }
         return ok({
@@ -1372,7 +1369,7 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
           termino_no_ritmo: null,
           meses: [],
           etapas: [],
-          totais: { orcado: orc.totais.atual, realizado, pago, falta: 0, custo_final: realizado, desvio: 0, sem_mes: 0 },
+          totais: { orcado: orc.totais.atual, gasto, pago, falta: 0, custo_final: gasto, desvio: 0, sem_mes: 0 },
         });
       }
       if (metodo === "GET" && b === "resumo" && !id2) {
@@ -1394,14 +1391,12 @@ export function responder(metodo: string, caminho: string[], params: URLSearchPa
             aditivos: t.aditivos,
             aditivos_pct: t.aditivos_pct,
             orcado_atual: t.atual,
-            cotando: t.cotando,
-            comprometido: t.comprometido,
-            realizado: t.realizado,
-            // o que saiu do caixa é o gasto confirmado: o mesmo número do realizado
+            gasto: t.gasto,
+            // o que saiu do caixa é o gasto confirmado: o mesmo número
             pago: rg.total,
             saldo: t.saldo,
-            falta_gastar: Math.max(0, t.atual - t.realizado),
-            realizado_pct: t.atual ? Math.round((t.realizado * 10000) / t.atual) : null,
+            falta_gastar: Math.max(0, t.atual - t.gasto),
+            realizado_pct: t.atual ? Math.round((t.gasto * 10000) / t.atual) : null,
             etapas_estouradas: orc.etapas.filter((x) => x.estourou).map((x) => ({ etapa: x.etapa, descricao: x.descricao, saldo: x.saldo })),
             gastos: {
               total: rg.total,
