@@ -24,6 +24,8 @@ export interface Escolhas {
   etapa: EscolhaEtapa;
   /** O que a pessoa digitou ou escolheu na resposta própria de cada campo. */
   propria: { valor: string; data: string; favorecido: string; descricao: string; etapa: string; topico: string };
+  /** O fornecedor cadastrado na própria revisão, para quem recebeu (`para`): vale enquanto quem recebeu for ele. */
+  fornecedorSalvo: { id: string; para: string } | null;
 }
 
 export function escolhaInicial(c: { escolhido: number | null; opcoes: unknown[] }): Escolha {
@@ -39,6 +41,7 @@ export function escolhasIniciais(r: Revisao): Escolhas {
     descricao: escolhaInicial(r.descricao),
     etapa: escolhaInicial(r.classificacao),
     propria: { valor: "", data: "", favorecido: "", descricao: "", etapa: "", topico: "" },
+    fornecedorSalvo: null,
   };
 }
 
@@ -55,16 +58,31 @@ function resolver(r: Revisao, e: Escolhas, hoje: string) {
   const data = texto(r.data_pagamento, e.data, e.propria.data);
   const favorecidoOpcao = typeof e.favorecido === "number" ? r.favorecido.opcoes[e.favorecido] : undefined;
   const etapaOpcao = typeof e.etapa === "number" ? r.classificacao.opcoes[e.etapa] : undefined;
+  const favorecido = texto(r.favorecido, e.favorecido, e.propria.favorecido);
+  const salvo = e.fornecedorSalvo && favorecido === e.fornecedorSalvo.para ? e.fornecedorSalvo.id : null;
   return {
     valor: valor && valor > 0 ? valor : null,
     data: data && DATA.test(data) && data <= hoje ? data : null,
     dataNoFuturo: !!data && DATA.test(data) && data > hoje,
-    favorecido: texto(r.favorecido, e.favorecido, e.propria.favorecido),
-    fornecedor_id: favorecidoOpcao?.fornecedor_id ?? null,
+    favorecido,
+    fornecedor_id: favorecidoOpcao?.fornecedor_id ?? salvo,
     descricao: texto(r.descricao, e.descricao, e.propria.descricao),
     etapa: etapaOpcao?.etapa ?? (e.etapa === "propria" ? e.propria.etapa || null : null),
     topico_id: etapaOpcao ? etapaOpcao.topico_id : e.etapa === "propria" ? e.propria.topico || null : null,
   };
+}
+
+/** Quem recebeu, como vai para a API, e o fornecedor cadastrado dele (null = não é fornecedor cadastrado). */
+export function favorecidoEscolhido(r: Revisao, e: Escolhas): { favorecido: string | null; fornecedor_id: string | null } {
+  const v = resolver(r, e, "9999-12-31");
+  return { favorecido: v.favorecido, fornecedor_id: v.fornecedor_id };
+}
+
+/** O CNPJ que a leitura achou de quem recebeu, se veio inteiro (a leitura crua é `unknown` no contrato). */
+export function cnpjLido(leitura: unknown): string | null {
+  const c = leitura && typeof leitura === "object" ? (leitura as { cnpj_favorecido?: unknown }).cnpj_favorecido : null;
+  const digitos = typeof c === "string" ? c.replace(/\D/g, "") : "";
+  return digitos.length === 14 ? digitos : null;
 }
 
 /** O que ainda falta para confirmar, em palavras ("data do pagamento", "etapa"). Vazia = pode confirmar. */

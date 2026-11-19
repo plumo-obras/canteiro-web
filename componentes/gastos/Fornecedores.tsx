@@ -93,10 +93,20 @@ export function ListaFornecedores({ fornecedores, editar }: { fornecedores: Forn
   );
 }
 
-export function ModalFornecedor({ fornecedor, fechar }: { fornecedor?: Fornecedor; fechar: () => void }) {
+/**
+ * Cadastro e edição. `inicial` preenche o cadastro novo (a revisão do comprovante manda quem recebeu e o CNPJ lido), e
+ * `salvo` recebe o fornecedor criado, para quem abriu ligar a ele.
+ */
+export function ModalFornecedor({ fornecedor, fechar, inicial, salvo }: {
+  fornecedor?: Fornecedor;
+  fechar: () => void;
+  inicial?: { nome: string; cnpj: string | null };
+  salvo?: (f: Fornecedor) => void;
+}) {
   const { avisar, mudou } = useCasca();
-  const [nome, setNome] = useState(fornecedor?.nome ?? "");
-  const [cnpj, setCnpj] = useState(fornecedor?.cnpj ? mascararCnpj(fornecedor.cnpj) : "");
+  const [nome, setNome] = useState(fornecedor?.nome ?? inicial?.nome ?? "");
+  const cnpjInicial = fornecedor?.cnpj || inicial?.cnpj || "";
+  const [cnpj, setCnpj] = useState(cnpjInicial ? mascararCnpj(cnpjInicial) : "");
   const [contato, setContato] = useState(fornecedor?.contato ?? "");
   const [telefone, setTelefone] = useState(fornecedor?.telefone ?? "");
   const [email, setEmail] = useState(fornecedor?.email ?? "");
@@ -114,7 +124,7 @@ export function ModalFornecedor({ fornecedor, fechar }: { fornecedor?: Fornecedo
         const mudou_ = Object.fromEntries(Object.entries(dados).filter(([k, v]) => (fornecedor as unknown as Record<string, string>)[k] !== v));
         if (!Object.keys(mudou_).length) return fechar();
         await api.editarFornecedor(fornecedor.id, mudou_);
-      } else await api.criarFornecedor(dados);
+      } else salvo?.(await api.criarFornecedor(dados));
       mudou();
       fechar();
       avisar(fornecedor ? `${dados.nome} atualizado.` : `${dados.nome} cadastrado.`);

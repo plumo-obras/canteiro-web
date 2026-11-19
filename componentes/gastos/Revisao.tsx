@@ -11,7 +11,19 @@ import { fmtReais } from "@/lib/formato";
 import { mensagemDe, useCasca } from "../contexto";
 import { Modal } from "../Dialogo";
 import { Icone } from "../Icone";
-import { corpoConfirmar, escolhasIniciais, fmtDia, hojeNaObra, nomeComCodigo, pendencias, type Escolha, type Escolhas } from "./escolhas";
+import {
+  cnpjLido,
+  corpoConfirmar,
+  escolhasIniciais,
+  favorecidoEscolhido,
+  fmtDia,
+  hojeNaObra,
+  nomeComCodigo,
+  pendencias,
+  type Escolha,
+  type Escolhas,
+} from "./escolhas";
+import { ModalFornecedor } from "./Fornecedores";
 import { NovaEtapa } from "./NovaEtapa";
 import s from "./gastos.module.css";
 
@@ -281,6 +293,7 @@ function CorpoRevisao({ r, obra }: { r: EstadoRevisao; obra: Obra }) {
             escolha={esc.favorecido}
             escolher={(x) => r.mudar({ favorecido: x })}
             selo={(o) => (o.fornecedor_id ? <span className="pill info">fornecedor cadastrado</span> : null)}
+            rodape={<SalvarFornecedor r={r} c={c} esc={esc} />}
             propria={
               <input
                 className="f"
@@ -681,9 +694,12 @@ function CampoOpcoes(p: {
   escolher: (e: Escolha) => void;
   propria: ReactNode;
   selo?: (o: CampoRevisao["opcoes"][number]) => ReactNode;
+  /** Depois das opções, fora do grupo de rádios (um botão dentro de radiogroup confunde o leitor de tela). */
+  rodape?: ReactNode;
 }) {
   const nome = useId();
   return (
+    <>
     <Grupo rotulo={p.rotulo} estado={p.campo.estado}>
       {p.campo.opcoes.map((o, i) => (
         <label key={i} className={`${s.opc}${p.escolha === i ? ` ${s.on}` : ""}`}>
@@ -700,6 +716,41 @@ function CampoOpcoes(p: {
         {p.propria}
       </Propria>
     </Grupo>
+    {p.rodape}
+    </>
+  );
+}
+
+/**
+ * Quem recebeu ainda não é fornecedor cadastrado: cadastrar daqui mesmo, com o nome escolhido e o CNPJ lido. O gasto
+ * sai ligado a ele, e o próximo comprovante dele já chega com quem recebeu marcado.
+ */
+function SalvarFornecedor({ r, c, esc }: { r: EstadoRevisao; c: ComprovanteDetalhe; esc: Escolhas }) {
+  const [abrir, setAbrir] = useState(false);
+  const { favorecido, fornecedor_id } = favorecidoEscolhido(c.revisao, esc);
+  if (!favorecido || !r.podeOperar || !r.revisavel) return null;
+  if (fornecedor_id && esc.fornecedorSalvo?.id === fornecedor_id)
+    return (
+      <p className={`${s.fornSalvo} sm`} role="status">
+        <Icone nome="checkCircle" tam={14} />
+        Cadastrado como fornecedor: o gasto sai ligado a ele.
+      </p>
+    );
+  if (fornecedor_id) return null;
+  return (
+    <>
+      <button type="button" className={`btn sm ${s.fornSalvar}`} onClick={() => setAbrir(true)}>
+        <Icone nome="plus" tam={14} />
+        Salvar {favorecido.length > 40 ? "quem recebeu" : favorecido} como fornecedor
+      </button>
+      {abrir ? (
+        <ModalFornecedor
+          fechar={() => setAbrir(false)}
+          inicial={{ nome: favorecido, cnpj: cnpjLido(c.leitura) }}
+          salvo={(f) => r.mudar({ fornecedorSalvo: { id: f.id, para: favorecido } })}
+        />
+      ) : null}
+    </>
   );
 }
 

@@ -50,6 +50,9 @@ span.topicoNome { cursor: default; padding-right: 12px; }
 .avisoInfo { background: var(--blueSoft); color: var(--blueInk); }
 .campos { border: 0; margin: 0; padding: 0; min-width: 0; }
 .grupo { margin-top: 16px; }
+/* "Salvar como fornecedor": logo abaixo de quem recebeu, discreto (é atalho, não passo da revisão) */
+.fornSalvar { margin-top: 8px; }
+.fornSalvo { margin: 8px 0 0; display: flex; align-items: center; gap: 6px; color: var(--greenInk); }
 .grupoTopo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .grupoRotulo { font-size: var(--t-meta); font-weight: 600; color: var(--ink2); }
 .grupo[data-estado="conferir"] .grupoRotulo { color: var(--amberInk); }
