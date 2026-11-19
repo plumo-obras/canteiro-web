@@ -67,7 +67,11 @@ export function ListaFornecedores({ fornecedores, editar }: { fornecedores: Forn
             <th scope="col">Fornecedor</th>
             <th scope="col">CNPJ</th>
             <th scope="col">Contato</th>
-            {editar ? <th scope="col" className="sr-only">Ações</th> : null}
+            {editar ? (
+              <th scope="col">
+                <span className="sr-only">Ações</span>
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -78,7 +82,7 @@ export function ListaFornecedores({ fornecedores, editar }: { fornecedores: Forn
                 <td>
                   <b>{f.nome}</b>
                 </td>
-                <td className={`forn-cnpj${f.cnpj ? "" : " sem-dado"}`}>{f.cnpj ? mascararCnpj(f.cnpj) : "—"}</td>
+                <td className={f.cnpj ? "forn-cnpj" : "sem-dado"}>{f.cnpj ? mascararCnpj(f.cnpj) : "—"}</td>
                 <td className={`sm${contatoDe(f) ? "" : " sem-dado"}`}>{contatoDe(f) || "—"}</td>
                 {editar ? (
                   <td className="num">
