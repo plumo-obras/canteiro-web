@@ -43,3 +43,6 @@ O produto inteiro em contêineres sobe pelo `docker-compose.completo.yml` do can
 ## Validação antes do push
 
 Use o Node de `.node-version` e instale com `pnpm install --frozen-lockfile`. A instalação ativa o hook versionado. Rode `pnpm verify` durante o trabalho e `pnpm verify:pr` antes de marcar o rascunho pronto. Consulte [docs/CI.md](docs/CI.md) para reproduzir cada gate.
+
+
+As regras de validação compartilhadas estão em [AGENTS.md](AGENTS.md) e os detalhes dos gates em [docs/CI.md](docs/CI.md).

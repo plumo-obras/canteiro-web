@@ -7,3 +7,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Validar antes de enviar
+
+- Use Node `.node-version` e pnpm `packageManager` do package.json.
+- Instale com `pnpm install --frozen-lockfile`. A instalação ativa o hook versionado.
+- Rode `pnpm verify` durante o trabalho e `pnpm verify:pr` antes de marcar o PR pronto.
+- Abra PR como rascunho. Consulte `docs/CI.md` para os gates e suas provas.
+- Não altere lock, configuração ou saída gerada sem rodar o verificador correspondente.
