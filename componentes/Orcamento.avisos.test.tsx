@@ -18,7 +18,6 @@ const montar = (dados: unknown, usuario: Usuario = USUARIO) => {
   criarRede({
     "POST /srv/auth/renovar": renovarOk,
     "GET /srv/api/obras/o1/orcamento": () => json(dados),
-    "GET /srv/api/obras/o1/insumos": () => json([]),
   });
   render(
     <ProvedorCasca usuario={usuario} demo={false}>
@@ -94,12 +93,10 @@ describe("avisos do Orçamento", () => {
 
 describe("Desfazer da aprovação pela metade", () => {
   const PARADA = { ...OBRA, status: "desfazendo_aprovacao", desfazendo_registro_id: "r7" } as Obra;
-  const insumo = (id: string) => ({ insumo: { id, nome: id, unidade: "kg", precisa_ate_o_fim: 1000, valor_unitario: 100 }, conta: { precisa: 1000, falta: 1000, comprar: 1000, saldo: 0, a_caminho: 0, cotando: 0, transferencia: 0 } });
   const abrir = (desfazer: () => Response, usuario: Usuario = USUARIO) => {
     const rede = criarRede({
       "POST /srv/auth/renovar": renovarOk,
       "GET /srv/api/obras/o1/orcamento": () => json(orc("planilha.xlsx", [500])),
-      "GET /srv/api/obras/o1/insumos": () => json([insumo("a"), insumo("b")]),
       "POST /srv/api/registro/r7/desfazer": desfazer,
     });
     render(
@@ -110,12 +107,11 @@ describe("Desfazer da aprovação pela metade", () => {
     return rede;
   };
 
-  it("avisa quantos itens ficaram, sem oferecer aprovar nem comprar", async () => {
+  it("avisa que o Desfazer parou, sem oferecer aprovar", async () => {
     abrir(() => json({}));
-    expect(await screen.findByText(/parou no meio: 2 itens ainda em Compras/)).toBeInTheDocument();
+    expect(await screen.findByText(/O Desfazer da aprovação parou no meio\./)).toBeInTheDocument();
     expect(screen.getByText(/· desfazendo a aprovação/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Aprovar orçamento" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Comprar o que vem primeiro" })).toBeNull();
   });
 
   it("Continuar chama o Desfazer do registro e avisa", async () => {
@@ -126,9 +122,9 @@ describe("Desfazer da aprovação pela metade", () => {
   });
 
   it("a recusa da API fica à vista no aviso, dizendo o que resolver", async () => {
-    abrir(() => json({ detail: "Aço já tem pedido (PED-0170); cancele o pedido antes de desfazer a aprovação." }, 409));
+    abrir(() => json({ detail: "A Fundação já tem gasto lançado; mude a etapa dele antes de desfazer a aprovação." }, 409));
     await userEvent.setup().click(await screen.findByRole("button", { name: "Continuar o Desfazer" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("cancele o pedido antes de desfazer");
+    expect(await screen.findByRole("alert")).toHaveTextContent("mude a etapa dele antes de desfazer");
   });
 
   it("não manda tocar no preço, que está travado", async () => {
@@ -208,7 +204,6 @@ describe("ordem das etapas antes de aprovar", () => {
         if (gravou && segurar) await segurar;
         return json(dados(atual));
       },
-      "GET /srv/api/obras/o1/insumos": () => json([]),
       "POST /srv/api/obras/o1/orcamento/etapas/ordem": ({ corpo }) => {
         if (recusa) return json({ detail: recusa }, 409);
         gravou = true;
@@ -240,7 +235,7 @@ describe("ordem das etapas antes de aprovar", () => {
   });
 
   it("etapa com lançamento: o 409 da API aparece como veio, e a ordem não muda", async () => {
-    const DETAIL = "Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa 1 Estrutura: renumerar levaria o lançamento para outra etapa.";
+    const DETAIL = "Já há lançamento (gasto, tópico ou cronograma) na etapa 1 Estrutura: renumerar levaria o lançamento para outra etapa.";
     montarOrdem(OBRA, USUARIO, DETAIL);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Descer Estrutura" }));
     expect(await screen.findByText(DETAIL)).toBeInTheDocument();

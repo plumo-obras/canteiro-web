@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { ItemInsumo, Pedido, Proposta } from "../contrato";
+import type { Fornecedor } from "../contrato";
 import { entrarDemo, renovarDemo, reiniciarDemo, responder, usuarioDoAcesso } from "./loja";
 import { roteiroDemo } from "./agente";
 import { formatarHistorico, type MensagemSessao, type SessaoApi } from "../historico";
@@ -12,18 +12,28 @@ const chamar = (m: string, caminho: string, corpo?: unknown, u = admin()) => {
   const [p, q = ""] = caminho.split("?");
   return responder(m, p!.split("/").filter(Boolean), new URLSearchParams(q), corpo, u);
 };
-const conta = (chave: string) =>
-  (chamar("GET", `obras/${obraId()}/insumos`).corpo as ItemInsumo[]).find((i) => i.insumo.id === e.insumos.get(chave)!.id)!.conta;
 
 beforeEach(() => {
   e = reiniciarDemo();
 });
 
-describe("demonstração: dados de exemplo do contrato (Casa Vila Nova)", () => {
-  it("bate com o seed do contrato", () => {
-    expect(conta("bloco").saldo).toBe(2_760_000); // 4.000 − 1.050 − 190
-    expect(conta("aco")).toMatchObject({ precisa: 3_940_000, saldo: 140_000, a_caminho: 3_200_000, cotando: 600_000, falta: 0 });
-    expect(conta("cimento")).toMatchObject({ precisa: 200_000, saldo: 46_000, a_caminho: 120_000, falta: 34_000 });
+describe("demonstração: dados de exemplo (Casa Vila Nova)", () => {
+  it("o resumo das obras traz o prazo de quem tem cronograma, como a API", () => {
+    const lista = chamar("GET", "obras/resumo").corpo as import("../contrato").ResumoObra[];
+    const casa = lista.find((x) => x.obra.id === obraId())!;
+    expect(casa.prazo?.termino_contratual).toMatch(/^\d{4}-\d{2}$/);
+    expect(casa.tem_orcamento).toBe(true);
+    expect(lista.filter((x) => x.obra.id !== obraId()).every((x) => x.prazo === null)).toBe(true);
+  });
+
+  it("a obra em andamento tem orçamento por etapas, cronograma e gastos; nenhuma compra", () => {
+    const orc = chamar("GET", `obras/${obraId()}/orcamento`).corpo as import("../contrato").Orcamento;
+    expect(orc.etapas).toHaveLength(12);
+    expect(orc.totais.realizado).toBeGreaterThan(0);
+    expect(orc.totais.cotando).toBe(0);
+    expect(orc.totais.comprometido).toBe(orc.totais.realizado);
+    expect(e.propostas).toEqual([]);
+    expect("pedidos" in e || "insumos" in e || "movimentos" in e).toBe(false);
   });
 });
 
@@ -40,11 +50,11 @@ describe("demonstração: resumo da obra (o placar e a abertura)", () => {
     expect(chamar("GET", `obras/${vitrine.id}/resumo`).corpo).toMatchObject({ cronograma: { cadastrado: false, termino_contratual: null } });
   });
 
-  it("gasto = pago + entregue a pagar, igual ao desembolso (a demo não lança pagamento)", () => {
+  it("o gasto é o que já saiu do caixa, igual ao desembolso", () => {
     const f = (chamar("GET", `obras/${obraId()}/resumo`).corpo as import("../contrato").ResumoDaObra).financeiro;
-    expect(f.pago! + f.entregue_a_pagar!).toBe(f.realizado);
+    expect(f.pago).toBe(f.realizado);
     const d = chamar("GET", `obras/${obraId()}/desembolso`).corpo as import("../contrato").Desembolso;
-    expect(d.totais.entregue_sem_pagamento).toBe(f.entregue_a_pagar);
+    expect(d.totais.pago).toBe(f.pago);
   });
 
   it("obra sem versão de contrato não tem orçamento", () => {
@@ -53,113 +63,36 @@ describe("demonstração: resumo da obra (o placar e a abertura)", () => {
   });
 });
 
-describe("demonstração: aprovar executa e o desfazer volta", () => {
-  it("criar_pedido: aprovar cria o pedido já aprovado (a caminho sobe, falta zera); desfazer cancela", () => {
-    const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[]).find((p) => p.tipo === "criar_pedido")!;
-    const r = chamar("POST", `propostas/${pr.id}/aprovar`).corpo as { proposta: Proposta; registro: { id: string } };
-    expect(r.proposta).toMatchObject({ status: "aprovada", decidido_por_nome: "Rizzi", registro_id: r.registro.id });
-    expect(e.pedidos.at(-1)!.status).toBe("aprovado"); // uma aprovação só, não duas
-    expect(conta("cimento")).toMatchObject({ a_caminho: 154_000, cotando: 0, falta: 0 });
-
-    expect(chamar("POST", `propostas/${pr.id}/aprovar`).status).toBe(409); // não executa duas vezes
-    chamar("POST", `registro/${r.registro.id}/desfazer`);
-    expect(conta("cimento").falta).toBe(34_000);
-    expect(e.propostas.find((p) => p.id === pr.id)!.status).toBe("desfeita");
-    expect(chamar("POST", `registro/${r.registro.id}/desfazer`).status).toBe(409);
+describe("demonstração: Compras saiu do contrato", () => {
+  it("pedido, insumo, movimento e recebimento respondem como rota que não existe", () => {
+    for (const [m, c] of [
+      ["GET", `obras/${obraId()}/pedidos`],
+      ["POST", `obras/${obraId()}/pedidos`],
+      ["GET", `obras/${obraId()}/insumos`],
+      ["POST", `obras/${obraId()}/movimentos`],
+      ["POST", "pedidos/p1/avancar"],
+      ["POST", "pedidos/p1/recebimentos"],
+      ["POST", `obras/${obraId()}/orcamento/importar`],
+      ["POST", `obras/${obraId()}/orcamento/materiais`],
+    ] as const)
+      expect([m, c, chamar(m, c, {}).status]).toEqual([m, c, 404]);
   });
-
-  it("avançar para conferido dá entrada no almoxarifado; desfazer estorna", () => {
-    const antes = conta("areia").saldo;
-    const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[]).find((p) => p.tipo === "avancar_pedido")!;
-    const r = chamar("POST", `propostas/${pr.id}/aprovar`).corpo as { registro: { id: string } };
-    expect(conta("areia").saldo).toBe(antes + 40_000);
-    chamar("POST", `registro/${r.registro.id}/desfazer`);
-    expect(conta("areia").saldo).toBe(antes);
-    expect(e.pedidos.find((p) => p.numero === "PED-0157")!.status).toBe("recebido");
-  });
-
-  it("recusar pede motivo", () => {
-    const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[])[0]!;
-    expect(chamar("POST", `propostas/${pr.id}/recusar`, { motivo: " " }).status).toBe(422);
-    expect(chamar("POST", `propostas/${pr.id}/recusar`, { motivo: "outro fornecedor" }).corpo).toMatchObject({
-      status: "recusada",
-      motivo_recusa: "outro fornecedor",
-    });
-  });
-
-  it("papel de leitura não aprova nem avança pedido", () => {
-    const pr = (chamar("GET", "propostas?status=pendente").corpo as Proposta[])[0]!;
-    expect(chamar("POST", `propostas/${pr.id}/aprovar`, undefined, leitura()).status).toBe(403);
-    const ped = e.pedidos[0]!;
-    expect(chamar("POST", `pedidos/${ped.id}/avancar`, { para: "conferido" }, leitura()).status).toBe(403);
-  });
+  it("rota fora do contrato é 404", () => expect(chamar("GET", "foo").status).toBe(404));
 });
 
-describe("demonstração: pedidos", () => {
-  const insumos = () => (chamar("GET", `obras/${obraId()}/insumos`).corpo as ItemInsumo[]).slice(0, 2);
-  const pedidoDeDuasLinhas = () => {
-    const [a, b] = insumos();
-    const linhas = [a!, b!].map((i) => ({ insumo_id: i.insumo.id, quantidade: 2000, valor_unitario: 500 }));
-    return chamar("POST", `obras/${obraId()}/pedidos`, { fornecedor: "Fulano", aprovado: true, linhas }).corpo as Pedido & { registro_id: string };
-  };
-
-  it("várias linhas: um pedido só, e o Desfazer cancela o pedido inteiro", () => {
-    const antes = e.pedidos.length;
-    const p = pedidoDeDuasLinhas();
-    expect(e.pedidos.length).toBe(antes + 1);
-    expect(p.linhas).toHaveLength(2);
-    expect(p.valor).toBe(2000);
-    expect(p.linhas.map((l) => l.total)).toEqual([1000, 1000]);
-    expect(chamar("POST", `registro/${p.registro_id}/desfazer`).status).toBeLessThan(300);
-    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("cancelado");
+describe("demonstração: fornecedores", () => {
+  it("lista os da empresa; admin cadastra e edita, o CNPJ não repete; leitura não grava", () => {
+    const antes = (chamar("GET", "fornecedores").corpo as Fornecedor[]).length;
+    const f = chamar("POST", "fornecedores", { nome: "Areial Inventado", cnpj: "11.222.333/0001-81" });
+    expect(f.status).toBe(201);
+    const id = (f.corpo as Fornecedor).id;
+    expect((chamar("GET", "fornecedores").corpo as Fornecedor[]).length).toBe(antes + 1);
+    expect(chamar("POST", "fornecedores", { nome: "Outro", cnpj: "11222333000181" }).status).toBe(409);
+    expect(chamar("POST", "fornecedores", { nome: "X", cnpj: "11222333000100" }).status).toBe(422);
+    expect(chamar("POST", "fornecedores", { nome: "" }).status).toBe(422);
+    expect((chamar("PATCH", `fornecedores/${id}`, { telefone: "19 0000-0000" }).corpo as Fornecedor)).toMatchObject({ nome: "Areial Inventado", telefone: "19 0000-0000", cnpj: "11222333000181" });
+    expect(chamar("POST", "fornecedores", { nome: "Y" }, leitura()).status).toBe(403);
   });
-
-  it("a entrega parte do status real: Desfazer volta a ele e estorna as linhas", () => {
-    const p = pedidoDeDuasLinhas();
-    const [a] = insumos();
-    const saldo = () => (insumos().find((i) => i.insumo.id === a!.insumo.id) as ItemInsumo).conta.saldo;
-    const antes = saldo();
-    const r = chamar("POST", `pedidos/${p.id}/recebimentos`, { linhas: [{ indice: 0, quantidade: 2000 }, { indice: 1, quantidade: 2000 }], chave_idempotencia: "c1" });
-    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("conferido");
-    expect(saldo()).toBe(antes + 2000);
-    expect(chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`).status).toBeLessThan(300);
-    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("aprovado");
-    expect(saldo()).toBe(antes);
-  });
-
-  it("a mesma chave não cria outro pedido", () => {
-    const [a] = insumos();
-    const corpo = { fornecedor: "Fulano", aprovado: true, chave_idempotencia: "chave-fixa-1", linhas: [{ insumo_id: a!.insumo.id, quantidade: 1000, valor_unitario: 100 }] };
-    const p1 = chamar("POST", `obras/${obraId()}/pedidos`, corpo);
-    const antes = e.pedidos.length;
-    const p2 = chamar("POST", `obras/${obraId()}/pedidos`, corpo);
-    expect(p1.status).toBe(201);
-    expect(p2.status).toBe(200);
-    expect((p2.corpo as Pedido).id).toBe((p1.corpo as Pedido).id);
-    expect(e.pedidos.length).toBe(antes);
-  });
-
-  it("pedido em cotação não recebe entrega", () => {
-    const ped = e.pedidos.find((x) => x.status === "em_cotacao")!;
-    expect(chamar("POST", `pedidos/${ped.id}/recebimentos`, { linhas: [{ indice: 0, quantidade: 1 }], chave_idempotencia: "c2" }).status).toBe(422);
-    expect(ped.status).toBe("em_cotacao");
-  });
-
-  it("valida a transição como regras.validar_transicao", () => {
-    const ped = e.pedidos.find((p) => p.numero === "PED-0158")!; // em trânsito
-    expect(chamar("POST", `pedidos/${ped.id}/avancar`, { para: "cancelado" }).status).toBe(422);
-    const r = chamar("POST", `pedidos/${ped.id}/avancar`, { para: "recebido" });
-    expect((r.corpo as Pedido).status).toBe("recebido");
-  });
-
-  it("filtra por status e devolve movimentos mais novos primeiro", () => {
-    expect((chamar("GET", `obras/${obraId()}/pedidos?status=em_cotacao`).corpo as Pedido[]).map((p) => p.numero)).toEqual(["PED-0167"]);
-    const movs = chamar("GET", `obras/${obraId()}/insumos/${e.insumos.get("bloco")!.id}/movimentos?limite=2`).corpo as { criado_em: string }[];
-    expect(movs).toHaveLength(2);
-    expect(movs[0]!.criado_em > movs[1]!.criado_em).toBe(true);
-  });
-
-  it("rota fora do contrato é 404", () => expect(chamar("GET", "foo").status).toBe(404));
 });
 
 describe("demonstração: login", () => {
@@ -173,33 +106,25 @@ describe("demonstração: login", () => {
   });
 });
 
-describe("demonstração: agente só propõe", () => {
-  it("cita a conta e cria uma proposta pendente, sem gravar pedido", async () => {
-    const pedidosAntes = e.pedidos.length;
+describe("demonstração: o Plumo responde sobre a obra, sem compra", () => {
+  const conversar = async (texto: string, sessao_id = "s-demo") => {
     const evs = [];
-    for await (const ev of roteiroDemo({ texto: "precisa comprar bloco?", obra_id: obraId() }, admin(), 0)) evs.push(ev);
-    const tipos = evs.map((x) => x.evento);
-    expect(tipos[0]).toBe("ferramenta");
-    expect(tipos.at(-1)).toBe("fim");
-    const texto = evs
-      .filter((x) => x.evento === "texto")
-      .map((x) => (x.dados as { delta: string }).delta)
-      .join("");
-    expect(texto).toContain("falta 640 un");
-    const prop = evs.find((x) => x.evento === "proposta")!.dados as Proposta;
-    expect(prop).toMatchObject({ status: "pendente", tipo: "criar_pedido", dados: { quantidade: 640_000, valor: 204_800 } });
-    expect(e.pedidos.length).toBe(pedidosAntes);
-  });
-});
+    for await (const ev of roteiroDemo({ texto, obra_id: obraId(), sessao_id }, admin(), 0)) evs.push(ev);
+    return evs;
+  };
 
-describe("demonstração: histórico da conversa", () => {
-  it("a volta gravada reabre igual: bolha, chips, texto e o cartão da proposta", async () => {
-    const evs = [];
-    for await (const ev of roteiroDemo({ texto: "quanto falta de bloco?", obra_id: obraId(), sessao_id: "s-demo" }, admin(), 0)) evs.push(ev);
-    const prop = evs.find((x) => x.evento === "proposta")!.dados as Proposta;
+  it("pergunta de compra recebe o que o Plumo faz no lugar, e nada vira proposta", async () => {
+    const evs = await conversar("compra 30 sacos de cimento");
+    expect(evs.some((x) => x.evento === "proposta")).toBe(false);
+    expect(evs.filter((x) => x.evento === "texto").map((x) => (x.dados as { delta: string }).delta).join("")).toContain("não faço compras");
+    expect(e.propostas).toEqual([]);
+  });
+
+  it("a volta gravada reabre igual: bolha, chip da consulta e texto", async () => {
+    await conversar("quanto já gastei na fundação?");
     const lista = chamar("GET", "sessoes").corpo as SessaoApi[];
     // a gravada vem primeiro (a mais recente); as outras são as conversas de exemplo da demonstração
-    expect([lista[0]!.id, lista[0]!.titulo, lista[0]!.total_mensagens]).toEqual(["s-demo", "quanto falta de bloco?", 5]);
+    expect([lista[0]!.id, lista[0]!.titulo]).toEqual(["s-demo", "quanto já gastei na fundação?"]);
     expect(lista.slice(1).every((s) => s.id.startsWith("demo-conversa-"))).toBe(true);
     // sessão é de quem criou: quem só lê vê apenas os próprios exemplos
     expect((chamar("GET", "sessoes", undefined, leitura()).corpo as SessaoApi[]).some((s) => s.id === "s-demo")).toBe(false);
@@ -208,24 +133,22 @@ describe("demonstração: histórico da conversa", () => {
     const msgs = chamar("GET", "sessoes/s-demo/mensagens?depois_de=-1&limite=200").corpo as MensagemSessao[];
     const { mensagens, propostaIds } = formatarHistorico(msgs);
     expect(mensagens.map((m) => m.papel)).toEqual(["eu", "agente"]);
-    expect(mensagens[0]).toMatchObject({ texto: "quanto falta de bloco?" });
-    expect(mensagens[1]).toMatchObject({ propostas: [prop.id], ferramentas: [{ resumo: "consultou o estoque" }, { nivel: "propoe" }] });
-    expect(propostaIds).toEqual([prop.id]);
-    expect((chamar("GET", "sessoes/s-demo/mensagens?depois_de=3").corpo as MensagemSessao[]).map((m) => m.seq)).toEqual([4]);
+    expect(mensagens[0]).toMatchObject({ texto: "quanto já gastei na fundação?" });
+    expect(mensagens[1]).toMatchObject({ ferramentas: [{ resumo: "consultou o orçamento" }] });
+    expect(propostaIds).toEqual([]);
   });
 });
 
 describe("demonstração: página inicial e conta", () => {
   const master = () => e.usuarios[2]!;
 
-  it("GET /obras/resumo soma como a API: pendências, falta comprar, pedidos abertos e NF para conferir", () => {
+  it("GET /obras/resumo soma como a API: pendências, orçamento e última atividade", () => {
     const r = chamar("GET", "obras/resumo");
     expect(r.status).toBe(200);
     const vila = (r.corpo as { obra: { id: string }; [k: string]: unknown }[]).find((x) => x.obra.id === obraId())!;
-    // seed: NF 4471 a conferir + compra de cimento pendentes; PED-0157 (recebido), 0158, 0160, 0167 abertos
-    expect(vila).toMatchObject({ pendencias: 2, nf_para_conferir: 1, pedidos_abertos: 4, valor_pedidos_abertos: 560000 + 2112000 + 468000 + 402000 });
-    expect(vila.falta_comprar).toBeGreaterThanOrEqual(1);
+    expect(vila).toMatchObject({ pendencias: 0, tem_orcamento: true });
     expect(vila.ultima_atividade).toBeTruthy();
+    expect(Object.keys(vila).some((k) => /pedido|comprar|nf_/.test(k))).toBe(false);
   });
 
   it("GET /conta traz perfil, empresa, chave (null sem chave) e créditos; a chave nunca volta inteira", () => {
@@ -258,112 +181,6 @@ describe("demonstração: página inicial e conta", () => {
     expect(soma(r.por_dia)).toBe(r.total.custo);
     expect(soma(r.por_rota)).toBe(r.total.custo);
     expect(chamar("GET", "uso?de=ontem&ate=hoje").status).toBe(422);
-  });
-});
-
-describe("demonstração: conferir com a quantidade real", () => {
-  const ped157 = () => e.pedidos.find((p) => p.numero === "PED-0157")!; // 40 m³ de areia, recebido
-
-  it("entra o que chegou; a diferença volta para a falta; desfazer estorna só o que entrou", () => {
-    const antes = conta("areia");
-    const r = chamar("POST", `pedidos/${ped157().id}/avancar`, { para: "conferido", quantidade_recebida: 36_000, nf: "4471" });
-    expect(r.corpo).toMatchObject({ status: "conferido", linhas: [expect.objectContaining({ quantidade: 40_000, recebida: 36_000 })] });
-    expect(ped157()).toMatchObject({ quantidade_recebida: 36_000, nf: "4471" });
-    const depois = conta("areia");
-    expect(depois.saldo).toBe(antes.saldo + 36_000);
-    expect(depois.falta).toBe(antes.falta + 4_000); // saiu do "a caminho" com 40, entrou 36
-    expect(e.movimentos.at(-1)!.origem_doc).toBe("PED-0157 · NF 4471");
-    const reg = e.registro.find((x) => x.id === (r.corpo as { registro_id: string }).registro_id)!;
-    expect(reg.texto).toContain("chegaram 36 de 40 m³");
-    chamar("POST", `registro/${reg.id}/desfazer`);
-    expect(conta("areia")).toEqual(antes);
-    expect(ped157()).toMatchObject({ status: "recebido", quantidade_recebida: null, nf: null });
-  });
-
-  it("recusa quantidade zero e quantidade fora da conferência", () => {
-    expect(chamar("POST", `pedidos/${ped157().id}/avancar`, { para: "conferido", quantidade_recebida: 0 }).status).toBe(422);
-    const ped160 = e.pedidos.find((p) => p.numero === "PED-0160")!;
-    expect(chamar("POST", `pedidos/${ped160.id}/avancar`, { para: "recebido", quantidade_recebida: 10_000 }).status).toBe(422);
-  });
-
-  it("não desfaz o avanço se o pedido já andou de novo (409)", () => {
-    const ped160 = e.pedidos.find((p) => p.numero === "PED-0160")!; // enviado
-    const r = chamar("POST", `pedidos/${ped160.id}/avancar`, { para: "recebido" }).corpo as { registro_id: string };
-    chamar("POST", `pedidos/${ped160.id}/avancar`, { para: "conferido" });
-    expect(chamar("POST", `registro/${r.registro_id}/desfazer`).status).toBe(409);
-  });
-});
-
-describe("demonstração: ajustar antes de aprovar", () => {
-  const pendente = (tipo: Proposta["tipo"]) => (chamar("GET", "propostas?status=pendente").corpo as Proposta[]).find((p) => p.tipo === tipo)!;
-
-  it("compra ajustada executa o ajuste e guarda o que o agente propôs", () => {
-    const pr = pendente("criar_pedido");
-    const r = chamar("POST", `propostas/${pr.id}/aprovar`, { ajustes: { quantidade: 30_000, valor: 117_000 } }).corpo as {
-      proposta: Proposta;
-      registro: { texto: string };
-    };
-    expect(r.proposta).toMatchObject({ ajustada: true, dados: { quantidade: 30_000, valor: 117_000 }, dados_originais: { quantidade: 34_000 } });
-    expect(e.pedidos.at(-1)).toMatchObject({ quantidade: 30_000, valor: 117_000, status: "aprovado" });
-    expect(r.registro.texto).toContain("ajustado: quantidade 34 sc → 30 sc");
-  });
-
-  it("conferência ajustada dá entrada do que chegou", () => {
-    const antes = conta("areia").saldo;
-    chamar("POST", `propostas/${pendente("avancar_pedido").id}/aprovar`, { ajustes: { quantidade_recebida: 36_000 } });
-    expect(conta("areia").saldo).toBe(antes + 36_000);
-  });
-
-  it("campo que não se ajusta é 422 e nada é executado", () => {
-    const pr = pendente("criar_pedido");
-    const n = e.pedidos.length;
-    expect(chamar("POST", `propostas/${pr.id}/aprovar`, { ajustes: { insumo_id: "outro" } }).status).toBe(422);
-    expect(e.pedidos.length).toBe(n);
-    expect(e.propostas.find((p) => p.id === pr.id)!.status).toBe("pendente");
-  });
-
-  it("recusar fica no histórico", () => {
-    const pr = pendente("criar_pedido");
-    chamar("POST", `propostas/${pr.id}/recusar`, { motivo: "outro fornecedor" });
-    expect(e.registro.at(-1)).toMatchObject({ texto: expect.stringContaining("Recusou"), desfazer: null });
-  });
-});
-
-describe("demonstração: lançamentos e pedido pela tela", () => {
-  const lancar = (c: Record<string, unknown>) => chamar("POST", `obras/${obraId()}/movimentos`, { chave_idempotencia: "chave-teste-1", ...c });
-
-  it("saída de curva A exige a frente de serviço; com ela, baixa o saldo e desfaz", () => {
-    const bloco = e.insumos.get("bloco")!.id;
-    expect(lancar({ insumo_id: bloco, tipo: "saida", quantidade: 100_000 }).status).toBe(422);
-    const r = lancar({ insumo_id: bloco, tipo: "saida", quantidade: 100_000, destino: "Alvenaria 1º andar" });
-    expect(r.status).toBe(201);
-    expect(conta("bloco").saldo).toBe(2_660_000);
-    expect((r.corpo as { quem: string }).quem).toBe("Rizzi");
-    chamar("POST", `registro/${(r.corpo as { registro_id: string }).registro_id}/desfazer`);
-    expect(conta("bloco").saldo).toBe(2_760_000);
-  });
-
-  it("a mesma chave não lança duas vezes; com outro conteúdo é 409", () => {
-    const areia = e.insumos.get("areia")!.id;
-    lancar({ insumo_id: areia, tipo: "ajuste", quantidade: -2_000, destino: "contagem" });
-    lancar({ insumo_id: areia, tipo: "ajuste", quantidade: -2_000, destino: "contagem" });
-    expect(conta("areia").saldo).toBe(10_000);
-    expect(lancar({ insumo_id: areia, tipo: "ajuste", quantidade: -3_000 }).status).toBe(409);
-  });
-
-  it("pedido criado já aprovado desfaz enquanto não andou", () => {
-    const r = chamar("POST", `obras/${obraId()}/pedidos`, {
-      insumo_id: e.insumos.get("bloco")!.id,
-      quantidade: 640_000,
-      fornecedor: "Cerâmica",
-      valor: 204_800,
-      aprovado: true,
-    });
-    const p = r.corpo as Pedido & { registro_id: string };
-    expect(p).toMatchObject({ status: "aprovado", numero: "PED-0168" });
-    expect(conta("bloco").falta).toBe(0);
-    chamar("POST", `registro/${p.registro_id}/desfazer`);
-    expect(e.pedidos.find((x) => x.id === p.id)!.status).toBe("cancelado");
   });
 });
 
@@ -414,101 +231,23 @@ describe("demonstração: cadastro de obra e orçamento por planilha", () => {
       sugestao: Record<string, unknown>;
     };
     expect(l.linha_cabecalho).toBe(3);
-    expect(l.sugestao).toMatchObject({ nome: 1, unidade: 2, quantidade: 3, valor_unitario: 4, valor_total: 5, saldo: null, curva: null });
+    expect(l.sugestao).toMatchObject({ nome: 1, unidade: 2, quantidade: 3, valor_unitario: 4, valor_total: 5 });
+    expect("saldo" in l.sugestao || "curva" in l.sugestao).toBe(false);
     expect(chamar("POST", `obras/${o.id}/orcamento/ler`, { arquivo: { nome: "orc.xlsx", texto: "" } }).status).toBe(422);
-  });
-
-  it("materiais do projeto: prévia, m3 vira m³, aplicar grava e reenviar atualiza", () => {
-    const o = criar().corpo as { id: string };
-    const corpo = {
-      origem: "projeto estrutural",
-      itens: [
-        { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220_300, valor_unitario: 669 },
-        { nome: "Concreto usinado C30 (SINAPI 34494)", unidade: "m3", quantidade: 21_650, valor_unitario: 51_263 },
-      ],
-    };
-    const p = chamar("POST", `obras/${o.id}/orcamento/materiais`, { ...corpo, aplicar: false }).corpo as import("../contrato").PreviaOrcamento;
-    expect(p).toMatchObject({ aplicado: false, novos: 2, atualizados: 0, erros: [] });
-    expect(p.linhas.find((l) => l.nome.startsWith("Concreto"))).toMatchObject({ unidade: "m³", curva: "A" });
-    const a = chamar("POST", `obras/${o.id}/orcamento/materiais`, { ...corpo, aplicar: true }).corpo as import("../contrato").PreviaOrcamento;
-    expect(a.aplicado).toBe(true);
-    expect(a.registro_ids).toHaveLength(1);
-    const p2 = chamar("POST", `obras/${o.id}/orcamento/materiais`, { ...corpo, aplicar: false }).corpo as import("../contrato").PreviaOrcamento;
-    expect([p2.novos, p2.atualizados]).toEqual([0, 2]);
-    expect(chamar("POST", `obras/${o.id}/orcamento/materiais`, { origem: "x", itens: [] }).status).toBe(422);
-  });
-
-  it("prévia pula títulos, junta repetidos, calcula o unitário pelo total e a curva pelo valor; aplicar grava", () => {
-    const o = criar().corpo as { id: string };
-    const arquivo = { nome: "orc.csv", texto: PLANILHA };
-    const mapeamento = JSON.stringify({
-      planilha: "CSV",
-      linha_cabecalho: 3,
-      nome: 1,
-      unidade: 2,
-      quantidade: 3,
-      valor_unitario: 4,
-      valor_total: 5,
-      saldo: null,
-      curva: null,
-    });
-    const p = chamar("POST", `obras/${o.id}/orcamento/importar`, { arquivo, mapeamento, aplicar: "false" }).corpo as import("../contrato").PreviaOrcamento;
-    expect(p).toMatchObject({ aplicado: false, novos: 4, atualizados: 0, juntadas: 1, total: 1_410_000, erros: [] });
-    expect(p.ignoradas.map((i) => i.motivo)).toEqual([
-      "sem unidade (título ou subtotal?)",
-      "sem unidade (título ou subtotal?)",
-      "sem unidade (título ou subtotal?)",
-    ]);
-    const cimento = p.linhas.find((l) => l.nome.startsWith("Cimento"))!;
-    expect(cimento).toMatchObject({ linhas: [5, 8], quantidade: 150_000, valor_unitario: 4000, total: 600_000 });
-    expect(p.linhas.find((l) => l.nome === "Areia média")).toMatchObject({ valor_unitario: 14_000 });
-    expect(Object.fromEntries(p.linhas.map((l) => [l.nome, l.curva]))).toEqual({
-      "Aço CA-50 10 mm": "A",
-      "Cimento CP-II 50 kg": "A",
-      "Areia média": "B",
-      "Prego 17x21": "C",
-    });
-    expect(e.insumos.size).toBe(4); // a prévia não grava
-
-    const a = chamar("POST", `obras/${o.id}/orcamento/importar`, { arquivo, mapeamento, aplicar: "true" }).corpo as { aplicado: boolean };
-    expect(a.aplicado).toBe(true);
-    const itens = chamar("GET", `obras/${o.id}/insumos`).corpo as ItemInsumo[];
-    expect(itens).toHaveLength(4);
-    // reimportar atualiza em vez de duplicar
-    const p2 = chamar("POST", `obras/${o.id}/orcamento/importar`, { arquivo, mapeamento, aplicar: "false" }).corpo as { novos: number; atualizados: number };
-    expect(p2).toMatchObject({ novos: 0, atualizados: 4 });
   });
 
   it("aprovar exige orçamento, passa para em andamento e o desfazer reabre", () => {
     const o = criar().corpo as { id: string };
     expect(chamar("POST", `obras/${o.id}/orcamento/aprovar`).status).toBe(422);
-    chamar("POST", `obras/${o.id}/insumos`, { nome: "Cimento", unidade: "sc", precisa_ate_o_fim: 10_000, valor_unitario: 4000 });
+    chamar("POST", `obras/${o.id}/orcamento/estrutura`, { itens: [{ nome: "Concreto C25", unidade: "m³", quantidade: 1_000, valor_unitario: 40_000 }], aplicar: true });
     const r = chamar("POST", `obras/${o.id}/orcamento/aprovar`).corpo as { status: string; registro_id: string };
     expect(r.status).toBe("em_andamento");
-    expect(e.registro.at(-1)!.texto).toBe("Aprovou o orçamento de Casa Teste (1 insumo, R$ 400,00)");
+    expect(e.registro.at(-1)!.texto).toBe("Aprovou o orçamento de Casa Teste (R$ 400,00)");
     expect(chamar("POST", `obras/${o.id}/orcamento/aprovar`).status).toBe(409);
     chamar("POST", `registro/${r.registro_id}/desfazer`);
     expect(e.obras.find((x) => x.id === o.id)!.status).toBe("em_orcamento");
   });
 
-  it("a Estrutura do projeto fica só no orçamento até aprovar; aprovar gera as Compras (vira insumo da obra)", () => {
-    const o = criar().corpo as { id: string };
-    chamar("POST", `obras/${o.id}/orcamento/estrutura`, {
-      itens: [
-        { nome: "Aço CA-50 Ø 10,0 mm (SINAPI 34)", unidade: "kg", quantidade: 220_300, valor_unitario: 669 },
-        { nome: "Concreto C25", unidade: "m³", quantidade: 3_960, valor_unitario: 49_610 },
-      ],
-      aplicar: true,
-    });
-    // antes de aprovar: está no orçamento (versão Estrutura), mas Compras está vazia
-    expect(chamar("GET", `obras/${o.id}/orcamento`).corpo as import("../contrato").Orcamento).toMatchObject({ versoes: [{ descricao: "Estrutura" }] });
-    expect(chamar("GET", `obras/${o.id}/insumos`).corpo as ItemInsumo[]).toHaveLength(0);
-    // aprovar passa para em andamento e cria os insumos a partir da Estrutura
-    expect((chamar("POST", `obras/${o.id}/orcamento/aprovar`).corpo as { status: string }).status).toBe("em_andamento");
-    const ins = chamar("GET", `obras/${o.id}/insumos`).corpo as ItemInsumo[];
-    expect(ins.map((i) => i.insumo.nome).sort()).toEqual(["Aço CA-50 Ø 10,0 mm (SINAPI 34)", "Concreto C25"]);
-    expect(ins.find((i) => i.insumo.nome.startsWith("Aço"))!.insumo.precisa_ate_o_fim).toBe(220_300);
-  });
 });
 
 describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
@@ -595,10 +334,10 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
     const velha = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["1", "3", "2"], chave_idempotencia: "chave-002", versao_id: vista });
     expect(velha).toMatchObject({ status: 409, corpo: { detail: expect.stringMatching(/orçamento mudou/) } });
 
-    // um insumo na etapa 2 (a Estrutura, depois da troca): só passa a ordem que a mantém no número 2
-    e.insumos.set("orc-x", { id: "x", obra_id: o.id, nome: "Aço", unidade: "kg", precisa_ate_o_fim: 1000, curva: "A", valor_unitario: 0, etapa: "2" } as never);
+    // um gasto na etapa 2 (a Estrutura, depois da troca): só passa a ordem que a mantém no número 2
+    e.gastos.gastos.push({ id: "g-x", obra_id: o.id, etapa: "2", estornado: false, valor: 1000 } as never);
     const presa = chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["2", "1", "3"], chave_idempotencia: "chave-003" });
-    expect(presa).toMatchObject({ status: 409, corpo: { detail: "Já há lançamento (gasto, pedido, tópico ou cronograma) na etapa 2 Estrutura: renumerar levaria o lançamento para outra etapa." } });
+    expect(presa).toMatchObject({ status: 409, corpo: { detail: "Já há lançamento (gasto, tópico ou cronograma) na etapa 2 Estrutura: renumerar levaria o lançamento para outra etapa." } });
     expect(chamar("POST", `obras/${o.id}/orcamento/etapas/ordem`, { ordem: ["3", "2", "1"], chave_idempotencia: "chave-004" }).status).toBe(200);
   });
 
@@ -613,15 +352,15 @@ describe("demonstração: pranchas num orçamento ainda não aprovado", () => {
 });
 
 describe("demonstração: paginação pelo cursor antes_de", () => {
-  it("o quadro pede vários status de uma vez", () => {
-    const ps = chamar("GET", `obras/${obraId()}/pedidos?status=em_cotacao&status=em_transito`).corpo as Pedido[];
-    expect(new Set(ps.map((p) => p.status))).toEqual(new Set(["em_cotacao", "em_transito"]));
-  });
-
+  type R = import("../contrato").EntradaRegistro;
   it("a 2ª página começa logo depois da 1ª, sem repetir nem pular", () => {
-    const todos = chamar("GET", `obras/${obraId()}/pedidos`).corpo as Pedido[];
-    const p1 = chamar("GET", `obras/${obraId()}/pedidos?limite=2`).corpo as Pedido[];
-    const p2 = chamar("GET", `obras/${obraId()}/pedidos?limite=2&antes_de=${encodeURIComponent(p1.at(-1)!.criado_em)}`).corpo as Pedido[];
+    const o = chamar("POST", "obras", { nome: "Casa Paginada", chave_idempotencia: "paginacao-1" }).corpo as { id: string };
+    // um instante por entrada: o cursor é o criado_em, e empate não é o que este teste olha
+    for (let i = 0; i < 5; i++)
+      e.registro.push({ id: `r-${i}`, tenant_id: e.usuarios[0]!.tenant_id, criado_em: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString(), quem: "x", obra_id: o.id, origem: "tela", texto: `${i}`, proposta_id: null, desfazer: null, desfeito: false });
+    const todos = chamar("GET", `registro?obra_id=${o.id}`).corpo as R[];
+    const p1 = chamar("GET", `registro?obra_id=${o.id}&limite=2`).corpo as R[];
+    const p2 = chamar("GET", `registro?obra_id=${o.id}&limite=2&antes_de=${encodeURIComponent(p1.at(-1)!.criado_em)}`).corpo as R[];
     expect(p2.some((p) => p1.some((x) => x.id === p.id))).toBe(false);
     const juntos = [...p1, ...p2];
     expect(juntos.map((p) => p.id)).toEqual(todos.slice(0, juntos.length).map((p) => p.id));
@@ -629,13 +368,13 @@ describe("demonstração: paginação pelo cursor antes_de", () => {
 });
 
 describe("demonstração: orçamento por etapas", () => {
-  it("GET …/orcamento traz a versão de verdade (etapa Estrutura); a importação EAP por planilha responde 422", () => {
+  it("GET …/orcamento traz a versão de verdade (12 etapas); a importação EAP por planilha responde 422", () => {
     const o = chamar("GET", `obras/${obraId()}/orcamento`).corpo as import("../contrato").Orcamento;
     expect(o.versoes).toHaveLength(1);
-    expect(o.versoes[0]).toMatchObject({ tipo: "contrato", numero: 0, ativa: true, descricao: "Estrutura", etapas: 1 });
-    expect(o.etapas).toEqual([expect.objectContaining({ etapa: "1", descricao: "Estrutura", aditivos: 0 })]);
+    expect(o.versoes[0]).toMatchObject({ tipo: "contrato", numero: 0, ativa: true, descricao: "Orçamento", etapas: 12 });
+    expect(o.etapas[0]).toEqual(expect.objectContaining({ etapa: "1", descricao: "Serviços preliminares", aditivos: 0 }));
     const itens = o.itens.filter((i) => i.tipo === "item");
-    expect(o.totais).toMatchObject({ n_itens: itens.length, n_etapas: 1, aditivos: 0 });
+    expect(o.totais).toMatchObject({ n_itens: itens.length, n_etapas: 12, aditivos: 0 });
     expect(o.totais.atual).toBe(itens.reduce((t, i) => t + i.total, 0));
     const r = chamar("POST", `obras/${obraId()}/orcamento/versoes`, { arquivo: { nome: "orc.csv", texto: "" } });
     expect(r.status).toBe(422);
@@ -659,7 +398,7 @@ describe("demonstração: orçamento por etapas", () => {
     expect(gravou.versao_id).toBeTruthy();
     const depois = chamar("GET", `obras/${obraId()}/orcamento`).corpo as O;
     expect(depois.versoes).toHaveLength(2);
-    expect(depois.etapas).toHaveLength(2);
+    expect(depois.etapas).toHaveLength(13);
     expect(depois.totais.aditivos).toBe(previa.total);
 
     // Idempotência: repetir com a mesma chave não cria outra versão.
@@ -676,8 +415,8 @@ describe("demonstração: orçamento por etapas", () => {
 describe("demonstração: cronograma (Fase 4)", () => {
   it("a obra em andamento nasce com cronograma; a vitrine vem vazia com as etapas; a medição ainda responde 422", () => {
     const c = chamar("GET", `obras/${obraId()}/cronograma`).corpo as import("../contrato").Cronograma;
-    expect(c).toMatchObject({ meses: 8, medicoes: [] });
-    expect(c.mensal).toHaveLength(8);
+    expect(c).toMatchObject({ meses: 12, medicoes: [] });
+    expect(c.mensal).toHaveLength(12);
     const vitrine = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
     const v = chamar("GET", `obras/${vitrine.id}/cronograma`).corpo as import("../contrato").Cronograma;
     expect(v).toMatchObject({ inicio: null, meses: 0, mensal: [], medicoes: [] });
@@ -685,16 +424,19 @@ describe("demonstração: cronograma (Fase 4)", () => {
     expect(chamar("POST", `obras/${obraId()}/medicoes`, {}).status).toBe(422);
   });
 
-  it("desembolso: sem cronograma vem vazio (não 404); com ele, segue o previsto e o que falta é o orçado", () => {
+  it("desembolso: sem cronograma vem vazio (não 404); com ele, segue o previsto e o que falta desconta o gasto", () => {
     const vitrine = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
     const r = chamar("GET", `obras/${vitrine.id}/desembolso`);
     expect(r.status).toBe(200);
     expect(r.corpo).toMatchObject({ base: "sem_cronograma", meses: [], termino_projetado: null });
     const d = chamar("GET", `obras/${obraId()}/desembolso`).corpo as import("../contrato").Desembolso;
-    expect(d.meses).toHaveLength(8);
-    expect(d.totais.falta).toBe(d.totais.orcado);
-    // nada se perde: o que saía antes de hoje vai para o mês corrente
-    expect(d.meses.reduce((t, m) => t + m.projetado, 0)).toBe(d.meses.reduce((t, m) => t + m.previsto, 0));
+    expect(d.meses).toHaveLength(12);
+    expect(d.totais.realizado).toBeGreaterThan(0);
+    expect(d.totais.falta).toBeLessThan(d.totais.orcado);
+    // o que já foi pago sai da conta: o projetado dos meses que vêm não passa do previsto do cronograma inteiro
+    const projetado = d.meses.reduce((t, m) => t + m.projetado, 0);
+    expect(projetado).toBeGreaterThan(0);
+    expect(projetado).toBeLessThan(d.meses.reduce((t, m) => t + m.previsto, 0));
   });
 });
 
@@ -763,14 +505,14 @@ describe("demonstração: IA propõe o cronograma e a aprovação o cria", () =>
 
   it("propor cria uma Proposta pendente de tipo cronograma; aprovar grava o cronograma; desfazer apaga", () => {
     const o = criarEmOrcamento();
-    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as Proposta;
+    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as import("../contrato").Proposta;
     expect(prop.tipo).toBe("cronograma");
     expect(prop.status).toBe("pendente");
     expect((prop.dados as { meses: number }).meses).toBeGreaterThan(0);
     // antes de aprovar, Cronograma ainda vazio
     expect((chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma).meses).toBe(0);
     // aprova a proposta → cria o cronograma
-    const r = chamar("POST", `propostas/${prop.id}/aprovar`).corpo as { proposta: Proposta; registro: { id: string } };
+    const r = chamar("POST", `propostas/${prop.id}/aprovar`).corpo as { proposta: import("../contrato").Proposta; registro: { id: string } };
     expect(r.proposta.status).toBe("aprovada");
     const cr = chamar("GET", `obras/${o.id}/cronograma`).corpo as import("../contrato").Cronograma;
     expect(cr.meses).toBeGreaterThan(0);
@@ -783,7 +525,7 @@ describe("demonstração: IA propõe o cronograma e a aprovação o cria", () =>
 
   it("propor recusa obra que já tem cronograma", () => {
     const o = criarEmOrcamento();
-    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as Proposta;
+    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as import("../contrato").Proposta;
     chamar("POST", `propostas/${prop.id}/aprovar`);
     const r = chamar("POST", `obras/${o.id}/cronograma/propor`);
     expect(r.status).toBe(409);
@@ -798,7 +540,7 @@ describe("demonstração: a IA sequencia o cronograma por fase (multi-etapa)", (
     chamar("POST", `obras/${o.id}/orcamento/estrutura`, { etapa: "Acabamento", itens: [{ nome: "Pintura", unidade: "m²", quantidade: 300_000, valor_unitario: 2_000 }], aplicar: true, chave_idempotencia: "mult-acab-01" });
     chamar("POST", `obras/${o.id}/orcamento/estrutura`, { etapa: "Alvenaria", itens: [{ nome: "Bloco", unidade: "un", quantidade: 1_000_000, valor_unitario: 200 }], aplicar: true, chave_idempotencia: "mult-alv-001" });
 
-    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as Proposta;
+    const prop = chamar("POST", `obras/${o.id}/cronograma/propor`).corpo as import("../contrato").Proposta;
     const etapas = (prop.dados as { etapas: { etapa: string; percentuais: number[] }[] }).etapas;
     const inicio = (chave: string) => etapas.find((e) => e.etapa === chave)!.percentuais.findIndex((p) => p > 0);
     // 1=Fundação (fase inicial), 3=Alvenaria (vedação), 2=Acabamento (final): a IA reordena por fase de obra
@@ -815,7 +557,7 @@ describe("demonstração: a IA sequencia o cronograma por fase (multi-etapa)", (
     const orc = chamar("GET", `obras/${vit.id}/orcamento`).corpo as { etapas: { descricao: string }[] };
     expect(orc.etapas.map((et) => et.descricao)).toEqual(["Fundação", "Superestrutura", "Alvenaria", "Acabamento"]);
 
-    const prop = chamar("POST", `obras/${vit.id}/cronograma/propor`).corpo as Proposta;
+    const prop = chamar("POST", `obras/${vit.id}/cronograma/propor`).corpo as import("../contrato").Proposta;
     const etapas = (prop.dados as { meses: number; etapas: { etapa: string; percentuais: number[] }[] }).etapas;
     const dados = prop.dados as { meses: number };
     expect(dados.meses).toBe(14); // respeita o prazo da obra (prazo_meses)

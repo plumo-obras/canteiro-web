@@ -3,15 +3,13 @@ import type { ResumoObra } from "@/lib/contrato";
 import { frasePrazo, pendenciasDe } from "./Inicio";
 
 const resumo = (p: Partial<ResumoObra>): ResumoObra =>
-  ({ obra: {} as ResumoObra["obra"], pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, ...p }) as ResumoObra;
+  ({ obra: {} as ResumoObra["obra"], pendencias: 0, ultima_atividade: null, ...p }) as ResumoObra;
 
 describe("Início: pendências do cartão", () => {
   it("Início mostra só pendências reais", () => {
     expect(pendenciasDe(resumo({}))).toEqual([]);
-    expect(pendenciasDe(resumo({ pedidos_abertos: 1, valor_pedidos_abertos: 91000 })).map((p) => p.texto)).toEqual(["1 pedido a receber"]);
-    expect(pendenciasDe(resumo({ pendencias: 2, falta_comprar: 1 })).map((p) => p.texto)).toEqual(["2 aprovações", "1 insumo a comprar"]);
-    // no celular, o texto curto do protótipo
-    expect(pendenciasDe(resumo({ falta_comprar: 12 })).map((p) => p.curto)).toEqual(["12 a comprar"]);
+    expect(pendenciasDe(resumo({ pendencias: 2 })).map((p) => p.texto)).toEqual(["2 aprovações"]);
+    expect(pendenciasDe(resumo({ pendencias: 1 })).map((p) => p.curto)).toEqual(["1 aprovação"]);
   });
 });
 

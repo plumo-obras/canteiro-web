@@ -54,7 +54,7 @@ export interface Aviso {
 
 /**
  * As etiquetas do topo, uma por tipo, somando todas as obras: o que espera alguém. Só aprovações e comprovantes (NFs) a
- * conferir: compra e entrega já estão no cartão da obra, e aqui viraria lista de tarefas.
+ * conferir: o resto já está no cartão da obra, e aqui viraria lista de tarefas.
  */
 export function avisosDe(resumos: ResumoObra[]): Aviso[] {
   const avisos: Aviso[] = [];
@@ -63,18 +63,6 @@ export function avisosDe(resumos: ResumoObra[]): Aviso[] {
   if (nApr) {
     const texto = plural(nApr, "aprovação", "aprovações");
     avisos.push({ chave: "apr", texto, curto: texto, tom: "warn", obraIds: apr.map((r) => r.obra.id), tela: "aprovacoes" });
-  }
-  const nfs = resumos.filter((r) => r.nf_para_conferir);
-  const nNf = nfs.reduce((t, r) => t + r.nf_para_conferir, 0);
-  if (nNf) {
-    avisos.push({
-      chave: "nf",
-      texto: plural(nNf, "comprovante para conferir", "comprovantes para conferir"),
-      curto: plural(nNf, "comprovante", "comprovantes"),
-      tom: "info",
-      obraIds: nfs.map((r) => r.obra.id),
-      tela: "suprimentos",
-    });
   }
   return avisos;
 }
@@ -86,7 +74,7 @@ const maiuscula = (t: string) => t[0]!.toUpperCase() + t.slice(1);
 
 /** "Três obras, duas coisas esperando você." — o resumo do cabeçalho, como no protótipo. */
 export function resumoDoDia(resumos: ResumoObra[]): string {
-  const esperando = resumos.reduce((t, r) => t + r.pendencias + r.nf_para_conferir, 0);
+  const esperando = resumos.reduce((t, r) => t + r.pendencias, 0);
   const obras = maiuscula(contar(resumos.length, "obra", "obras"));
   return `${obras}, ${esperando ? `${contar(esperando, "coisa", "coisas")} esperando você` : "nada esperando você"}.`;
 }
@@ -246,18 +234,13 @@ export function Inicio({ usuario }: { usuario: Usuario }) {
   );
 }
 
-/** Só o que pede ação, em frases curtas; zero não aparece. `curto` é o texto do celular ("3 a comprar"). */
+/** Só o que pede ação, em frases curtas; zero não aparece. `curto` é o texto do celular. */
 export function pendenciasDe(r: ResumoObra): { texto: string; curto: string; tom: "pede" | "info" | "neutro" }[] {
   const ps: { texto: string; curto: string; tom: "pede" | "info" | "neutro" }[] = [];
   if (r.pendencias) {
     const t = plural(r.pendencias, "aprovação", "aprovações");
     ps.push({ texto: t, curto: t, tom: "pede" });
   }
-  if (r.nf_para_conferir)
-    ps.push({ texto: plural(r.nf_para_conferir, "comprovante para conferir", "comprovantes para conferir"), curto: plural(r.nf_para_conferir, "comprovante", "comprovantes"), tom: "info" });
-  if (r.falta_comprar) ps.push({ texto: `${plural(r.falta_comprar, "insumo", "insumos")} a comprar`, curto: `${r.falta_comprar} a comprar`, tom: "neutro" });
-  if (r.pedidos_abertos)
-    ps.push({ texto: plural(r.pedidos_abertos, "pedido a receber", "pedidos a receber"), curto: `${r.pedidos_abertos} a receber`, tom: "neutro" });
   return ps;
 }
 

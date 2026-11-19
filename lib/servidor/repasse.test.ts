@@ -3,11 +3,14 @@ import { caminhoPermitido, headersDeRepasse, origemConfiavel, segundosAteVencer 
 
 describe("repasse para a API", () => {
   it("só deixa passar rotas de dados do contrato, sem truque de caminho", () => {
-    expect(caminhoPermitido(["obras", "o1", "insumos"])).toBe(true);
+    expect(caminhoPermitido(["obras", "o1", "gastos"])).toBe(true);
     expect(caminhoPermitido(["sessoes", "s1", "mensagens"])).toBe(true);
     expect(caminhoPermitido(["propostas", "p1", "aprovar"])).toBe(true);
     expect(caminhoPermitido(["auth", "entrar"])).toBe(false);
     expect(caminhoPermitido(["obras", "resumo"])).toBe(true);
+    // Compras saiu do produto: nem a leitura do que sobrou na API passa
+    for (const r of ["insumos", "movimentos", "pedidos"]) expect(caminhoPermitido(["obras", "o1", r])).toBe(false);
+    expect(caminhoPermitido(["pedidos", "p1", "avancar"], "POST")).toBe(false);
     expect(caminhoPermitido(["foo"])).toBe(false);
     expect(caminhoPermitido(["obras", ".."])).toBe(false);
     expect(caminhoPermitido(["obras", "a/b"])).toBe(false);
@@ -30,7 +33,7 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["obras", "o1", "desembolso"], "GET")).toBe(true);
     for (const m of ["PUT", "PATCH", "DELETE"]) expect(caminhoPermitido(["obras", "o1", "desembolso"], m)).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "desembolso", "x"], "PUT")).toBe(false);
-    expect(caminhoPermitido(["obras", "o1", "insumos"], "PUT")).toBe(false);
+    expect(caminhoPermitido(["obras", "o1", "gastos"], "PUT")).toBe(false);
     expect(caminhoPermitido(["conta", "chave-anthropic"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1"], "PATCH")).toBe(true);
     // gastos: comprovante (envio, arquivo, confirmar), etapas extras e tópicos; a leitura interna é só do agente
@@ -63,7 +66,7 @@ describe("repasse para a API", () => {
     expect(caminhoPermitido(["gastos", "g1", "fiscal", "x"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["pedidos", "p1", "fiscal"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["obras", "o1", "insumos"], "PATCH")).toBe(false);
-    expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(true); // previsão e observação (Fase 2)
+    expect(caminhoPermitido(["pedidos", "p1"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["fornecedores", "f1"], "PATCH")).toBe(true);
     expect(caminhoPermitido(["pedidos", "p1", "recebimentos"], "PATCH")).toBe(false);
     expect(caminhoPermitido(["fornecedores"], "GET")).toBe(true);

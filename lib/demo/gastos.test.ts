@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Comprovante, ComprovanteDetalhe, EtapaNaArvore, GastoObra, HojeNaObra, Orcamento, ResumoDaObra, ResumoGastos } from "../contrato";
 import { arquivoComprovanteDemo, desfazer, lerComprovanteDemo, reiniciarDemo, responder } from "./loja";
 import { roteiroDemo } from "./agente";
@@ -26,7 +26,8 @@ describe("demonstração: gastos na demo de hoje", () => {
   });
 
   it("a árvore é a do orçamento vigente; obra sem orçamento usa a lista padrão, com as extras antes de Outros", () => {
-    expect(arvore()).toEqual([expect.objectContaining({ chave: "1", nome: "1 Estrutura", origem: "orcamento", fixa: true })]);
+    expect(arvore()).toHaveLength(12);
+    expect(arvore()[2]).toEqual(expect.objectContaining({ chave: "3", nome: "3 Estrutura", origem: "orcamento", fixa: true }));
     const sem = e.obras.find((o) => o.nome === "Sobrado Jardim Europa")!;
     expect(chamar("POST", `obras/${sem.id}/etapas-extras`, { nome: "Paisagismo" }).status).toBe(201);
     const a = arvore(sem.id);
@@ -52,43 +53,51 @@ describe("demonstração: gastos na demo de hoje", () => {
     lerComprovanteDemo(c.id);
     const d = chamar("GET", `comprovantes/${c.id}`).corpo as ComprovanteDetalhe;
     expect(d.revisao.descricao).toMatchObject({ estado: "lido", escolhido: 0, opcoes: [expect.objectContaining({ valor: "Cimento CP-II 50 kg (40 sc)" })] });
-    // a etapa sugerida existe na árvore de hoje (a Estrutura da Casa Vila Nova)
-    expect(d.revisao.classificacao.opcoes.every((o) => o.etapa === "1")).toBe(true);
+    // a etapa sugerida existe na árvore de hoje (as etapas do orçamento da Casa Vila Nova)
+    const chaves = new Set(arvore().map((n) => n.chave));
+    expect(d.revisao.classificacao.opcoes.length).toBeGreaterThan(0);
+    expect(d.revisao.classificacao.opcoes.every((o) => chaves.has(o.etapa))).toBe(true);
     expect(d.revisao.valor.opcoes[0]).toMatchObject({ valor: 156_000, rotulo: "R$ 1.560,00" });
   });
 
   it("confirmar cria o gasto, soma no realizado da etapa e o Desfazer estorna e devolve o comprovante para a fila", () => {
+    const antes = orcamento();
+    const nGastos = (chamar("GET", `obras/${casa().id}/gastos`).corpo as GastoObra[]).length;
     const c = enviar(png(2)).corpo as Comprovante;
-    expect(chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("1"), leitura()).status).toBe(403);
+    expect(chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("3"), leitura()).status).toBe(403);
     expect(chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("99")).status).toBe(422);
-    expect(chamar("POST", `comprovantes/${c.id}/confirmar`, { ...corpoConfirmar("1"), data_pagamento: "2999-01-01" }).status).toBe(422);
-    const r = chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("1"));
+    expect(chamar("POST", `comprovantes/${c.id}/confirmar`, { ...corpoConfirmar("3"), data_pagamento: "2999-01-01" }).status).toBe(422);
+    const r = chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("3"));
     expect(r.status).toBe(201);
     const { gasto, registro_id } = r.corpo as { gasto: GastoObra; registro_id: string };
-    expect(gasto).toMatchObject({ valor: 35_000, etapa: "1", etapa_nome: "1 Estrutura", etapa_origem: "orcamento", estornado: false });
-    expect(orcamento().etapas[0]).toMatchObject({ realizado: 35_000, comprometido: 35_000, gastos_avulsos: 35_000 });
-    expect(orcamento().totais.realizado).toBe(35_000);
-    expect(chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("1")).status).toBe(409);
-    expect(e.registro.find((x) => x.id === registro_id)!.texto).toBe("Gasto de R$ 350,00 em 1 Estrutura: Diária de pedreiro (João da Silva)");
+    expect(gasto).toMatchObject({ valor: 35_000, etapa: "3", etapa_nome: "3 Estrutura", etapa_origem: "orcamento", estornado: false });
+    const depois = orcamento();
+    expect(depois.etapas[2]!.realizado - antes.etapas[2]!.realizado).toBe(35_000);
+    expect(depois.etapas[2]!.comprometido).toBe(depois.etapas[2]!.realizado);
+    expect(depois.totais.realizado - antes.totais.realizado).toBe(35_000);
+    expect(chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar("3")).status).toBe(409);
+    expect(e.registro.find((x) => x.id === registro_id)!.texto).toBe("Gasto de R$ 350,00 em 3 Estrutura: Diária de pedreiro (João da Silva)");
 
     desfazer(registro_id, admin());
-    expect(orcamento().totais.realizado).toBe(0);
-    expect(chamar("GET", `obras/${casa().id}/comprovantes?status=a_revisar`).corpo).toEqual([expect.objectContaining({ id: c.id, gasto_id: null })]);
-    expect(chamar("GET", `obras/${casa().id}/gastos`).corpo).toEqual([]);
+    expect(orcamento().totais.realizado).toBe(antes.totais.realizado);
+    expect((chamar("GET", `obras/${casa().id}/comprovantes?status=a_revisar`).corpo as Comprovante[]).find((x) => x.id === c.id)).toMatchObject({ gasto_id: null });
+    expect(chamar("GET", `obras/${casa().id}/gastos`).corpo).toHaveLength(nGastos);
   });
 
   it("ver depois: sem etapa conta na obra e em nenhuma etapa; mudar a etapa leva para ela e o Desfazer volta", () => {
+    const antes = orcamento();
+    const aDefinir = (chamar("GET", `obras/${casa().id}/gastos/resumo`).corpo as ResumoGastos).a_definir!;
     const c = enviar(png(3)).corpo as Comprovante;
     const { gasto } = chamar("POST", `comprovantes/${c.id}/confirmar`, corpoConfirmar(null)).corpo as { gasto: GastoObra };
-    expect(orcamento().totais.sem_etapa.realizado).toBe(35_000);
-    expect((chamar("GET", `obras/${casa().id}/gastos/resumo`).corpo as ResumoGastos).a_definir).toBe(35_000);
-    expect(chamar("PATCH", `gastos/${gasto.id}`, { etapa: "1" }, leitura()).status).toBe(403);
-    const r = chamar("PATCH", `gastos/${gasto.id}`, { etapa: "1" });
-    expect(r.corpo).toMatchObject({ etapa: "1", etapa_nome: "1 Estrutura" });
-    expect(chamar("PATCH", `gastos/${gasto.id}`, { etapa: "1" }).corpo).toEqual({ detail: "Nada mudou." });
-    expect(orcamento().etapas[0]!.realizado).toBe(35_000);
+    expect(orcamento().totais.sem_etapa.realizado - antes.totais.sem_etapa.realizado).toBe(35_000);
+    expect((chamar("GET", `obras/${casa().id}/gastos/resumo`).corpo as ResumoGastos).a_definir).toBe(aDefinir + 35_000);
+    expect(chamar("PATCH", `gastos/${gasto.id}`, { etapa: "3" }, leitura()).status).toBe(403);
+    const r = chamar("PATCH", `gastos/${gasto.id}`, { etapa: "3" });
+    expect(r.corpo).toMatchObject({ etapa: "3", etapa_nome: "3 Estrutura" });
+    expect(chamar("PATCH", `gastos/${gasto.id}`, { etapa: "3" }).corpo).toEqual({ detail: "Nada mudou." });
+    expect(orcamento().etapas[2]!.realizado - antes.etapas[2]!.realizado).toBe(35_000);
     desfazer((r.corpo as { registro_id: string }).registro_id, admin());
-    expect(orcamento().etapas[0]!.realizado).toBe(0);
+    expect(orcamento().etapas[2]!.realizado).toBe(antes.etapas[2]!.realizado);
   });
 
   it("descartar tira da fila e o Desfazer reabre", () => {
@@ -112,19 +121,13 @@ describe("demonstração: gastos na demo de hoje", () => {
   });
 });
 
-describe("demonstração sem pedidos (CANTEIRO_SEM_PEDIDOS)", () => {
+describe("demonstração: a Casa Vila Nova em Orçamento, Cronograma e Gastos", () => {
   beforeEach(() => {
-    vi.stubEnv("CANTEIRO_DEMO", "1");
-    vi.stubEnv("CANTEIRO_SEM_PEDIDOS", "1");
     e = reiniciarDemo();
   });
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
 
-  it("a Casa Vila Nova nasce sem pedido, insumo nem proposta, com o orçamento da obra inteira por etapas", () => {
-    expect(e.semPedidos).toBe(true);
-    expect([e.pedidos.length, e.insumos.size, e.movimentos.length, e.propostas.length]).toEqual([0, 0, 0, 0]);
+  it("a Casa Vila Nova nasce sem proposta, com o orçamento da obra inteira por etapas", () => {
+    expect(e.propostas).toHaveLength(0);
     const o = orcamento();
     expect(o.etapas.map((x) => x.descricao)).toEqual([
       "Serviços preliminares", "Fundação", "Estrutura", "Alvenaria", "Cobertura", "Instalações elétricas",
@@ -141,7 +144,7 @@ describe("demonstração sem pedidos (CANTEIRO_SEM_PEDIDOS)", () => {
     const f = (chamar("GET", `obras/${casa().id}/resumo`).corpo as ResumoDaObra).financeiro;
     const d = chamar("GET", `obras/${casa().id}/desembolso`).corpo as import("../contrato").Desembolso;
     expect(g.total).toBe(o.totais.realizado);
-    expect([f.realizado, f.pago, f.entregue_a_pagar]).toEqual([o.totais.realizado, o.totais.realizado, 0]);
+    expect([f.realizado, f.pago]).toEqual([o.totais.realizado, o.totais.realizado]);
     expect(d.totais.pago).toBe(o.totais.realizado);
     expect(d.meses.reduce((t, m) => t + m.pago, 0)).toBe(o.totais.realizado);
     expect(f.etapas_estouradas).toEqual([expect.objectContaining({ descricao: "Fundação" })]);
@@ -165,22 +168,13 @@ describe("demonstração sem pedidos (CANTEIRO_SEM_PEDIDOS)", () => {
     const h = chamar("GET", `obras/${casa().id}/hoje`).corpo as HojeNaObra;
     expect(h.pontos.map((p) => p.tipo)).toEqual(["gastos_a_conferir", "etapas_estouradas", "gastos_sem_etapa"]);
     expect(h.pontos[0]).toMatchObject({ titulo: "2 comprovantes para conferir.", acao: { tela: "gastos" } });
-    expect(h.semana.every((x) => x.tipo !== "entrega")).toBe(true);
+    expect(h.semana).toEqual([]);
   });
 
-  it("escrita de compra é rota fora do contrato; a leitura vem vazia", () => {
-    expect(chamar("POST", `obras/${casa().id}/pedidos`, { insumo_id: "x", quantidade: 1 })).toEqual({ status: 404, corpo: { detail: "Rota fora do contrato." } });
-    expect(chamar("POST", `obras/${casa().id}/insumos`, { nome: "Cimento" }).status).toBe(404);
-    expect(chamar("POST", `obras/${casa().id}/movimentos`, {}).status).toBe(404);
-    expect(chamar("POST", "fornecedores", { nome: "X" }).status).toBe(404);
-    expect(chamar("GET", `obras/${casa().id}/pedidos`).corpo).toEqual([]);
-  });
-
-  it("aprovar o orçamento só põe a obra em andamento: não cria insumo de Compras", () => {
+  it("aprovar o orçamento só põe a obra em andamento", () => {
     const vitrine = e.obras.find((o) => o.nome === "Residencial Alto Padrão")!;
     const r = chamar("POST", `obras/${vitrine.id}/orcamento/aprovar`);
     expect(r.corpo).toMatchObject({ status: "em_andamento" });
-    expect(e.insumos.size).toBe(0);
   });
 
   it("o Plumo responde sobre orçamento e gastos e não propõe compra", async () => {
@@ -193,7 +187,7 @@ describe("demonstração sem pedidos (CANTEIRO_SEM_PEDIDOS)", () => {
     expect(fundacao.texto).toContain("Passou do orçado");
     expect(fundacao.eventos).not.toContain("proposta");
     const compra = await falar("preciso comprar cimento");
-    expect(compra.texto).toContain("não faz compras");
+    expect(compra.texto).toContain("não faço compras");
     expect(compra.eventos).not.toContain("proposta");
     expect(e.propostas).toHaveLength(0);
   });

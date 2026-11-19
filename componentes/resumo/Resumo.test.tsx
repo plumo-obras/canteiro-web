@@ -25,7 +25,7 @@ const HOJE: HojeNaObra = {
     { tipo: "etapas_estouradas", prioridade: "atencao", titulo: "Fundação passou do orçado em R$ 2.670,00.", detalhe: "", acao: { tela: "orcamento", rotulo: "Ver o orçamento", filtro: null } },
   ],
   mais: 0,
-  semana: [{ data: "2026-11-12", tipo: "entrega", titulo: "Entrega do aço", detalhe: "Ferragem Inventada", acao: null }],
+  semana: [{ data: "2026-11-12", tipo: "inicio_etapa", titulo: "Começa a Alvenaria", detalhe: "Pelo cronograma", acao: null }],
 };
 
 const montar = (obra: Obra, resumo: ResumoDaObra) => {
@@ -72,7 +72,7 @@ describe("Resumo da obra rodando", () => {
     const etapas = within(await screen.findByRole("region", { name: "Etapas em andamento" })).getAllByRole("listitem");
     expect(etapas.map((li) => li.textContent)).toEqual([expect.stringContaining("Fundação"), expect.stringContaining("Preliminares")]);
     const vem = screen.getByRole("region", { name: "O que vem" });
-    expect(vem).toHaveTextContent("qui 12Entrega do aço");
+    expect(vem).toHaveTextContent("qui 12Começa a Alvenaria");
     expect(vem).toHaveTextContent("Preliminarestermina este mês");
     expect(vem).toHaveTextContent("Pintura");
     expect(screen.getByRole("region", { name: "Últimos gastos" })).toHaveTextContent("Nenhum gasto lançado ainda.");

@@ -61,18 +61,12 @@ export interface SessaoApi {
 
 const RESUMO: Record<string, string> = {
   listar_obras: "consultou as obras",
-  consultar_estoque: "consultou o estoque",
-  historico_movimentos: "consultou os movimentos do estoque",
-  listar_pedidos: "usou pedidos",
   resumo_obra: "consultou o resumo da obra",
   consultar_orcamento: "consultou o orçamento",
   consultar_cronograma: "consultou o cronograma e as medições",
   listar_fornecedores: "consultou os fornecedores",
   calcular: "fez a conta",
-  propor_pedido: "preparou uma proposta de pedido",
-  propor_entrega: "preparou uma proposta de entrada de material",
-  propor_avanco_pedido: "preparou uma proposta de avanço de pedido",
-  propor_ajuste_estoque: "preparou uma proposta de ajuste de estoque",
+  propor_cronograma: "preparou uma proposta de cronograma",
 };
 
 export const chipDaFerramenta = (nome: string) => ({

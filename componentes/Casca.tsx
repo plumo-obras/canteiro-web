@@ -17,7 +17,6 @@ import type { PedidoConversa } from "./Conversa";
 import { CampoPlumo, PainelPlumo } from "./plumo/PainelPlumo";
 import { Icone, Logo, type NomeIcone } from "./Icone";
 import { MenuMais, type ItemMenu } from "./MenuMais";
-import { Suprimentos } from "./Suprimentos";
 import { Cronograma } from "./cronograma/Cronograma";
 import { Gastos } from "./Gastos";
 import { Placar } from "./Placar";
@@ -42,7 +41,6 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
   conversa: { rotulo: "Plumo", icone: "spark" },
   projeto: { rotulo: "Projeto", icone: "predio" },
   orcamento: { rotulo: "Orçamento", icone: "calc" },
-  suprimentos: { rotulo: "Compras", icone: "package" },
   cronograma: { rotulo: "Cronograma", icone: "calendario" },
   gastos: { rotulo: "Gastos", icone: "recibo" },
   tributos: { rotulo: "Tributos", icone: "planilha" },
@@ -51,8 +49,8 @@ const ROTULOS: Record<AbaAtiva, { rotulo: string; icone: NomeIcone }> = {
 };
 // A barra É o caminho da obra, na ordem em que o trabalho anda: o usuário é guiado sem ver passos numerados. O Resumo
 // vem antes de tudo: é a casa da obra, com a mesma ordem desenhada na linha do tempo. Depois Projeto, Orçamento, o
-// Cronograma (que se monta a partir do orçamento, inclusive pelo Gerar com IA) e a execução, Compras e Gastos.
-const ABAS: AbaAtiva[] = ["resumo", "projeto", "orcamento", "cronograma", "suprimentos", "gastos"];
+// Cronograma (que se monta a partir do orçamento, inclusive pelo Gerar com IA) e a execução, os Gastos.
+const ABAS: AbaAtiva[] = ["resumo", "projeto", "orcamento", "cronograma", "gastos"];
 // O que se consulta de vez em quando fica no "⋯", para a barra mostrar só o caminho.
 const NO_MENU: AbaAtiva[] = ["tributos", "historico"];
 
@@ -66,12 +64,12 @@ function statusDaObra(o: Obra, r: ResumoDaObra | null): string {
 }
 
 /** Entrada da casca: garante a sessão de login (renovando pelo cookie depois de recarregar) antes de montar o app. */
-export function Casca({ demo, semPedidos = false }: { demo: boolean; semPedidos?: boolean }) {
+export function Casca({ demo }: { demo: boolean }) {
   const { usuario, semServidor, tentarAgora } = useSessaoGarantida();
 
   if (!usuario) return <Abrindo semServidor={semServidor} tentarAgora={tentarAgora} />;
   return (
-    <ProvedorCasca usuario={usuario} demo={demo} semPedidos={semPedidos}>
+    <ProvedorCasca usuario={usuario} demo={demo}>
       <App usuario={usuario} />
     </ProvedorCasca>
   );
@@ -188,8 +186,7 @@ function App({ usuario }: { usuario: Usuario }) {
     const querObra = qs.get("obra") ?? ultima;
     const querSessao = qs.get("sessao");
     const querTela = abaDe(qs.get("tela"));
-    // link com ?tela=gastos aberto na demonstração (ou ?tela=suprimentos na versão sem pedidos) cai no Resumo: a tela
-    // não existe lá
+    // link com ?tela=tributos aberto na demonstração cai no Resumo: a tela não existe lá
     if (querTela === "conversa" || querSessao) setPlumo(true);
     else if (querTela && telaNoModo(querTela, modo)) setTela(querTela);
     if (querTela === "orcamento" && qs.get("importar") === "1" && querObra) setImportarEm(querObra);
@@ -370,8 +367,6 @@ function App({ usuario }: { usuario: Usuario }) {
                 <Orcamento obra={obra} abrirImportar={importarEm === obra.id} aoAbrirImportar={() => setImportarEm(null)} />
               ) : tela === "cronograma" ? (
                 <Cronograma obra={obra} />
-              ) : tela === "suprimentos" ? (
-                <Suprimentos obra={obra} />
               ) : tela === "gastos" ? (
                 <Gastos obra={obra} />
               ) : tela === "tributos" ? (
@@ -426,12 +421,9 @@ function App({ usuario }: { usuario: Usuario }) {
 
 /** No celular (≤ 760 px) a navegação vai para uma barra fixa embaixo: o dia a dia na obra, o resto no Mais. */
 // O Resumo sempre, e o Plumo no meio (o lugar mais à mão: ele não é uma tela, abre o painel); antes do orçamento
-// aprovado o dia a dia é montar o projeto e o orçamento; depois, comprar e lançar (o Cronograma vai para o Mais).
-function barraDe(aprovada: boolean, modo: Modo): AbaAtiva[] {
-  const abas: AbaAtiva[] = aprovada ? ["resumo", "suprimentos", "conversa", "gastos"] : ["resumo", "projeto", "conversa", "orcamento"];
-  // Tela que não existe no modo (Gastos na demonstração, Compras sem pedidos) dá o lugar ao Cronograma, e a barra
-  // continua com cinco colunas.
-  return abas.map((k) => (telaNoModo(k, modo) ? k : "cronograma"));
+// aprovado o dia a dia é montar o projeto e o orçamento; depois, acompanhar o cronograma e lançar os gastos.
+function barraDe(aprovada: boolean): AbaAtiva[] {
+  return aprovada ? ["resumo", "cronograma", "conversa", "gastos"] : ["resumo", "projeto", "conversa", "orcamento"];
 }
 
 function BarraInferior(p: {
@@ -445,7 +437,7 @@ function BarraInferior(p: {
   modo: Modo;
   podeCadastrar: boolean;
 }) {
-  const itens = barraDe(p.aprovada, p.modo);
+  const itens = barraDe(p.aprovada);
   const [mais, setMais] = useState(false);
   // Trocou de tela (pela folha ou por fora dela): a folha fecha, nunca fica cobrindo a tela nova.
   useEffect(() => setMais(false), [p.tela]);

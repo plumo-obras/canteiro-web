@@ -5,12 +5,12 @@
  * lugar só faz o cartão aprovado numa aba aparecer aprovado na outra.
  */
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
-import type { AjustesProposta, Proposta, Usuario } from "@/lib/contrato";
+import type { Proposta, Usuario } from "@/lib/contrato";
 import { api, ErroApi } from "@/lib/cliente";
 import type { AbaAtiva, Modo } from "./sessoes";
 import { Icone } from "./Icone";
 
-/** Recorte que uma tela leva à outra: a etapa em Compras, o status em Gastos. */
+/** Recorte que uma tela leva à outra: o status em Gastos, por exemplo. */
 export interface FiltroTela {
   etapa?: string;
   status?: string;
@@ -72,9 +72,7 @@ interface Valor {
   usuario: Usuario | null;
   podeOperar: boolean;
   demo: boolean;
-  /** Versão de teste sem pedidos (só na demonstração): nenhuma tela oferece pedido, compra nem entrega. */
-  semPedidos: boolean;
-  /** `demo` e `semPedidos` juntos, para `telaNoModo`. */
+  /** `demo` como `Modo`, para `telaNoModo`. */
   modo: Modo;
   versao: number;
   mudou: () => void;
@@ -85,7 +83,7 @@ interface Valor {
   fecharAvisoFixo: () => void;
   cartoes: Record<string, CartaoEstado>;
   receberPropostas: (ps: Proposta[]) => void;
-  aprovar: (id: string, ajustes?: AjustesProposta) => Promise<void>;
+  aprovar: (id: string) => Promise<void>;
   recusar: (id: string, motivo: string) => Promise<void>;
   desfazer: (id: string) => Promise<void>;
   /** Troca a tela da obra sem recarregar (a faixa de próximo passo, por exemplo). */
@@ -114,12 +112,10 @@ const DEPOIS_DE_SOLTAR = 4000;
 export function ProvedorCasca({
   usuario,
   demo,
-  semPedidos = false,
   children,
 }: {
   usuario: Usuario | null;
   demo: boolean;
-  semPedidos?: boolean;
   children: ReactNode;
 }) {
   const [cartoes, despachar] = useReducer(redutorPropostas, {});
@@ -178,8 +174,8 @@ export function ProvedorCasca({
   const receberPropostas = useCallback((ps: Proposta[]) => despachar({ tipo: "receber", propostas: ps }), []);
 
   const aprovar = useCallback(
-    async (id: string, ajustes?: AjustesProposta) => {
-      const r = await api.aprovarProposta(id, ajustes);
+    async (id: string) => {
+      const r = await api.aprovarProposta(id);
       despachar({ tipo: "aprovada", proposta: r.proposta, registroId: r.registro.id });
       mudou();
     },
@@ -223,13 +219,12 @@ export function ProvedorCasca({
     filtro.current = null;
   }, []);
 
-  const modo = useMemo<Modo>(() => ({ demo, semPedidos: demo && semPedidos }), [demo, semPedidos]);
+  const modo = useMemo<Modo>(() => ({ demo }), [demo]);
   const valor = useMemo<Valor>(
     () => ({
       usuario,
       podeOperar: !!usuario && usuario.papel !== "viewer",
       demo,
-      semPedidos: modo.semPedidos,
       modo,
       versao,
       mudou,

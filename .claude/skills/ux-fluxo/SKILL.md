@@ -11,12 +11,11 @@ Quem usa: **engenheiro/gerente de obra** (escritório ou carro, decide o dia e v
 
 ## Linguagem
 
-- Português do Brasil, vocabulário de obra: Insumos, Almoxarifado, Orçamento/verba, Pedidos, RDO, medição,
-  empreiteiro, etapa, NF. Nada de "registro criado", "payload", "status 409", "sync", "entidade".
-- Botão diz a **consequência**: "Aprovar R$ 1.326,00", "Lançar saída de 12 sc", "Registrar entrega", "Conferir NF" —
-  não "OK", "Enviar", "Salvar". Veja `acoesDe()` em `componentes/suprimentos/Pedidos.tsx` e `rotuloAprovar()` em
-  `componentes/CartaoProposta.tsx`.
-- Toda sugestão mostra **a conta e a fonte** ("precisa 200 sc − saldo 46 − a caminho 120 = falta 34"). A conta vem
+- Português do Brasil, vocabulário de obra: Orçamento/verba, etapa, gasto, comprovante, RDO, medição, empreiteiro,
+  NF. Nada de "registro criado", "payload", "status 409", "sync", "entidade".
+- Botão diz a **consequência**: "Aprovar cronograma", "Confirmar gasto", "Importar o orçamento inicial (12 itens)" —
+  não "OK", "Enviar", "Salvar". Veja `rotuloAprovar()` em `componentes/CartaoProposta.tsx`.
+- Toda sugestão mostra **a conta e a fonte** ("Fundação: gasto R$ 44.670 de R$ 42.000 orçados"). A conta vem
   pronta da API; a tela só formata (`lib/formato.ts`). Nunca recalcule regra de negócio na tela.
 - Erro em linguagem de gente, com o que fazer: "Sua sessão acabou. Entre de novo.", "Seu papel não permite esta
   ação." (`MENSAGEM_PADRAO` em `lib/cliente.ts`). Mostre `mensagemDe(e)` de `componentes/contexto.tsx`.
@@ -70,7 +69,7 @@ Use `useCarregar(buscar, [deps..., versao])` e cubra os três:
 
 `Casca.tsx` mantém `?obra=&sessao=&tela=` com `history.replaceState`: recarregar volta ao mesmo lugar (abrir outra
 obra em silêncio leva a lançar na obra errada). Tela nova entra em `TELAS_VALIDAS`/`telaDe()` em
-`componentes/sessoes.ts`; nome antigo de tela mapeia para o novo (`pedidos` → `suprimentos`). Tela que só existe com a
+`componentes/sessoes.ts`; tela que saiu do produto (Compras, `?tela=suprimentos`) cai no Resumo. Tela que só existe com a
 API real entra em `SO_COM_API`.
 
 ## Papéis

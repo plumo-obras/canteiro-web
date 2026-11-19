@@ -24,7 +24,6 @@ export interface Escolhas {
   etapa: EscolhaEtapa;
   /** O que a pessoa digitou ou escolheu na resposta própria de cada campo. */
   propria: { valor: string; data: string; favorecido: string; descricao: string; etapa: string; topico: string };
-  pedido: string;
 }
 
 export function escolhaInicial(c: { escolhido: number | null; opcoes: unknown[] }): Escolha {
@@ -40,7 +39,6 @@ export function escolhasIniciais(r: Revisao): Escolhas {
     descricao: escolhaInicial(r.descricao),
     etapa: escolhaInicial(r.classificacao),
     propria: { valor: "", data: "", favorecido: "", descricao: "", etapa: "", topico: "" },
-    pedido: "",
   };
 }
 
@@ -92,7 +90,6 @@ export function corpoConfirmar(r: Revisao, e: Escolhas, hoje: string): CorpoConf
     etapa: e.etapa === "depois" ? null : v.etapa,
     topico_id: v.topico_id,
     fornecedor_id: v.fornecedor_id,
-    pedido_id: e.pedido || null,
   };
 }
 

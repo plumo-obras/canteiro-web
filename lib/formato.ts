@@ -1,6 +1,6 @@
 /**
  * Formatação pt-BR a partir de inteiros (milésimos e centavos), como canteiro_dominio.tipos.fmt_qtd/fmt_reais.
- * Só aritmética inteira: passar por float faria 0,1 + 0,2 aparecer na tela de estoque.
+ * Só aritmética inteira: passar por float faria 0,1 + 0,2 aparecer na tela.
  */
 
 const milhar = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -20,7 +20,7 @@ export function fmtReais(c: number): string {
   return `${sinal}R$ ${milhar(Math.floor(a / 100))},${String(a % 100).padStart(2, "0")}`;
 }
 
-/** Quantidade com a unidade do insumo: "2.760 un", "1,5 m³". */
+/** Quantidade com a unidade do item: "2.760 un", "1,5 m³". */
 export const fmtQtdUn = (m: number, un: string) => (un ? `${fmtQtd(m)} ${un}` : fmtQtd(m));
 
 // O canteiro e o escritório estão no mesmo fuso; fixar evita que um navegador em UTC mostre outra hora.
@@ -59,8 +59,3 @@ export const qtdParaCampo = (m: number) => fmtQtd(m).replace(/\./g, "");
 /** Centavos → texto do campo ("1326,50"). */
 export const reaisParaCampo = (c: number) => `${Math.floor(c / 100)},${String(c % 100).padStart(2, "0")}`;
 
-/** Previsão do pedido: a API grava data ISO ("2026-11-03") ou texto livre ("chega sexta"); data vira "chega 03/11". */
-export function fmtPrevisao(t: string): string {
-  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `chega ${m[3]}/${m[2]}` : t;
-}

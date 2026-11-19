@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtDiaHora, fmtHora, fmtQtd, fmtQtdUn, fmtReais, fmtPrevisao, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "./formato";
+import { fmtDiaHora, fmtHora, fmtQtd, fmtQtdUn, fmtReais, lerQtd, lerReais, qtdParaCampo, reaisParaCampo } from "./formato";
 
 describe("fmtQtd (milésimos → pt-BR), igual a canteiro_dominio.tipos.fmt_qtd", () => {
   it.each([
@@ -65,9 +65,3 @@ describe("lerReais (texto digitado → centavos)", () => {
   it("volta para o campo", () => expect(reaisParaCampo(132_650)).toBe("1326,50"));
 });
 
-describe("fmtPrevisao", () => {
-  it("data ISO vira dia/mês; texto livre passa igual", () => {
-    expect(fmtPrevisao("2026-11-03")).toBe("chega 03/11");
-    expect(fmtPrevisao("chega sexta")).toBe("chega sexta");
-  });
-});

@@ -2,7 +2,7 @@
 /**
  * Previsto × realizado por etapa (Fase 3): as contas e a barra que a lista única de etapas (ListaEtapas) usa, o CSV e o
  * bloco de aditivos. Os números vêm somados da API (GET /obras/{id}/orcamento); o saldo e o % de aditivo também vêm prontos;
- * aqui só se ordena, se calcula o % comprometido da barra e se desenha. Nenhuma soma de pedido é refeita.
+ * aqui só se ordena, se calcula o % gasto da barra e se desenha. Nenhuma soma de gasto é refeita.
  */
 import type { EtapaOrcamento, Gasto, Orcamento, TopicoOrcamento, VersaoOrcamento } from "@/lib/contrato";
 import { centavosCsv, gerarCsv } from "@/lib/csv";
@@ -22,7 +22,7 @@ export interface LinhaAndamento extends Gasto {
   descricao: string;
   atual: number;
   saldo: number;
-  /** comprometido ÷ atual; Infinity quando há gasto numa etapa sem orçado. */
+  /** gasto (comprometido) ÷ atual; Infinity quando há gasto numa etapa sem orçado. */
   pct: number;
   semEtapa?: boolean;
   /** A etapa aberta por tópico (vazio quando ela não tem). */
@@ -58,7 +58,7 @@ export function linhasAndamento(orc: Orcamento): LinhaAndamento[] {
   return ls;
 }
 
-/** Maior desvio primeiro: o que já comprometeu mais do orçado da etapa (estouro no topo, em vermelho). */
+/** Maior desvio primeiro: o que já gastou mais do orçado da etapa (estouro no topo, em vermelho). */
 export const porDesvio = (a: LinhaAndamento, b: LinhaAndamento) => b.pct - a.pct || b.comprometido - a.comprometido;
 
 /** "R$ 24.250": a lista do celular arredonda ao real; o detalhe mostra os centavos. */
@@ -71,23 +71,10 @@ export function csvAndamento(orc: Orcamento): string {
   const t = orc.totais;
   const pct = (p: number) => (p === Infinity ? "" : (p * 100).toFixed(1).replace(".", ","));
   return gerarCsv([
-    ["Etapa", "Descrição", "Orçado atual", "Em cotação", "Comprometido", "Realizado", "Saldo a comprometer", "% comprometido"],
-    ...ls.map((l) => [l.etapa, l.descricao, centavosCsv(l.atual), centavosCsv(l.cotando), centavosCsv(l.comprometido), centavosCsv(l.realizado), centavosCsv(l.saldo), pct(l.pct)]),
-    ["", "Total", centavosCsv(t.atual), centavosCsv(t.cotando), centavosCsv(t.comprometido), centavosCsv(t.realizado), centavosCsv(t.saldo), pct(pctDe(t.comprometido, t.atual))],
+    ["Etapa", "Descrição", "Orçado atual", "Gasto", "Falta gastar", "% gasto"],
+    ...ls.map((l) => [l.etapa, l.descricao, centavosCsv(l.atual), centavosCsv(l.comprometido), centavosCsv(l.saldo), pct(l.pct)]),
+    ["", "Total", centavosCsv(t.atual), centavosCsv(t.comprometido), centavosCsv(t.saldo), pct(pctDe(t.comprometido, t.atual))],
   ]);
-}
-
-/** Barra fina: o comprometido (claro) e o realizado (cheio) contra o orçado (o risco vertical). */
-export function Barra({ l }: { l: LinhaAndamento }) {
-  const max = Math.max(l.atual, l.comprometido, l.realizado, 1);
-  const w = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
-  return (
-    <span className="and-barra" aria-hidden="true">
-      <span className="and-comp" style={{ width: w(l.comprometido) }} />
-      <span className="and-real" style={{ width: w(l.realizado) }} />
-      {l.atual ? <span className="and-orc" style={{ left: w(l.atual) }} /> : null}
-    </span>
-  );
 }
 
 // A versão na chave faz a nota reaparecer quando o texto muda (quem já tinha dito "Entendi" lê a nova).

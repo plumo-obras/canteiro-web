@@ -53,7 +53,6 @@ describe("o que falta para confirmar", () => {
       etapa: "eletrica",
       topico_id: "t1",
       fornecedor_id: "f1",
-      pedido_id: null,
     });
   });
 
@@ -67,7 +66,7 @@ describe("o que falta para confirmar", () => {
 
   it("resposta própria troca a opção lida: valor digitado, etapa e tópico escolhidos à mão", () => {
     const r = revisao({ data_pagamento: campo("lido", "2026-11-03"), descricao: campo("lido", "fio") });
-    const e = { ...escolhasIniciais(r), valor: "propria" as const, etapa: "propria" as const, favorecido: "propria" as const, pedido: "p1" };
+    const e = { ...escolhasIniciais(r), valor: "propria" as const, etapa: "propria" as const, favorecido: "propria" as const };
     e.propria = { ...e.propria, valor: "1.234,56", etapa: "pisos", topico: "", favorecido: "Casa do João" };
     expect(corpoConfirmar(r, e, HOJE)).toMatchObject({
       valor: 123456,
@@ -75,7 +74,6 @@ describe("o que falta para confirmar", () => {
       topico_id: null,
       favorecido: "Casa do João",
       fornecedor_id: null,
-      pedido_id: "p1",
     });
   });
 

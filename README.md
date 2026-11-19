@@ -49,9 +49,9 @@ Com `CANTEIRO_DEMO=1`, o próprio Next se passa pela API e pelo agente, com a ob
 - Qualquer e-mail e senha entram. E-mail começando com `leitura` entra como **viewer** (só lê); com `master`, como
   **master**. Os demais entram como admin (admin e master trocam a chave própria da Anthropic).
 - Na conversa, `/sem-creditos` simula o erro de créditos do agente.
-- A aba Gastos só existe com a API de verdade (`SO_COM_API` em `componentes/sessoes.ts`); na demonstração, um link
-  com `?tela=gastos` cai na conversa.
-- `lib/demo/regras-espelho.ts` espelha as regras da API **só** para a demonstração. Fora dela, quem faz a conta é a API.
+- A aba Tributos só existe com a API de verdade (`SO_COM_API` em `componentes/sessoes.ts`); na demonstração, um link
+  com `?tela=tributos` cai no Resumo.
+- `lib/demo/` espelha as regras da API **só** para a demonstração. Fora dela, quem faz a conta é a API.
 
 ### Com os serviços de verdade
 
@@ -154,7 +154,7 @@ componentes/
   Dialogo.tsx, foco.ts                  Modal, Drawer, Confirmar; ordem do Tab
   Icone.tsx                             ícones de traço inline (sem CDN)
   Conversa.tsx, CartaoProposta.tsx, Aprovacoes.tsx, Historico.tsx
-  Orcamento.tsx, Suprimentos.tsx, Gastos.tsx, cronograma/, gastos/, suprimentos/, orcamento/, obra/, conta/, inicio/
+  Orcamento.tsx, Gastos.tsx, cronograma/, gastos/, orcamento/, obra/, conta/, inicio/
 lib/
   contrato.ts      tipos do docs/contrato.md (canteiro-api)
   cliente.ts       cliente tipado (sempre /srv/api e /srv/agente)

@@ -98,7 +98,6 @@ describe("importar antes de aprovar: somar ao orçamento", () => {
   it("não pergunta aditivo ou novo; soma, com o repetido marcado e a caixa 'não importar'", async () => {
     const u = userEvent.setup();
     const { rede, fechar } = montar(EM_ORCAMENTO);
-    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
     expect(await screen.findByText(/somam ao orçamento/)).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "Aditivo ou novo orçamento inicial" })).toBeNull();
     expect(screen.queryByLabelText("Do que é o aditivo")).toBeNull();
@@ -202,7 +201,6 @@ describe("importar antes de aprovar: somar ao orçamento", () => {
   it("trocar o orçamento inteiro é discreto e só com confirmação dizendo o que se perde", async () => {
     const u = userEvent.setup();
     const { rede } = montar(EM_ORCAMENTO);
-    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
     await u.click(await screen.findByRole("button", { name: "Trocar o orçamento inteiro" }));
     const alerta = screen.getByRole("alert");
     expect(alerta).toHaveTextContent("Trocar o orçamento inteiro?");
@@ -236,7 +234,6 @@ describe("importar depois de aprovar", () => {
     const { rede } = montar(APROVADA, {
       "POST /srv/api/obras/o1/orcamento/versoes": () => json({ ...previaSomar([]), tipo: "aditivo", substitui: null, total_apos: null }),
     });
-    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
     expect(await screen.findByText(/Esta planilha entra como aditivo/)).toBeInTheDocument();
     expect(screen.getByText("Para trocar o orçamento inteiro, desfaça antes a aprovação pelo Histórico.")).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "Aditivo ou novo orçamento inicial" })).toBeNull();
@@ -283,7 +280,6 @@ describe("orçamento novo: encaixe nas etapas padrão, custo ou venda", () => {
         return json(previaNova(destinos["7"] ?? "alvenaria"));
       },
     });
-    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
     await u.click(await screen.findByRole("radio", { name: "Preço de venda (com BDI)" }));
     // venda sem BDI não segue: é com ele que sai o custo
     await u.click(screen.getByRole("button", { name: "Continuar" }));
@@ -317,7 +313,6 @@ describe("data-base lida da planilha", () => {
       "POST /srv/api/obras/o1/orcamento/ler": () => json(COM_REFERENCIA),
       "PATCH /srv/api/obras/o1": () => json({ ...EM_ORCAMENTO, data_base: "2023-05", registro_id: "r9" }),
     });
-    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
     await u.click(screen.getByRole("button", { name: "Continuar" }));
     await u.upload(screen.getByLabelText("Arquivo da planilha"), new File(["x"], "planilha.csv", { type: "text/csv" }));
     const caixa = await screen.findByRole("checkbox", { name: /Usar 05\/2023 como data-base da obra/ });
@@ -334,7 +329,6 @@ describe("data-base lida da planilha", () => {
     const { rede, fechar } = montar({ ...EM_ORCAMENTO, data_base: "2017-01" } as Obra, {
       "POST /srv/api/obras/o1/orcamento/ler": () => json(COM_REFERENCIA),
     });
-    await u.click(screen.getByRole("radio", { name: /Orçamento da obra/ }));
     await u.click(screen.getByRole("button", { name: "Continuar" }));
     await u.upload(screen.getByLabelText("Arquivo da planilha"), new File(["x"], "planilha.csv", { type: "text/csv" }));
     expect(await screen.findByRole("checkbox", { name: /Trocar a data-base da obra de 01\/2017 para 05\/2023/ })).not.toBeChecked();

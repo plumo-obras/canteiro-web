@@ -114,7 +114,7 @@ export function PedeVoce({
         setGaveta(true);
       },
     });
-  // o que está a caminho não pede ninguém (a entrega aparece em "O que vem"); o estouro é do quadro Dinheiro
+  // o que está a caminho não pede ninguém (aparece em "O que vem"); o estouro é do quadro Dinheiro
   const pontos = (hoje?.pontos ?? []).filter(
     (p) => p.prioridade !== "a_caminho" && p.prioridade !== "ok" && !(comDinheiro && p.tipo === "etapas_estouradas") && !(montando && p.tipo === "sem_orcamento"),
   );

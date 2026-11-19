@@ -23,7 +23,7 @@ interface Documento {
   criado_em: DataISO;
 }
 
-/** `desfazendo_aprovacao`: o Desfazer da aprovação parou no meio; a API recusa o que mexe em Compras (409) até terminar. */
+/** `desfazendo_aprovacao`: o Desfazer da aprovação parou no meio; a API recusa editar o orçamento (409) até terminar. */
 export type StatusObra = "em_andamento" | "em_orcamento" | "concluida" | "desfazendo_aprovacao";
 
 export type Tipologia = "casa" | "sobrado" | "predio" | "galpao" | "reforma" | "comercial" | "outro";
@@ -108,8 +108,6 @@ export interface Mapeamento {
   quantidade: number | null;
   valor_unitario: number | null;
   valor_total: number | null;
-  saldo: number | null;
-  curva: number | null;
   /** Só no orçamento: medida, marca ou detalhe da linha ("0,60 x 2,10"). Ausente na API antiga. */
   complemento?: number | null;
 }
@@ -127,33 +125,6 @@ export interface LeituraPlanilha {
   banco?: string | null;
 }
 
-export interface LinhaOrcamento {
-  linhas: number[];
-  nome: string;
-  unidade: string;
-  quantidade: Milesimos;
-  valor_unitario: Centavos;
-  total: Centavos;
-  curva: CurvaABC;
-  saldo: Milesimos;
-  situacao: "novo" | "atualiza";
-  precisa_antes: Milesimos | null;
-  valor_antes: Centavos | null;
-}
-
-export interface PreviaOrcamento {
-  aplicado: boolean;
-  linhas: LinhaOrcamento[];
-  ignoradas: { linha: number; texto: string; motivo: string }[];
-  erros: { linha: number; campo: string | null; mensagem: string }[];
-  total: Centavos;
-  novos: number;
-  atualizados: number;
-  juntadas: number;
-  /** Só depois de aplicada: uma entrada do registro por lote (é o que o Desfazer usa). */
-  registro_ids?: string[];
-}
-
 /** Um material do projeto estrutural levado para a obra (POST /obras/{id}/orcamento/materiais). */
 export interface MaterialDoProjeto {
   nome: string;
@@ -163,9 +134,6 @@ export interface MaterialDoProjeto {
 }
 
 export type CurvaABC = "A" | "B" | "C";
-
-/** Serviço (terraplanagem, empreiteiro) não tem estoque: saldo 0, sem entrada/saída/ajuste; "a caminho" = contratado e não medido. */
-export type TipoInsumo = "material" | "servico";
 
 /* ---------- orçamento da obra (EAP, em versões) ---------- */
 
@@ -302,13 +270,13 @@ export interface PreviaVersao {
   registro_id: string | null;
 }
 
-/** Previsto × realizado (Fase 3), somado das linhas dos pedidos pela etapa. Cancelado não conta. */
+/**
+ * O que a etapa já gastou: os gastos confirmados por comprovante. Sem pedido, `cotando` é 0 e `comprometido` e
+ * `realizado` são o mesmo número; a tela lê `comprometido` até a API trocar os três por `gasto`.
+ */
 export interface Gasto {
-  /** Pedidos em cotação. */
   cotando: Centavos;
-  /** De aprovado em diante, pelo maior entre o pedido e o entregue. */
   comprometido: Centavos;
-  /** Entregue ou medido, pelo preço do pedido. */
   realizado: Centavos;
 }
 
@@ -317,12 +285,10 @@ export interface ContasOrcado extends Gasto {
   contratado: Centavos;
   aditivos: Centavos;
   atual: Centavos;
-  /** atual − comprometido, calculado pela API (a tela não refaz a conta). */
+  /** atual − gasto ("falta gastar"), calculado pela API (a tela não refaz a conta). */
   saldo: Centavos;
-  /** Comprometido acima do orçado atual. */
+  /** Gastou acima do orçado atual. */
   estourou: boolean;
-  /** Gastos por comprovante, sem pedido, já somados no comprometido e no realizado. */
-  gastos_avulsos?: Centavos;
 }
 
 export interface TopicoOrcamento extends ContasOrcado {
@@ -418,85 +384,15 @@ export interface CorpoVersao {
   bdi?: number;
 }
 
-export interface Insumo extends Documento {
-  obra_id: string;
-  nome: string;
-  unidade: string;
-  precisa_ate_o_fim: Milesimos;
-  curva: CurvaABC;
-  /** Preço unitário do orçamento; 0 = sem preço. */
-  valor_unitario: Centavos;
-  /** Ausente nas respostas antigas = material. */
-  tipo?: TipoInsumo;
-  /** A etapa do orçamento de onde o item saiu (chave de `GET …/etapas`); null ou ausente = sem etapa. */
-  etapa?: string | null;
-}
-
-/** Calculada por `regras.conta_de_falta` na API. O front só mostra; nunca refaz a conta. */
-export interface Conta {
-  precisa: Milesimos;
-  saldo: Milesimos;
-  a_caminho: Milesimos;
-  cotando: Milesimos;
-  transferencia: Milesimos;
-  falta: Milesimos;
-  comprar: Milesimos;
-  /** Serviço já entregue (medido). Ausente em API antiga. */
-  medido?: Milesimos;
-}
-
-export interface ItemInsumo {
-  insumo: Insumo;
-  conta: Conta;
-}
-
-export type TipoMovimento = "entrada" | "saida" | "ajuste" | "transferencia_entrada" | "transferencia_saida";
-
-export interface Movimento extends Documento {
-  obra_id: string;
-  insumo_id: string;
-  tipo: TipoMovimento;
-  quantidade: Milesimos;
-  destino: string | null;
-  origem_doc: string | null;
-  quem: string; // nome legível de quem lançou
-  usuario_id?: string | null;
-  origem: string;
-  desfaz: string | null;
-}
-
-/** `POST /obras/{id}/insumos`: o que chegou ou foi comprado fora da planilha. `precisa_ate_o_fim` 0 = fora da conta. */
-export interface CorpoInsumo {
-  nome: string;
-  unidade: string;
-  tipo?: TipoInsumo;
-  curva?: CurvaABC;
-  precisa_ate_o_fim?: Milesimos;
-  /** Preço de referência (centavos); vem da tabela oficial quando o item é cadastrado a partir dela. */
-  valor_unitario?: Centavos;
-}
-
-/** `POST /obras/{id}/movimentos`. Ajuste leva o sinal na quantidade (+ achou, − sumiu); os outros tipos, > 0. */
-export interface CorpoMovimento {
-  insumo_id: string;
-  tipo: "entrada" | "saida" | "ajuste";
-  quantidade: Milesimos;
-  destino?: string | null;
-  origem_doc?: string | null;
-  /** Apropriação do consumo: obrigatória na saída quando a obra tem orçamento importado. */
-  etapa?: string | null;
-  chave_idempotencia: string;
-}
-
 /** `GET /obras/{id}/etapas`: as etapas das versões vigentes. Lista vazia = obra sem orçamento, etapa opcional. */
 export interface EtapaObra {
   etapa: string;
   descricao: string;
 }
 
-/* ---------- suprimentos: fornecedores, pedidos com linhas e recebimentos ---------- */
+/* ---------- fornecedores ---------- */
 
-/** Do tenant, vale para todas as obras. `cnpj` só dígitos ou "". */
+/** Do tenant, vale para todas as obras; a leitura do comprovante casa o CNPJ lido com eles. `cnpj` só dígitos ou "". */
 export interface Fornecedor {
   id: string;
   nome: string;
@@ -507,148 +403,14 @@ export interface Fornecedor {
 }
 export type CorpoFornecedor = Partial<Omit<Fornecedor, "id">> & { nome: string };
 
-/**
- * `parcial` = recebeu parte, o resto continua a caminho. `conferido` a tela chama de "Recebido". `recebido` é o status
- * antigo (chegou, falta conferir), que só a demonstração ainda usa.
- */
-export type StatusPedido = "em_cotacao" | "aprovado" | "enviado" | "em_transito" | "parcial" | "recebido" | "conferido" | "cancelado";
-
-export interface LinhaPedido {
-  insumo_id: string;
-  nome: string;
-  unidade: string;
-  tipo: TipoInsumo;
-  etapa: string | null;
-  quantidade: Milesimos;
-  valor_unitario: Centavos;
-  /** quantidade × unitário, arredondado ao centavo. */
-  total: Centavos;
-  recebida: Milesimos;
-  /** quantidade − recebida pela regra do domínio; 0 em pedido conferido ou cancelado. */
-  falta_entregar: Milesimos;
-}
-
-export interface Pedido {
-  id: string;
-  numero: string;
-  obra_id: string;
-  fornecedor: string;
-  fornecedor_id: string | null;
-  previsao: string | null;
-  observacao: string;
-  status: StatusPedido;
-  /** Soma dos `total` das linhas. */
-  valor: Centavos;
-  /** AAAA-MM-DD da última entrega; null sem entrega (ausente em API antiga). */
-  recebido_em?: string | null;
-  /** Quantos recebimentos (entregas) o pedido já teve. */
-  recebimentos: number;
-  /** Soma dos gastos confirmados como pagamento deste pedido (só informa: o custo conta pela entrega). */
-  pago?: Centavos;
-  criado_em: DataISO;
-  linhas: LinhaPedido[];
-}
-
-export interface CorpoLinhaPedido {
-  insumo_id: string;
-  quantidade: Milesimos;
-  valor_unitario: Centavos;
-  etapa?: string | null;
-}
-
-/** `POST /obras/{id}/pedidos`: 1 a 50 linhas, sem repetir insumo. `aprovado` cria já aprovado. */
-export interface CorpoPedido {
-  fornecedor_id?: string | null;
-  fornecedor: string;
-  previsao?: string | null;
-  observacao?: string;
-  aprovado: boolean;
-  linhas: CorpoLinhaPedido[];
-  /** A mesma chave devolve o pedido já criado; com outro conteúdo, 409. */
-  chave_idempotencia?: string;
-}
-
-/** `PATCH /pedidos/{id}`. */
-export interface CorpoEditarPedido {
-  previsao?: string | null;
-  observacao?: string;
-}
-
-/** `POST /pedidos/{id}/avancar`: os status sem entrega; `conferido` vindo de `parcial` encerra o resto. */
-export interface CorpoAvancar {
-  para: StatusPedido;
-  quantidade_recebida?: Milesimos;
-  nf?: string;
-}
-
-export interface CorpoRecebimento {
-  nf_numero?: string | null;
-  nf_data?: string | null;
-  nf_valor?: Centavos | null;
-  /** `indice` = posição da linha no pedido. */
-  linhas: { indice: number; quantidade: Milesimos }[];
-  chave_idempotencia: string;
-}
-
-export interface Recebimento {
-  id: string;
-  numero: number;
-  nf_numero: string | null;
-  nf_data: string | null;
-  nf_valor: Centavos | null;
-  /** Soma das linhas pelo preço do pedido. */
-  valor: Centavos;
-  criado_em: DataISO;
-  quem: string;
-  linhas: { indice: number; insumo_id: string; nome: string; unidade: string; quantidade: Milesimos; valor: Centavos; etapa: string | null }[];
-}
-
-export interface RespostaRecebimento {
-  recebimento: Recebimento;
-  pedido: Pedido;
-  registro_id: string | null;
-}
-
 /** As escritas da tela devolvem o ID da EntradaRegistro criada: é o que o "Desfazer" do aviso usa. */
 export type ComRegistro<T> = T & { registro_id?: string | null };
 
 export type StatusProposta = "pendente" | "aprovada" | "recusada" | "desfeita";
-export type TipoProposta = "criar_pedido" | "avancar_pedido" | "ajuste_estoque" | "registrar_entrega" | "cronograma";
-/**
- * O que aprovar faz, decidido pela API ao criar a proposta: o botão diz a consequência por ele. "conferido" num pedido
- * parcial ENCERRA o resto (nada entra); num pedido que chegou, dá entrada. Proposta antiga vem sem o campo.
- */
-export type EfeitoProposta = "compra" | "entrada" | "encerramento" | "cancelamento" | "status" | "ajuste" | "cronograma";
-
-export interface DadosCriarPedido {
-  insumo_id: string;
-  quantidade: Milesimos;
-  fornecedor: string;
-  valor: Centavos;
-  previsao?: string | null;
-}
-export interface DadosAvancarPedido {
-  pedido_id: string;
-  para: StatusPedido;
-  quantidade_recebida?: Milesimos | null;
-  nf?: string | null;
-}
-export interface DadosAjusteEstoque {
-  insumo_id: string;
-  quantidade: Milesimos;
-  motivo: string;
-}
-/** Entrega proposta: o mesmo corpo do "Registrar entrega" (POST /pedidos/{id}/recebimentos), sem a chave. */
-export interface DadosRegistrarEntrega {
-  pedido_id: string;
-  linhas: { indice: number; quantidade: Milesimos }[];
-  nf_numero?: string;
-  /** AAAA-MM-DD */
-  nf_data?: string | null;
-  nf_valor?: Centavos | null;
-  /** A pessoa confirmou que chegou mais do que faltava. */
-  confirmar_excesso?: boolean;
-}
+/** O agente só propõe o cronograma da obra; aprovar grava-o. */
+export type TipoProposta = "cronograma";
+/** O que aprovar faz, decidido pela API ao criar a proposta: o botão diz a consequência por ele. */
+export type EfeitoProposta = "cronograma";
 
 export interface Proposta extends Documento {
   obra_id: string;
@@ -684,13 +446,6 @@ export interface EntradaRegistro extends Documento {
   desfazer: Record<string, unknown> | null;
   desfeito: boolean;
 }
-
-/** O que dá para mudar antes de aprovar, por tipo (o resto da proposta é fixo). */
-export type AjustesProposta =
-  | Partial<Pick<DadosCriarPedido, "quantidade" | "fornecedor" | "valor" | "previsao">>
-  | Partial<Pick<DadosAvancarPedido, "quantidade_recebida" | "nf">>
-  | Partial<Pick<DadosAjusteEstoque, "quantidade" | "motivo">>
-  | Partial<Pick<DadosRegistrarEntrega, "linhas" | "nf_numero" | "nf_data" | "nf_valor" | "confirmar_excesso">>;
 
 /** Resposta de `POST /propostas/{id}/aprovar`. */
 export interface RespostaAprovar {
@@ -735,13 +490,6 @@ export interface ResumoObra {
   obra: Obra;
   /** Propostas pendentes. */
   pendencias: number;
-  /** Insumos com `Conta.comprar > 0`. */
-  falta_comprar: number;
-  /** Pedidos ainda não conferidos nem cancelados. */
-  pedidos_abertos: number;
-  valor_pedidos_abertos: Centavos;
-  /** Pedidos recebidos esperando a conferência da NF. */
-  nf_para_conferir: number;
   ultima_atividade: DataISO | null;
   /** Tem orçamento (versão vigente ou lista de materiais). Ausente em API antiga. */
   tem_orcamento?: boolean;
@@ -753,7 +501,7 @@ export interface ResumoObra {
 export type PrioridadeHoje = "pede_voce" | "atencao" | "a_caminho" | "ok";
 
 export interface AcaoHoje {
-  /** Os nomes de tela da web ("suprimentos" é Compras). */
+  /** Os nomes de tela da web (`Tela` em componentes/sessoes.ts). */
   tela: string;
   rotulo: string;
   filtro: { etapa?: string; status?: string } | null;
@@ -770,7 +518,7 @@ export interface PontoHoje {
 export interface EventoSemana {
   /** AAAA-MM-DD */
   data: string;
-  tipo: "entrega" | "inicio_etapa";
+  tipo: "inicio_etapa";
   titulo: string;
   detalhe: string;
   acao: AcaoHoje | null;
@@ -893,7 +641,7 @@ export interface Medicao {
   registro_id?: string | null;
 }
 
-/** `GET /obras/{id}/resumo`: só os blocos que a web lê (o resto do contrato — entregas, almoxarifado — é do agente). */
+/** `GET /obras/{id}/resumo`: só os blocos que a web lê (o resto do contrato é do agente). */
 export interface ResumoDaObra {
   obra: Obra;
   financeiro: {
@@ -904,10 +652,8 @@ export interface ResumoDaObra {
     saldo: Centavos;
     /** Orçado atual − realizado, nunca negativo. Opcional: a API de antes não manda. */
     falta_gastar?: Centavos;
-    /** O que já saiu do caixa (gastos confirmados). realizado = pago + entregue_a_pagar. Ausente em API antiga. */
+    /** Os gastos confirmados; sem pedido, o mesmo que `realizado`. Ausente em API antiga. */
     pago?: Centavos;
-    /** Pedidos entregues sem pagamento registrado: já contam no realizado. Ausente em API antiga. */
-    entregue_a_pagar?: Centavos;
     /** Realizado sobre o orçado, em centésimos de ponto (4,8% = 480); null sem orçado. */
     realizado_pct?: number | null;
     etapas_estouradas?: unknown[];
@@ -922,7 +668,6 @@ export interface ResumoDaObra {
     atraso_decimos: number | null;
     etapas_atrasadas?: unknown[];
   };
-  entregas?: { atrasadas?: unknown[] };
   pendencias?: { propostas: number };
 }
 
@@ -1007,7 +752,6 @@ export interface Desembolso {
     falta: Centavos;
     custo_final: Centavos;
     desvio: Centavos;
-    entregue_sem_pagamento: Centavos;
     sem_mes: Centavos;
   };
 }
@@ -1125,7 +869,6 @@ export interface CorpoConfirmar {
   etapa: string | null;
   topico_id?: string | null;
   fornecedor_id?: string | null;
-  pedido_id?: string | null;
 }
 
 /** Gasto confirmado (dinheiro que saiu). Não confundir com `Gasto` do orçamento (cotando/comprometido/realizado). */
@@ -1143,7 +886,6 @@ export interface GastoObra {
   etapa_nome?: string;
   etapa_origem?: string;
   topico_id: string | null;
-  pedido_id: string | null;
   quem: string;
   estornado: boolean;
   criado_em: DataISO;
@@ -1155,8 +897,6 @@ export interface GastoObra {
   nf_cno?: boolean | null;
   /** Retenção de 11% destacada na nota. */
   retencao?: Centavos;
-  /** Lançado fora de pedido numa obra com orçamento (derivado pela API, só marca). Ausente em API antiga. */
-  fora_do_orcado?: boolean;
 }
 
 // --- tributos da obra (estimativa: INSS da aferição e IBS/CBS) ---
@@ -1285,26 +1025,16 @@ export interface Confirmacao {
 }
 
 export interface ResumoGastos {
-  /** Gastos avulsos confirmados: é o que soma no realizado. */
+  /** Gastos confirmados: é o que soma no gasto do orçamento. */
   total: Centavos;
-  /** Gastos ligados a pedido (o custo já conta pela entrega). */
-  pagamentos_de_pedidos: Centavos;
   a_revisar: number;
   /** Gastos em "Ver depois": contam na obra e em nenhuma etapa. Ausente em API antiga. */
   a_definir?: Centavos;
-  /** Pedidos entregues sem pagamento registrado: contam no realizado sem estar em `total`. Ausente em API antiga. */
-  entregue_a_pagar?: Centavos;
-  /** Parte de `total` lançada fora de pedido, com orçamento. Só marca, não abate nada. Ausente em API antiga. */
-  fora_do_orcado?: Centavos;
   /** A linha com `etapa` null é a dos gastos sem etapa. */
   etapas: {
     etapa: string | null;
     nome: string;
     total: Centavos;
-    /** O entregue e ainda a pagar desta etapa (fora de `total`). Ausente em API antiga. */
-    entregue_a_pagar?: Centavos;
-    /** A parte de `total` desta etapa lançada fora de pedido. Ausente em API antiga. */
-    fora_do_orcado?: Centavos;
     topicos: { topico_id: string | null; nome: string; total: Centavos }[];
   }[];
 }

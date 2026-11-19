@@ -109,7 +109,7 @@ function DinheiroNoTempo({ d }: { d: Desembolso }) {
   );
 }
 
-/** O que vem: as entregas e inícios dos próximos 7 dias (de GET /hoje) e o que o cronograma diz para este mês e os próximos. */
+/** O que vem: os inícios de etapa dos próximos 7 dias (de GET /hoje) e o que o cronograma diz para este mês e os próximos. */
 function OQueVem({ crono, semana }: { crono: Cronograma | null; semana: EventoSemana[] | null }) {
   const { irParaTela } = useCasca();
   return (

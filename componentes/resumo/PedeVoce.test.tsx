@@ -17,7 +17,7 @@ const HOJE: HojeNaObra = {
     { tipo: "gastos_a_conferir", prioridade: "pede_voce", titulo: "2 comprovantes para conferir.", detalhe: "R$ 1.022,00 pelo que já foi lido. Falta você confirmar.", acao: { tela: "gastos", rotulo: "Conferir", filtro: { status: "a_revisar" } } },
     { tipo: "etapas_estouradas", prioridade: "atencao", titulo: "Fundação passou do orçado em R$ 2.670,00.", detalhe: "Comprometido R$ 44.670,00 de R$ 42.000,00 orçados.", acao: { tela: "orcamento", rotulo: "Ver o orçamento", filtro: null } },
     { tipo: "gastos_sem_etapa", prioridade: "atencao", titulo: "1 gasto sem etapa.", detalhe: "R$ 380,00 contam na obra e em nenhuma etapa até você definir.", acao: { tela: "gastos", rotulo: "Definir a etapa", filtro: { status: "a_definir" } } },
-    { tipo: "entregas_semana", prioridade: "a_caminho", titulo: "O aço chega quinta.", detalhe: "Com a Ferragem Inventada.", acao: { tela: "suprimentos", rotulo: "Ver em Compras", filtro: null } },
+    { tipo: "inicio_etapa", prioridade: "a_caminho", titulo: "A Alvenaria começa segunda.", detalhe: "Pelo cronograma.", acao: { tela: "cronograma", rotulo: "Ver o cronograma", filtro: null } },
   ],
   mais: 0,
   semana: [],
@@ -33,7 +33,7 @@ function CascaFalsa({ propostas = SEM_PROPOSTAS }: { propostas?: Proposta[] }) {
   return null;
 }
 const proposta = (id: string, obra_id = "o1") =>
-  ({ id, obra_id, tipo: "criar_pedido", status: "pendente", resumo: `Pedido ${id}`, dados: { insumo_id: "a", quantidade: 1000, fornecedor: "Ferragem Inventada", valor: 100 }, criado_em: "2026-11-09T10:00:00Z", conta: null }) as unknown as Proposta;
+  ({ id, obra_id, tipo: "cronograma", status: "pendente", resumo: `Cronograma ${id}`, dados: { inicio: "2027-03", etapas: [] }, criado_em: "2026-11-09T10:00:00Z", conta: null }) as unknown as Proposta;
 
 type Props = Partial<Parameters<typeof PedeVoce>[0]> & { propostas?: Proposta[]; usuario?: Omit<typeof USUARIO, "papel"> & { papel: Papel } };
 const montar = ({ propostas, usuario = USUARIO, ...p }: Props = {}) =>

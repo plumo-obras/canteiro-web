@@ -25,8 +25,8 @@ describe("Inicio", () => {
     criarRede({
       "GET /srv/api/obras/resumo": () =>
         json([
-          { obra: obra("a", "Obra Sem Nada", "em_orcamento"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, tem_orcamento: false },
-          { obra: obra("b", "Obra Orcada", "em_orcamento"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null, tem_orcamento: true },
+          { obra: obra("a", "Obra Sem Nada", "em_orcamento"), pendencias: 0, ultima_atividade: null, tem_orcamento: false },
+          { obra: obra("b", "Obra Orcada", "em_orcamento"), pendencias: 0, ultima_atividade: null, tem_orcamento: true },
         ]),
     });
     render(<Inicio usuario={eu} />);
@@ -40,8 +40,8 @@ describe("Inicio", () => {
     criarRede({
       "GET /srv/api/obras/resumo": () =>
         json([
-          { obra: obra("b", "Reforma Loja", "concluida"), pendencias: 0, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null },
-          { obra: obra("a", "Casa Vila Nova"), pendencias: 2, falta_comprar: 1, pedidos_abertos: 3, valor_pedidos_abertos: 2980000, nf_para_conferir: 1, ultima_atividade: new Date().toISOString() },
+          { obra: obra("b", "Reforma Loja", "concluida"), pendencias: 0, ultima_atividade: null },
+          { obra: obra("a", "Casa Vila Nova"), pendencias: 2, ultima_atividade: new Date().toISOString() },
         ]),
     });
     render(<Inicio usuario={eu} />);
@@ -52,15 +52,13 @@ describe("Inicio", () => {
       .filter((li) => li.parentElement === lista);
     // em andamento primeiro
     expect(cartoes[0]!.textContent).toContain("Casa Vila Nova");
-    expect(cartoes[0]!.textContent).toContain("3 pedidos a receber");
-    expect(cartoes[0]!.textContent).toContain("1 insumo a comprar");
     // o cartão inteiro é o link; sem botão "Abrir obra"
     expect(screen.queryByRole("link", { name: "Abrir obra" })).toBeNull();
     const abrir = within(lista).getAllByRole("link");
     expect(abrir[0]!.getAttribute("href")).toBe("/?obra=a");
     expect(abrir[1]!.getAttribute("href")).toBe("/?obra=b");
     expect(within(cartoes[0]!).getByText("2 aprovações")).toBeTruthy();
-    expect(await screen.findByText("Duas obras, três coisas esperando você.")).toBeTruthy();
+    expect(await screen.findByText("Duas obras, duas coisas esperando você.")).toBeTruthy();
     // obra concluída não está "em dia" de nada: sem selo de pendência e nada de "nenhuma/nada"
     expect(cartoes.at(-1)!.textContent).not.toContain("Tudo em dia");
     expect(cartoes.at(-1)!.textContent).not.toMatch(/nenhum|nada/);
@@ -68,12 +66,11 @@ describe("Inicio", () => {
     // com uma obra só esperando, a etiqueta do topo leva direto à tela dela
     const avisos = screen.getByRole("group", { name: "Esperando você" });
     expect(within(avisos).getByRole("link", { name: /2 aprovações/ }).getAttribute("href")).toBe("/?obra=a&tela=aprovacoes");
-    expect(within(avisos).getByRole("link", { name: /1 comprovante para conferir/ }).getAttribute("href")).toBe("/?obra=a&tela=suprimentos");
   });
 
   it("etiqueta que soma várias obras filtra os cartões; a situação mostra os contadores", async () => {
     const r = (id: string, nome: string, pendencias: number, status: ResumoObra["obra"]["status"] = "em_andamento") => ({
-      obra: obra(id, nome, status), pendencias, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, nf_para_conferir: 0, ultima_atividade: null,
+      obra: obra(id, nome, status), pendencias, ultima_atividade: null,
     });
     criarRede({
       "GET /srv/api/obras/resumo": () => json([r("a", "Obra A", 1), r("b", "Obra B", 2), r("c", "Obra C", 0, "em_orcamento")]),
@@ -94,11 +91,10 @@ describe("Inicio", () => {
 
 describe("resumoDoDia", () => {
   it("fala os números pequenos por extenso, no feminino", () => {
-    const r = (pendencias: number, nf: number) =>
-      ({ obra: obra("x", "X"), pendencias, nf_para_conferir: nf, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, ultima_atividade: null }) as ResumoObra;
-    expect(resumoDoDia([r(1, 1), r(0, 0), r(0, 0)])).toBe("Três obras, duas coisas esperando você.");
-    expect(resumoDoDia([r(0, 0)])).toBe("Uma obra, nada esperando você.");
-    expect(resumoDoDia(Array.from({ length: 12 }, () => r(1, 0)))).toBe("12 obras, 12 coisas esperando você.");
+    const r = (pendencias: number) => ({ obra: obra("x", "X"), pendencias, ultima_atividade: null }) as ResumoObra;
+    expect(resumoDoDia([r(2), r(0), r(0)])).toBe("Três obras, duas coisas esperando você.");
+    expect(resumoDoDia([r(0)])).toBe("Uma obra, nada esperando você.");
+    expect(resumoDoDia(Array.from({ length: 12 }, () => r(1)))).toBe("12 obras, 12 coisas esperando você.");
   });
 
   it("saúda pela hora do canteiro", () => {
@@ -109,14 +105,10 @@ describe("resumoDoDia", () => {
 });
 
 describe("avisosDe", () => {
-  it("um aviso por tipo, somando as obras, aprovações antes, e nada com zero", () => {
-    const r = (id: string, pendencias: number, nf: number) =>
-      ({ obra: obra(id, `Obra ${id}`), pendencias, nf_para_conferir: nf, falta_comprar: 0, pedidos_abertos: 0, valor_pedidos_abertos: 0, ultima_atividade: null }) as ResumoObra;
-    const avisos = avisosDe([r("a", 0, 2), r("b", 1, 0), r("c", 2, 1)]);
-    expect(avisos.map((a) => [a.texto, a.curto, a.tela, a.obraIds])).toEqual([
-      ["3 aprovações", "3 aprovações", "aprovacoes", ["b", "c"]],
-      ["3 comprovantes para conferir", "3 comprovantes", "suprimentos", ["a", "c"]],
-    ]);
-    expect(avisosDe([r("a", 0, 0)])).toEqual([]);
+  it("as aprovações somando as obras, e nada com zero", () => {
+    const r = (id: string, pendencias: number) => ({ obra: obra(id, `Obra ${id}`), pendencias, ultima_atividade: null }) as ResumoObra;
+    const avisos = avisosDe([r("a", 0), r("b", 1), r("c", 2)]);
+    expect(avisos.map((a) => [a.texto, a.curto, a.tela, a.obraIds])).toEqual([["3 aprovações", "3 aprovações", "aprovacoes", ["b", "c"]]]);
+    expect(avisosDe([r("a", 0)])).toEqual([]);
   });
 });

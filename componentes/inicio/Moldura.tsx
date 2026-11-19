@@ -23,12 +23,10 @@ export type Rota = "inicio" | "conta";
 
 export function Moldura({
   demo,
-  semPedidos = false,
   rota,
   children,
 }: {
   demo: boolean;
-  semPedidos?: boolean;
   rota: Rota;
   children: (u: Usuario) => ReactNode;
 }) {
@@ -44,7 +42,7 @@ export function Moldura({
   );
 
   return (
-    <ProvedorCasca usuario={usuario} demo={demo} semPedidos={semPedidos}>
+    <ProvedorCasca usuario={usuario} demo={demo}>
       <div className={s.pagina}>
         <header className={s.topo}>
           {celular && rota === "conta" ? (

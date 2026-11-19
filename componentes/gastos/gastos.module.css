@@ -170,9 +170,6 @@ section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-t
 .ccLeituras { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ccPe { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ccPe :global(.btn) { min-height: 40px; padding: 0 14px; box-shadow: none; }
-.ccPedido { display: inline-flex; align-items: center; gap: 6px; }
-.ccPedido select { field-sizing: content; max-width: 280px; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 0; }
-.ccPedido select:focus-visible { outline:2px solid var(--accentInk); outline-offset: 2px; }
 
 /* compacto (celular): miniatura, valor e uma linha; Corrigir e Confirmar dividindo a largura */
 .compacto { display: grid; gap: 12px; }
@@ -204,9 +201,7 @@ section.conferirVazio { display: flex; align-items: center; gap: 10px; padding-t
 div.lancados { border-radius: 16px; border: 1px solid var(--line2); background: var(--card); overflow: hidden; }
 .lancLista { list-style: none; margin: 0; padding: 0; }
 /* uma grade por linha com colunas fixas: as linhas alinham como tabela sem virar tabela */
-.lancCab, .lanc { display: grid; grid-template-columns: 80px minmax(0, 2.4fr) minmax(0, 2.6fr) minmax(0, 1.4fr) minmax(0, 1.6fr) 130px; gap: 4px 12px; align-items: center; padding: 10px 12px; font-size: var(--t-meta); }
-/* sem pedidos não há a coluna Origem: a etapa fica com o espaço dela */
-.semOrigem .lancCab, .semOrigem .lanc { grid-template-columns: 80px minmax(0, 2.4fr) minmax(0, 2.6fr) minmax(0, 2.4fr) 130px; }
+.lancCab, .lanc { display: grid; grid-template-columns: 80px minmax(0, 2.4fr) minmax(0, 2.6fr) minmax(0, 2.4fr) 130px; gap: 4px 12px; align-items: center; padding: 10px 12px; font-size: var(--t-meta); }
 .lancCab { background: var(--sunk); border-bottom: 1px solid var(--line2); font-weight: 600; color: var(--faint); }
 .lanc { border-top: 1px solid var(--line2); color: var(--ink2); }
 .lanc:first-child { border-top: 0; }

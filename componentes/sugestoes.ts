@@ -13,10 +13,9 @@ export function sugestoesDaObra(obra: Pick<Obra, "status">, r: ResumoDaObra | nu
   if (obra.status === "em_orcamento") return ["Quais itens estão sem preço?", "O que falta para aprovar o orçamento?", "Qual é a maior etapa do orçamento?"];
   const alertas = [
     r.pendencias?.propostas ? "O que está esperando a minha aprovação?" : null,
-    r.entregas?.atrasadas?.length ? "Quais entregas estão atrasadas?" : null,
     r.financeiro.etapas_estouradas?.length ? "Quais etapas estouraram o orçamento?" : null,
     r.cronograma.etapas_atrasadas?.length ? "Quais etapas estão atrasadas?" : null,
     r.cronograma.cadastrado ? null : "O que falta para montar o cronograma?",
   ].filter((s): s is string => !!s);
-  return ["O que preciso comprar primeiro?", ...alertas, GERAL].slice(0, 3);
+  return ["Quanto já gastei e quanto falta?", ...alertas, GERAL].slice(0, 3);
 }

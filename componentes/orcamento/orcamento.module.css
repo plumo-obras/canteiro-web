@@ -101,6 +101,8 @@
 @media (max-width:760px){
   .tela{gap:14px}
   .celulas{grid-template-columns:repeat(2,minmax(0,1fr));border-radius:16px}
+  /* com número ímpar de células, a última fecha a linha em vez de deixar um quadrado vazio ao lado */
+  .celulas>div:last-child:nth-child(odd){grid-column:1/-1}
   .celulas>div{padding:10px 12px;gap:0}
   .celulas dt{font-size:12px}
   .celulas dd{font-size:17px}

@@ -188,7 +188,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   .placar dt{font-size:var(--t-meta)}
   .placar-v{font:600 15px/1.4 var(--sans);letter-spacing:0}
   .placar-s{display:none;min-height:0;font-size:12px}
-  .placar-v.t-mut + .placar-s,.placar-s.fixo{display:inline}
+  .placar-v.t-mut + .placar-s{display:inline}
 }
 @media (max-width:760px){ html:has(.crono-editor) .placar{display:none} }
 /* celular: recolhido numa linha; aberto, só rótulo e valor, com a legenda onde ela explica o "—" */
@@ -205,7 +205,7 @@ html:has(.app),html:has(.app) body{overflow:hidden}
   /* quebra só no espaço: com a fonte mínima do WebKit o valor desce de linha em vez de invadir a célula ao lado */
   .placar-v{overflow-wrap:normal;font-size:min(16px,4.2vw)}
   .placar-s{display:none}
-  .placar-v.t-mut + .placar-s,.placar-s.fixo{display:block;min-height:0}
+  .placar-v.t-mut + .placar-s{display:block;min-height:0}
 }
 
 /* ---------- celular (≤ 760 px): barra fixa embaixo no lugar das pílulas que rolavam ---------- */
@@ -270,7 +270,6 @@ html:has(.app),html:has(.app) body{overflow:hidden}
 .ld-compacto.feito{opacity:.85}
 .ldc-meta{font-size:var(--t-meta);color:var(--muted)}
 .ldc-tit{font-weight:600;color:var(--ink);line-height:1.35}
-.ldc-valor{font-weight:600;color:var(--ink)}
 .ldc-conta{font-size:var(--t-meta);color:var(--muted)}
 .ldc-conta summary{cursor:pointer;width:max-content;min-height:28px;display:flex;align-items:center}
 .ldc-conta p{margin:4px 0 0;color:var(--ink2)}

@@ -29,7 +29,7 @@ const D: DadosDesembolso = {
     mes("2026-06", 0, 0, 0, 40_000),
   ],
   etapas: [{ etapa: "1", descricao: "Preliminares", atual: 100_000, realizado: 30_000, executado_pct: 5000, falta: 70_000, devido_agora: 20_000, sem_cronograma: false }],
-  totais: { orcado: 300_000, realizado: 30_000, pago: 30_000, falta: 270_000, custo_final: 300_000, desvio: 0, entregue_sem_pagamento: 0, sem_mes: 0 },
+  totais: { orcado: 300_000, realizado: 30_000, pago: 30_000, falta: 270_000, custo_final: 300_000, desvio: 0, sem_mes: 0 },
 };
 
 afterEach(() => {
@@ -51,10 +51,9 @@ describe("desembolso: textos", () => {
       "R$ 200,00 já medidos ainda sem gasto lançado: entram como devidos neste mês.",
       "O resto do cronograma foi empurrado 1 mês, o atraso medido em jan/2026.",
     ]);
-    const sem = { ...D, base: "gastos" as const, atraso_meses: 0, etapas: [], totais: { ...D.totais, entregue_sem_pagamento: 5_000, sem_mes: 9_000 } };
+    const sem = { ...D, base: "gastos" as const, atraso_meses: 0, etapas: [], totais: { ...D.totais, sem_mes: 9_000 } };
     expect(avisos(sem)).toEqual([
       "Ainda sem medição: o avanço de cada etapa sai do que já foi gasto. Com as medições lançadas, a projeção passa a usar o executado e o ritmo da obra.",
-      "Os R$ 50,00 entregues e ainda a pagar entram como devidos neste mês.",
       'R$ 90,00 de etapas fora do cronograma estão no "falta sair", mas sem mês.',
     ]);
   });
@@ -99,18 +98,7 @@ describe("desembolso: a seção", () => {
     expect(within(linhaMar()).getByText("R$ 1.500,00")).toBeTruthy();
   });
 
-  it("o entregue e ainda a pagar aparece junto do Já pago, não só no rodapé", async () => {
-    criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/desembolso": () => json({ ...D, totais: { ...D.totais, entregue_sem_pagamento: 2_497_440 } }) });
-    render(
-      <ProvedorCasca usuario={USUARIO} demo={false}>
-        <Desembolso obra={OBRA} />
-      </ProvedorCasca>,
-    );
-    const pago = (await screen.findByText("Já pago")).closest("div")!;
-    expect(pago).toHaveTextContent("R$ 24.974,40 entregue, ainda a pagar");
-  });
-
-  it("sem entregue a pagar, o Já pago vem sozinho", async () => {
+  it("o Já pago vem sozinho, sem nada de entregue a pagar", async () => {
     criarRede({ "POST /srv/auth/renovar": renovarOk, "GET /srv/api/obras/o1/desembolso": () => json(D) });
     render(
       <ProvedorCasca usuario={USUARIO} demo={false}>

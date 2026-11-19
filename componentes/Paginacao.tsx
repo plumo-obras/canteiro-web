@@ -1,10 +1,10 @@
 "use client";
 /**
  * Duas formas de não despejar uma lista inteira na tela:
- * - `usePaginas` + `<Paginacao>`: a lista já está toda no navegador (obras, insumos de uma planilha de 2.000 linhas)
+ * - `usePaginas` + `<Paginacao>`: a lista já está toda no navegador (obras, itens de uma planilha de 2.000 linhas)
  *   e só se mostra uma página por vez. Mudou o filtro ou a busca, volta para a 1ª página.
  * - `useMaisAntigos`: a lista vem da API aos poucos, das mais novas para as mais antigas, pelo cursor `antes_de`
- *   (histórico, pedidos encerrados, movimentos). O cursor é exclusivo e a API nunca parte um empate de instante (o grupo
+ *   (histórico, gastos lançados). O cursor é exclusivo e a API nunca parte um empate de instante (o grupo
  *   inteiro vem na mesma página), então nada se repete nem some na virada; o filtro por id fica só de garantia.
  */
 import { useEffect, useRef, useState } from "react";

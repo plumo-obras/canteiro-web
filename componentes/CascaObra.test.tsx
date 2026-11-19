@@ -140,17 +140,20 @@ describe("a obra abre no Resumo", () => {
     expect(document.getElementById("painel-plumo")?.hidden).toBe(false);
   });
 
-  it("link antigo continua abrindo a tela certa", async () => {
-    window.history.replaceState(null, "", "/?obra=o-emei&tela=pedidos");
-    render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+  it("link antigo de Compras (ou de Pedidos, de antes dela) cai no Resumo", async () => {
+    for (const tela of ["suprimentos", "pedidos"]) {
+      window.history.replaceState(null, "", `/?obra=o-emei&tela=${tela}`);
+      const { unmount } = render(<Casca demo={false} />);
+      await waitFor(() => expect(telaAtiva()).toBe("Resumo"));
+      unmount();
+    }
   });
 
   it("o placar e a tela convivem sem chave repetida", async () => {
     const erro = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    window.history.replaceState(null, "", "/?obra=o-emei&tela=pedidos");
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=orcamento");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Orçamento"));
     expect(erro.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
     erro.mockRestore();
   });
@@ -164,12 +167,12 @@ describe("a obra abre no Resumo", () => {
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={false} />);
     await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Compras" }));
-    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+    fireEvent.click(screen.getByRole("button", { name: "Orçamento" }));
+    await waitFor(() => expect(telaAtiva()).toBe("Orçamento"));
     soltar();
     await waitFor(() => expect(document.querySelector(".placar-v")).toBeTruthy());
     await new Promise((f) => setTimeout(f, 0));
-    expect(telaAtiva()).toBe("Compras");
+    expect(telaAtiva()).toBe("Orçamento");
   });
 
   it("o resumo sai uma vez só ao abrir e ao trocar de obra", async () => {
@@ -189,9 +192,9 @@ describe("a obra abre no Resumo", () => {
 
   it("trocar de obra abre o Resumo da outra, de qualquer tela", async () => {
     rede({ "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true), "GET /srv/api/obras/o-casa/resumo": resumo("o-casa", false) });
-    window.history.replaceState(null, "", "/?obra=o-emei&tela=suprimentos");
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=orcamento");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Orçamento"));
     fireEvent.click(document.querySelector(".seletor-bt")!);
     fireEvent.click(screen.getByRole("menuitem", { name: /Casa Vila Nova/ }));
     await waitFor(() => expect(telaAtiva()).toBe("Resumo"));
@@ -219,9 +222,9 @@ describe("a barra da obra", () => {
     await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
   };
 
-  it("o Resumo e as cinco abas na ordem da obra, sem números; o Plumo não é aba", async () => {
+  it("o Resumo e as quatro abas na ordem da obra, sem números; o Plumo não é aba", async () => {
     await abrir();
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Compras", "Gastos"]);
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Gastos"]);
     expect(screen.getByRole("textbox", { name: "Pergunte ao Plumo, abre a conversa" })).toBeTruthy();
     // o campo do topo não é uma busca (pergunta, não procura)
     expect(screen.queryByRole("search")).toBeNull();
@@ -246,26 +249,11 @@ describe("a barra da obra", () => {
     await waitFor(() => expect(window.location.search).toContain("tela=historico"));
   });
 
-  it("na versão sem pedidos, Compras sai da barra e Gastos fica; o link antigo de Compras abre o Resumo", async () => {
-    window.history.replaceState(null, "", "/?obra=o-emei&tela=suprimentos");
-    render(<Casca demo={true} semPedidos={true} />);
-    await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Gastos"]);
-    await waitFor(() => expect(document.querySelector(".topo-nav .pilula.on")?.textContent).toBe("Resumo"));
-  });
-
-  it("sem pedidos não vale sem a demonstração: com a API de verdade, Compras continua", async () => {
-    window.history.replaceState(null, "", "/?obra=o-emei");
-    render(<Casca demo={false} semPedidos={true} />);
-    await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toContain("Compras");
-  });
-
-  it("na demonstração, Gastos e Tributos somem da barra e do ⋯", async () => {
+  it("na demonstração, Gastos fica na barra e Tributos sai do ⋯", async () => {
     window.history.replaceState(null, "", "/?obra=o-emei");
     render(<Casca demo={true} />);
     await waitFor(() => expect(document.querySelector(".topo-nav")).toBeTruthy());
-    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).not.toContain("Gastos");
+    expect([...document.querySelectorAll(".topo-nav .pilula")].map((b) => b.textContent)).toEqual(["Resumo", "Projeto", "Orçamento", "Cronograma", "Gastos"]);
     expect(screen.getByRole("button", { name: "Mais: Histórico, Dados da obra" })).toBeTruthy();
   });
 });
@@ -281,9 +269,9 @@ describe("a barra do celular", () => {
   };
   const barra = () => [...document.querySelectorAll(".barra-inf .bi-item")].map((b) => b.querySelector(".bi-rot")?.textContent);
 
-  it("orçamento aprovado: Resumo, Compras, o Plumo no meio, Gastos e Mais", async () => {
+  it("orçamento aprovado: Resumo, Cronograma, o Plumo no meio, Gastos e Mais", async () => {
     await abrir(resumo("o-emei", true));
-    await waitFor(() => expect(barra()).toEqual(["Resumo", "Compras", "Plumo", "Gastos", "Mais"]));
+    await waitFor(() => expect(barra()).toEqual(["Resumo", "Cronograma", "Plumo", "Gastos", "Mais"]));
     expect(document.querySelector(".bi-item")?.getAttribute("aria-label")).toBe("Resumo");
   });
 
@@ -308,7 +296,7 @@ describe("a barra do celular", () => {
     await waitFor(() => expect(barra()).toEqual(["Resumo", "Projeto", "Plumo", "Orçamento", "Mais"]));
     fireEvent.click(screen.getByRole("button", { name: "Mais" }));
     expect([...document.querySelectorAll(".folha-item")].map((b) => b.textContent)).toEqual(
-      expect.arrayContaining(["Compras", "Cronograma", "Gastos", "Tributos", "Histórico", "Início", "Nova obra", "Conta"]),
+      expect.arrayContaining(["Cronograma", "Gastos", "Tributos", "Histórico", "Início", "Nova obra", "Conta"]),
     );
   });
 });
@@ -349,9 +337,9 @@ describe("o painel do Plumo", () => {
       "GET /srv/api/obras/o-emei/resumo": resumo("o-emei", true),
       "POST /srv/agente/conversa": () => sse(ev("texto", { delta: "Chega quinta." }) + ev("fim", { sessao_id: "srv-1", uso: { tokens: 1, custo: 0 } })),
     });
-    window.history.replaceState(null, "", "/?obra=o-emei&tela=suprimentos");
+    window.history.replaceState(null, "", "/?obra=o-emei&tela=orcamento");
     render(<Casca demo={false} />);
-    await waitFor(() => expect(telaAtiva()).toBe("Compras"));
+    await waitFor(() => expect(telaAtiva()).toBe("Orçamento"));
   };
   const painel = () => document.getElementById("painel-plumo")!;
 
@@ -367,7 +355,7 @@ describe("o painel do Plumo", () => {
       "Pergunte ao Plumo",
     ]);
     expect(painel().textContent).toContain("quando chega o aço?");
-    expect(telaAtiva()).toBe("Compras");
+    expect(telaAtiva()).toBe("Orçamento");
     expect((campo as HTMLInputElement).value).toBe("");
   });
 
@@ -422,9 +410,9 @@ describe("o painel do Plumo", () => {
 
   it("o botão do Plumo das telas abre o painel em vez de trocar de tela", async () => {
     await abrir();
-    fireEvent.click(await screen.findByRole("button", { name: "Pedir ao Plumo uma cotação" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Perguntar sobre o orçamento" }));
     await waitFor(() => expect(painel().hidden).toBe(false));
-    expect(telaAtiva()).toBe("Compras");
+    expect(telaAtiva()).toBe("Orçamento");
   });
 
   it("lado a lado, o painel lembra se ficou aberto; mais estreito, começa fechado", () => {

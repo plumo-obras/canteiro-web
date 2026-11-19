@@ -2,8 +2,8 @@
 /**
  * Aba Orçamento: a planilha da construtora como ela é, etapa → item, em versões (o contrato e os aditivos que somam a
  * ele). O cabeçalho responde "quanto foi contratado, quanto entrou de aditivo e quanto está orçado agora"; as somas
- * vêm prontas da API (GET /obras/{id}/orcamento), a tela só agrupa e filtra o que já chegou. Comprometido e Realizado
- * dependem de pedidos e notas, então só aparecem quando a obra estiver andando: aqui não se inventa número.
+ * vêm prontas da API (GET /obras/{id}/orcamento), a tela só agrupa e filtra o que já chegou. O gasto vem dos
+ * comprovantes confirmados em Gastos: aqui não se inventa número.
  */
 import { Children, useEffect, useState, type ReactNode } from "react";
 import type { Obra, Orcamento as DadosOrcamento, VersaoOrcamento } from "@/lib/contrato";
@@ -21,7 +21,6 @@ import { BlocoAditivos, csvAndamento, reaisInteiros } from "./orcamento/Andament
 import { baixarCsv } from "@/lib/csv";
 import { ListaEtapas } from "./orcamento/ListaEtapas";
 import { BotaoPlumo } from "./BotaoPlumo";
-import { situacao } from "./suprimentos/Itens";
 import { BarraConsumo } from "./orcamento/BarraConsumo";
 import s from "./orcamento/orcamento.module.css";
 
@@ -45,13 +44,9 @@ export const fmtData = (d: string | null) => (d ? `${d.slice(8, 10)}/${d.slice(5
 const comSinal = (c: number) => (c < 0 ? `−${fmtReais(-c)}` : `+${fmtReais(c)}`);
 const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
 
-/** precisa (milésimos) × preço (centavos) → centavos, como a lista de materiais soma. */
-const totalInsumo = (precisa: number, valor: number) => Math.round((precisa * valor) / 1000);
-
 export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { obra: Obra; abrirImportar?: boolean; aoAbrirImportar?: () => void }) {
-  const { versao, podeOperar, semPedidos, avisar, avisarFeito, mudou } = useCasca();
+  const { versao, podeOperar, avisar, avisarFeito, mudou } = useCasca();
   const orc = useCarregar(() => api.orcamento(obra.id), [obra.id, versao]);
-  const ins = useCarregar(() => api.listarInsumos(obra.id), [obra.id, versao]);
   const [modal, setModal] = useState<"importar" | "somar" | "aprovar" | null>(abrirImportar && podeOperar ? "importar" : null);
   // O pedido de abrir o import vale uma vez: avisado, sair e voltar à tela não reabre.
   useEffect(() => {
@@ -59,17 +54,11 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
   }, [abrirImportar, aoAbrirImportar]);
 
   const dado = orc.dado;
-  const materiais = (ins.dado ?? []).filter((i) => i.insumo.precisa_ate_o_fim > 0);
-  const totalMateriais = materiais.reduce((t, i) => t + totalInsumo(i.insumo.precisa_ate_o_fim, i.insumo.valor_unitario), 0);
   const temContrato = !!dado?.versoes.some((v) => v.tipo === "contrato" && v.ativa);
   const emOrcamento = obra.status === "em_orcamento";
-  const podeAprovar = emOrcamento && (temContrato || materiais.length > 0);
-  const nFalta = (ins.dado ?? []).filter((i) => situacao(i.conta) === "falta").length;
-  const primeiraEtapa = dado?.etapas.find((e) => e.descricao)?.descricao;
+  const podeAprovar = emOrcamento && temContrato;
   const desfazendo = obra.status === "desfazendo_aprovacao";
-  const nSemPreco = temContrato
-    ? (dado?.itens ?? []).filter((i) => i.tipo === "item" && !i.valor_unitario).length
-    : materiais.filter((i) => !i.insumo.valor_unitario).length;
+  const nSemPreco = (dado?.itens ?? []).filter((i) => i.tipo === "item" && !i.valor_unitario).length;
 
   const aprovar = async () => {
     const r = await api.aprovarOrcamento(obra.id);
@@ -105,7 +94,7 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
   const { irParaTela } = useCasca();
   // Um botão só no cabeçalho: as ações de arquivo vão no "⋯"; aprovar fica à vista enquanto é a vez dele.
   const menu = [
-    ...(podeOperar && (temOrcamento || materiais.length) ? [{ rotulo: "Importar planilha", acao: () => setModal("importar") }] : []),
+    ...(podeOperar && temOrcamento ? [{ rotulo: "Importar planilha", acao: () => setModal("importar") }] : []),
     ...(podeOperar && temContrato ? [{ rotulo: "Prever obra completa (estimar fases)", acao: () => void organizarFases() }] : []),
     ...(dado && temOrcamento ? [{ rotulo: "Exportar CSV", acao: () => exportarCsv(obra, dado) }] : []),
   ];
@@ -150,7 +139,7 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
       ) : null}
       {t && temOrcamento ? <FaixaOrcamento t={t} obra={obra} celular={celular} /> : null}
 
-      {desfazendo ? <AvisoDesfazendo obra={obra} nItens={materiais.length} /> : null}
+      {desfazendo ? <AvisoDesfazendo obra={obra} /> : null}
 
       {/* Estimativa × realidade: a 1ª previsão é especulação; conforme a pessoa detalha cada fase, vira real. */}
       {estimadoTotal > 0 ? (
@@ -162,7 +151,7 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
           <div className="est-barra" role="progressbar" aria-valuenow={pctReal} aria-valuemin={0} aria-valuemax={100}>
             <span style={{ width: `${pctReal}%` }} />
           </div>
-          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da obra (padrão de obra, cruzado com o SINAPI). Ficam fora do orçado{semPedidos ? "" : " e de Compras"}; o cronograma usa os dois. Conforme você orça cada etapa, a estimativa sai.</p>
+          <p className="mut sm">Os serviços marcados <span className="pill estimativa">estimativa</span> são a previsão da obra (padrão de obra, cruzado com o SINAPI). Ficam fora do orçado; o cronograma usa os dois. Conforme você orça cada etapa, a estimativa sai.</p>
         </div>
       ) : null}
 
@@ -186,12 +175,6 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
             Importe a planilha do orçamento do jeito que ela está, com etapas, itens e subtotais. Você confere a prévia antes de gravar, e o total fecha no
             centavo com a planilha.
           </p>
-          {materiais.length ? (
-            <p className="mut sm" style={{ marginTop: 10 }}>
-              A lista de materiais já tem {plural(materiais.length, "insumo", "insumos")} ({fmtReais(totalMateriais)}): ela é o que comprar e estocar, não o
-              orçamento por etapas.
-            </p>
-          ) : null}
           {podeOperar ? (
             <button type="button" className="btn amb" style={{ marginTop: 16 }} onClick={() => setModal("importar")}>
               Importar planilha
@@ -212,11 +195,6 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
                 ) : null}
               </Etiqueta>
             ) : null}
-            {/* O próximo passo depois de aprovar vira a etiqueta azul do protótipo, um link para Compras: no fim da
-                tela ficava a 1.800 px e quem aprovava não via. Antes de aprovar, comprar não existe. */}
-            {!emOrcamento && !desfazendo && nFalta ? (
-              <EtiquetaPasso obraId={obra.id} etapa={primeiraEtapa} nFalta={nFalta} />
-            ) : null}
             {nSemPreco ? (
               <Etiqueta tom="atencao">
                 <b>{plural(nSemPreco, "item sem preço", "itens sem preço")}</b>: {nSemPreco === 1 ? "entra" : "entram"} com R$ 0,00 e o orçado atual fica abaixo do custo real.
@@ -225,12 +203,6 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
             ) : null}
             {emOrcamento ? (
               <Etiqueta tom="neutro">Aprovado, a obra passa para em andamento e o orçamento vira a referência de custo por etapa. Dá para desfazer pelo Histórico.</Etiqueta>
-            ) : null}
-            {/* importada a lista de materiais, ela não aparece aqui (não é o orçamento por etapas): dizer onde ficou */}
-            {materiais.length ? (
-              <Etiqueta tom="neutro">
-                A lista de materiais ({plural(materiais.length, "insumo", "insumos")}, {fmtReais(totalMateriais)}) fica em Compras.
-              </Etiqueta>
             ) : null}
           </Etiquetas>
           <ListaEtapas obra={obra} orc={dado} nomeVersao={nomeVersao} />
@@ -262,12 +234,12 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
         <Confirmar titulo="Aprovar o orçamento?" confirmar={nSemPreco ? "Aprovar mesmo assim" : "Aprovar orçamento"} fechar={() => setModal(null)} aoConfirmar={aprovar}>
           <div className="prev-resumo">
             <div>
-              <span className="prev-n">{fmtReais(temContrato ? (t?.atual ?? 0) : totalMateriais)}</span>
-              <span>{temContrato ? "orçado atual" : "na lista de materiais"}</span>
+              <span className="prev-n">{fmtReais(t?.atual ?? 0)}</span>
+              <span>orçado atual</span>
             </div>
             <div>
-              <span className="prev-n">{(temContrato ? (t?.n_itens ?? 0) : materiais.length).toLocaleString("pt-BR")}</span>
-              <span>{temContrato ? ((t?.n_itens ?? 0) === 1 ? "item" : "itens") : materiais.length === 1 ? "insumo" : "insumos"}</span>
+              <span className="prev-n">{(t?.n_itens ?? 0).toLocaleString("pt-BR")}</span>
+              <span>{(t?.n_itens ?? 0) === 1 ? "item" : "itens"}</span>
             </div>
           </div>
           {nSemPreco ? (
@@ -287,11 +259,11 @@ export function Orcamento({ obra, abrirImportar = false, aoAbrirImportar }: { ob
   );
 }
 
-/** O Desfazer da aprovação ficou pela metade: Compras está incompleta até ele terminar, e é daqui que se continua. */
-function AvisoDesfazendo({ obra, nItens }: { obra: Obra; nItens: number }) {
+/** O Desfazer da aprovação ficou pela metade: a obra fica travada até ele terminar, e é daqui que se continua. */
+function AvisoDesfazendo({ obra }: { obra: Obra }) {
   const { podeOperar, mudou, avisar } = useCasca();
   const [ocupado, setOcupado] = useState(false);
-  // fica no aviso, não num toast: é o que diz o que resolver (ex.: cancelar um pedido) antes de tentar de novo
+  // fica no aviso, não num toast: é o que diz o que resolver antes de tentar de novo
   const [erro, setErro] = useState<string | null>(null);
   const continuar = async () => {
     setOcupado(true);
@@ -312,7 +284,7 @@ function AvisoDesfazendo({ obra, nItens }: { obra: Obra; nItens: number }) {
       <Icone nome="alert" tam={15} />
       <div>
         <p>
-          <b>O Desfazer da aprovação parou no meio: {plural(nItens, "item ainda em Compras", "itens ainda em Compras")}.</b> Enquanto ele não terminar, não dá para fazer pedido nem editar o orçamento.
+          <b>O Desfazer da aprovação parou no meio.</b> Enquanto ele não terminar, não dá para editar o orçamento.
         </p>
         {erro ? (
           <p className="campo-erro" role="alert">
@@ -340,14 +312,11 @@ export function reaisCurtos(c: number): string {
 }
 
 /**
- * Os quatro números do Orçamento numa faixa só, como no protótipo: orçado atual (inicial + aditivos embaixo),
- * comprometido (% do orçado), realizado e saldo a comprometer (o valor fechado embaixo, sem conta de margem: dinheiro
- * se calcula na API). Em reais
- * inteiros; o valor com centavos fica no title. No celular, 2 × 2 e só rótulo e valor.
+ * Os três números do Orçamento numa faixa só: orçado atual (inicial + aditivos embaixo), gasto (com a barra de
+ * consumo) e falta gastar (o valor fechado embaixo, sem conta de margem: dinheiro se calcula na API). Em reais
+ * inteiros; o valor com centavos fica no title.
  */
 function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obra: Obra; celular: boolean }) {
-  const { semPedidos } = useCasca();
-  const pctComp = t.atual ? (t.comprometido / t.atual) * 100 : 0;
   const celulas: { rotulo: string; valor: number; sub?: ReactNode; grafico?: ReactNode; neg?: boolean }[] = [
     {
       rotulo: "Orçado atual",
@@ -367,16 +336,10 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
         </>
       ) : undefined,
     },
-    // sem pedidos, comprometido e realizado são o mesmo gasto confirmado: uma célula só, "Gasto"
-    ...(semPedidos
-      ? [{ rotulo: "Gasto", valor: t.realizado, grafico: <BarraConsumo orcado={t.atual} gasto={t.realizado} saldo={t.saldo} alta /> }]
-      : [
-          { rotulo: "Comprometido", valor: t.comprometido, sub: `${pctComp.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do orçado` },
-          // o realizado é custo de compra, não o % executado da etapa
-          { rotulo: "Realizado", valor: t.realizado, sub: "entregue e lançado" },
-        ]),
+    // sem pedido, comprometido e realizado são o mesmo gasto confirmado: uma célula só
+    { rotulo: "Gasto", valor: t.realizado, grafico: <BarraConsumo orcado={t.atual} gasto={t.realizado} saldo={t.saldo} alta /> },
     {
-      rotulo: semPedidos ? "Falta gastar" : celular ? "Saldo" : "Saldo a comprometer",
+      rotulo: "Falta gastar",
       valor: t.saldo,
       neg: t.saldo < 0,
       sub: obra.verba ? `valor fechado ${reaisInteiros(obra.verba)}` : undefined,
@@ -402,33 +365,6 @@ function FaixaOrcamento({ t, obra, celular }: { t: DadosOrcamento["totais"]; obr
           </div>
         ))}
       </dl>
-    </section>
-  );
-}
-
-/** O próximo passo depois de aprovar, na etiqueta azul: a primeira etapa e quantos itens faltam, com o link para Compras. */
-function EtiquetaPasso({ obraId, etapa, nFalta }: { obraId: string; etapa?: string; nFalta: number }) {
-  const { irParaTela } = useCasca();
-  const busca = new URLSearchParams({ obra: obraId, tela: "suprimentos" });
-  return (
-    <section className={`${s.etq} ${s.info}`} aria-label="Próximo passo">
-      <span className={s.bola} aria-hidden="true" />
-      <span>
-        {etapa ? `A primeira etapa é ${etapa}: ` : "Orçamento aprovado: "}
-        {plural(nFalta, "item ainda não foi comprado", "itens ainda não foram comprados")}.{" "}
-        {/* link de verdade, para abrir em outra aba; o clique simples troca a tela sem recarregar */}
-        <a
-          className={s.etqAcao}
-          href={`/?${busca}`}
-          onClick={(e) => {
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-            e.preventDefault();
-            irParaTela("suprimentos");
-          }}
-        >
-          Comprar o que vem primeiro
-        </a>
-      </span>
     </section>
   );
 }
@@ -518,7 +454,7 @@ function Versoes({ versoes, atual, todas = false }: { versoes: VersaoOrcamento[]
     const nomeAnterior = anterior ? rotuloVersao(anterior) : "";
     return anterior
       ? `O orçamento inicial sai de vigência e volta o anterior: ${fmtReais(anterior.total)}, ${plural(anterior.itens, "item", "itens")}${nomeAnterior ? ` (${nomeAnterior})` : ""}.`
-      : "O orçamento inicial sai de vigência e a obra fica sem orçamento: os pedidos e saídas perdem a lista de etapas até importar de novo.";
+      : "O orçamento inicial sai de vigência e a obra fica sem orçamento: os gastos perdem a lista de etapas até importar de novo.";
   };
 
   const desfazer = async (v: VersaoOrcamento) => {

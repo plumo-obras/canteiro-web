@@ -19,14 +19,14 @@ describe("as sugestões da conversa acompanham o momento da obra", () => {
     expect(sugestoesDaObra({ status: "em_orcamento" }, r({})).slice(0, 2)).toEqual(["Quais itens estão sem preço?", "O que falta para aprovar o orçamento?"]);
   });
 
-  it("aprovado fala em comprar, e os alertas entram na frente da geral", () => {
-    expect(sugestoesDaObra(emObra, r({}))).toEqual(["O que preciso comprar primeiro?", "Como está a obra?"]);
-    expect(sugestoesDaObra(emObra, r({}, { pendencias: { propostas: 2 } }))).toEqual(["O que preciso comprar primeiro?", "O que está esperando a minha aprovação?", "Como está a obra?"]);
+  it("aprovado fala no gasto, e os alertas entram na frente da geral", () => {
+    expect(sugestoesDaObra(emObra, r({}))).toEqual(["Quanto já gastei e quanto falta?", "Como está a obra?"]);
+    expect(sugestoesDaObra(emObra, r({}, { pendencias: { propostas: 2 } }))).toEqual(["Quanto já gastei e quanto falta?", "O que está esperando a minha aprovação?", "Como está a obra?"]);
   });
 
   it("sem cronograma lembra de montar, e nunca passa de três", () => {
     expect(sugestoesDaObra(emObra, r({}, {}, { cadastrado: false }))).toContain("O que falta para montar o cronograma?");
-    const cheia = r({ etapas_estouradas: [{}] }, { pendencias: { propostas: 1 }, entregas: { atrasadas: [{}] } }, { cadastrado: false });
+    const cheia = r({ etapas_estouradas: [{}] }, { pendencias: { propostas: 1 } }, { cadastrado: false });
     expect(sugestoesDaObra(emObra, cheia)).toHaveLength(3);
   });
 
