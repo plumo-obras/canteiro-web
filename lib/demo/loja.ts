@@ -1091,7 +1091,9 @@ export function resumoObras(e: EstadoDemo) {
       obra,
       pendencias: e.propostas.filter((p) => p.obra_id === obra.id && p.status === "pendente").length,
       ultima_atividade: e.registro.filter((r) => r.obra_id === obra.id).map((r) => r.criado_em).sort().at(-1) ?? null,
-      tem_orcamento: e.versoes.some((v) => v.versao.obra_id === obra.id && v.versao.ativa),
+      // como a API: o prazo só sai para a obra com cronograma montado, e "tem orçamento" é ter contrato vigente
+      prazo: e.cronogramas.get(obra.id)?.meses ? montarCronogramaDemo(e, obra).prazo : null,
+      tem_orcamento: e.versoes.some((v) => v.versao.obra_id === obra.id && v.versao.ativa && v.versao.tipo === "contrato"),
     }));
 }
 
