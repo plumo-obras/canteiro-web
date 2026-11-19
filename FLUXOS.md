@@ -8,8 +8,9 @@ pelo menu do perfil depois da primeira reação dele.
 
 ## A tese em uma frase
 
-O Canteiro **age**: avisa o que vai faltar antes de faltar, propõe a ação pronta e só grava com o
-seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da nota), não por formulário.
+O Canteiro mostra, etapa por etapa, quanto a obra já gastou e quanto falta gastar, propõe a ação pronta (o
+cronograma, a etapa do gasto) e só grava com o seu OK. E ele é alimentado pelo que a obra já tem (a planilha de
+orçamento e a foto do comprovante), não por formulário. Compras, pedidos e estoque saíram do produto em 11/2026.
 
 ## Navegação: a obra em ordem, o agente a um clique
 
@@ -20,74 +21,54 @@ seu OK. E ele é alimentado pelo canal que o mestre já usa (WhatsApp e foto da 
   Embaixo, três quadros: Pede você (aprovações e pendências, cada uma com o verbo que resolve), Dinheiro e Prazo (veredito, número e medidor).
   Depois vêm os blocos de detalhe: etapas em andamento, o que vem (a semana e o cronograma), últimos gastos e o dinheiro mês a mês.
   Cada dado aparece uma vez só na página; por isso o Placar do topo fica escondido no Resumo.
-- **As abas seguem a ordem da obra:** Resumo · Projeto · Orçamento · Cronograma · Compras · Gastos.
+- **As abas seguem a ordem da obra:** Resumo · Projeto · Orçamento · Cronograma · Gastos.
   Tributos, Histórico e Dados da obra ficam no "⋯".
 - **O Plumo não é uma aba: está sempre à mão.**
   No computador, o campo "Pergunte ao Plumo" fica no topo (⌘K ou Ctrl+K); Enter manda a pergunta e abre a conversa num painel ao lado da tela, que continua à vista.
   A partir de 1280 px o painel divide a largura com a tela; mais estreito, flutua por cima dela.
   A lista de conversas mora dentro do painel, e a conversa vazia abre com perguntas prontas para o momento da obra.
   O "Perguntar ao Plumo" das telas também abre o painel.
-- No celular, a barra de baixo traz Resumo, o Plumo no meio (abre a conversa numa folha que cobre a tela) e as duas telas do dia a dia da fase (antes de aprovar: Projeto e Orçamento; depois: Compras e Gastos); o resto, com Início, Nova obra e Conta, fica no Mais.
+- No celular, a barra de baixo traz Resumo, o Plumo no meio (abre a conversa numa folha que cobre a tela) e as duas telas do dia a dia da fase (antes de aprovar: Projeto e Orçamento; depois: Cronograma e Gastos); o resto, com Início, Nova obra e Conta, fica no Mais.
 - No menu do perfil (rodapé da lateral): notas de validação (desligadas por padrão), Nova obra, Celular do mestre, Mapa de fluxos.
-- Roteiro da demo (aparece como sugestão acima do campo): "vamos começar pela Vila Nova, quero um relatório da fase da
-  obra" · "por que só tem 2.760 blocos?" · "o que chega amanhã?" · "quem está na obra hoje?" · "estamos no prazo?" ·
-  "@Loja Centro o que sobra?" · "pede 600 kg de aço". Pergunta fora do roteiro recebe "não sei com segurança".
+- Roteiro da demo (aparece como sugestão acima do campo): "como está a obra?" · "quanto já gastei e quanto falta?" ·
+  "alguma etapa passou do orçado?" · "estamos no prazo?". Pedido de compra recebe "eu não faço compras nem controlo
+  estoque" e o que o Plumo faz no lugar; pergunta fora do roteiro recebe "não sei com segurança".
 
 ## Fluxos
 
 | # | Fluxo | Onde |
 |---|-------|------|
-| 1 | **Briefing do dia**: "6 coisas pedem você hoje" (concretagem × chuva, plano B do aço, areia a menos na NF, quebra de bloco, empreiteiro pago acima do executado, cimento vencendo em outra obra), cada uma com Aprovar / Ajustar / Desfazer | Conversa Geral (1ª mensagem) |
-| 2 | **Aprovações e registro**: fila de propostas do agente de todas as obras; registro de quem aprovou o quê, de onde veio (agente, WhatsApp, tela) e desfazer | Aprovações |
-| 3 | **WhatsApp do mestre**: o áudio "assentamos 180 blocos, 15 quebraram, choveu das 3 às 5…" vira baixa no almoxarifado, diário de obra, causa de atraso e avanço; o mestre confirma num toque. **Funciona no celular** | Campo · WhatsApp |
-| 4 | **Recebimento por NF-e**: o agente lê a nota, compara pedido × NF × recebido (areia: 40 na NF, 36 na caçamba) e abate R$ 472 do boleto | Visão Pedidos → Conferir NF |
-| 5 | **Criar obra e orçar**: três caminhos (planilha do orçamentista, estimativa por m² com CUB/SINAPI, extrair do PDF só o que dá para medir), com selo de confiança e a lista "não consegui medir" | + Nova obra |
-| 6 | **Orçamento com fonte**: cada linha com origem (SINAPI, cotação, NF anterior) e confiança, BDI e encargos, economias que se escolhem e se desfazem | Visão Orçamento |
-| 7 | **Insumos e pedido de compra**: quantidade = precisa − saldo − a caminho; fornecedor comparado; alçada e regime da obra; PDF e envio por WhatsApp; cotação assíncrona (leva horas) | Visão Falta comprar |
-| 8 | **Pedidos**: faixa do ciclo no topo (Falta → Em cotação → A caminho → Conferir NF → Sobra); o que pede você primeiro; botões com o nome da consequência (Aprovar R$ X, Marcar como enviado, Conferir NF) | Visão Pedidos |
-| 9 | **Almoxarifado**: saldo, a caminho, falta e curva ABC; destino só para itens A. Caso-vitrine: bloco com 15% de quebra contra 5% previstos | Visão Almoxarifado |
-| 10 | **Equipe**: chamada do dia, pendências de ASO / EPI / NR-18, vaga de armador e o impacto dela no prazo | Visão Equipe |
-| 11 | **Prazos**: cronograma planejado × real, atraso por causa (fornecedor +9, equipe +8, clima +4), "com o plano o atraso cai de 21 para 6 dias", "o estoque aguenta até o fim?" | Visão Cronograma |
-| 12 | **Diário de obra (RDO)**: montado a partir do áudio, das fotos e da estação de clima, cada fato com a sua fonte; PDF para o cliente | Visão Diário |
-| 13 | **Medição de empreiteiro**: contratado × executado × pago, retenção e vales; "Equipe Silva: pago 75%, executado 62% → segurar R$ 7.540" | Visão Medições |
-| 14 | **Estoque entre obras**: transferir sobra a preço de custo sem prejudicar a obra de origem | Estoque entre obras · Visão Entre obras |
-
-### Novos: clima, busca de preço e rastreio
-
-| # | Fluxo | Onde |
-|---|-------|------|
-| 15 | **Clima real** (Open-Meteo, 16 dias, por obra): regras por atividade (concretagem, cobertura, impermeabilização e pintura externa, terraplenagem, alvenaria externa), as janelas boas na faixa de dias e, no topo, a decisão mais urgente ("cai em 94% de chuva; melhor janela ter 03/11; remarcar?"). Vale **só nesta tela**: o briefing e a concretagem do roteiro seguem fixos. Sem rede, mostra uma previsão de exemplo com aviso. Na conversa: "dá para concretar esta semana?" | "+" › Execução › Clima |
-| 16 | **Buscar preço** (simulado): lojas com preço por unidade, frete, prazo e total entregue, e a **referência SINAPI como termômetro** (dentro / acima / bem acima). "Ir para a loja" abre a busca **real** da loja. Ao voltar, "Você comprou?" → Sim vira pedido em "Pedido enviado"; Ainda não fica como cotação; Não pergunta o motivo. Na conversa: "quanto custa cimento?" | "+" › Suprimentos › Buscar preço · "⋯" de cada insumo em falta |
-| 17 | **Rastreio** (simulado): com código, as atualizações chegam sozinhas e movem o cartão em Pedidos (Postado → Em trânsito → Saiu para entrega → Recebido · conferir NF), cada passo com a fonte e Desfazer. Também os sinais NF-e emitida contra o CNPJ da obra (→ faturado) e "mestre avisou que chegou" (→ recebido), simuláveis pelo "⋯" do cartão | Pedidos |
-
-Na realidade, material de obra quase nunca tem código de rastreio (o depósito entrega com caminhão próprio). O sinal universal é a **NF-e destinada** ao CNPJ da obra, mais o aviso da mestre no WhatsApp; o rastreio vale para compras online.
+| 1 | **Resumo da obra**: o que pede você (aprovações e gastos sem etapa), dinheiro (gasto até hoje × orçado, etapa que passou do orçado) e prazo (mês do cronograma, atraso pela medição) | Resumo |
+| 2 | **Aprovações e Histórico**: as propostas do Plumo (o cronograma) com Aprovar e Recusar; o Histórico diz quem fez o quê, de onde veio, e tem Desfazer | Resumo · "⋯" › Histórico |
+| 3 | **Criar obra e orçar**: a planilha da construtora como ela vem (o Canteiro acha o cabeçalho e sugere as colunas), ou os materiais das pranchas como uma etapa; aditivos somam sem tocar no contrato | + Nova obra · Projeto · Orçamento |
+| 4 | **Orçado × gasto**: por etapa e por tópico, com o que falta gastar e o estouro em vermelho; curva ABC e maior desvio | Orçamento |
+| 5 | **Cronograma**: o Plumo propõe pelo orçamento, a pessoa aprova; medição mensal, curva S e desembolso (quanto ainda vai sair e quando) | Cronograma |
+| 6 | **Gastos pelo comprovante**: a foto do Pix, da nota ou do recibo; o Plumo lê e sugere valor, data, favorecido e etapa; a pessoa confere e confirma. Fornecedores cadastrados casam pelo CNPJ | Gastos |
+| 7 | **Tributos da obra**: INSS da aferição (SERO/VAU) e IBS/CBS estimados, com o que reduz cada um | "⋯" › Tributos |
 
 ## Roteiro da conversa com o gerente de obra (~45 min)
 
-1. **Antes de mostrar nada** (10 min): como orça, como compra, quem recebe material, como controla
-   o empreiteiro, o que mais atrasa obra, onde mais perde dinheiro.
-2. **Briefing do dia** (5 min): ele aprovaria essas 6 coisas? Quantas cabem antes de virar ruído?
-3. **WhatsApp no celular dele** (10 min): mande o link `/#campo` para o celular do gerente.
-   O mestre dele mandaria áudio assim? Confirmar com um toque é aceitável?
-4. **NF, almoxarifado e medição** (10 min): a conferência pela nota é real? O "pago × executado"
-   do empreiteiro é a dor que ele imagina?
-5. **Orçamento e prazos** (5 min): ele confia num orçamento com fonte e selo de confiança?
+1. **Antes de mostrar nada** (10 min): como orça, como acompanha o que gastou, como controla o empreiteiro, o que
+   mais atrasa obra, onde mais perde dinheiro.
+2. **Resumo da obra** (5 min): ele entende o dinheiro e o prazo de relance? O que falta?
+3. **Gasto pelo comprovante no celular dele** (10 min): mandar a foto do Pix e confirmar é aceitável?
+4. **Orçamento e medição** (10 min): o orçado × gasto por etapa bate com o que ele faz na planilha? A medição
+   mensal é a dor que ele imagina?
+5. **Cronograma** (5 min): ele confia num cronograma proposto pelo orçamento?
 6. **Fechamento** (5 min): se fossem só 3 telas, quais? Quanto pagaria por mês, por obra ou por empresa?
 
 ## Hipóteses a confirmar ou derrubar
 
-- **A mais arriscada:** o mestre alimenta o sistema todo dia pelo WhatsApp. Sem isso, almoxarifado,
-  diário, prazos e alertas ficam sem dado.
-- A conferência pela NF-e acontece no canteiro, e a divergência vira abatimento de verdade.
-- A medição de empreiteiro (pago × executado) é dor suficiente para pagar pelo produto.
+- **A mais arriscada:** alguém manda o comprovante de cada pagamento. Sem isso, gasto, desembolso e alertas ficam
+  sem dado.
+- A medição mensal e o orçado × gasto por etapa são dor suficiente para pagar pelo produto.
 - Um orçamento com fonte e confiança é bom o bastante para decidir (não substitui o executivo).
 - O gerente quer que o agente proponha e ele aprove, e não só consultar.
-- Transferir material entre obras é comum. A confirmar: quem autoriza, preço de custo ou com frete, e se vale quando o material é do cliente.
 
 ## Testes do protótipo
 
 Com um servidor estático na pasta (`python3 -m http.server 4321`), abra num Chromium headless com `--dump-dom`:
 - `tests/smoke.html`: percorre as rotas e os modais procurando erro de JavaScript.
 - `tests/conversa.html`: digita no campo como o usuário (relatório da fase, blocos, @obra, pedir aço, pergunta fora do roteiro, perguntar sobre uma visão) e confere o cartão que volta.
-- `tests/ponta-a-ponta.html`: clica nos botões de verdade (aprovar pedido, confirmar o áudio, conferir a NF, aprovar no Início, segurar a medição, aprovar em lote) e confere o efeito nos dados.
+- `tests/ponta-a-ponta.html`: clica nos botões de verdade (aprovar o cronograma, confirmar o comprovante, aprovar no Início, lançar a medição, aprovar em lote) e confere o efeito nos dados.
 - `tests/larguras.html`: 27 telas em 1100, 1366 e 1920 px; acusa tela que empurra a página, termo antigo, emoji, `NaN` ou `undefined`.

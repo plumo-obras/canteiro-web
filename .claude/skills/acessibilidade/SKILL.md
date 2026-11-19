@@ -17,7 +17,6 @@ se o papel ou o nome acessível estiver errado, o teste quebra. Use isso a seu f
 | `Modal`, `Drawer`, `Confirmar` | `componentes/Dialogo.tsx` | `role=dialog`, `aria-modal`, `aria-labelledby` no título, X com `aria-label="Fechar"`, Esc, foco preso e devolvido; pilha (só o de cima ouve o teclado) |
 | Ordem do Tab | `componentes/foco.ts` | `paradasDoTab`/`proximaParada`: todo navegador para nos mesmos lugares (o Safari pula botões); grupo de rádios = uma parada, setas dentro (`setaNoRadio`) |
 | `MenuMais` | `componentes/MenuMais.tsx` | `menu`/`menuitem`, Enter/Espaço/↓ abre no 1º, ↑ no último, Home/End, Esc devolve o foco ao botão |
-| `CampoInsumo` | `componentes/formularios/CampoInsumo.tsx` | Combobox ARIA 1.2: ↑↓, Enter, Esc, foco sempre no campo |
 | `.seg` com `role="tablist"` | `Gastos.tsx`, `cronograma/Cronograma.tsx` | Abas da tela, com `aria-label` no grupo e `role="tabpanel"` no conteúdo |
 | Aviso | `contexto.tsx` | Toast dentro de `role="status" aria-live="polite"`; não some com ponteiro ou foco em cima |
 | Conversa | `Conversa.tsx` | `role="log"` nas mensagens + anúncio `sr-only` em `role="status"` |
