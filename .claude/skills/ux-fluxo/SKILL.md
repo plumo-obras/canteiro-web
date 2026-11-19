@@ -41,7 +41,7 @@ Quem usa: **engenheiro/gerente de obra** (escritório ou carro, decide o dia e v
 
 ## Confirmação antes de destruir ou pesar
 
-- Ação que pesa ou não volta fácil (aprovar orçamento, desfazer versão, encerrar pedido, medição) usa `Confirmar` de
+- Ação que pesa ou não volta fácil (aprovar orçamento, desfazer versão, descartar comprovante, medição) usa `Confirmar` de
   `componentes/Dialogo.tsx`: título em pergunta ("Aprovar o orçamento?"), corpo dizendo o que vai acontecer, botão com o
   verbo ("Aprovar orçamento"), "Voltar" do lado. O erro aparece dentro do diálogo.
 - **Modal grava** (clicar fora não fecha, para não perder o digitado); **Drawer consulta** (clicar fora fecha).
@@ -54,7 +54,7 @@ Use `useCarregar(buscar, [deps..., versao])` e cubra os três:
   Com dado anterior, mantenha-o na tela (a lista não pisca).
 - **Erro**: `<div className="aviso-erro" role="alert"><Icone nome="alert"/>{erro}</div>`.
 - **Vazio**: `.card.vazio` com ícone, `h3` dizendo o estado em linguagem de obra e `p` dizendo o que vai aparecer ali
-  e como ("Nada esperando você nesta obra" / "Quando o agente preparar uma compra…", em `Aprovacoes.tsx`).
+  e como ("Nada esperando você nesta obra" / "Quando o Plumo preparar uma proposta…", em `Aprovacoes.tsx`).
 - Botão ocupado: `disabled` + `aria-busy` + `Icone nome="loader" className="spin"`.
 
 ## Foco e diálogos

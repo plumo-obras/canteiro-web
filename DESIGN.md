@@ -57,6 +57,5 @@ Todas de domínio público (CC0), do Wikimedia Commons, tratadas em duotone azul
 
 | Arquivo | Origem |
 |---|---|
-| `obra-estoque` | Construction workers in Iran 13 (Mostafameraji) |
 | `obra-andaime` | Construction workers in Iran, Social documentary 02 (Mostafameraji) |
 | `obra-noite` | Construction cranes on Toronto's skyline, at dusk, 2023 07 09 (Geo Swan) |

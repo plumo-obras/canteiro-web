@@ -167,21 +167,6 @@
     aoVer($('#eixo'), acender, .5);
   }
 
-  // entre obras: cruzar as duas colunas do estoque; a sobra de uma cobre a falta da outra e a proposta aparece embaixo
-  function costura() {
-    const b = $('#costurar'), fig = $('#estoque'), prop = $('#proposta-costura');
-    if (!b) return;
-    const celulas = $$('.cel', fig).map(c => [c, c.textContent]);
-    b.addEventListener('click', () => {
-      const ligado = b.getAttribute('aria-pressed') !== 'true';
-      b.setAttribute('aria-pressed', String(ligado));
-      fig.classList.toggle('cruzado', ligado);
-      for (const [c, antes] of celulas) c.textContent = ligado ? (c.dataset.depois === 'envia' ? T.est_envia : T.est_recebe) : antes;
-      prop.hidden = !ligado;
-      b.textContent = ligado ? T.descosturar : T.costurar;
-    });
-  }
-
   // o canteiro: as mensagens chegam como chegam no WhatsApp
   function conversa() {
     const msgs = $$('#msgs .msg');
@@ -387,5 +372,5 @@
     }));
   }
 
-  colcha(); troca(); bilhete(); revelar(); eixo(); costura(); porTras(); conversa(); briefing(); ciclo(); nav(); idioma(); formularios();
+  colcha(); troca(); bilhete(); revelar(); eixo(); porTras(); conversa(); briefing(); ciclo(); nav(); idioma(); formularios();
 })();
